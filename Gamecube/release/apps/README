@@ -1,0 +1,217 @@
+README : WiiSX RX / CubeSX RX
+Beta 2.5
+
+LICENSE:
+    This software is licensed under the GNU General Public License v2
+      which is available at: https://www.gnu.org/licenses/gpl-3.0.html
+    This requires any released modifications to be licensed similarly,
+      and to have the source available.
+
+QUICK USAGE:
+ * ISOs can be .bin/.cue (Make sure .cue contains _relative_ directory!), .img, or .iso format
+ * To install: Extract the contents of WiiSXRX.zip to the root of your SD card
+ * For SD/USB: Put ISOs (.bin/.cue or other formats) in the directory named /wiisxrx/isos,
+    All Memory Cards will automatically be placed in /wiisxrx/saves
+	All Savestates will automatically be placed in /wiisxrx/savestates
+ * For DVD: ISOs may be anywhere on the disc (requires DVDxV2 on Wii)
+ * For actual BIOS: Put SCPH1001.BIN in the directory on SD/USB named /wiisxrx/bios
+ * Load the executable from the HBC or in the loader of your choice
+    Once loaded, select 'Load ISO' and choose the source and select the ISO to load
+		(Note: to go up a directory select '..', B will exit the file browser)
+ * Select 'Play Game' to play
+   The game can be exited any time by pressing a configurable key combination together 
+   on a GC pad (START & X), Wii Classic Controller or Pro (HOME), Wiimote (- & +),
+   Wii U Pro Controller (HOME), or Wii U Gamepad (HOME)
+   Wiimote+Nunchuck (1 & 2), or the reset button
+		(Note: this must be done to save your game; it will not be done automatically)
+
+Controls:
+ * While the Gamecube pad is compatible, a Wii Classic Controller, Wii Classic Controller Pro, or Wii U Pro Controller is recommended.
+ * The Wii U Gamepad is also compatible, but only when doing Wii U injections (no, you can't use it on vWii).
+ * Controls are now fully configurable so any button on your controller can be mapped
+ * The controller configuration screen presents each PSX button and allows you to toggle through sources
+ * There are 4 configuration slots for each type of controller
+   * To load a different, previously saved configuration, select the slot, and click 'Load'
+   * After configuring the controls as desired, select the slot, and click 'Save'
+   * After saving different configurations to the slots, be sure to save your configs in the input tab of the settings frame
+ * Clicking 'Next Pad' will cycle through the PSX controllers assigned
+ * There is an option to invert the Y axis of the PSX's analog sticks; by default this is 'Normal Y'
+ * The 'Menu Combo' configuration allows you to select a button combination to return to the menu
+
+Settings:
+ * General
+   * Native Saves Device: Choose where to load and save native game saves
+   * Save States Device: Choose where to load and save save states
+   * Select CPU Core: Choose whether to play games with pure interpreter
+		(better compatibility) or dynarec (better speed)
+   * Save settings.cfg: Save all of these settings either SD or USB (to be loaded automatically next time)
+ * Video
+   * Show FPS: Display the framerate in the top-left corner of the screen
+   * Screen Mode: Select the aspect ratio of the display; 'Force 16:9' will pillar-box the in-game display
+ * Input
+   * Configure Input: Select controllers to use in game
+   * Configure Buttons: Enter the controller configuration screen described above
+   * Save Button Configs: Save all of the controller configuration slots to SD or USB
+   * Auto Load Slot: Select which slot to automatically be loaded for each type of controller
+ * Audio
+   * Disable Audio: Select to mute the sound
+ * Saves
+   * Auto Save Native Saves: When enabled, the emulator will automatically load
+	 saves from the selected device on ISO load and save when returning to the menu or
+	 turning off the console
+   * Copy Saves: Not yet implemented
+   * Delete Saves: Not yet implemented
+
+REPORTING ISSUES:
+ Report emulator issues to https://github.com/niuus/wiisxrx/issues
+ Do not report individual game bugs
+
+CODE:
+ Source code can be found here https://github.com/niuus/wiisxrx/
+
+CREDITS:
+ * WiiSX RX fork: NiuuS
+ * WiiSX RX logo: NiuuS
+ * WIISXR fork: mystro256
+ * WIISXR logo: iiiGerardoiii
+ * General Coder: emu_kidid
+ * Graphics & Menu Coder: sepp256
+ * Audio & Core Coder: tehpola
+ * Artwork: drmr
+ * USB 2.0 support: matguitarist
+ * LibWiiDRC integration: FIX94
+ * https://https://github.com/FIX94/libwiidrc
+ * LibWUPC integration: Daxtsu
+ * https://github.com/FIX94/libwupc
+ * pcsx team http://www.pcsx.net/
+ * pcsx-df http://pcsx-df.sourceforge.net/
+ * pcsx-r http://pcsxr.codeplex.com/
+ * pcsx 1.5-test3 mac version by Gil Pederson http://pcsx.gpost.dk/
+ * P.E.Op.S. PSX Gpu & SPU http://sourceforge.net/projects/peops/ 
+ * franspu
+ * CDRMooby
+ * SSSPSX
+ * Compiled using devKitPro
+     ( http://sourceforge.net/projects/devkitpro )
+ * www.emulatemii.com and https://code.google.com/archive/p/pcsxgc/downloads
+
+RX CHANGE LOG:
+Beta 2.5:
+* Version bump, IOS & CPU speed inside Credits.
+* Controller settings SD saving bugfix.
+* Increased analog value to cover the full range
+on the Wii Classic Controller. [loquinator3000]
+* Autoboot support for Wiiflow. (thanks Wiimpathy!)
+
+Beta 2.4:
+* Credits update.
+* Corrected small analog to digital mistake in gamepad. [FIX94]
+* Sort by name or type on the file list with WCC ZR.
+* Fix error saving memory cards message. [emukidid]
+* Increased GC analog value to cover the full 256 value range. [emukidid] 
+
+Beta 2.3:
+* Fix indentation issue.
+* Missing include [Mystro256]
+* Fix misleading indentation warnings.
+* Fix missing stricmp. [Mystro256]
+* Flag opt cleanup for new gcc. [Mystro256]
+* Silence format warnings [Mystro256]
+Should have no binary change.
+* Silence warnings by making some functions static. [Mystro256]
+* Remove statics in psxinterpreter to silence a warning. [Mystro256]
+* Basic WiiU gamepad support in Wii VC using libwiidrc. [FIX94]
+* Corrected bugs in button mapping. [FIX94]
+* Make sure args exist before parsing them... [FIX94]
+...and make sure stubhaxx exists
+* Properly switched WUPC values, refined DRC analog stick... [FIX94]
+...conversion and added comments to exit code.
+* Adjusted DRC deadzone accordingly. [FIX94]
+* Math is hard, didnt have enough coffee today for that. [FIX94]
+* Credits update, and other minor QoL fixes.
+* We have a neat savestates folder now.
+
+Beta 2.2:
+* New working directory on the root of the device, WiiSXRX.
+* Fixed compile error with SMB.
+* Rebranding to WiiSX RX.
+
+OLD CHANGE LOG:
+Beta 2.2:
+   * Very minor speed tweaks (some games are smoother)
+   * UStealth support
+   * Fix crashes for a handful of games
+   * Fix crash when quitting
+   * Built on lastest devKitPro
+   * Rebranding to WiiSXR
+
+Beta 2.1 Mod 6 (Daxtsu):
+   + LibWupc (support for WiiU Classic Controller Pro)
+
+Beta 2.1 Mod 4 (matguitarist):
+   + cIOS no longer required (official IOS58 required)
+
+Beta 2.1 Mod 3 (matguitarist):
+   + improved support for USB 2.0
+   + support for both USB Port 0 and Port 1
+
+Beta 2.1 Mod 2 (matguitarist):
+   + support for USB 2.0
+
+Beta 2.1:
+   * Compiled with devkitPPC r21 / libOGC SVN
+   * Compiled with new libDI / DVDx V2
+   * Saving improvements
+     * Fixed issues where save was not written to memcard
+     + Audio state saved/loaded for save states
+   * Controller improvements
+     * Fixed inverted Y-axis on analog input
+     * Fixed rumble
+     * Fixed button presses on unused input port
+     + Added “Home” button as a menu combo for CC
+     + Added disable rumble setting
+   * Network improvements
+     * SMB correction to allow anonymous user and password
+     + Threaded network init and proper error messages when it fails
+Beta 2:
+   * Compiled with devkitPPC r21 / libOGC SVN
+   * Compiled with new libDI / DVDx V2
+   * DVD reads are now done with direct PowerPC access
+   + Samba loading
+   + Execute BIOS
+   * Controller improvements
+     + Rumble for Wiimote-based input
+     + Wiimote-only controls
+     + Classic Controller Pro & 3rd party controller support
+     + Reconfigurable button mapping
+       + Save/Load button mapping from file
+   + New menu system
+     + Classic Controller support
+     + Wiimote / Wiimote & nunchuck support
+     + Settings saving
+     + Auto load/save option for saves
+   * PEOPS GPU
+     + Pillar-boxing 'Force 16:9' mode
+     * Fixed color mapping for FMV
+   + FranSPU
+     * Smooth stereo audio at full FPS
+   - PEOPS SPU
+   + SSSPSX input plugin
+     + DualShock Controller support
+     + Rumble support
+     * Analog/Digital switching
+   + CDRMooby
+     * Improved compatibility
+     * CDDA not implemented yet
+Beta 1:
+   * Working audio (choppy)
+   * DVD loading
+   * Software GFX with GX scaling
+   * Saving to SD card
+   * Text UI
+   * Known Issues:
+     * CDDA audio streaming is not implemented
+     * XA audio fails at times
+     * Final Fantasy VII crashes Dynarec
+     * FPS limit not working at times
+   

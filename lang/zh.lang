@@ -1,0 +1,561 @@
+﻿
+msgid "Load ISO"
+msgstr "加载游戏镜像"
+
+msgid "Current ISO"
+msgstr "当前游戏镜像"
+
+msgid "Settings"
+msgstr "各种设定"
+
+msgid "Credits"
+msgstr "制作组信息"
+
+msgid "Quit"
+msgstr "退出"
+
+msgid "Play Game"
+msgstr "开始玩游戏"
+
+msgid "Resume Game"
+msgstr "继续玩游戏"
+
+msgid "Please load an ISO first"
+msgstr "请先加载一个游戏镜像"
+
+msgid "Are you sure you want to exit to loader?"
+msgstr "确定要返回到Loader吗?"
+
+msgid "Automatically saved to SD card"
+msgstr "自动保存到SD卡"
+
+msgid "Automatically saved to USB device"
+msgstr "自动保存到USB设备"
+
+msgid "Automatically saved to memcard in Slot A"
+msgstr "自动保存到记忆卡A"
+
+msgid "Automatically saved to memcard in Slot B"
+msgstr "自动保存到记忆卡B"
+
+msgid "Failed to save game"
+msgstr "保存游戏失败了"
+
+msgid "No ISO Loaded"
+msgstr "游戏镜像未加载"
+
+msgid "AutoSave Enabled"
+msgstr "自动保存开启"
+
+msgid "Nothing to Save"
+msgstr "不保存"
+
+msgid "Game Needs Saving"
+msgstr "游戏需要保存"
+
+msgid "General"
+msgstr "通常"
+
+msgid "Video"
+msgstr "视频"
+
+msgid "Input"
+msgstr "输入"
+
+msgid "Audio"
+msgstr "音频"
+
+msgid "Saves"
+msgstr "存档"
+
+msgid "Select CPU Core"
+msgstr "选择CPU核心"
+
+msgid "Select Bios"
+msgstr "选择Bios"
+
+msgid "Boot Through Bios"
+msgstr "通过Bios启动"
+
+msgid "Execute Bios"
+msgstr "执行Bios"
+
+msgid "Save settings.cfg"
+msgstr "保存settings.cfg"
+
+msgid "Interpreter"
+msgstr "解释型"
+
+msgid "Dynarec"
+msgstr "编译型"
+
+msgid "Yes"
+msgstr "是的"
+
+msgid "No"
+msgstr "不"
+
+msgid "On"
+msgstr "开启"
+
+msgid "Off"
+msgstr "关闭"
+
+msgid "Show FPS"
+msgstr "显示帧数"
+
+msgid "Limit FPS"
+msgstr "限制帧数"
+
+msgid "Frame Skip"
+msgstr "跳帧"
+
+msgid "Screen Mode"
+msgstr "屏幕模式"
+
+msgid "Dithering"
+msgstr "抖动"
+
+msgid "Scaling"
+msgstr "缩放"
+
+msgid "Auto"
+msgstr "自动"
+
+msgid "Force 16:9"
+msgstr "强制16:9"
+
+msgid "None"
+msgstr "空"
+
+msgid "NoneNone"
+msgstr "无"
+
+msgid "2xSaI"
+msgstr "2xSaI"
+
+msgid "Default"
+msgstr "默认"
+
+msgid "Always"
+msgstr "总是"
+
+msgid "Configure Input"
+msgstr "输入设置"
+
+msgid "Configure Buttons"
+msgstr "按键设置"
+
+msgid "PSX Controller Type"
+msgstr "PSX控制器类型"
+
+msgid "Disable Rumble"
+msgstr "关闭震动"
+
+msgid "Standard"
+msgstr "标准"
+
+msgid "Analog"
+msgstr "类比"
+
+msgid "Save Button Configs"
+msgstr "保存按键设置"
+
+msgid "Auto Load Slot:"
+msgstr "自动读取插槽"
+
+msgid "Disable Audio"
+msgstr "关闭音频"
+
+msgid "Disable XA"
+msgstr "关闭XA"
+
+msgid "Disable CDDA"
+msgstr "关闭CDDA"
+
+msgid "Volume"
+msgstr "音量"
+
+msgid "loudest"
+msgstr "最大"
+
+msgid "loud"
+msgstr "较大"
+
+msgid "medium"
+msgstr "正常"
+
+msgid "low"
+msgstr "较小"
+
+msgid "Memcard Save Device"
+msgstr "记忆卡保存的设备"
+
+msgid "Auto Save Memcards"
+msgstr "自动保存记忆卡"
+
+msgid "Save States Device"
+msgstr "保存状态的设备"
+
+msgid "CardA"
+msgstr "卡槽A"
+
+msgid "CardB"
+msgstr "卡槽B"
+
+msgid "Game Reset"
+msgstr "重新开始游戏"
+
+msgid "BIOS not found on SD"
+msgstr "SD卡上没有找到BIOS"
+
+msgid "BIOS not found on USB"
+msgstr "USB上没有找到BIOS"
+
+msgid "DVD BIOS not implemented"
+msgstr "不支持DVD上的BIOS"
+
+msgid "You must select a BIOS, not HLE"
+msgstr "必须选择一个BIOS，而不是HLE"
+
+msgid "Failed to initialize system.\nTry loading an ISO."
+msgstr "初始化系统失败, 试着加载镜像."
+
+msgid "Error opening directory sd:/wiisxr"
+msgstr "打开目录失败 sd:/wiisxr"
+
+msgid "Saved settings.cfg to SD"
+msgstr "settings.cfg保存到了SD卡"
+
+msgid "Error saving settings.cfg to SD"
+msgstr "保存settings.cfg到SD卡时失败了"
+
+msgid "Error opening directory usb:/wiisxr"
+msgstr "打开目录失败 usb:/wiisxr"
+
+msgid "Saved settings.cfg to USB"
+msgstr "settings.cfg保存到了USB"
+
+msgid "Error saving settings.cfg to USB"
+msgstr "保存settings.cfg到USB时失败了"
+
+msgid "Saved Button Configs to SD"
+msgstr "按键设置保存到了SD卡"
+
+msgid "Error saving Button Configs to SD"
+msgstr "保存按键设置到SD卡时失败了"
+
+msgid "Saved Button Configs to USB"
+msgstr "按键设置保存到了USB"
+
+msgid "Error saving Button Configs to USB"
+msgstr "保存按键设置到USB时失败了"
+
+msgid "CDDA audio is not implemented"
+msgstr "目前不支持CDDA音频"
+
+msgid "Slot 0"
+msgstr "插槽0"
+
+msgid "Slot 1"
+msgstr "插槽1"
+
+msgid "Slot 2"
+msgstr "插槽2"
+
+msgid "Slot 3"
+msgstr "插槽3"
+
+msgid "Slot 4"
+msgstr "插槽4"
+
+msgid "Slot 5"
+msgstr "插槽5"
+
+msgid "Slot 6"
+msgstr "插槽6"
+
+msgid "Slot 7"
+msgstr "插槽7"
+
+msgid "Slot 8"
+msgstr "插槽8"
+
+msgid "Slot 9"
+msgstr "插槽9"
+
+msgid "Pad Assignment"
+msgstr "手柄指定"
+
+msgid "PSX Pad 1"
+msgstr "PSX手柄1"
+
+msgid "PSX Pad 2"
+msgstr "PSX手柄2"
+
+msgid "PSX Pad 3"
+msgstr "PSX手柄3"
+
+msgid "PSX Pad 4"
+msgstr "PSX手柄4"
+
+msgid "Automatic"
+msgstr "自动"
+
+msgid "Manual"
+msgstr "手动"
+
+msgid "None"
+msgstr "空"
+
+msgid "Gamecube Pad"
+msgstr "GC手柄"
+
+msgid "Wii Pad"
+msgstr "Wii手柄"
+
+msgid "Auto Assign"
+msgstr "自动指定"
+
+msgid "Next Pad"
+msgstr "另一手柄"
+
+msgid "Load Default"
+msgstr "默认映射"
+
+msgid "Load"
+msgstr "加载"
+
+msgid "Save"
+msgstr "保存"
+
+msgid "PSX Pad 1: No Physical Controller Assigned"
+msgstr "PSX 手柄 1: 没有指定具体手柄"
+
+msgid "PSX Pad 2: No Physical Controller Assigned"
+msgstr "PSX 手柄 2: 没有指定具体手柄"
+
+msgid "PSX Pad 3: No Physical Controller Assigned"
+msgstr "PSX 手柄 3: 没有指定具体手柄"
+
+msgid "PSX Pad 4: No Physical Controller Assigned"
+msgstr "PSX 手柄 4: 没有指定具体手柄"
+
+msgid "Gamecube Pad 1 to PSX Pad 1 Mapping"
+msgstr "GC手柄 1 到 PSX手柄 1 的映射"
+
+msgid "Gamecube Pad 2 to PSX Pad 2 Mapping"
+msgstr "GC手柄 2 到 PSX手柄 2 的映射"
+
+msgid "Gamecube Pad 3 to PSX Pad 3 Mapping"
+msgstr "GC手柄 3 到 PSX手柄 3 的映射"
+
+msgid "Gamecube Pad 4 to PSX Pad 4 Mapping"
+msgstr "GC手柄 4 到 PSX手柄 4 的映射"
+
+msgid "PSX Pad 1: Gamecube Pad 1 Mapping"
+msgstr "PSX手柄 1: GC手柄 1 映射"
+
+msgid "PSX Pad 2: Gamecube Pad 2 Mapping"
+msgstr "PSX手柄 2: GC手柄 2 映射"
+
+msgid "PSX Pad 1: Gamecube Pad 2 Mapping"
+msgstr "PSX手柄 1: GC手柄 2 映射"
+
+msgid "PSX Pad 2: Gamecube Pad 1 Mapping"
+msgstr "PSX手柄 2: GC手柄 1 映射"
+
+msgid "PSX Pad 1: Classic Pad 1 Mapping"
+msgstr "PSX手柄 1: 经典手柄 1 映射"
+
+msgid "PSX Pad 2: Classic Pad 2 Mapping"
+msgstr "PSX手柄 2: 经典手柄 2 映射"
+
+msgid "PSX Pad 1: Classic Pad 2 Mapping"
+msgstr "PSX手柄 1: 经典手柄 2 映射"
+
+msgid "PSX Pad 2: Classic Pad 1 Mapping"
+msgstr "PSX手柄 2: 经典手柄 1 映射"
+
+msgid "PSX Pad 1: Wiimote+Nunchuck Pad 1 Mapping"
+msgstr "PSX手柄 1: Wii左右手柄 1 映射"
+
+msgid "PSX Pad 2: Wiimote+Nunchuck Pad 2 Mapping"
+msgstr "PSX手柄 2: Wii左右手柄 2 映射"
+
+msgid "PSX Pad 1: Wiimote+Nunchuck Pad 2 Mapping"
+msgstr "PSX手柄 1: Wii左右手柄 2 映射"
+
+msgid "PSX Pad 2: Wiimote+Nunchuck Pad 1 Mapping"
+msgstr "PSX手柄 2: Wii左右手柄 1 映射"
+
+msgid "PSX Pad 1: Wiimote Pad 1 Mapping"
+msgstr "PSX手柄 1: Wii右手柄 1 映射"
+
+msgid "PSX Pad 2: Wiimote Pad 2 Mapping"
+msgstr "PSX手柄 2: Wii右手柄 2 映射"
+
+msgid "PSX Pad 1: Wiimote Pad 2 Mapping"
+msgstr "PSX手柄 1: Wii右手柄 2 映射"
+
+msgid "PSX Pad 2: Wiimote Pad 1 Mapping"
+msgstr "PSX手柄 2: Wii右手柄 1 映射"
+
+msgid "PSX Pad 1: Wii U Pro Pad 1 Mapping"
+msgstr "PSX手柄 1: WiiU手柄 1 映射"
+
+msgid "PSX Pad 2: Wii U Pro Pad 2 Mapping"
+msgstr "PSX手柄 2: WiiU手柄 2 映射"
+
+msgid "PSX Pad 1: Wii U Pro Pad 2 Mapping"
+msgstr "PSX手柄 1: WiiU手柄 2 映射"
+
+msgid "PSX Pad 2: Wii U Pro Pad 1 Mapping"
+msgstr "PSX手柄 2: WiiU手柄 1 映射"
+
+msgid "Saved current button mapping to slot 1."
+msgstr "当前按钮映射保存到了插槽1"
+
+msgid "Saved current button mapping to slot 2."
+msgstr "当前按钮映射保存到了插槽2"
+
+msgid "Load from SD"
+msgstr "从SD卡加载游戏"
+
+msgid "Load from DVD"
+msgstr "从DVD加载游戏"
+
+msgid "Load from USB"
+msgstr "从USB加载游戏"
+
+msgid "Load from Samba"
+msgstr "从Samba加载游戏"
+
+msgid "Available only for Wii"
+msgstr "这个功能只支持Wii"
+
+msgid "Network not yet initialized"
+msgstr "网络未被初始化"
+
+msgid "SMB not configured"
+msgstr "SMB还没有设置"
+
+msgid "SMB failed to connect"
+msgstr "SMB连接错误"
+
+msgid "An error occured"
+msgstr "发生错误了"
+
+msgid "Failed to load ISO"
+msgstr "加载游戏镜像失败"
+
+msgid "Error opening directory"
+msgstr "打开目录失败"
+
+msgid "Game restarted"
+msgstr "游戏已经重启"
+
+msgid "Restart Game"
+msgstr "重新启动游戏"
+
+msgid "Swap CD"
+msgstr "换盘"
+
+msgid "Load MemCards"
+msgstr "读取记忆卡"
+
+msgid "Save MemCards"
+msgstr "保存记忆卡"
+
+msgid "Show ISO Info"
+msgstr "显示镜像信息"
+
+msgid "Load State"
+msgstr "读取状态"
+
+msgid "Save State"
+msgstr "保存状态"
+
+msgid "Loaded save from SD card"
+msgstr "从SD卡读取了存档"
+
+msgid "No saves found on SD card"
+msgstr "SD卡上没有发现存档"
+
+msgid "Loaded save from USB device"
+msgstr "从USB设备读取了存档"
+
+msgid "No saves found on USB device"
+msgstr "USB设备上没有发现存档"
+
+msgid "Loaded save from memcard in slot A"
+msgstr "从插槽A的记忆卡读取了存档"
+
+msgid "No saves found on memcard in slot A"
+msgstr "插槽A的记忆卡上没有发现存档"
+
+msgid "Loaded save from memcard in slot B"
+msgstr "从插槽B的记忆卡读取了存档"
+
+msgid "No saves found on memcard in slot B"
+msgstr "插槽B的记忆卡上没有发现存档"
+
+msgid "Nothing to save"
+msgstr "没有要保存的东西"
+
+msgid "Saved game to SD card"
+msgstr "在SD卡上保存了游戏"
+
+msgid "Saved game to USB device"
+msgstr "在USB设备上保存了游戏"
+
+msgid "Saved game to memcard in Slot A"
+msgstr "在插槽A的记忆卡上保存了游戏"
+
+msgid "Saved game to memcard in Slot B"
+msgstr "在插槽B的记忆卡上保存了游戏"
+
+msgid "Failed to Save"
+msgstr "保存失败"
+
+msgid "Save State Loaded Successfully"
+msgstr "成功读取了保存的状态"
+
+msgid "Save doesn't exist"
+msgstr "不存在保存的状态"
+
+msgid "Save State Saved Successfully"
+msgstr "成功保存了状态"
+
+msgid "Error Saving State"
+msgstr "保存状态失败"
+
+msgid "OK"
+msgstr "好的"
+
+msgid "Cancel"
+msgstr "不"
+
+msgid "Prev"
+msgstr "前页"
+
+msgid "Next"
+msgstr "后页"
+
+msgid "En"
+msgstr "英文"
+
+msgid "Chs"
+msgstr "简中"
+
+msgid "Cht"
+msgstr "繁中"
+
+msgid "Jp"
+msgstr "日文"
+
+msgid "Select language"
+msgstr "切换语言"
+
+msgid "Because the language has changed, please restart"
+msgstr "因为语言变更了，请重新启动"
