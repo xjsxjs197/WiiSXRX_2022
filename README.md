@@ -17,6 +17,9 @@
   So it can only be made into a specific font.
   Font char information: first two byte: BigEndianUnicode char code, followed by a character picture in IA8 format with a size of 24 * 24.
 
+* For some customed Chinese culture games, specific BIOS is automatically loaded.
+  For example:  sd:\wiisxrx\isos\武藏传.ISO => sd:\wiisxrx\bios\武藏传.bin
+
 * Other minor corrections, such as disc changing and automatic fixed of some games.
 
 ## Goals
