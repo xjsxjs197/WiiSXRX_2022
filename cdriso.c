@@ -260,7 +260,7 @@ static void stopCDDA() {
 	}
 
     #ifdef DISP_DEBUG
-    //PRINT_LOG("========stopCDDA========");
+    PRINT_LOG("========stopCDDA========");
     #endif // DISP_DEBUG
 	playing = FALSE;
 
@@ -275,7 +275,7 @@ static void startCDDA(void) {
 	}
 
     #ifdef DISP_DEBUG
-    //PRINT_LOG("========startCDDA========");
+    PRINT_LOG("========startCDDA========");
     #endif // DISP_DEBUG
 
 	playing = TRUE;
@@ -1829,6 +1829,9 @@ static long CALLBACK ISOreadTrack(unsigned char *time) {
 // does NOT uses bcd format
 static long CALLBACK ISOplay(unsigned char *time) {
 	unsigned int i;
+	#ifdef DISP_DEBUG
+    PRINT_LOG("========ISOplay========");
+    #endif // DISP_DEBUG
 
 	if (numtracks <= 1)
 		return 0;

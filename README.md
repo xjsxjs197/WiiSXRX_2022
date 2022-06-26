@@ -22,6 +22,8 @@
 
 * Other minor corrections, such as disc changing and automatic fixed of some games.
 
+  ※※※ It reads a font file in a fixed location, So make sure that [sd:/wiisxrx/fonts/chs.dat] exists ※※※
+
 ## Goals
 
 * Improve GTE code to provide 3D game speed.

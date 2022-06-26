@@ -71,20 +71,20 @@ INLINE void MixXA(int *SSumLR, int ns_to, int decode_pos)
   spu.XALastVal = v;
  }
 
-// for(ns = 0; ns < ns_to * 2 && spu.CDDAPlay!=spu.CDDAFeed && (spu.CDDAPlay!=spu.CDDAEnd-1||spu.CDDAFeed!=spu.CDDAStart);)
-//  {
-//   v=*spu.CDDAPlay++;
-//   if(spu.CDDAPlay==spu.CDDAEnd) spu.CDDAPlay=spu.CDDAStart;
-//
-//   l = ((int)(short)v * spu.iLeftXAVol) >> 15;
-//   r = ((int)(short)(v >> 16) * spu.iRightXAVol) >> 15;
-//   SSumLR[ns++] += l;
-//   SSumLR[ns++] += r;
-//
-//   spu.spuMem[cursor] = v;
-//   spu.spuMem[cursor + 0x400/2] = v >> 16;
-//   cursor = (cursor + 1) & 0x1ff;
-//  }
+ for(ns = 0; ns < ns_to * 2 && spu.CDDAPlay!=spu.CDDAFeed && (spu.CDDAPlay!=spu.CDDAEnd-1||spu.CDDAFeed!=spu.CDDAStart);)
+  {
+   v=*spu.CDDAPlay++;
+   if(spu.CDDAPlay==spu.CDDAEnd) spu.CDDAPlay=spu.CDDAStart;
+
+   l = ((int)(short)v * spu.iLeftXAVol) >> 15;
+   r = ((int)(short)(v >> 16) * spu.iRightXAVol) >> 15;
+   SSumLR[ns++] += l;
+   SSumLR[ns++] += r;
+
+   spu.spuMem[cursor] = v;
+   spu.spuMem[cursor + 0x400/2] = v >> 16;
+   cursor = (cursor + 1) & 0x1ff;
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////
