@@ -130,8 +130,9 @@ void psxException(u32 code, u32 bd) {
 		    PSXMu32ref(psxRegs.CP0.n.EPC) &= SWAP32(~0x02000000);
 
             psxRegs.code = PSXMu32(psxRegs.CP0.n.EPC);
-			extern void (*psxCP2[64])();
-		    psxCP2[psxRegs.code & 0x3f]();
+			//extern void (*psxCP2[64])(void *cp2regs);
+			extern void (*psxCP2[64])(struct psxCP2Regs *regs);
+		    psxCP2[psxRegs.code & 0x3f](&psxRegs.CP2D);
 		}
 		#ifdef DISP_DEBUG
 		else if (tmp == NULL )

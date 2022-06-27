@@ -43,13 +43,28 @@ extern R3000Acpu psxRec;
 #endif
 
 typedef union {
+#if defined(HW_RVL) || defined(HW_DOL)
+	struct { u8 h3, h2, h, l; } b;
+	struct { s8 h3, h2, h, l; } sb;
+	struct { u16 h, l; } w;
+	struct { s16 h, l; } sw;
+#else
+	struct { u8 l, h, h2, h3; } b;
+	struct { u16 l, h; } w;
+	struct { s8 l, h, h2, h3; } sb;
+	struct { s16 l, h; } sw;
+#endif
+} PAIR;
+
+typedef union {
 	struct {
 		u32   r0, at, v0, v1, a0, a1, a2, a3,
 						t0, t1, t2, t3, t4, t5, t6, t7,
 						s0, s1, s2, s3, s4, s5, s6, s7,
 						t8, t9, k0, k1, gp, sp, s8, ra, lo, hi;
 	} n;
-	u32 r[34]; /* Lo, Hi in r[33] and r[34] */
+	u32 r[34]; /* Lo, Hi in r[32] and r[33] */
+	PAIR p[34];
 } psxGPRRegs;
 
 typedef union {
@@ -64,6 +79,7 @@ typedef union {
 						TagLo,     TagHi,     ErrorEPC,  Reserved6;
 	} n;
 	u32 r[32];
+	PAIR p[32];
 } psxCP0Regs;
 
 typedef struct {
@@ -105,6 +121,7 @@ typedef union {
 		s32          lzcs, lzcr;
 	} n;
 	u32 r[32];
+	PAIR p[32];
 } psxCP2Data;
 
 typedef union {
@@ -122,18 +139,28 @@ typedef union {
 		s32      flag;
 	} n;
 	u32 r[32];
+	PAIR p[32];
 } psxCP2Ctrl;
 
-typedef struct {
-    psxCP2Data CP2D; 	/* Cop2 data registers */
+typedef struct psxCP2Regs {
+	psxCP2Data CP2D; 	/* Cop2 data registers */
 	psxCP2Ctrl CP2C; 	/* Cop2 control registers */
+} psxCP2Regs;
+
+typedef struct {
 	psxGPRRegs GPR;		/* General Purpose Registers */
 	psxCP0Regs CP0;		/* Coprocessor0 Registers */
+	union {
+		struct {
+			psxCP2Data CP2D; 	/* Cop2 data registers */
+			psxCP2Ctrl CP2C; 	/* Cop2 control registers */
+		};
+		psxCP2Regs CP2;
+	};
     u32 pc;				/* Program counter */
     u32 code;			/* The instruction */
 	u32 cycle;
 	u32 interrupt;
-	//u32 intCycle[32];
 	struct { u32 sCycle, cycle; } intCycle[32];
 } psxRegisters;
 
