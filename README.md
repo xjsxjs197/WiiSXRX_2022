@@ -1,4 +1,4 @@
-## WiiSxrx_2022
+## WiiSXRX_2022
 
 ## The following changes have been made to the code based on wiisxrx.
 
@@ -34,9 +34,9 @@
 
 ## Compilation information
 
-* PPC29 + Libogc_1.8.16 + SDL
+* devkitPPC r29 + libOGC 1.8.16 + SDL
   You can download everything here: https://wii.leseratte10.de/devkitPro/
-  The compiled SDL is here: https://github.com/xjsxjs197/WiiSXRX_2022/libSDL.a
+  The compiled SDL is here: https://github.com/xjsxjs197/WiiSXRX_2022/raw/main/libSDL.a
 
 
 ## The following is the basic code information
