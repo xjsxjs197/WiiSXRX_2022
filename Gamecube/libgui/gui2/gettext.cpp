@@ -221,7 +221,7 @@ bool LoadLanguage()
 		//case LANG_DUTCH: file = (char *)nl_lang; eof = file + nl_lang_size; break;
 		case SIMP_CHINESE:
 		case TRAD_CHINESE: file = (char *)zh_lang; eof = file + zh_lang_size; break;
-		//case LANG_KOREAN: file = (char *)ko_lang; eof = file + ko_lang_size; break;
+		case KOREAN: file = (char *)Kr_lang; eof = file + Kr_lang_size; break;
 		//case LANG_PORTUGUESE: file = (char *)pt_lang; eof = file + pt_lang_size; break;
 		//case LANG_BRAZILIAN_PORTUGUESE: file = (char *)pt_br_lang; eof = file + pt_br_lang_size; break;
 		//case LANG_CATALAN: file = (char *)ca_lang; eof = file + ca_lang_size; break;

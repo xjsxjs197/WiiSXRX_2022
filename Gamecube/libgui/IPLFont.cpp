@@ -53,6 +53,10 @@ IplFont::IplFont()
             charPngFile = fopen("sd:/wiisxrx/fonts/Chs.dat", "rb"); // 24 * 24 IA8
             break;
 
+        case KOREAN:
+            charPngFile = fopen("sd:/wiisxrx/fonts/Kr.dat", "rb"); // 24 * 24 IA8
+            break;
+
         default:
             charPngFile = fopen("sd:/wiisxrx/fonts/Chs.dat", "rb");
             break;
