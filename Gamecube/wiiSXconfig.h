@@ -244,4 +244,8 @@ enum lang
 	ITALIAN
 };
 
+extern const unsigned char En_dat[];
+extern const unsigned int  En_dat_size;
+extern char canChangeFont;
+
 #endif //WIISXCONFIG_H

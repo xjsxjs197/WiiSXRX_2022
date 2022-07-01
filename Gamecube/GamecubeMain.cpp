@@ -130,6 +130,7 @@ char controllerType;
 char numMultitaps;
 char lang = 0;
 char oldLang = 0;
+char canChangeFont = 0;
 
 #define CONFIG_STRING_TYPE 0
 #define CONFIG_STRING_SIZE 256

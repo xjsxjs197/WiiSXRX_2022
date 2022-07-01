@@ -445,7 +445,8 @@ void SettingsFrame::activateSubmenu(int submenu)
 				FRAME_BUTTONS[i].button->setActive(true);
 			}
 			FRAME_BUTTONS[54].button->setVisible(true);
-            FRAME_BUTTONS[54].button->setActive(true);
+            FRAME_BUTTONS[54].button->setActive(canChangeFont == 1);
+            FRAME_BUTTONS[54].buttonString = FRAME_STRINGS[57 + lang];
 			break;
 		case SUBMENU_VIDEO:
 			setDefaultFocus(FRAME_BUTTONS[1].button);

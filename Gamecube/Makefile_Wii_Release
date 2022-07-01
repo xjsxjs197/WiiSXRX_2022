@@ -23,7 +23,7 @@ GPU = Soft
 #---------------------------------------------------------------------------------
 TARGET		:=	WiiSXRX_Release
 BUILD		:=	build_release
-SOURCES		:=	../lang \
+SOURCES		:=	../lang ../fonts \
                 . ./gc_input/ ./libgui/ ./menu/ ./fileBrowser/ .. ../ppc/ ../Peops$(GPU)GPU/ \
 				./libgui/gui2 ../dfsound/
 
@@ -74,6 +74,7 @@ export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 # automatically build a list of object files for our project
 #---------------------------------------------------------------------------------
 LANGFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.lang)))
+FONTFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.dat)))
 CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
 CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
 sFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
@@ -90,6 +91,7 @@ else
 endif
 
 export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
+                    $(FONTFILES:.dat=.dat.o) \
                     $(LANGFILES:.lang=.lang.o) \
 					$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) \
 					$(sFILES:.s=.o) $(SFILES:.S=.o)
@@ -143,6 +145,10 @@ $(OUTPUT).elf: $(OFILES)
 	$(bin2o)
 
 %.lang.o : %.lang
+	@echo $(notdir $<)
+	$(bin2o)
+
+%.dat.o : %.dat
 	@echo $(notdir $<)
 	$(bin2o)
 

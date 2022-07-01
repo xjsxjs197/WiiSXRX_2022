@@ -46,33 +46,44 @@ IplFont::IplFont()
 
 	int bufIndex = 0;
 	int skipSetp = (CHAR_IMG_SIZE + 4) / 2;
-	FILE* charPngFile;
-	switch(lang)
-    {
-        case SIMP_CHINESE:
-            charPngFile = fopen("sd:/wiisxrx/fonts/Chs.dat", "rb"); // 24 * 24 IA8
-            break;
-
-        case KOREAN:
-            charPngFile = fopen("sd:/wiisxrx/fonts/Kr.dat", "rb"); // 24 * 24 IA8
-            break;
-
-        default:
-            charPngFile = fopen("sd:/wiisxrx/fonts/Chs.dat", "rb");
-            break;
-    }
-	fseek(charPngFile, 0, SEEK_END);
-	int fontSize = (int)ftell(charPngFile);
-	int searchLen = (int)(fontSize / (CHAR_IMG_SIZE + 4));
+	int fontSize = 0;
+	int searchLen;
+	u8 *fontBuffer;
 
 	GXtexCache = (heap_cntrl*)malloc(sizeof(heap_cntrl));
-	__lwp_heap_init(GXtexCache, CN_FONT_LO, CN_FONT_SIZE, 32);
-	u8 *fontBuffer = (u8*) __lwp_heap_allocate(GXtexCache, fontSize);
+    __lwp_heap_init(GXtexCache, CN_FONT_LO, CN_FONT_SIZE, 32);
 
-	fseek(charPngFile, 0, SEEK_SET);
-	fread(fontBuffer, 1, fontSize, charPngFile);
-    fclose(charPngFile);
-    charPngFile = NULL;
+	FILE* charPngFile = getFontFile("sd");
+	if (charPngFile == NULL)
+    {
+        charPngFile = getFontFile("usb");
+	}
+
+    if (charPngFile != NULL)
+    {
+        canChangeFont = 1;
+        fseek(charPngFile, 0, SEEK_END);
+        fontSize = (int)ftell(charPngFile);
+        searchLen = (int)(fontSize / (CHAR_IMG_SIZE + 4));
+        fontBuffer = (u8*) __lwp_heap_allocate(GXtexCache, fontSize);
+
+        fseek(charPngFile, 0, SEEK_SET);
+        fread(fontBuffer, 1, fontSize, charPngFile);
+        fclose(charPngFile);
+        charPngFile = NULL;
+    }
+	else
+    {
+        // font file is not exists, reload lanaguage
+        lang = ENGLISH;
+        LoadLanguage();
+
+        // load inline english font
+        canChangeFont = 0;
+        fontBuffer = (u8*)En_dat;
+        fontSize = En_dat_size;
+        searchLen = (int)(fontSize / (CHAR_IMG_SIZE + 4));
+    }
 
     blankChar = charToWideChar(" ");
 
@@ -87,7 +98,10 @@ IplFont::IplFont()
         zhFontBufTemp += skipSetp;
         bufIndex++;
     }
-    __lwp_heap_free(GXtexCache, fontBuffer);
+    if (charPngFile != NULL)
+    {
+        __lwp_heap_free(GXtexCache, fontBuffer);
+    }
 }
 
 IplFont::~IplFont()
@@ -113,6 +127,29 @@ void IplFont::setVmode(GXRModeObj *rmode)
 }
 
 extern "C" char menuActive;
+
+FILE* IplFont::getFontFile(char* sdUsb)
+{
+    char fontPathBuf[256];
+	switch(lang)
+    {
+        case SIMP_CHINESE:
+            sprintf(fontPathBuf, "%s%s", sdUsb, ":/wiisxrx/fonts/Chs.dat");
+            //charPngFile = fopen("sd:/wiisxrx/fonts/Chs.dat", "rb"); // 24 * 24 IA8
+            break;
+
+        case KOREAN:
+            sprintf(fontPathBuf, "%s%s", sdUsb, ":/wiisxrx/fonts/Kr.dat");
+            //charPngFile = fopen("sd:/wiisxrx/fonts/Kr.dat", "rb"); // 24 * 24 IA8
+            break;
+
+        default:
+            sprintf(fontPathBuf, "%s%s", sdUsb, ":/wiisxrx/fonts/Chs.dat");
+            //charPngFile = fopen("sd:/wiisxrx/fonts/Chs.dat", "rb");
+            break;
+    }
+    return fopen(fontPathBuf, "rb");
+}
 
 void IplFont::drawInit(GXColor fontColor)
 {

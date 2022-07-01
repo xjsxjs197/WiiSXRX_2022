@@ -52,6 +52,7 @@ private:
     wchar_t* charToWideChar(const char* strChar);
     u8* getCharPngBuf(const wchar_t wChar);
     int getCharCode(const wchar_t wChar);
+    FILE* getFontFile(char* sdUsb);
 
 	u16 frameWidth;
 	GXTexObj fontTexObj;
