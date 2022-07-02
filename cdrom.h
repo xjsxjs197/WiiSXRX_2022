@@ -46,6 +46,9 @@ extern "C" {
 
 #define SUB_FRAMESIZE			96
 
+#define MIN_VALUE(a,b) ({ __typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a < _b ? _a : _b; })
+#define MAX_VALUE(a,b) ({ __typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b ? _a : _b; })
+
 typedef struct {
 	unsigned char OCUP;
 	unsigned char Reg1Mode;
@@ -86,9 +89,10 @@ typedef struct {
 
 	unsigned char ResultTN[6];
 	unsigned char ResultTD[4];
+	unsigned char SetSectorPlay[4];
 	unsigned char SetSectorEnd[4];
 	unsigned char SetSector[4];
-	unsigned char SetSectorSeek[4];
+	//unsigned char SetSectorSeek[4];
 	unsigned char Track;
 	int Play;
 	int CurTrack;
@@ -109,7 +113,13 @@ typedef struct {
 
 	u8 DriveState;
 	u8 FastForward;
-	char Unused[4083];
+	u8 FastBackward;
+	u8 pad;
+
+	u8 AttenuatorLeftToLeft, AttenuatorLeftToRight;
+	u8 AttenuatorRightToRight, AttenuatorRightToLeft;
+	u8 AttenuatorLeftToLeftT, AttenuatorLeftToRightT;
+	u8 AttenuatorRightToRightT, AttenuatorRightToLeftT;
 } cdrStruct;
 
 cdrStruct cdr;
@@ -119,6 +129,8 @@ extern int msf2SectM[];
 extern int msf2SectS[];
 
 void cdrReset();
+void cdrAttenuate(s16 *buf, int samples, int stereo);
+
 void cdrInterrupt();
 void cdrReadInterrupt();
 void cdrRepplayInterrupt();

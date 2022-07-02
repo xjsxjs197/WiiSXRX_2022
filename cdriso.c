@@ -281,7 +281,7 @@ static void startCDDA(void) {
 	playing = TRUE;
 
 	//pthread_create(&threadid, NULL, playthread, NULL);
-	LWP_CreateThread(&threadid, playthread, NULL, NULL, 0, 40);
+	LWP_CreateThread(&threadid, playthread, NULL, NULL, 0, 80);
 }
 
 // this function tries to get the .toc file of the given .bin

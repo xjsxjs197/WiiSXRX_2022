@@ -25,6 +25,7 @@
 #include "ppf.h"
 #include "psxdma.h"
 #include <ogc/lwp_watchdog.h>
+static s16 read_buf[CD_FRAMESIZE_RAW/2];
 
 /* CD-ROM magic numbers */
 #define CdlSync        0
@@ -234,6 +235,8 @@ static struct SubQ *subq;
 		if (!Config.Cdda) CDR_stop(); \
 		cdr.StatP &= ~STATUS_PLAY; \
 		cdr.Play = 0; \
+		cdr.FastForward = 0; \
+		cdr.FastBackward = 0; \
 	} \
 }
 
@@ -387,6 +390,65 @@ void AddIrqQueue(unsigned char irq, unsigned long ecycle) {
 	}
 }
 
+static void cdrPlayInterrupt_Autopause()
+{
+	u32 abs_lev_max = 0;
+	bool abs_lev_chselect;
+	u32 i;
+
+	if ((cdr.Mode & MODE_AUTOPAUSE) && cdr.TrackChanged) {
+		//CDR_LOG( "CDDA STOP\n" );
+
+		// Magic the Gathering
+		// - looping territory cdda
+
+		// ...?
+		//cdr.ResultReady = 1;
+		//cdr.Stat = DataReady;
+		cdr.Stat = DataEnd;
+		setIrq();
+
+		StopCdda();
+	}
+	else if (((cdr.Mode & MODE_REPORT) || cdr.FastForward || cdr.FastBackward)) {
+		CDR_readCDDA(cdr.SetSector[0], cdr.SetSector[1], cdr.SetSector[2], (u8 *)read_buf);
+		cdr.Result[0] = cdr.StatP;
+		cdr.Result[1] = cdr.subq.Track;
+		cdr.Result[2] = cdr.subq.Index;
+
+		abs_lev_chselect = cdr.subq.Absolute[1] & 0x01;
+
+		/* 8 is a hack. For accuracy, it should be 588. */
+		for (i = 0; i < 8; i++)
+		{
+			abs_lev_max = MAX_VALUE(abs_lev_max, abs(read_buf[i * 2 + abs_lev_chselect]));
+		}
+		abs_lev_max = MIN_VALUE(abs_lev_max, 32767);
+		abs_lev_max |= abs_lev_chselect << 15;
+
+		if (cdr.subq.Absolute[2] & 0x10) {
+			cdr.Result[3] = cdr.subq.Relative[0];
+			cdr.Result[4] = cdr.subq.Relative[1] | 0x80;
+			cdr.Result[5] = cdr.subq.Relative[2];
+		}
+		else {
+			cdr.Result[3] = cdr.subq.Absolute[0];
+			cdr.Result[4] = cdr.subq.Absolute[1];
+			cdr.Result[5] = cdr.subq.Absolute[2];
+		}
+
+		cdr.Result[6] = abs_lev_max >> 0;
+		cdr.Result[7] = abs_lev_max >> 8;
+
+		// Rayman: Logo freeze (resultready + dataready)
+		cdr.ResultReady = 1;
+		cdr.Stat = DataReady;
+
+		SetResultSize(8);
+		setIrq();
+	}
+}
+
 // also handles seek
 void cdrPlayInterrupt()
 {
@@ -408,7 +470,7 @@ void cdrPlayInterrupt()
 
 		if (cdr.SetlocPending) {
 			//memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
-			//*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
+			*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
 			cdr.SetlocPending = 0;
 			cdr.m_locationChanged = TRUE;
 		}
@@ -420,6 +482,17 @@ void cdrPlayInterrupt()
 
 	if (!cdr.Play) return;
 
+	if (!cdr.Irq && !cdr.Stat && (cdr.Mode & (MODE_AUTOPAUSE|MODE_REPORT)))
+		cdrPlayInterrupt_Autopause();
+
+	if (!cdr.Play) return;
+	if (CDR_readCDDA && !cdr.Muted && cdr.Mode & MODE_REPORT) {
+		CDR_readCDDA(cdr.SetSector[0], cdr.SetSector[1],
+			cdr.SetSector[2], read_buf);
+		cdrAttenuate(read_buf, CD_FRAMESIZE_RAW / 4, 1);
+		if (SPU_playCDDAchannel)
+			SPU_playCDDAchannel(read_buf, CD_FRAMESIZE_RAW);
+	}
 	cdr.SetSector[2]++;
 	if (cdr.SetSector[2] == 75) {
 		cdr.SetSector[2] = 0;
@@ -514,14 +587,24 @@ void cdrInterrupt() {
         	cdr.Stat = Acknowledge;
 			break;
 
+		do_CdlPlay:
 		case CdlPlay:
+		    StopCdda();
 			cdr.CmdProcess = 0;
 			SetResultSize(1);
+			cdr.TrackChanged = FALSE;
+
+			if (!Config.Cdda)
+				CDR_play(cdr.SetSector);
 			cdr.StatP|= 0x2;
 			cdr.Result[0] = cdr.StatP;
 			cdr.Stat = Acknowledge;
 			cdr.StatP|= 0x80;
 //			if ((cdr.Mode & 0x5) == 0x5) AddIrqQueue(REPPLAY, cdReadTime);
+			// BIOS player - set flag again
+			cdr.Play = TRUE;
+
+			CDRMISC_INT( cdReadTime );
 			break;
 
     	case CdlForward:
@@ -872,6 +955,10 @@ void cdrInterrupt() {
 			}
 			cdr.StatP|= 0x20;
         	cdr.Stat = Acknowledge;
+			
+			if ((cdr.Mode & MODE_CDDA) && cdr.CurTrack > 1)
+				// Read* acts as play for cdda tracks in cdda mode
+				goto do_CdlPlay;
 
 			ReadTrack();
 
@@ -937,6 +1024,49 @@ void cdrInterrupt() {
 #ifdef CDR_LOG
 	CDR_LOG("cdrInterrupt() Log: CDR Interrupt IRQ %x\n", Irq);
 #endif
+}
+
+#define ssat32_to_16(v) { \
+  if (v < -32768) v = -32768; \
+  else if (v > 32767) v = 32767; \
+}
+
+void cdrAttenuate(s16 *buf, int samples, int stereo)
+{
+	int i, l, r;
+	int ll = cdr.AttenuatorLeftToLeft;
+	int lr = cdr.AttenuatorLeftToRight;
+	int rl = cdr.AttenuatorRightToLeft;
+	int rr = cdr.AttenuatorRightToRight;
+
+	if (lr == 0 && rl == 0 && 0x78 <= ll && ll <= 0x88 && 0x78 <= rr && rr <= 0x88)
+		return;
+
+	if (!stereo && ll == 0x40 && lr == 0x40 && rl == 0x40 && rr == 0x40)
+		return;
+
+	if (stereo) {
+		for (i = 0; i < samples; i++) {
+			l = buf[i * 2];
+			r = buf[i * 2 + 1];
+			l = (l * ll + r * rl) >> 7;
+			r = (r * rr + l * lr) >> 7;
+			ssat32_to_16(l);
+			ssat32_to_16(r);
+			buf[i * 2] = l;
+			buf[i * 2 + 1] = r;
+		}
+	}
+	else {
+		for (i = 0; i < samples; i++) {
+			l = buf[i];
+			l = l * (ll + rl) >> 7;
+			//r = r * (rr + lr) >> 7;
+			ssat32_to_16(l);
+			//ssat32_to_16(r);
+			buf[i] = l;
+		}
+	}
 }
 
 void cdrReadInterrupt() {
