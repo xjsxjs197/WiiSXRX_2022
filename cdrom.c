@@ -25,6 +25,7 @@
 #include "ppf.h"
 #include "psxdma.h"
 #include <ogc/lwp_watchdog.h>
+#include "Gamecube/DEBUG.h"
 static s16 read_buf[CD_FRAMESIZE_RAW/2];
 
 /* CD-ROM magic numbers */
@@ -234,7 +235,7 @@ static struct SubQ *subq;
 	if (cdr.Play) { \
 		if (!Config.Cdda) CDR_stop(); \
 		cdr.StatP &= ~STATUS_PLAY; \
-		cdr.Play = 0; \
+		cdr.Play = FALSE; \
 		cdr.FastForward = 0; \
 		cdr.FastBackward = 0; \
 	} \
@@ -411,6 +412,9 @@ static void cdrPlayInterrupt_Autopause()
 		StopCdda();
 	}
 	else if (((cdr.Mode & MODE_REPORT) || cdr.FastForward || cdr.FastBackward)) {
+        #ifdef SHOW_DEBUG
+        DEBUG_print("Autopause CDR_readCDDA ===", DBG_CDR1);
+        #endif // DISP_DEBUG
 		CDR_readCDDA(cdr.SetSector[0], cdr.SetSector[1], cdr.SetSector[2], (u8 *)read_buf);
 		cdr.Result[0] = cdr.StatP;
 		cdr.Result[1] = cdr.subq.Track;
@@ -486,9 +490,15 @@ void cdrPlayInterrupt()
 		cdrPlayInterrupt_Autopause();
 
 	if (!cdr.Play) return;
+	#ifdef DISP_DEBUG
+    PRINT_LOG2("Bef CDR_readCDDA==Muted Mode %d %d", cdr.Muted, cdr.Mode);
+    #endif // DISP_DEBUG
 	if (CDR_readCDDA && !cdr.Muted && cdr.Mode & MODE_REPORT) {
-		CDR_readCDDA(cdr.SetSector[0], cdr.SetSector[1],
-			cdr.SetSector[2], read_buf);
+        #ifdef SHOW_DEBUG
+        DEBUG_print("CDR_readCDDA ===", DBG_CDR1);
+        #endif // DISP_DEBUG
+		//CDR_readCDDA(cdr.SetSector[0], cdr.SetSector[1],
+		//	cdr.SetSector[2], read_buf);
 		cdrAttenuate(read_buf, CD_FRAMESIZE_RAW / 4, 1);
 		if (SPU_playCDDAchannel)
 			SPU_playCDDAchannel(read_buf, CD_FRAMESIZE_RAW);
@@ -543,6 +553,7 @@ void cdrInterrupt() {
 			CDR_INT(cdr.eCycle);
 			setIrq();
 	        cdr.ParamP = 0;
+			cdr.ParamC = 0;
 			return;
 		}
 	}
@@ -955,7 +966,7 @@ void cdrInterrupt() {
 			}
 			cdr.StatP|= 0x20;
         	cdr.Stat = Acknowledge;
-			
+
 			if ((cdr.Mode & MODE_CDDA) && cdr.CurTrack > 1)
 				// Read* acts as play for cdda tracks in cdda mode
 				goto do_CdlPlay;
@@ -1111,7 +1122,7 @@ void cdrReadInterrupt() {
 	fprintf(emuLog, "cdrReadInterrupt() Log: cdr.Transfer %x:%x:%x\n", cdr.Transfer[0], cdr.Transfer[1], cdr.Transfer[2]);
 #endif
 
-	if ((cdr.Muted == 1) && (cdr.Mode & MODE_STRSND) && (!Config.Xa) && (cdr.FirstSector != -1)) { // CD-XA
+	if ((!cdr.Muted) && (cdr.Mode & MODE_STRSND) && (!Config.Xa) && (cdr.FirstSector != -1)) { // CD-XA
 		// Firemen 2: Multi-XA files - briefings, cutscenes
 		if( cdr.FirstSector == 1 && (cdr.Mode & MODE_SF)==0 ) {
 			cdr.File = cdr.Transfer[4 + 0];
@@ -1312,7 +1323,7 @@ void cdrWrite1(unsigned char rt) {
                 }
 			}
     		else if (!Config.Cdda) CDR_play(cdr.SetSector);
-    		cdr.Play = 1;
+    		cdr.Play = TRUE;
 			cdr.Ctrl|= 0x80;
     		cdr.Stat = NoIntr;
     		AddIrqQueue(cdr.Cmd, 0x800);
@@ -1374,14 +1385,14 @@ void cdrWrite1(unsigned char rt) {
         	break;
 
     	case CdlMute:
-        	cdr.Muted = 0;
+        	cdr.Muted = TRUE;
 			cdr.Ctrl|= 0x80;
     		cdr.Stat = NoIntr;
     		AddIrqQueue(cdr.Cmd, 0x800);
         	break;
 
     	case CdlDemute:
-        	cdr.Muted = 1;
+        	cdr.Muted = FALSE;
 			cdr.Ctrl|= 0x80;
     		cdr.Stat = NoIntr;
     		AddIrqQueue(cdr.Cmd, 0x800);
@@ -1400,6 +1411,16 @@ void cdrWrite1(unsigned char rt) {
 			CDR_LOG("cdrWrite1() Log: Setmode %x\n", cdr.Param[0]);
 #endif
         	cdr.Mode = cdr.Param[0];
+        	// Squaresoft on PlayStation 1998 Collector's CD Vol. 1
+            // - fixes choppy movie sound
+            if( cdr.Play && (cdr.Mode & MODE_CDDA) == 0 )
+            {
+                StopCdda();
+            }
+        	#ifdef SHOW_DEBUG
+        	sprintf(txtbuffer, "CdlSetmode %d", cdr.Mode);
+            DEBUG_print(txtbuffer, DBG_CDR1);
+            #endif // DISP_DEBUG
 			cdr.Ctrl|= 0x80;
     		cdr.Stat = NoIntr;
     		AddIrqQueue(cdr.Cmd, 0x800);

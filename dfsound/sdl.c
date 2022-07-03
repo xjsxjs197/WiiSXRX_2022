@@ -140,9 +140,9 @@ static int sdl_busy(void) {
 	if (size <= 0) size += BUFFER_SIZE;
 
 	if (size < BUFFER_SIZE / 2) {
-        #ifdef SHOW_DEBUG
-        DEBUG_print("sdl_busy =sdl_busy== ", DBG_SPU1);
-        #endif // DISP_DEBUG
+        //#ifdef SHOW_DEBUG
+        //DEBUG_print("sdl_busy =sdl_busy== ", DBG_SPU1);
+        //#endif // DISP_DEBUG
         return 1;
 	}
 

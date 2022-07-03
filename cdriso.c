@@ -201,7 +201,8 @@ static void *playthread(void *param)
 		}
 
 		if (!cdr.Muted && playing) {
-			if (cddaBigEndian) {
+			//if (cddaBigEndian) {
+			if (true) {
 				for (i = 0; i < s / 2; i++) {
 					tmp = sndbuffer[i * 2];
 					sndbuffer[i * 2] = sndbuffer[i * 2 + 1];
@@ -1830,7 +1831,7 @@ static long CALLBACK ISOreadTrack(unsigned char *time) {
 static long CALLBACK ISOplay(unsigned char *time) {
 	unsigned int i;
 	#ifdef DISP_DEBUG
-    PRINT_LOG("========ISOplay========");
+    PRINT_LOG1("==CDR_play==numtracks %d=", numtracks);
     #endif // DISP_DEBUG
 
 	if (numtracks <= 1)
