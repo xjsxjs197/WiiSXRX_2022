@@ -64,7 +64,7 @@ static lwpq_t threadMsgAvilQ = LWP_TQUEUE_NULL;
 
 static unsigned int initial_offset = 0;
 static bool playing = FALSE;
-static bool cddaBigEndian = FALSE;
+static bool cddaBigEndian = TRUE;
 // cdda sectors in toc, byte offset in file
 static unsigned int cdda_cur_sector;
 static unsigned int cdda_first_sector;
@@ -201,8 +201,8 @@ static void *playthread(void *param)
 		}
 
 		if (!cdr.Muted && playing) {
-			//if (cddaBigEndian) {
-			if (true) {
+			if (cddaBigEndian) {
+			//if (true) {
 				for (i = 0; i < s / 2; i++) {
 					tmp = sndbuffer[i * 2];
 					sndbuffer[i * 2] = sndbuffer[i * 2 + 1];
@@ -337,7 +337,7 @@ static int parsetoc(const char *isofile) {
 	}
 
 	memset(&ti, 0, sizeof(ti));
-	cddaBigEndian = TRUE; // cdrdao uses big-endian for CD Audio
+	cddaBigEndian = FALSE; // cdrdao uses big-endian for CD Audio
 
 	sector_size = CD_FRAMESIZE_RAW;
 	sector_offs = 2 * 75;
@@ -1565,7 +1565,7 @@ static long CALLBACK ISOopen(void) {
 
 	sprintf(image_str, "Loaded CD Image: %s", GetIsoFile());
 
-	cddaBigEndian = FALSE;
+	cddaBigEndian = TRUE;
 	subChanMixed = FALSE;
 	subChanRaw = FALSE;
 	pregapOffset = 0;
