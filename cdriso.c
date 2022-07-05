@@ -34,6 +34,8 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "Gamecube/DEBUG.h"
+
 #define OFF_T_MSB ((off_t)1 << (sizeof(off_t) * 8 - 1))
 
 unsigned int cdrIsoMultidiskCount;
@@ -261,7 +263,7 @@ static void stopCDDA() {
 	}
 
     #ifdef DISP_DEBUG
-    PRINT_LOG("========stopCDDA========");
+    DEBUG_print("stopCDDA =====", DBG_CDR2);
     #endif // DISP_DEBUG
 	playing = FALSE;
 
@@ -275,8 +277,9 @@ static void startCDDA(void) {
 		stopCDDA();
 	}
 
-    #ifdef DISP_DEBUG
-    PRINT_LOG("========startCDDA========");
+    #ifdef SHOW_DEBUG
+    sprintf(txtbuffer, "startCDDA %ld %ld %ld", cdda_first_sector, cdda_cur_sector, cdda_file_offset);
+    DEBUG_print(txtbuffer, DBG_CDR2);
     #endif // DISP_DEBUG
 
 	playing = TRUE;
@@ -1831,7 +1834,8 @@ static long CALLBACK ISOreadTrack(unsigned char *time) {
 static long CALLBACK ISOplay(unsigned char *time) {
 	unsigned int i;
 	#ifdef DISP_DEBUG
-    PRINT_LOG1("==CDR_play==numtracks %d=", numtracks);
+	sprintf(txtbuffer, "CDR_play time %d %d %d", time[0], time[1], time[2]);
+    DEBUG_print(txtbuffer, DBG_CDR1);
     #endif // DISP_DEBUG
 
 	if (numtracks <= 1)

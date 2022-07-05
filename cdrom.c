@@ -490,10 +490,10 @@ void cdrPlayInterrupt()
 		cdrPlayInterrupt_Autopause();
 
 	if (!cdr.Play) return;
-	#ifdef DISP_DEBUG
-    PRINT_LOG2("Bef CDR_readCDDA==Muted Mode %d %d", cdr.Muted, cdr.Mode);
-    #endif // DISP_DEBUG
-	if (CDR_readCDDA && !cdr.Muted && cdr.Mode & MODE_REPORT) {
+	//#ifdef DISP_DEBUG
+    //PRINT_LOG2("Bef CDR_readCDDA==Muted Mode %d %d", cdr.Muted, cdr.Mode);
+    //#endif // DISP_DEBUG
+	if (CDR_readCDDA && !cdr.Muted && !Config.Cdda) {
         #ifdef SHOW_DEBUG
         DEBUG_print("CDR_readCDDA ===", DBG_CDR1);
         #endif // DISP_DEBUG
@@ -604,6 +604,32 @@ void cdrInterrupt() {
 			cdr.CmdProcess = 0;
 			SetResultSize(1);
 			cdr.TrackChanged = FALSE;
+
+            // BIOS CD Player
+			// - Pause player, hit Track 01/02/../xx (Setloc issued!!)
+
+			if (cdr.ParamC == 0 || cdr.Param[0] == 0) {
+				//CDR_LOG("PLAY Resume @ %d:%d:%d\n",
+				//	cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2]);
+			}
+			else
+			{
+				int track = btoi( cdr.Param[0] );
+
+				if (track <= cdr.ResultTN[1])
+					cdr.CurTrack = track;
+
+				//CDR_LOG("PLAY track %d\n", cdr.CurTrack);
+
+				if (CDR_getTD((u8)cdr.CurTrack, cdr.ResultTD) != -1) {
+					cdr.SetSector[0] = cdr.ResultTD[2];
+					cdr.SetSector[1] = cdr.ResultTD[1];
+					cdr.SetSector[2] = cdr.ResultTD[0];
+				}
+			}
+			#ifdef DISP_DEBUG
+            DEBUG_print("cdrInterrupt CdlPlay", DBG_CDR3);
+            #endif // DISP_DEBUG
 
 			if (!Config.Cdda)
 				CDR_play(cdr.SetSector);
@@ -1311,19 +1337,22 @@ void cdrWrite1(unsigned char rt) {
         	break;
 
     	case CdlPlay:
-        	if (!cdr.SetSector[0] && !cdr.SetSector[1] && !cdr.SetSector[2]) {
-            	if (CDR_getTN(cdr.ResultTN) != -1) {
-	                if (cdr.CurTrack > cdr.ResultTN[1]) cdr.CurTrack = cdr.ResultTN[1];
-                    if (CDR_getTD((unsigned char)(cdr.CurTrack), cdr.ResultTD) != -1) {
-		               	int tmp = cdr.ResultTD[2];
-                        cdr.ResultTD[2] = cdr.ResultTD[0];
-						cdr.ResultTD[0] = tmp;
-	                    if (!Config.Cdda) CDR_play(cdr.ResultTD);
-					}
-                }
-			}
-    		else if (!Config.Cdda) CDR_play(cdr.SetSector);
-    		cdr.Play = TRUE;
+//        	if (!cdr.SetSector[0] && !cdr.SetSector[1] && !cdr.SetSector[2]) {
+//                #ifdef DISP_DEBUG
+//                DEBUG_print("cdrWrite1 CdlPlay", DBG_CDR3);
+//                #endif // DISP_DEBUG
+//            	if (CDR_getTN(cdr.ResultTN) != -1) {
+//	                if (cdr.CurTrack > cdr.ResultTN[1]) cdr.CurTrack = cdr.ResultTN[1];
+//                    if (CDR_getTD((unsigned char)(cdr.CurTrack), cdr.ResultTD) != -1) {
+//		               	int tmp = cdr.ResultTD[2];
+//                        cdr.ResultTD[2] = cdr.ResultTD[0];
+//						cdr.ResultTD[0] = tmp;
+//	                    if (!Config.Cdda) CDR_play(cdr.ResultTD);
+//					}
+//                }
+//			}
+//    		else if (!Config.Cdda) CDR_play(cdr.SetSector);
+//    		cdr.Play = TRUE;
 			cdr.Ctrl|= 0x80;
     		cdr.Stat = NoIntr;
     		AddIrqQueue(cdr.Cmd, 0x800);
@@ -1417,10 +1446,10 @@ void cdrWrite1(unsigned char rt) {
             {
                 StopCdda();
             }
-        	#ifdef SHOW_DEBUG
-        	sprintf(txtbuffer, "CdlSetmode %d", cdr.Mode);
-            DEBUG_print(txtbuffer, DBG_CDR1);
-            #endif // DISP_DEBUG
+//        	#ifdef SHOW_DEBUG
+//        	sprintf(txtbuffer, "CdlSetmode %d", cdr.Mode);
+//            DEBUG_print(txtbuffer, DBG_CDR1);
+//            #endif // DISP_DEBUG
 			cdr.Ctrl|= 0x80;
     		cdr.Stat = NoIntr;
     		AddIrqQueue(cdr.Cmd, 0x800);
