@@ -493,7 +493,7 @@ void cdrPlayInterrupt()
 	//#ifdef DISP_DEBUG
     //PRINT_LOG2("Bef CDR_readCDDA==Muted Mode %d %d", cdr.Muted, cdr.Mode);
     //#endif // DISP_DEBUG
-	if (CDR_readCDDA && !cdr.Muted && !Config.Cdda) {
+	if (CDR_readCDDA && !cdr.Muted && cdr.Mode & MODE_REPORT) {
         #ifdef SHOW_DEBUG
         DEBUG_print("CDR_readCDDA ===", DBG_CDR1);
         #endif // DISP_DEBUG
