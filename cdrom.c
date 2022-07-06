@@ -345,6 +345,42 @@ void cdrLidSeekInterrupt()
 		break;
 	}
 }
+
+// get a sector from a msf-array
+static unsigned int msf2sec(char *msf) {
+	return ((msf[0] * 60 + msf[1]) * 75) + msf[2];
+}
+
+static void sec2msf(unsigned int s, char *msf) {
+	msf[0] = s / 75 / 60;
+	s = s - msf[0] * 75 * 60;
+	msf[1] = s / 75;
+	s = s - msf[1] * 75;
+	msf[2] = s;
+}
+
+// for that weird psemu API..
+static unsigned int fsm2sec(const u8 *msf) {
+	return ((msf[2] * 60 + msf[1]) * 75) + msf[0];
+}
+
+static void Find_CurTrack(const u8 *time)
+{
+	int current, sect;
+
+	current = msf2sec(time);
+
+	for (cdr.CurTrack = 1; cdr.CurTrack < cdr.ResultTN[1]; cdr.CurTrack++) {
+		CDR_getTD(cdr.CurTrack + 1, cdr.ResultTD);
+		sect = fsm2sec(cdr.ResultTD);
+		if (sect - current >= 150)
+			break;
+	}
+#ifdef CDR_LOG
+	CDR_LOG("Find_CurTrack *** %02d %02d\n", cdr.CurTrack, current);
+#endif
+}
+
 // ReadTrack=========================
 void ReadTrack() {
     unsigned char tmp[3];
@@ -495,7 +531,7 @@ void cdrPlayInterrupt()
     //#endif // DISP_DEBUG
 	if (CDR_readCDDA && !cdr.Muted && cdr.Mode & MODE_REPORT) {
         #ifdef SHOW_DEBUG
-        DEBUG_print("CDR_readCDDA ===", DBG_CDR1);
+        DEBUG_print("CDR_readCDDA ===", DBG_CDR2);
         #endif // DISP_DEBUG
 		//CDR_readCDDA(cdr.SetSector[0], cdr.SetSector[1],
 		//	cdr.SetSector[2], read_buf);
@@ -605,6 +641,9 @@ void cdrInterrupt() {
 			SetResultSize(1);
 			cdr.TrackChanged = FALSE;
 
+			cdr.FastBackward = 0;
+			cdr.FastForward = 0;
+
             // BIOS CD Player
 			// - Pause player, hit Track 01/02/../xx (Setloc issued!!)
 
@@ -627,9 +666,9 @@ void cdrInterrupt() {
 					cdr.SetSector[2] = cdr.ResultTD[0];
 				}
 			}
-			#ifdef DISP_DEBUG
-            DEBUG_print("cdrInterrupt CdlPlay", DBG_CDR3);
-            #endif // DISP_DEBUG
+//			#ifdef DISP_DEBUG
+//            DEBUG_print("cdrInterrupt CdlPlay", DBG_CDR1);
+//            #endif // DISP_DEBUG
 
 			if (!Config.Cdda)
 				CDR_play(cdr.SetSector);
@@ -992,6 +1031,8 @@ void cdrInterrupt() {
 			}
 			cdr.StatP|= 0x20;
         	cdr.Stat = Acknowledge;
+
+        	Find_CurTrack(cdr.SetSector);
 
 			if ((cdr.Mode & MODE_CDDA) && cdr.CurTrack > 1)
 				// Read* acts as play for cdda tracks in cdda mode
@@ -1362,6 +1403,10 @@ void cdrWrite1(unsigned char rt) {
         	if (cdr.CurTrack < 0xaa) cdr.CurTrack++;
 			cdr.Ctrl|= 0x80;
     		cdr.Stat = NoIntr;
+    		// GameShark CD Player: Calls 2x + Play 2x
+			cdr.FastForward = 1;
+			cdr.FastBackward = 0;
+
     		AddIrqQueue(cdr.Cmd, 0x800);
         	break;
 
@@ -1369,6 +1414,10 @@ void cdrWrite1(unsigned char rt) {
         	if (cdr.CurTrack > 1) cdr.CurTrack--;
 			cdr.Ctrl|= 0x80;
     		cdr.Stat = NoIntr;
+    		// GameShark CD Player: Calls 2x + Play 2x
+			cdr.FastBackward =1;
+			cdr.FastForward = 0;
+
     		AddIrqQueue(cdr.Cmd, 0x800);
         	break;
 
