@@ -25,6 +25,9 @@
 #define DBG_SPU2	8
 #define DBG_SPU3	9
 
+#define CTRL_CD_PLAY					0x01
+#define CTRL_CD_REVERB					0x02
+
 ////////////////////////////////////////////////////////////////////////
 // XA GLOBALS
 ////////////////////////////////////////////////////////////////////////
@@ -80,8 +83,14 @@ INLINE void MixXA(int *SSumLR, int ns_to, int decode_pos)
 
    l = ((int)(short)v * spu.iLeftXAVol) >> 15;
    r = ((int)(short)(v >> 16) * spu.iRightXAVol) >> 15;
-   SSumLR[ns++] += l;
-   SSumLR[ns++] += r;
+
+   // play flag
+   if ( spuCtrl & CTRL_CD_PLAY ) {
+     SSumLR[ns++] += l;
+     SSumLR[ns++] += r;
+   } else {
+       ns += 2;
+   }
 
     spu.spuMem[cursor] = v;
     spu.spuMem[cursor + 0x400/2] = v >> 16;
