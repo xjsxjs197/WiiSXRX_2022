@@ -85,7 +85,7 @@ INLINE void MixXA(int *SSumLR, int ns_to, int decode_pos)
    r = ((int)(short)(v >> 16) * spu.iRightXAVol) >> 15;
 
    // play flag
-   if ( spuCtrl & CTRL_CD_PLAY ) {
+   if ( spu.spuCtrl & CTRL_CD_PLAY ) {
      SSumLR[ns++] += l;
      SSumLR[ns++] += r;
    } else {
