@@ -14,7 +14,7 @@
  *   You should have received a copy of the GNU General Public License     *
  *   along with this program; if not, write to the                         *
  *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   51 Franklin Street, Fifth Floor, Boston, MA 02111-1307 USA.           *
  ***************************************************************************/
 
 #ifndef __PSXCOUNTERS_H__
@@ -29,7 +29,17 @@ extern "C" {
 #include "psxmem.h"
 #include "plugins.h"
 
-//extern u32 psxNextCounter, psxNextsCounter;
+extern u32 psxNextCounter, psxNextsCounter;
+
+extern u32 hSyncCount, frame_counter;
+
+typedef struct Rcnt
+{
+    u16 mode, target;
+    u32 rate, irq, counterState, irqState;
+    u32 cycle, cycleStart;
+} Rcnt;
+extern Rcnt rcnts[];
 
 void psxRcntInit();
 void psxRcntUpdate();
