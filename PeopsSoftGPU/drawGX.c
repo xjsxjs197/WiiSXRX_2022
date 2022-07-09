@@ -177,7 +177,7 @@ void DoClearFrontBuffer(void)                          // CLEAR DX BUFFER
         DEBUG_update();
         for (i=0;i<DEBUG_TEXT_HEIGHT;i++)
 		{
-            IplFont_drawString(10,(16*i+60),text[i], 0.5, false);
+            IplFont_drawString(10,(24*i+60),text[i], 0.5, false);
 		}
 	}
 
@@ -467,7 +467,7 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch)
         DEBUG_update();
         for (i=0;i<DEBUG_TEXT_HEIGHT;i++)
 		{
-            IplFont_drawString(10,(10*i+60),text[i], 0.5, false);
+            IplFont_drawString(10,(24*i+60),text[i], 0.5, false);
 		}
     }
 

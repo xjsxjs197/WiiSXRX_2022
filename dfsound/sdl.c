@@ -141,7 +141,8 @@ static int sdl_busy(void) {
 
 	if (size < BUFFER_SIZE / 2) {
         #ifdef SHOW_DEBUG
-        DEBUG_print("sdl_busy =sdl_busy== ", DBG_SPU1);
+        sprintf(txtbuffer, "sdl_busy size = %d\n", size);
+        DEBUG_print(txtbuffer, DBG_SPU1);
         #endif // DISP_DEBUG
         return 1;
 	}
@@ -155,7 +156,7 @@ static int sdl_busy(void) {
     return 0;*/
 }
 
-static void sdl_feed(void *pSound, int lBytes) {
+static int sdl_feed(void *pSound, int lBytes) {
 	short *p = (short *)pSound;
 
 	if (pSndBuffer == NULL) return;
@@ -191,6 +192,8 @@ static void sdl_feed(void *pSound, int lBytes) {
 
 		lBytes -= sizeof(short);
 	}
+
+	return lBytes;
 
 	//if(!audioEnabled) return;
 

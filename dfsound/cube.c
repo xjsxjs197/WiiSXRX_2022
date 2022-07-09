@@ -99,7 +99,7 @@ static void aesnd_callback(AESNDPB* voice, u32 state){
 ////////////////////////////////////////////////////////////////////////
 // FEED SOUND DATA
 ////////////////////////////////////////////////////////////////////////
-void SoundFeedStreamData(unsigned char* pSound,long lBytes)
+int SoundFeedStreamData(unsigned char* pSound,long lBytes)
 {
 	if(!audioEnabled) return;
 
@@ -109,6 +109,8 @@ void SoundFeedStreamData(unsigned char* pSound,long lBytes)
 	fill_buffer = (fill_buffer + 1) & 3;
 
 	AESND_SetVoiceStop(voice, false);
+
+	return 0;
 }
 
 void pauseAudio(void){

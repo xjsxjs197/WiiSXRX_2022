@@ -6,7 +6,7 @@ struct out_driver {
 	int (*init)(void);
 	void (*finish)(void);
 	int (*busy)(void);
-	void (*feed)(void *data, int bytes);
+	int (*feed)(void *data, int bytes);
 };
 
 extern struct out_driver *out_current;
