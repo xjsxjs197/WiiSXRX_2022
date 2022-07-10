@@ -76,9 +76,10 @@ static button_t analog_sources[] = {
 };
 
 static button_t menu_combos[] = {
-		{ 0, WPAD_CLASSIC_BUTTON_X | WPAD_CLASSIC_BUTTON_Y, "X+Y" },
-		{ 1, WPAD_CLASSIC_BUTTON_ZL | WPAD_CLASSIC_BUTTON_ZR, "ZL+ZR" },
-		{ 2, WPAD_CLASSIC_BUTTON_HOME, "Home" },
+		{ 0, WPAD_CLASSIC_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_B, "Plus+B" },
+		{ 1, WPAD_CLASSIC_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_MINUS, "Plus+Minus" },
+		{ 2, WPAD_CLASSIC_BUTTON_ZL | WPAD_CLASSIC_BUTTON_ZR, "ZL+ZR" },
+		{ 3, WPAD_CLASSIC_BUTTON_HOME, "Home" },
 };
 
 static void pause(int Control){

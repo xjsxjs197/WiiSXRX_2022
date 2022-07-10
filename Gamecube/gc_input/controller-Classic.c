@@ -97,9 +97,10 @@ static button_t analog_sources[] = {
 };
 
 static button_t menu_combos[] = {
-	{ 0, CLASSIC_CTRL_BUTTON_X|CLASSIC_CTRL_BUTTON_Y, "X+Y" },
+	{ 0, CLASSIC_CTRL_BUTTON_PLUS|CLASSIC_CTRL_BUTTON_B, "Plus+B" },
 	{ 1, CLASSIC_CTRL_BUTTON_ZL|CLASSIC_CTRL_BUTTON_ZR, "ZL+ZR" },
 	{ 2, CLASSIC_CTRL_BUTTON_HOME, "Home" },
+	{ 3, WPAD_BUTTON_PLUS | WPAD_BUTTON_MINUS, "+ & -" },
 };
 
 

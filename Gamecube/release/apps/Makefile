@@ -1,9 +1,9 @@
-#Creates a WiiSXR Redistributable
+#Creates a WiiSXRX Redistributable
 ifndef ECHO
 ECHO = echo
 endif
 
-VERSION = beta2.2
+VERSION = beta2.6
 
 .PHONY:  all
 
@@ -15,6 +15,7 @@ dist: ../WiiSXRX.dol clean
 	@mkdir -p \
 		wiisxrx/bios \
 		wiisxrx/saves \
+		wiisxrx/savestates \
 		wiisxrx/isos
 	@zip -r ../../WiiSXRX-$(VERSION).zip wiisxrx apps README
  

@@ -1,5 +1,5 @@
 README : WiiSX RX / CubeSX RX
-Beta 2.5
+Beta 2.6
 
 LICENSE:
     This software is licensed under the GNU General Public License v2
@@ -96,6 +96,19 @@ CREDITS:
  * www.emulatemii.com and https://code.google.com/archive/p/pcsxgc/downloads
 
 RX CHANGE LOG:
+Beta 2.6:
+* V-Sync is now activated. (thanks xjsxjs197!)
+* Adjust some button shortcuts for entering the Menu.
+Specially useful for people who use alternative classic controllers or
+adapters that connect to the Wiimote, such as the DualShock 2, arcade
+joysticks, NES and SNES Classic controllers, etc., some of which don't have
+a Home button to return to the emulator's main menu.
+* UStealth support.
+* Wii 480p video fix. [Extrems]
+* More 3rd party controllers support. [Tantric]
+Fix 3rd party classic controllers that don't send calibration data.
+For those controllers, use default values.
+
 Beta 2.5:
 * Version bump, IOS & CPU speed inside Credits.
 * Controller settings SD saving bugfix.
