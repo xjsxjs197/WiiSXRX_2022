@@ -164,7 +164,7 @@ Auto Save Memcards: Yes; No
 Save States Device: SD; USB
 */
 
-static char FRAME_STRINGS[60][24] =
+static char FRAME_STRINGS[61][24] =
 	{ "General",
 	  "Video",
 	  "Input",
@@ -226,11 +226,12 @@ static char FRAME_STRINGS[60][24] =
 	  "Save States Device",
 	  "CardA",
 	  "CardB",
-      // Strings for display language (starting at FRAME_STRINGS[56]) ..was[59]
+      // Strings for display language (starting at FRAME_STRINGS[56]) ..was[60]
       "Select language",
       "En", // English
       "Chs", // Simplified Chinese
-      "Kr" // Korean
+      "Kr", // Korean
+      "Es" // SPANISH
       };
 
 
@@ -924,8 +925,17 @@ void Func_ExecuteBios()
 
 void Func_SelectLanguage()
 {
+//    ENGLISH = 0,
+//	SIMP_CHINESE,
+//	KOREAN,
+//	SPANISH,
+//	TRAD_CHINESE,
+//	JAPANESE,
+//	GERMAN,
+//	FRENCH,
+//	ITALIAN
     lang++;
-    if (lang > KOREAN)
+    if (lang > SPANISH)
     {
         lang = ENGLISH;
     }
