@@ -44,17 +44,23 @@ static int gauss_window[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 // MIX XA & CDDA
 ////////////////////////////////////////////////////////////////////////
 
+static int lastcd_lc, lastcd_rc;
+#define ssat32_to_16(v) { \
+  if (v < -32768) v = -32768; \
+  else if (v > 32767) v = 32767; \
+}
+
 INLINE void MixXA(int *SSumLR, int ns_to, int decode_pos)
 {
  int cursor = decode_pos;
  int ns;
- short l, r;
+ int l, r;
  uint32_t v;
 
  if(spu.XAPlay != spu.XAFeed || spu.XARepeat > 0)
  {
   if(spu.XAPlay == spu.XAFeed)
-   spu.XARepeat--;
+   //spu.XARepeat--;
 
   v = spu.XALastVal;
   for(ns = 0; ns < ns_to*2; )
@@ -74,25 +80,55 @@ INLINE void MixXA(int *SSumLR, int ns_to, int decode_pos)
   spu.XALastVal = v;
  }
 
+cursor = decode_pos;
  for(ns = 0; ns < ns_to * 2 && spu.CDDAPlay!=spu.CDDAFeed && (spu.CDDAPlay!=spu.CDDAEnd-1||spu.CDDAFeed!=spu.CDDAStart);)
   {
    v=*spu.CDDAPlay++;
    if(spu.CDDAPlay==spu.CDDAEnd) spu.CDDAPlay=spu.CDDAStart;
 
-   l = ((int)(short)v * spu.iLeftXAVol) >> 15;
-   r = ((int)(short)(v >> 16) * spu.iRightXAVol) >> 15;
+   //l = ((int)(short)v * spu.iLeftXAVol) >> 15;
+   //r = ((int)(short)(v >> 16) * spu.iRightXAVol) >> 15;
+   l = (short)(v & 0xffff);
+   r = (short)((v >> 16) & 0xffff);
+   // improve crackle - buffer under
+   // - not update fast enough
+   lastcd_lc = l;
+   lastcd_rc = r;
 
    // play flag
    if ( spu.spuCtrl & CTRL_CD_PLAY ) {
-     SSumLR[ns++] += l;
-     SSumLR[ns++] += r;
+     SSumLR[ns++] += ((int)l * spu.iLeftXAVol) >> 15;
+     SSumLR[ns++] += ((int)r * spu.iRightXAVol) >> 15;
    } else {
        ns += 2;
    }
 
-   spu.spuMem[cursor] = v;
-   spu.spuMem[cursor + 0x400/2] = v >> 16;
+   spu.spuMem[cursor] = l;
+   spu.spuMem[(cursor + 0x200)] = r;
    cursor = (cursor + 1) & 0x1ff;
+  }
+
+  if (spu.CDDAPlay == spu.CDDAFeed && spu.XARepeat)
+  {
+      for(; ns < ns_to * 2;)
+      {
+          // improve crackle - buffer under
+          // - not update fast enough
+          l = lastcd_lc;
+          r = lastcd_rc;
+
+          // play flag
+          if ( spu.spuCtrl & CTRL_CD_PLAY ) {
+              SSumLR[ns++] += ((int)l * spu.iLeftXAVol) >> 15;
+              SSumLR[ns++] += ((int)r * spu.iRightXAVol) >> 15;
+          } else {
+              ns += 2;
+          }
+
+          spu.spuMem[cursor] = l;
+          spu.spuMem[(cursor + 0x200)] = r;
+          cursor = (cursor + 1) & 0x1ff;
+      }
   }
 }
 
@@ -397,13 +433,22 @@ INLINE void FeedXA(xa_decode_t *xap)
 ////////////////////////////////////////////////////////////////////////
 // FEED CDDA
 ////////////////////////////////////////////////////////////////////////
+#ifdef SHOW_DEBUG
+extern char txtbuffer[1024];
+#endif // DISP_DEBUG
 
 INLINE int FeedCDDA(unsigned char *pcm, int nBytes)
 {
  int space;
  space=(spu.CDDAPlay-spu.CDDAFeed-1)*4 & (CDDA_BUFFER_SIZE - 1);
  if(space<nBytes)
-  return 0x7761; // rearmed_wait
+ {
+     #ifdef SHOW_DEBUG
+     sprintf(txtbuffer, "FeedCDDA 0x7761 %ld %ld", space, nBytes);
+     DEBUG_print(txtbuffer, DBG_SPU2);
+     #endif // DISP_DEBUG
+     return 0x7761; // rearmed_wait
+ }
 
  while(nBytes>0)
   {

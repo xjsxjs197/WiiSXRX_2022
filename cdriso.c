@@ -181,7 +181,7 @@ static void *playthread(void *param)
 		s = 0;
 		for (i = 0; i < sizeof(sndbuffer) / CD_FRAMESIZE_RAW; i++) {
 			sector_offs = cdda_cur_sector - cdda_first_sector;
-			if (sector_offs < 0) {
+			if (sector_offs <= 0) {
 				d = CD_FRAMESIZE_RAW;
 				memset(sndbuffer + s, 0, d);
 			}
@@ -189,7 +189,10 @@ static void *playthread(void *param)
 				d = cdimg_read_func(cddaHandle, cdda_file_offset,
 					sndbuffer + s, sector_offs);
 				if (d < CD_FRAMESIZE_RAW)
-					break;
+                {
+                    s += d;
+                    break;
+                }
 			}
 
 			s += d;
