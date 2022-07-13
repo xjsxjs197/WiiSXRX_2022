@@ -21,7 +21,7 @@ msgid "Resume Game"
 msgstr "Reanudar Juego"
 
 msgid "Please load an ISO first"
-msgstr "Carga la iso primero"
+msgstr "Carga la ISO primero"
 
 msgid "Are you sure you want to exit to loader?"
 msgstr "¿Seguro que quieres salir?"
@@ -42,7 +42,7 @@ msgid "Failed to save game"
 msgstr "Fallo Guardar juego"
 
 msgid "No ISO Loaded"
-msgstr "No hay ISO"
+msgstr "ISO no cargada"
 
 msgid "AutoSave Enabled"
 msgstr "AutoGuardado Act."
@@ -90,19 +90,19 @@ msgid "Dynarec"
 msgstr "Dynarec"
 
 msgid "Yes"
-msgstr "Si"
+msgstr "Sí"
 
 msgid "No"
 msgstr "No"
 
 msgid "On"
-msgstr "Si"
+msgstr "Sí"
 
 msgid "Off"
 msgstr "No"
 
 msgid "Show FPS"
-msgstr "Ver FPS"
+msgstr "Mostrar FPS"
 
 msgid "Limit FPS"
 msgstr "Limitar FPS"
@@ -141,10 +141,10 @@ msgid "Always"
 msgstr "Siempre"
 
 msgid "Configure Input"
-msgstr "Configurar Control"
+msgstr "Config. Control"
 
 msgid "Configure Buttons"
-msgstr "Configurar Botones"
+msgstr "Config. Botones"
 
 msgid "PSX Controller Type"
 msgstr "Control Tipo PSX"
@@ -159,7 +159,7 @@ msgid "Analog"
 msgstr "Análogo"
 
 msgid "Save Button Configs"
-msgstr "Guardar Configuración"
+msgstr "Guardar Config."
 
 msgid "Auto Load Slot:"
 msgstr "Auto Cargar"
@@ -192,7 +192,7 @@ msgid "Memcard Save Device"
 msgstr "Ruta de MemoryCard"
 
 msgid "Auto Save Memcards"
-msgstr "Autoguardar MemoryCards"
+msgstr "Autoguardar MemCards"
 
 msgid "Save States Device"
 msgstr "Ruta de Estados"
@@ -222,7 +222,7 @@ msgid "Failed to initialize system.\nTry loading an ISO."
 msgstr "Fallo arranque de sistema.\Carga una ISO"
 
 msgid "Error opening directory sd:/wiisxr"
-msgstr "Error abriendo carpeta sd:wiisxr"
+msgstr "Error abriendo carpeta sd:/wiisxr"
 
 msgid "Saved settings.cfg to SD"
 msgstr "setting.cfg guardado en SD"
@@ -231,7 +231,7 @@ msgid "Error saving settings.cfg to SD"
 msgstr "Error guardando settings.cfg en SD"
 
 msgid "Error opening directory usb:/wiisxr"
-msgstr "Error abriendo carpeta usb:wiisxr"
+msgstr "Error abriendo carpeta usb:/wiisxr"
 
 msgid "Saved settings.cfg to USB"
 msgstr "settings.cfg guardado en USB"
@@ -255,34 +255,34 @@ msgid "CDDA audio is not implemented"
 msgstr "Audio CDDA no implementado"
 
 msgid "Slot 0"
-msgstr "Ranura 0"
+msgstr "Slot 0"
 
 msgid "Slot 1"
-msgstr "Ranura 1"
+msgstr "Slot 1"
 
 msgid "Slot 2"
-msgstr "Ranura 2"
+msgstr "Slot 2"
 
 msgid "Slot 3"
-msgstr "Ranura 3"
+msgstr "Slot 3"
 
 msgid "Slot 4"
-msgstr "Ranura 4"
+msgstr "Slot 4"
 
 msgid "Slot 5"
-msgstr "Ranura 5"
+msgstr "Slot 5"
 
 msgid "Slot 6"
-msgstr "Ranura 6"
+msgstr "Slot 6"
 
 msgid "Slot 7"
-msgstr "Ranura 7"
+msgstr "Slot 7"
 
 msgid "Slot 8"
-msgstr "Ranura 8"
+msgstr "Slot 8"
 
 msgid "Slot 9"
-msgstr "Ranura 9"
+msgstr "Slot 9"
 
 msgid "Pad Assignment"
 msgstr "Asignar Mando"
@@ -309,7 +309,7 @@ msgid "None"
 msgstr "Nada"
 
 msgid "Gamecube Pad"
-msgstr "Mando de Gamecube"
+msgstr "M. Gamecube"
 
 msgid "Wii Pad"
 msgstr "Mando de Wii"
@@ -318,16 +318,16 @@ msgid "Auto Assign"
 msgstr "Auto Asignar"
 
 msgid "Next Pad"
-msgstr "Siguiente Mando"
+msgstr "S. Mando"
 
 msgid "Load Default"
-msgstr "Por Defecto"
+msgstr "Defecto"
 
 msgid "Load"
-msgstr "Cargar"
+msgstr "Load"
 
 msgid "Save"
-msgstr "Guardar"
+msgstr "Save"
 
 msgid "PSX Pad 1: No Physical Controller Assigned"
 msgstr "Mando de PSX 1: Control Físico No Asignado"
@@ -462,10 +462,10 @@ msgid "Swap CD"
 msgstr "Cambiar CD"
 
 msgid "Load MemCards"
-msgstr "Cargar MemCards"
+msgstr "Cargar Mem."
 
 msgid "Save MemCards"
-msgstr "Guardar MemCards"
+msgstr "Guardar Mem."
 
 msgid "Show ISO Info"
 msgstr "Ver Info. ISO"
