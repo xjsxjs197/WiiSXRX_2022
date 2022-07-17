@@ -807,6 +807,7 @@ static int handlepbp(const char *isofile) {
 	off_t psisoimg_offs, cdimg_base;
 	unsigned int t, cd_length;
 	unsigned int offsettab[8];
+	unsigned int psar_offs, index_entry_size, index_entry_offset;
 	const char *ext = NULL;
 	int i, ret;
 
@@ -825,21 +826,23 @@ static int handlepbp(const char *isofile) {
 		goto fail_io;
 	}
 
-	ret = fseeko(cdHandle, pbp_hdr.psar_offs, SEEK_SET);
+	psar_offs = SWAP32(pbp_hdr.psar_offs);
+
+	ret = fseeko(cdHandle, psar_offs, SEEK_SET);
 	if (ret != 0) {
-		SysPrintf("failed to seek to %x\n", pbp_hdr.psar_offs);
+		SysPrintf("failed to seek to %x\n", psar_offs);
 		goto fail_io;
 	}
 
-	psisoimg_offs = pbp_hdr.psar_offs;
+	psisoimg_offs = psar_offs;
 	if (fread(psar_sig, 1, sizeof(psar_sig), cdHandle) != sizeof(psar_sig))
 		goto fail_io;
 	psar_sig[10] = 0;
 	if (strcmp(psar_sig, "PSTITLEIMG") == 0) {
 		// multidisk image?
-		ret = fseeko(cdHandle, pbp_hdr.psar_offs + 0x200, SEEK_SET);
+		ret = fseeko(cdHandle, psar_offs + 0x200, SEEK_SET);
 		if (ret != 0) {
-			SysPrintf("failed to seek to %x\n", pbp_hdr.psar_offs + 0x200);
+			SysPrintf("failed to seek to %x\n", psar_offs + 0x200);
 			goto fail_io;
 		}
 
@@ -861,7 +864,7 @@ static int handlepbp(const char *isofile) {
 		if (cdrIsoMultidiskSelect >= cdrIsoMultidiskCount)
 			cdrIsoMultidiskSelect = 0;
 
-		psisoimg_offs += offsettab[cdrIsoMultidiskSelect];
+		psisoimg_offs += SWAP32(offsettab[cdrIsoMultidiskSelect]);
 
 		ret = fseeko(cdHandle, psisoimg_offs, SEEK_SET);
 		if (ret != 0) {
@@ -945,12 +948,15 @@ static int handlepbp(const char *isofile) {
 			goto fail_index;
 		}
 
-		if (index_entry.size == 0)
+		index_entry_size = SWAP32(index_entry.size);
+		index_entry_offset = SWAP32(index_entry.offset);
+
+		if (index_entry_size == 0)
 			break;
 
-		compr_img->index_table[i] = cdimg_base + index_entry.offset;
+		compr_img->index_table[i] = cdimg_base + index_entry_offset;
 	}
-	compr_img->index_table[i] = cdimg_base + index_entry.offset + index_entry.size;
+	compr_img->index_table[i] = cdimg_base + index_entry_offset + index_entry_size;
 
 	return 0;
 
@@ -1644,7 +1650,7 @@ static long CALLBACK ISOopen(void) {
 	if (ftello(cdHandle) % 2048 == 0) {
 		unsigned int modeTest = 0;
 		fseek(cdHandle, 0, SEEK_SET);
-		if (fread(&modeTest, sizeof(modeTest), 1, cdHandle) != 1) {
+		if (!fread(&modeTest, sizeof(modeTest), 1, cdHandle)) {
 #ifndef NDEBUG
 			SysPrintf(_("File IO error in <%s:%s>.\n"), __FILE__, __func__);
 #endif
@@ -1691,7 +1697,7 @@ static long CALLBACK ISOclose(void) {
 		fclose(subHandle);
 		subHandle = NULL;
 	}
-	stopCDDA();
+	playing = FALSE;
 	cddaHandle = NULL;
 
 	if (compr_img != NULL) {
@@ -1797,13 +1803,12 @@ static void DecodeRawSubData(void) {
 // read track
 // time: byte 0 - minute; byte 1 - second; byte 2 - frame
 // uses bcd format
-static long CALLBACK ISOreadTrack(unsigned char *time) {
-	//int sector = MSF2SECT(btoi(time[0]), btoi(time[1]), btoi(time[2]));
-	int sector = MSF2SECT((time[0]), (time[1]), btoi(time[2]));
+static int CALLBACK ISOreadTrack(unsigned char *time) {
+	int sector = MSF2SECT(btoi(time[0]), btoi(time[1]), btoi(time[2]));
 	long ret;
 
 	if (cdHandle == NULL) {
-		return -1;
+		return 0;
 	}
 
 	if (pregapOffset) {
@@ -1817,7 +1822,7 @@ static long CALLBACK ISOreadTrack(unsigned char *time) {
 
 	ret = cdimg_read_func(cdHandle, 0, cdbuffer, sector);
 	if (ret < 0)
-		return -1;
+		return 0;
 
 	if (subHandle != NULL) {
 		fseek(subHandle, sector * SUB_FRAMESIZE, SEEK_SET);
@@ -1828,47 +1833,20 @@ static long CALLBACK ISOreadTrack(unsigned char *time) {
 		if (subChanRaw) DecodeRawSubData();
 	}
 
-	return 0;
+	return 1;
 }
 
 // plays cdda audio
 // sector: byte 0 - minute; byte 1 - second; byte 2 - frame
 // does NOT uses bcd format
 static long CALLBACK ISOplay(unsigned char *time) {
-	unsigned int i;
-	#ifdef DISP_DEBUG
-	sprintf(txtbuffer, "CDR_play time %d %d %d", time[0], time[1], time[2]);
-    DEBUG_print(txtbuffer, DBG_CDR1);
-    #endif // DISP_DEBUG
-
-	if (numtracks <= 1)
-		return 0;
-
-	// find the track
-	cdda_cur_sector = msf2sec((char *)time);
-	for (i = numtracks; i > 1; i--) {
-		cdda_first_sector = msf2sec(ti[i].start);
-		if (cdda_first_sector <= cdda_cur_sector + 2 * 75)
-			break;
-	}
-	cdda_file_offset = ti[i].start_offset;
-
-	// find the file that contains this track
-	for (; i > 1; i--)
-		if (ti[i].handle != NULL)
-			break;
-
-	cddaHandle = ti[i].handle;
-
-	if (SPU_playCDDAchannel != NULL)
-		startCDDA();
-
+	playing = TRUE;
 	return 0;
 }
 
 // stops cdda audio
 static long CALLBACK ISOstop(void) {
-	stopCDDA();
+	playing = FALSE;
 	return 0;
 }
 
@@ -1883,9 +1861,9 @@ static unsigned char* CALLBACK ISOgetBufferSub(void) {
 
 static long CALLBACK ISOgetStatus(struct CdrStat *stat) {
 	u32 sect;
-
+	
 	CDR__getStatus(stat);
-
+	
 	if (playing) {
 		stat->Type = 0x02;
 		stat->Status |= 0x80;
@@ -1894,11 +1872,11 @@ static long CALLBACK ISOgetStatus(struct CdrStat *stat) {
 		// BIOS - boot ID (CD type)
 		stat->Type = ti[1].type;
 	}
-
+	
 	// relative -> absolute time
 	sect = cddaCurPos;
 	sec2msf(sect, (char *)stat->Time);
-
+	
 	return 0;
 }
 
