@@ -180,7 +180,7 @@ int msf2SectS[] = {
 // 1x = 75 sectors per second
 // PSXCLK = 1 sec in the ps
 // so (PSXCLK / 75) = cdr read time (linuzappz)
-#define cdReadTime (PSXCLK / 75)
+#define cdReadTime ((PSXCLK / 75) / BIAS)
 
 enum drive_state {
 	DRIVESTATE_STANDBY = 0,
@@ -447,8 +447,8 @@ static void ReadTrack(const u8 *time) {
 	cdr.NoErr = CDR_readTrack(tmp);
 	memcpy(cdr.Prev, tmp, 3);
 
-	if (CheckSBI(time))
-		return;
+	//if (CheckSBI(time))
+	//	return;
 
 	subq = (struct SubQ *)CDR_getBufferSub();
 	if (subq != NULL && cdr.CurTrack == 1) {

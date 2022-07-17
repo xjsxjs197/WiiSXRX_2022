@@ -1803,7 +1803,7 @@ static void DecodeRawSubData(void) {
 // read track
 // time: byte 0 - minute; byte 1 - second; byte 2 - frame
 // uses bcd format
-static int CALLBACK ISOreadTrack(unsigned char *time) {
+static long CALLBACK ISOreadTrack(unsigned char *time) {
 	int sector = MSF2SECT(btoi(time[0]), btoi(time[1]), btoi(time[2]));
 	long ret;
 
@@ -1861,9 +1861,9 @@ static unsigned char* CALLBACK ISOgetBufferSub(void) {
 
 static long CALLBACK ISOgetStatus(struct CdrStat *stat) {
 	u32 sect;
-	
+
 	CDR__getStatus(stat);
-	
+
 	if (playing) {
 		stat->Type = 0x02;
 		stat->Status |= 0x80;
@@ -1872,11 +1872,11 @@ static long CALLBACK ISOgetStatus(struct CdrStat *stat) {
 		// BIOS - boot ID (CD type)
 		stat->Type = ti[1].type;
 	}
-	
+
 	// relative -> absolute time
 	sect = cddaCurPos;
 	sec2msf(sect, (char *)stat->Time);
-	
+
 	return 0;
 }
 
