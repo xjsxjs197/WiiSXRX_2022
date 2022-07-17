@@ -141,8 +141,8 @@ static int sdl_busy(void) {
 
 	if (size < BUFFER_SIZE / 2) {
         #ifdef SHOW_DEBUG
-        sprintf(txtbuffer, "sdl_busy size = %d\n", size);
-        DEBUG_print(txtbuffer, DBG_SPU1);
+        //sprintf(txtbuffer, "sdl_busy size = %d\n", size);
+        //DEBUG_print(txtbuffer, DBG_SPU1);
         #endif // DISP_DEBUG
         return 1;
 	}

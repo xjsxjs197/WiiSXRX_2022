@@ -228,6 +228,9 @@ typedef struct
  unsigned int    XARepeat;
  unsigned int    XALastVal;
 
+ unsigned int    CDDARepeat;
+ unsigned int    CDDALastVal;
+
  int             iLeftXAVol;
  int             iRightXAVol;
 
@@ -251,7 +254,7 @@ typedef struct
 
 extern SPUInfo spu;
 
-void do_samples(unsigned int cycles_to, int do_sync);
+int do_samples(unsigned int cycles_to, int do_sync);
 void schedule_next_irq(void);
 
 #define do_samples_if_needed(c, sync) \

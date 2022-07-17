@@ -34,6 +34,8 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "Gamecube/DEBUG.h"
+
 #define OFF_T_MSB ((off_t)1 << (sizeof(off_t) * 8 - 1))
 
 unsigned int cdrIsoMultidiskCount;
@@ -64,7 +66,7 @@ static lwpq_t threadMsgAvilQ = LWP_TQUEUE_NULL;
 
 static unsigned int initial_offset = 0;
 static bool playing = FALSE;
-static bool cddaBigEndian = FALSE;
+static bool cddaBigEndian = TRUE;
 // cdda sectors in toc, byte offset in file
 static unsigned int cdda_cur_sector;
 static unsigned int cdda_first_sector;
@@ -179,7 +181,7 @@ static void *playthread(void *param)
 		s = 0;
 		for (i = 0; i < sizeof(sndbuffer) / CD_FRAMESIZE_RAW; i++) {
 			sector_offs = cdda_cur_sector - cdda_first_sector;
-			if (sector_offs < 0) {
+			if (sector_offs <= 0) {
 				d = CD_FRAMESIZE_RAW;
 				memset(sndbuffer + s, 0, d);
 			}
@@ -187,7 +189,10 @@ static void *playthread(void *param)
 				d = cdimg_read_func(cddaHandle, cdda_file_offset,
 					sndbuffer + s, sector_offs);
 				if (d < CD_FRAMESIZE_RAW)
-					break;
+                {
+                    s += d;
+                    break;
+                }
 			}
 
 			s += d;
@@ -202,6 +207,7 @@ static void *playthread(void *param)
 
 		if (!cdr.Muted && playing) {
 			if (cddaBigEndian) {
+			//if (true) {
 				for (i = 0; i < s / 2; i++) {
 					tmp = sndbuffer[i * 2];
 					sndbuffer[i * 2] = sndbuffer[i * 2 + 1];
@@ -260,7 +266,7 @@ static void stopCDDA() {
 	}
 
     #ifdef DISP_DEBUG
-    PRINT_LOG("========stopCDDA========");
+    DEBUG_print("stopCDDA =====", DBG_CDR2);
     #endif // DISP_DEBUG
 	playing = FALSE;
 
@@ -274,14 +280,15 @@ static void startCDDA(void) {
 		stopCDDA();
 	}
 
-    #ifdef DISP_DEBUG
-    PRINT_LOG("========startCDDA========");
+    #ifdef SHOW_DEBUG
+    sprintf(txtbuffer, "startCDDA %ld %ld %ld", cdda_first_sector, cdda_cur_sector, cdda_file_offset);
+    DEBUG_print(txtbuffer, DBG_CDR2);
     #endif // DISP_DEBUG
 
 	playing = TRUE;
 
 	//pthread_create(&threadid, NULL, playthread, NULL);
-	LWP_CreateThread(&threadid, playthread, NULL, NULL, 0, 40);
+	LWP_CreateThread(&threadid, playthread, NULL, NULL, 0, 80);
 }
 
 // this function tries to get the .toc file of the given .bin
@@ -336,7 +343,7 @@ static int parsetoc(const char *isofile) {
 	}
 
 	memset(&ti, 0, sizeof(ti));
-	cddaBigEndian = TRUE; // cdrdao uses big-endian for CD Audio
+	cddaBigEndian = FALSE; // cdrdao uses big-endian for CD Audio
 
 	sector_size = CD_FRAMESIZE_RAW;
 	sector_offs = 2 * 75;
@@ -1564,7 +1571,7 @@ static long CALLBACK ISOopen(void) {
 
 	sprintf(image_str, "Loaded CD Image: %s", GetIsoFile());
 
-	cddaBigEndian = FALSE;
+	cddaBigEndian = TRUE;
 	subChanMixed = FALSE;
 	subChanRaw = FALSE;
 	pregapOffset = 0;
@@ -1830,7 +1837,8 @@ static long CALLBACK ISOreadTrack(unsigned char *time) {
 static long CALLBACK ISOplay(unsigned char *time) {
 	unsigned int i;
 	#ifdef DISP_DEBUG
-    PRINT_LOG("========ISOplay========");
+	sprintf(txtbuffer, "CDR_play time %d %d %d", time[0], time[1], time[2]);
+    DEBUG_print(txtbuffer, DBG_CDR1);
     #endif // DISP_DEBUG
 
 	if (numtracks <= 1)
