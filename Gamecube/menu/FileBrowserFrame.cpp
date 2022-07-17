@@ -478,6 +478,62 @@ int ChkString(char * str1, char * str2, int len)
 }
 // add xjsxjs197 end
 
+static void CheckGameAutoFix(void)
+{
+    int autoFixLen = 34;
+    char autoFixGames[autoFixLen][10] = {
+         "SLUS00447" // VANDAL HEARTS
+        ,"SLUS00940" // VANDAL HEARTS II
+
+        ,"SLUS01042" // PARASITE EVE 2(disk1)
+        ,"SLUS01055" // PARASITE EVE 2(disk2 ?)
+
+        ,"SLES00204" // VANDAL HEARTS
+        ,"SLES02469" // VANDAL HEARTS II
+        ,"SLES02496" // VANDAL HEARTS II
+        ,"SLES02497" // VANDAL HEARTS II
+
+        ,"SLES02558" // PARASITE EVE 2(disk1)
+        ,"SLES12558" // PARASITE EVE 2(disk2 ?)
+        ,"SLES02559" // PARASITE EVE 2(disk1)
+        ,"SLES12559" // PARASITE EVE 2(disk2 ?)
+        ,"SLES02560" // PARASITE EVE 2(disk1)
+        ,"SLES12560" // PARASITE EVE 2(disk2 ?)
+        ,"SLES02561" // PARASITE EVE 2(disk1)
+        ,"SLES12561" // PARASITE EVE 2(disk2 ?)
+        ,"SLES02562" // PARASITE EVE 2(disk1)
+        ,"SLES12562" // PARASITE EVE 2(disk2 ?)
+
+        ,"SCPS45183" // VANDAL HEARTS - USHINAWARETA KODAI BUNMEI
+        ,"SLPM86007" // VANDAL HEARTS - USHINAWARETA KODAI BUNMEI
+        ,"SLPM86067" // VANDAL HEARTS - USHINAWARETA KODAI BUNMEI [PLAYSTATION THE BEST]
+        ,"SLPM87278" // VANDAL HEARTS - USHINAWARETA KODAI BUNMEI [PSONE BOOKS]
+        ,"SCPS45415" // VANDAL HEARTS II - TENJOU NO MON
+        ,"SLPM86251" // VANDAL HEARTS II - TENJOU NO MON
+        ,"SLPM86504" // VANDAL HEARTS II - TENJOU NO MON [KONAMI THE BEST]
+        ,"SLPM87279" // VANDAL HEARTS II - TENJOU NO MON [PSONE BOOKS]
+
+        ,"SCPS45467" // PARASITE EVE II [ 2 DISCS ]
+        ,"SCPS45468" // PARASITE EVE II [ 2 DISCS ]
+        ,"SLPS02480" // PARASITE EVE II [ 2 DISCS ]
+        ,"SLPS02481" // PARASITE EVE II [ 2 DISCS ]
+        ,"SLPS91479" // PARASITE EVE II [PSONE BOOKS] [ 2 DISCS ]
+        ,"SLPS91480" // PARASITE EVE II [PSONE BOOKS] [ 2 DISCS ]
+        ,"SLPS02779" // PARASITE EVE II [SQUARESOFT MILLENNIUM COLLECTION]  -  [ 2 DISCS ]
+        ,"SLPS02780" // PARASITE EVE II [SQUARESOFT MILLENNIUM COLLECTION]  -  [ 2 DISCS ]
+
+    };
+
+    Config.RCntFix = 0;
+    int i;
+    for (i = 0; i < autoFixLen; i++)
+    {
+        if (ChkString(CdromId, autoFixGames[i], strlen(autoFixGames[i]))) {
+            Config.RCntFix = 1;
+        }
+    }
+}
+
 void fileBrowserFrame_LoadFile(int i)
 {
 	char feedback_string[256] = "Failed to load ISO";
@@ -514,16 +570,18 @@ void fileBrowserFrame_LoadFile(int i)
 			sprintf(buffer,"\nCD-ROM Label: %s\n",CdromLabel);
 			strcat(RomInfo,buffer);
 			// add xjsxjs197 start
-			Config.RCntFix = 0;
-			if (ChkString(CdromLabel, "SLPS02480", strlen("SLPS02480"))
-                || ChkString(CdromLabel, "SLPS02481", strlen("SLPS02481"))) {
-		        Config.RCntFix = 1;
-		    }
-			if (ChkString(CdromLabel, "Vandal Hearts", strlen("Vandal Hearts"))) {
-		        Config.RCntFix = 1;
-		    }
+			CheckGameAutoFix();
 			// add xjsxjs197 end
 			sprintf(buffer,"CD-ROM ID: %s\n", CdromId);
+			strcat(RomInfo,buffer);
+			if (Config.RCntFix)
+            {
+                sprintf(buffer, "AUTO FIXED: yes\n");
+            }
+            else
+            {
+                sprintf(buffer, "AUTO FIXED: no\n");
+            }
 			strcat(RomInfo,buffer);
 			sprintf(buffer,"ISO Size: %u Mb\n",isoFile.size/1024/1024);
 			strcat(RomInfo,buffer);

@@ -5,7 +5,7 @@
 #include "../decode_xa.h"
 #include "../Gamecube/DEBUG.h"
 
-extern void SoundFeedStreamData(unsigned char* pSound,long lBytes);
+extern int SoundFeedStreamData(unsigned char* pSound,long lBytes);
 extern void InitADSR(void);
 extern void SetupSound(void);
 extern void RemoveSound(void);

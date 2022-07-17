@@ -1105,6 +1105,7 @@ int do_samples(unsigned int cycles_to, int do_direct)
  int cycle_diff;
  int ns_to;
 
+ cycles_to = cycles_to << 1;
  cycle_diff = cycles_to - spu.cycles_played;
  if (cycle_diff < -2*1048576 || cycle_diff > 2*1048576)
   {
@@ -1269,15 +1270,16 @@ void schedule_next_irq(void)
 
 void CALLBACK DF_SPUasync(unsigned int cycle, unsigned int flags, unsigned int psxType)
 {
+    int lastBytes;
     int nsTo = do_samples(cycle, spu_config.iUseFixedUpdates);
 
  //if (spu.spuCtrl & CTRL_IRQ)
   //schedule_next_irq();
 
  if (flags & 1) {
-  out_current->feed(spu.pSpuBuffer, (unsigned char *)spu.pS - spu.pSpuBuffer);
+  lastBytes = out_current->feed(spu.pSpuBuffer, (unsigned char *)spu.pS - spu.pSpuBuffer);
   //spu.pSpuBuffer = spu.spuBuffer[spu.whichBuffer = ((spu.whichBuffer + 1) & 3)];
-  spu.pS = (short *)spu.pSpuBuffer;
+  spu.pS = (short *)spu.pSpuBuffer + lastBytes;
 
   //if (spu_config.iTempo) {
    if (!out_current->busy() && nsTo > 0) {
@@ -1334,13 +1336,13 @@ void ClearWorkingState(void)
 // SETUPSTREAMS: init most of the spu buffers
 static void SetupStreams(void)
 {
- spu.pSpuBuffer = (unsigned char *)malloc(32768);      // alloc mixing buffer
+ spu.pSpuBuffer = (unsigned char *)malloc(48000);      // alloc mixing buffer
  //spu.whichBuffer = 0;
  //spu.pSpuBuffer = spu.spuBuffer[spu.whichBuffer];            // alloc mixing buffer
  spu.SSumLR = calloc(NSSIZE * 2, sizeof(spu.SSumLR[0]));
 
  spu.XAStart =                                         // alloc xa buffer
-  (uint32_t *)malloc(SPU_FREQ * sizeof(uint32_t));
+  (uint32_t *)malloc(SPU_FREQ * sizeof(uint32_t) * 2);
  spu.XAEnd   = spu.XAStart + SPU_FREQ;
  spu.XAPlay  = spu.XAStart;
  spu.XAFeed  = spu.XAStart;
