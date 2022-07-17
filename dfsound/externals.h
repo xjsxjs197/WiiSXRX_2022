@@ -228,6 +228,9 @@ typedef struct
  unsigned int    XARepeat;
  unsigned int    XALastVal;
 
+ unsigned int    CDDARepeat;
+ unsigned int    CDDALastVal;
+
  int             iLeftXAVol;
  int             iRightXAVol;
 
