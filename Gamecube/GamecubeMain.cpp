@@ -598,7 +598,10 @@ int loadISO(fileBrowser_file* file)
 	}
 	else {
 		CheckCdrom();
-		LoadCdrom();
+		if (LoadCdrom() != 0)
+        {
+            return -1;
+        }
 	}
 
 	if(autoSave==AUTOSAVE_ENABLE) {
