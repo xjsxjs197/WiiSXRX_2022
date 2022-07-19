@@ -2169,16 +2169,28 @@ static void recLHU() {
 
 					case 0x1f801104: case 0x1f801114: case 0x1f801124:
 						if (!_Rt_) return;
-
-						LIW(PutHWReg32(_Rt_), (u32)&psxCounters[(addr >> 4) & 0x3].mode);
-						LWZ(PutHWReg32(_Rt_), 0, GetHWReg32(_Rt_));
+						
+                        ReserveArgs(1);
+                        LIW(PutHWRegSpecial(ARG1), (addr >> 4) & 0x3);
+                        DisposeHWReg(iRegs[_Rt_].reg);
+                        InvalidateCPURegs();
+                        CALLFunc((u32)psxRcntRmode);
+                        
+                        SetDstCPUReg(3);
+                        PutHWReg32(_Rt_);
 						return;
-
+	
 					case 0x1f801108: case 0x1f801118: case 0x1f801128:
 						if (!_Rt_) return;
 
-						LIW(PutHWReg32(_Rt_), (u32)&psxCounters[(addr >> 4) & 0x3].target);
-						LWZ(PutHWReg32(_Rt_), 0, GetHWReg32(_Rt_));
+                        ReserveArgs(1);
+                        LIW(PutHWRegSpecial(ARG1), (addr >> 4) & 0x3);
+                        DisposeHWReg(iRegs[_Rt_].reg);
+                        InvalidateCPURegs();
+                        CALLFunc((u32)psxRcntRtarget);
+                        
+                        SetDstCPUReg(3);
+                        PutHWReg32(_Rt_);
 						return;
 					}
 		}
@@ -3072,15 +3084,24 @@ CP2_FUNCNC(NCCT);
 static void recHLE() {
 	iFlushRegs(0);
 	FlushAllHWReg();
-	
-	if ((psxRegs.code & 0x3ffffff) == (psxRegs.code & 0x7)) {
-		CALLFunc((u32)psxHLEt[psxRegs.code & 0x7]);
-	} else {
-		// somebody else must have written to current opcode for this to happen!!!!
-		CALLFunc((u32)psxHLEt[0]); // call dummy function
-	}
-	
+    uint32_t hleCode = psxRegs.code & 0x03ffffff;
+    if (hleCode >= (sizeof(psxHLEt) / sizeof(psxHLEt[0]))) {
+        CALLFunc((u32)psxHLEt[0]); // call dummy function
+    } else {
+        CALLFunc((u32)psxHLEt[hleCode]);
+    }
+//	if ((psxRegs.code & 0x3ffffff) == (psxRegs.code & 0x7)) {
+//		CALLFunc((u32)psxHLEt[psxRegs.code & 0x7]);
+//	} else {
+//		// somebody else must have written to current opcode for this to happen!!!!
+//		CALLFunc((u32)psxHLEt[0]); // call dummy function
+//	}
+
+    // upd xjsxjs197 start
+	//count = idlecyclecount + (pc - pcold)/4 + 20;
 	count = (idlecyclecount + (pc - pcold) / 4 + 20) * BIAS;
+	// upd xjsxjs197 end
+
 	ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), count);
 	FlushAllHWReg();
 	CALLFunc((u32)psxBranchTest);

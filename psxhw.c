@@ -131,13 +131,13 @@ u16 psxHwRead16(u32 add) {
 #endif
 			return hard;
 		case 0x1f801104:
-			hard = psxCounters[0].mode;
+			hard = psxRcntRmode(0);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T0 mode read16: %x\n", hard);
 #endif
 			return hard;
 		case 0x1f801108:
-			hard = psxCounters[0].target;
+			hard = psxRcntRtarget(0);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T0 target read16: %x\n", hard);
 #endif
@@ -149,13 +149,13 @@ u16 psxHwRead16(u32 add) {
 #endif
 			return hard;
 		case 0x1f801114:
-			hard = psxCounters[1].mode;
+			hard = psxRcntRmode(1);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T1 mode read16: %x\n", hard);
 #endif
 			return hard;
 		case 0x1f801118:
-			hard = psxCounters[1].target;
+			hard = psxRcntRtarget(1);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T1 target read16: %x\n", hard);
 #endif
@@ -167,13 +167,13 @@ u16 psxHwRead16(u32 add) {
 #endif
 			return hard;
 		case 0x1f801124:
-			hard = psxCounters[2].mode;
+			hard = psxRcntRmode(2);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T2 mode read16: %x\n", hard);
 #endif
 			return hard;
 		case 0x1f801128:
-			hard = psxCounters[2].target;
+			hard = psxRcntRtarget(2);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T2 target read16: %x\n", hard);
 #endif
@@ -294,13 +294,13 @@ u32 psxHwRead32(u32 add) {
 #endif
 			return hard;
 		case 0x1f801104:
-			hard = psxCounters[0].mode;
+			hard = psxRcntRmode(0);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T0 mode read32: %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801108:
-			hard = psxCounters[0].target;
+			hard = psxRcntRtarget(0);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T0 target read32: %lx\n", hard);
 #endif
@@ -312,13 +312,13 @@ u32 psxHwRead32(u32 add) {
 #endif
 			return hard;
 		case 0x1f801114:
-			hard = psxCounters[1].mode;
+			hard = psxRcntRmode(1);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T1 mode read32: %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801118:
-			hard = psxCounters[1].target;
+			hard = psxRcntRtarget(1);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T1 target read32: %lx\n", hard);
 #endif
@@ -330,13 +330,13 @@ u32 psxHwRead32(u32 add) {
 #endif
 			return hard;
 		case 0x1f801124:
-			hard = psxCounters[2].mode;
+			hard = psxRcntRmode(2);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T2 mode read32: %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801128:
-			hard = psxCounters[2].target;
+			hard = psxRcntRtarget(2);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T2 target read32: %lx\n", hard);
 #endif

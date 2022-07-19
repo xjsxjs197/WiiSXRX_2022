@@ -180,7 +180,7 @@ int msf2SectS[] = {
 // 1x = 75 sectors per second
 // PSXCLK = 1 sec in the ps
 // so (PSXCLK / 75) = cdr read time (linuzappz)
-#define cdReadTime ((PSXCLK / 75) / BIAS)
+#define cdReadTime (PSXCLK / 75)
 
 enum drive_state {
 	DRIVESTATE_STANDBY = 0,
