@@ -140,12 +140,14 @@ FILE* IplFont::getFontFile(char* sdUsb)
 
         case KOREAN:
             sprintf(fontPathBuf, "%s%s", sdUsb, ":/wiisxrx/fonts/Kr.dat");
-            //charPngFile = fopen("sd:/wiisxrx/fonts/Kr.dat", "rb"); // 24 * 24 IA8
+            break;
+
+        case SPANISH:
+            sprintf(fontPathBuf, "%s%s", sdUsb, ":/wiisxrx/fonts/Es.dat");
             break;
 
         default:
             sprintf(fontPathBuf, "%s%s", sdUsb, ":/wiisxrx/fonts/Chs.dat");
-            //charPngFile = fopen("sd:/wiisxrx/fonts/Chs.dat", "rb");
             break;
     }
     return fopen(fontPathBuf, "rb");

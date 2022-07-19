@@ -3084,7 +3084,6 @@ CP2_FUNCNC(NCCT);
 static void recHLE() {
 	iFlushRegs(0);
 	FlushAllHWReg();
-
     uint32_t hleCode = psxRegs.code & 0x03ffffff;
     if (hleCode >= (sizeof(psxHLEt) / sizeof(psxHLEt[0]))) {
         CALLFunc((u32)psxHLEt[0]); // call dummy function
@@ -3102,6 +3101,7 @@ static void recHLE() {
 	//count = idlecyclecount + (pc - pcold)/4 + 20;
 	count = (idlecyclecount + (pc - pcold) / 4 + 20) * BIAS;
 	// upd xjsxjs197 end
+
 	ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), count);
 	FlushAllHWReg();
 	CALLFunc((u32)psxBranchTest);

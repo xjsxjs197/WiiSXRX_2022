@@ -31,20 +31,18 @@ extern "C" {
 #include "psxmem.h"
 #include "psxhw.h"
 
-//#define btoi(b)     ((b) / 16 * 10 + (b) % 16) /* BCD to u_char */
-//#define btoi(b)		(((b) >> 4) * 10 + ((b) & 15)) /* BCD to u_char */
-#define btoi(b)		(btoiBuf[b]) /* BCD to u_char */
-//#define itob(i)     ((i) / 10 * 16 + (i) % 10) /* u_char to BCD */
-//#define itob(i)		((((i) / 10) << 4) + (i) % 10)  /* u_char to BCD */
-#define itob(i)		(itobBuf[i])  /* u_char to BCD */
+#define btoi(b)     ((b) / 16 * 10 + (b) % 16) /* BCD to u_char */
+#define itob(i)     ((i) / 10 * 16 + (i) % 10) /* u_char to BCD */
 
-//#define MSF2SECT(m, s, f)		(((m) * 60 + (s) - 2) * 75 + (f))
-#define MSF2SECT(m, s, f)		(msf2SectM[(m)] + msf2SectS[(s)] - 150 + (f))
+#define MSF2SECT(m, s, f)		(((m) * 60 + (s) - 2) * 75 + (f))
 
 #define CD_FRAMESIZE_RAW		2352
 #define DATA_SIZE				(CD_FRAMESIZE_RAW - 12)
 
 #define SUB_FRAMESIZE			96
+
+#define MIN_VALUE(a,b) ({ __typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a < _b ? _a : _b; })
+#define MAX_VALUE(a,b) ({ __typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b ? _a : _b; })
 
 typedef struct {
 	unsigned char OCUP;
@@ -57,9 +55,7 @@ typedef struct {
 	unsigned char StatP;
 
 	unsigned char Transfer[DATA_SIZE];
-	unsigned char *pTransfer;
-	unsigned int  transferIndex;
-    struct {
+	struct {
 		unsigned char Track;
 		unsigned char Index;
 		unsigned char Relative[3];
@@ -72,7 +68,7 @@ typedef struct {
 
 	unsigned char Prev[4];
 	unsigned char Param[8];
-	unsigned char Result[8];
+	unsigned char Result[16];
 
 	unsigned char ParamC;
 	unsigned char ParamP;
@@ -86,15 +82,15 @@ typedef struct {
 
 	unsigned char ResultTN[6];
 	unsigned char ResultTD[4];
+	unsigned char SetSectorPlay[4];
 	unsigned char SetSectorEnd[4];
 	unsigned char SetSector[4];
-	unsigned char SetSectorSeek[4];
 	unsigned char Track;
-	int Play;
+	bool Play, Muted;
 	int CurTrack;
-	int Mode, File, Channel, Muted;
+	int Mode, File, Channel;
 	int Reset;
-	int RErr;
+	int NoErr;
 	int FirstSector;
 
 	xa_decode_t Xa;
@@ -109,16 +105,24 @@ typedef struct {
 
 	u8 DriveState;
 	u8 FastForward;
-	char Unused[4083];
+	u8 FastBackward;
+	u8 pad;
+
+	u8 AttenuatorLeftToLeft, AttenuatorLeftToRight;
+	u8 AttenuatorRightToRight, AttenuatorRightToLeft;
+	u8 AttenuatorLeftToLeftT, AttenuatorLeftToRightT;
+	u8 AttenuatorRightToRightT, AttenuatorRightToLeftT;
 } cdrStruct;
 
-cdrStruct cdr;
+extern cdrStruct cdr;
 extern unsigned char btoiBuf[];
 extern unsigned char itobBuf[];
 extern int msf2SectM[];
 extern int msf2SectS[];
 
 void cdrReset();
+void cdrAttenuate(s16 *buf, int samples, int stereo);
+
 void cdrInterrupt();
 void cdrReadInterrupt();
 void cdrRepplayInterrupt();

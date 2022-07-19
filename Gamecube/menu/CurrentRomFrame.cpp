@@ -153,6 +153,15 @@ void Func_ShowRomInfo()
   sprintf(buffer,"CD-ROM ID: %s\n", CdromId);
 
 	strcat(RomInfo,buffer);
+  if (Config.RCntFix)
+  {
+    sprintf(buffer, "AUTO FIXED: yes\n");
+  }
+  else
+  {
+    sprintf(buffer, "AUTO FIXED: no\n");
+  }
+  strcat(RomInfo,buffer);
   sprintf(buffer,"ISO Size: %u Mb\n",isoFile.size/1024/1024);
   strcat(RomInfo,buffer);
   sprintf(buffer,"Country: %s\n",(!Config.PsxType) ? "NTSC":"PAL");

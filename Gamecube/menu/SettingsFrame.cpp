@@ -164,7 +164,7 @@ Auto Save Memcards: Yes; No
 Save States Device: SD; USB
 */
 
-static char FRAME_STRINGS[60][24] =
+static char FRAME_STRINGS[61][24] =
 	{ "General",
 	  "Video",
 	  "Input",
@@ -226,11 +226,12 @@ static char FRAME_STRINGS[60][24] =
 	  "Save States Device",
 	  "CardA",
 	  "CardB",
-      // Strings for display language (starting at FRAME_STRINGS[56]) ..was[59]
+      // Strings for display language (starting at FRAME_STRINGS[56]) ..was[60]
       "Select language",
       "En", // English
       "Chs", // Simplified Chinese
-      "Kr" // Korean
+      "Kr", // Korean
+      "Es" // SPANISH
       };
 
 
@@ -312,7 +313,7 @@ struct ButtonInfo
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[17],	380.0,	170.0,	 75.0,	56.0,	47,	53,	50,	50,	Func_AutoSaveNo,		Func_ReturnFromSettingsFrame }, // Auto Save Memcards: No
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[13],	295.0,	240.0,	 55.0,	56.0,	50,	 4,	53,	53,	Func_SaveStateSD,		Func_ReturnFromSettingsFrame }, // Save State: SD
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[14],	360.0,	240.0,	 70.0,	56.0,	51,	 4,	52,	52,	Func_SaveStateUSB,		Func_ReturnFromSettingsFrame }, // Save State: USB
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[57],	295.0,	310.0,	 90.0,	56.0,	 11,-1,	-1,	-1,	Func_SelectLanguage,	Func_ReturnFromSettingsFrame }, // Select Language: En
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[57],	295.0,	310.0,	 90.0,	56.0,	 11,14,	-1,	-1,	Func_SelectLanguage,	Func_ReturnFromSettingsFrame }, // Select Language: En
 };
 
 struct TextBoxInfo
@@ -924,8 +925,17 @@ void Func_ExecuteBios()
 
 void Func_SelectLanguage()
 {
+//    ENGLISH = 0,
+//	SIMP_CHINESE,
+//	KOREAN,
+//	SPANISH,
+//	TRAD_CHINESE,
+//	JAPANESE,
+//	GERMAN,
+//	FRENCH,
+//	ITALIAN
     lang++;
-    if (lang > KOREAN)
+    if (lang > SPANISH)
     {
         lang = ENGLISH;
     }
@@ -1302,12 +1312,12 @@ void Func_DisableCddaYes()
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[43].button->setSelected(true);
 	Config.Cdda = CDDA_DISABLE;
-	#ifdef SHOW_DEBUG
-	canWriteLog = !canWriteLog;
-	sprintf(txtbuffer,"Current Write Log Status %d", canWriteLog);
-	menu::MessageBox::getInstance().setMessage(txtbuffer);
-	DEBUG_print(txtbuffer, DBG_CORE2);
-	#endif // SHOW_DEBUG
+//	#ifdef SHOW_DEBUG
+//	canWriteLog = !canWriteLog;
+//	sprintf(txtbuffer,"Current Write Log Status %d", canWriteLog);
+//	menu::MessageBox::getInstance().setMessage(txtbuffer);
+//	DEBUG_print(txtbuffer, DBG_CORE2);
+//	#endif // SHOW_DEBUG
 }
 
 void Func_DisableCddaNo()
@@ -1316,12 +1326,12 @@ void Func_DisableCddaNo()
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[44].button->setSelected(true);
 	Config.Cdda = CDDA_ENABLE;
-	#ifdef SHOW_DEBUG
-	canWriteLog = !canWriteLog;
-	sprintf(txtbuffer,"Current Write Log Status %d", canWriteLog);
-	menu::MessageBox::getInstance().setMessage(txtbuffer);
-	DEBUG_print(txtbuffer, DBG_CORE2);
-	#endif // SHOW_DEBUG
+//	#ifdef SHOW_DEBUG
+//	canWriteLog = !canWriteLog;
+//	sprintf(txtbuffer,"Current Write Log Status %d", canWriteLog);
+//	menu::MessageBox::getInstance().setMessage(txtbuffer);
+//	DEBUG_print(txtbuffer, DBG_CORE2);
+//	#endif // SHOW_DEBUG
 	//menu::MessageBox::getInstance().setMessage("CDDA audio is not implemented");
 }
 

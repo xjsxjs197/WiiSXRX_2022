@@ -78,7 +78,8 @@ static int iFMod[NSSIZE];
 static int RVB[NSSIZE * 2];
 int ChanBuf[NSSIZE];
 
-#define CDDA_BUFFER_SIZE (16384 * sizeof(uint32_t)) // must be power of 2
+#define CDDA_BUFFER_UNIT  16384   //16384
+#define CDDA_BUFFER_SIZE (CDDA_BUFFER_UNIT * sizeof(uint32_t)) // must be power of 2
 
 ////////////////////////////////////////////////////////////////////////
 // CODE AREA
@@ -1098,18 +1099,19 @@ static const void * const worker = NULL;
 // here is the main job handler...
 ////////////////////////////////////////////////////////////////////////
 
-void do_samples(unsigned int cycles_to, int do_direct)
+int do_samples(unsigned int cycles_to, int do_direct)
 {
  unsigned int silentch;
  int cycle_diff;
  int ns_to;
 
+ cycles_to = cycles_to << 1;
  cycle_diff = cycles_to - spu.cycles_played;
  if (cycle_diff < -2*1048576 || cycle_diff > 2*1048576)
   {
    //xprintf("desync %u %d\n", cycles_to, cycle_diff);
    spu.cycles_played = cycles_to;
-   return;
+   return 0;
   }
 
  silentch = ~(spu.dwChannelOn | spu.dwNewChannel) & 0xffffff;
@@ -1119,7 +1121,11 @@ void do_samples(unsigned int cycles_to, int do_direct)
   sync_worker_thread(do_direct);
 
  if (cycle_diff < 2 * 768)
-  return;
+ {
+     spu.cycles_played = cycles_to;
+     return 0;
+ }
+
 
  ns_to = (cycle_diff / 768 + 1) & ~1;
  if (ns_to > NSSIZE) {
@@ -1175,6 +1181,8 @@ void do_samples(unsigned int cycles_to, int do_direct)
 
   spu.cycles_played += ns_to * 768;
   spu.decode_pos = (spu.decode_pos + ns_to) & 0x1ff;
+
+  return ns_to;
 }
 
 static void do_samples_finish(int *SSumLR, int ns_to,
@@ -1262,18 +1270,19 @@ void schedule_next_irq(void)
 
 void CALLBACK DF_SPUasync(unsigned int cycle, unsigned int flags, unsigned int psxType)
 {
-    do_samples(cycle, spu_config.iUseFixedUpdates);
+    int lastBytes;
+    int nsTo = do_samples(cycle, spu_config.iUseFixedUpdates);
 
  //if (spu.spuCtrl & CTRL_IRQ)
   //schedule_next_irq();
 
  if (flags & 1) {
-  out_current->feed(spu.pSpuBuffer, (unsigned char *)spu.pS - spu.pSpuBuffer);
+  lastBytes = out_current->feed(spu.pSpuBuffer, (unsigned char *)spu.pS - spu.pSpuBuffer);
   //spu.pSpuBuffer = spu.spuBuffer[spu.whichBuffer = ((spu.whichBuffer + 1) & 3)];
-  spu.pS = (short *)spu.pSpuBuffer;
+  spu.pS = (short *)spu.pSpuBuffer + lastBytes;
 
   //if (spu_config.iTempo) {
-   if (!out_current->busy()) {
+   if (!out_current->busy() && nsTo > 0) {
     // cause more samples to be generated
     // (and break some games because of bad sync)
     if (psxType) {
@@ -1327,20 +1336,20 @@ void ClearWorkingState(void)
 // SETUPSTREAMS: init most of the spu buffers
 static void SetupStreams(void)
 {
- spu.pSpuBuffer = (unsigned char *)malloc(32768);      // alloc mixing buffer
+ spu.pSpuBuffer = (unsigned char *)malloc(48000);      // alloc mixing buffer
  //spu.whichBuffer = 0;
  //spu.pSpuBuffer = spu.spuBuffer[spu.whichBuffer];            // alloc mixing buffer
  spu.SSumLR = calloc(NSSIZE * 2, sizeof(spu.SSumLR[0]));
 
  spu.XAStart =                                         // alloc xa buffer
-  (uint32_t *)malloc(SPU_FREQ * sizeof(uint32_t));
+  (uint32_t *)malloc(SPU_FREQ * sizeof(uint32_t) * 2);
  spu.XAEnd   = spu.XAStart + SPU_FREQ;
  spu.XAPlay  = spu.XAStart;
  spu.XAFeed  = spu.XAStart;
 
  spu.CDDAStart =                                       // alloc cdda buffer
   (uint32_t *)malloc(CDDA_BUFFER_SIZE);
- spu.CDDAEnd   = spu.CDDAStart + 16384;
+ spu.CDDAEnd   = spu.CDDAStart + CDDA_BUFFER_UNIT;
  spu.CDDAPlay  = spu.CDDAStart;
  spu.CDDAFeed  = spu.CDDAStart;
 
