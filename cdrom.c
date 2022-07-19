@@ -799,7 +799,7 @@ void cdrInterrupt() {
 			else
 			{
 				delay = (((cdr.Mode & MODE_SPEED) ? 2 : 1) * (1000000));
-				//CDRMISC_INT((cdr.Mode & MODE_SPEED) ? cdReadTime / 2 : cdReadTime);
+				CDRMISC_INT((cdr.Mode & MODE_SPEED) ? cdReadTime / 2 : cdReadTime);
 			}
 			AddIrqQueue(CdlPause + 0x20, delay >> 1);
 			cdr.Ctrl|= 0x80;
@@ -808,7 +808,7 @@ void cdrInterrupt() {
 		case CdlPause + 0x20:
 			SetResultSize(1);
         	cdr.StatP &= ~STATUS_READ;
-			//cdr.StatP|= 0x2;
+			cdr.StatP|= 0x2;
 			cdr.Result[0] = cdr.StatP;
         	cdr.Stat = Complete;
 			break;
