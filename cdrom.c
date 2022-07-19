@@ -236,8 +236,6 @@ static struct SubQ *subq;
 		if (!Config.Cdda) CDR_stop(); \
 		cdr.StatP &= ~STATUS_PLAY; \
 		cdr.Play = FALSE; \
-		cdr.FastForward = 0; \
-		cdr.FastBackward = 0; \
 	} \
 }
 
@@ -769,8 +767,8 @@ void cdrInterrupt() {
 
 		case CdlPause:
 		    #ifdef SHOW_DEBUG
-            sprintf(txtbuffer, "CdlPause time %d %d %d", cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2]);
-            DEBUG_print(txtbuffer, DBG_CDR2);
+            //sprintf(txtbuffer, "CdlPause time %d %d %d", cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2]);
+            //DEBUG_print(txtbuffer, DBG_CDR2);
             #endif // DISP_DEBUG
 			SetResultSize(1);
 			cdr.Result[0] = cdr.StatP;
@@ -1120,7 +1118,7 @@ void cdrInterrupt() {
 			C-12 - Final Resistance - doesn't like seek
 			*/
 
-			if (cdr.Seeked != SEEK_DONE) {
+			/*if (cdr.Seeked != SEEK_DONE) {
 				cdr.StatP |= STATUS_SEEK;
 				cdr.StatP &= ~STATUS_READ;
 
@@ -1134,10 +1132,10 @@ void cdrInterrupt() {
 				cdr.StatP &= ~STATUS_SEEK;
 
 				CDREAD_INT((cdr.Mode & 0x80) ? (cdReadTime) : cdReadTime * 2);
-			}
+			}*/
 
 //			CDREAD_INT((cdr.Mode & 0x80) ? (cdReadTime / 2) : cdReadTime);
-			//CDREAD_INT(0x40000);
+			CDREAD_INT(0x40000);
 			break;
 
 		case REPPLAY_ACK:
@@ -1489,7 +1487,7 @@ void cdrWrite1(unsigned char rt) {
 //                }
 //			}
 //    		else if (!Config.Cdda) CDR_play(cdr.SetSector);
-//    		cdr.Play = TRUE;
+    		cdr.Play = TRUE;
 			cdr.Ctrl|= 0x80;
     		cdr.Stat = NoIntr;
     		AddIrqQueue(cdr.Cmd, 0x800);
@@ -1499,10 +1497,6 @@ void cdrWrite1(unsigned char rt) {
         	if (cdr.CurTrack < 0xaa) cdr.CurTrack++;
 			cdr.Ctrl|= 0x80;
     		cdr.Stat = NoIntr;
-    		// GameShark CD Player: Calls 2x + Play 2x
-			cdr.FastForward = 1;
-			cdr.FastBackward = 0;
-
     		AddIrqQueue(cdr.Cmd, 0x800);
         	break;
 
@@ -1510,10 +1504,6 @@ void cdrWrite1(unsigned char rt) {
         	if (cdr.CurTrack > 1) cdr.CurTrack--;
 			cdr.Ctrl|= 0x80;
     		cdr.Stat = NoIntr;
-    		// GameShark CD Player: Calls 2x + Play 2x
-			cdr.FastBackward =1;
-			cdr.FastForward = 0;
-
     		AddIrqQueue(cdr.Cmd, 0x800);
         	break;
 
