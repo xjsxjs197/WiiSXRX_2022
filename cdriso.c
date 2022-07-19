@@ -270,6 +270,15 @@ static void stopCDDA() {
     #endif // DISP_DEBUG
 	playing = FALSE;
 
+	// while emu is paused
+    extern int stop;
+    if (stop)
+    {
+        // wait pthread stop
+	    usleep(10000);
+	    return;
+    }
+
 	//pthread_join(threadid, NULL);
 	LWP_JoinThread(threadid, NULL);
 }
@@ -1692,7 +1701,6 @@ static long CALLBACK ISOclose(void) {
 		subHandle = NULL;
 	}
 	stopCDDA();
-	cddaHandle = NULL;
 
 	if (compr_img != NULL) {
 		free(compr_img->index_table);
@@ -1706,6 +1714,8 @@ static long CALLBACK ISOclose(void) {
 			ti[i].handle = NULL;
 		}
 	}
+	cddaHandle = NULL;
+
 	numtracks = 0;
 	ti[1].type = 0;
 	UnloadSBI();
