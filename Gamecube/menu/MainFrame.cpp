@@ -208,11 +208,15 @@ void Func_Credits()
 }
 
 extern char shutdown;
+extern "C" void SysClose();
 
 void Func_ExitToLoader()
 {
-	if(menu::MessageBox::getInstance().askMessage("Are you sure you want to exit to loader?"))
-		shutdown = 2;
+	if (menu::MessageBox::getInstance().askMessage("Are you sure you want to exit to loader?"))
+    {
+        shutdown = 2;
+        SysClose();
+    }
 }
 
 extern "C" {

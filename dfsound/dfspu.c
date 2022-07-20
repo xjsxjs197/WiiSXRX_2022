@@ -1336,10 +1336,14 @@ void ClearWorkingState(void)
 // SETUPSTREAMS: init most of the spu buffers
 static void SetupStreams(void)
 {
- spu.pSpuBuffer = (unsigned char *)malloc(48000);      // alloc mixing buffer
- //spu.whichBuffer = 0;
- //spu.pSpuBuffer = spu.spuBuffer[spu.whichBuffer];            // alloc mixing buffer
- spu.SSumLR = calloc(NSSIZE * 2, sizeof(spu.SSumLR[0]));
+    if (spu.bSpuInit == 0)
+    {
+        spu.pSpuBuffer = (unsigned char *)malloc(48000);      // alloc mixing buffer
+       //spu.whichBuffer = 0;
+       //spu.pSpuBuffer = spu.spuBuffer[spu.whichBuffer];            // alloc mixing buffer
+       spu.SSumLR = calloc(NSSIZE * 2, sizeof(spu.SSumLR[0]));
+    }
+
 
  spu.XAStart =                                         // alloc xa buffer
   (uint32_t *)malloc(SPU_FREQ * sizeof(uint32_t) * 2);
@@ -1515,12 +1519,15 @@ long DF_SPUinit(void)
   spu_config.iTempo = 0;
   spu_config.iUseThread = 1; // no effect if only 1 core is detected
 
- spu.spuMemC = calloc(1, 512 * 1024);
- InitADSR();
+  if (spu.bSpuInit == 0)
+  {
+      spu.spuMemC = calloc(1, 512 * 1024);
+     InitADSR();
 
- spu.s_chan = calloc(MAXCHAN+1, sizeof(spu.s_chan[0])); // channel + 1 infos (1 is security for fmod handling)
- spu.rvb = calloc(1, sizeof(REVERBInfo));
- spu.SB = calloc(MAXCHAN, sizeof(spu.SB[0]) * SB_SIZE);
+     spu.s_chan = calloc(MAXCHAN+1, sizeof(spu.s_chan[0])); // channel + 1 infos (1 is security for fmod handling)
+     spu.rvb = calloc(1, sizeof(REVERBInfo));
+     spu.SB = calloc(MAXCHAN, sizeof(spu.SB[0]) * SB_SIZE);
+  }
 
  spu.spuAddr = 0;
  spu.decode_pos = 0;
@@ -1559,6 +1566,7 @@ long DF_SPUopen(void)
  return PSE_SPU_ERR_SUCCESS;
 }
 
+extern char shutdown;
 // SPUCLOSE: called before shutdown
 long DF_SPUclose(void)
 {
@@ -1569,30 +1577,35 @@ long DF_SPUclose(void)
  out_current->finish();                                // no more sound handling
 
     exit_spu_thread();
-    if (spu.spuMemC)
-    {
-        free(spu.spuMemC);
-        spu.spuMemC = NULL;
-    }
-    if (spu.SB)
-    {
-        free(spu.SB);
-        spu.SB = NULL;
-    }
-    if (spu.s_chan)
-    {
-        free(spu.s_chan);
-        spu.s_chan = NULL;
-    }
-    if (spu.rvb)
-    {
-        free(spu.rvb);
-        spu.rvb = NULL;
-    }
 
-    RemoveStreams();                                      // no more streaming
-    spu.bSpuInit=0;
+    if (shutdown)
+    {
+        if (spu.spuMemC)
+        {
+            free(spu.spuMemC);
+            spu.spuMemC = NULL;
+        }
+        if (spu.SB)
+        {
+            free(spu.SB);
+            spu.SB = NULL;
+        }
+        if (spu.s_chan)
+        {
+            free(spu.s_chan);
+            spu.s_chan = NULL;
+        }
+        if (spu.rvb)
+        {
+            free(spu.rvb);
+            spu.rvb = NULL;
+        }
 
+        RemoveStreams();
+
+        spu.bSpuInit=0;
+    }
+                                        // no more streaming
  return 0;
 }
 
