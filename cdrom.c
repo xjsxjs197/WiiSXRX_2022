@@ -1230,7 +1230,7 @@ void cdrReadInterrupt() {
 
 	if (cdr.Irq || cdr.Stat) {
 		CDR_LOG_I("cdrom: read stat hack %02x %x\n", cdr.Irq, cdr.Stat);
-		CDREAD_INT(0x1000);
+		CDREAD_INT(0x800);
 		return;
 	}
 
@@ -1334,6 +1334,9 @@ void cdrReadInterrupt() {
 
 	// update for CdlGetlocP
 	ReadTrack(cdr.SetSectorPlay);
+	
+	psxHu32ref(0x1070)|= SWAP32((u32)0x4);
+	psxRegs.interrupt|= 0x80000000;
 }
 
 /*
@@ -1420,6 +1423,11 @@ void cdrWrite1(unsigned char rt) {
 	AddIrqQueue(cdr.Cmd, 0x800);
 
 	switch (cdr.Cmd) {
+	case CdlSetloc:
+	    psxHu32ref(0x1070)|= SWAP32((u32)0x4);
+		psxRegs.interrupt|= 0x80000000;
+	    break;
+		
 	case CdlReadN:
 	case CdlReadS:
 	case CdlPause:
