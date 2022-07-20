@@ -704,7 +704,7 @@ void cdrInterrupt() {
 
 			Find_CurTrack(cdr.SetSectorPlay);
 			ReadTrack();
-			cdr.TrackChanged = FALSE;
+
 			if (!Config.Cdda)
 				CDR_play(cdr.SetSectorPlay);
             // Vib Ribbon: gameplay checks flag
@@ -1093,12 +1093,12 @@ void cdrInterrupt() {
 
         	Find_CurTrack(cdr.SetSectorPlay);
 
-			if ((cdr.Mode & MODE_CDDA) && cdr.CurTrack > 1)
+			/*if ((cdr.Mode & MODE_CDDA) && cdr.CurTrack > 1)
 				// Read* acts as play for cdda tracks in cdda mode
 				goto do_CdlPlay;
 
 			cdr.Reading = 1;
-			cdr.FirstSector = 1;
+			cdr.FirstSector = 1;*/
 
 			// Fighting Force 2 - update subq time immediately
 			// - fixes new game
