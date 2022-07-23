@@ -1679,7 +1679,7 @@ unsigned char cdrRead2(void) {
 		ret = 0;
 	} else {
 		ret = *cdr.pTransfer++;
-		adjustTransferIndex();
+		//adjustTransferIndex();
 	}
 
 #ifdef CDR_LOG
