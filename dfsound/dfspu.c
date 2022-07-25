@@ -1336,7 +1336,7 @@ void ClearWorkingState(void)
 // SETUPSTREAMS: init most of the spu buffers
 static void SetupStreams(void)
 {
-    if (spu.bSpuInit == 0)
+    //if (spu.bSpuInit == 0)
     {
         spu.pSpuBuffer = (unsigned char *)malloc(48000);      // alloc mixing buffer
        //spu.whichBuffer = 0;
@@ -1519,7 +1519,7 @@ long DF_SPUinit(void)
   spu_config.iTempo = 0;
   spu_config.iUseThread = 1; // no effect if only 1 core is detected
 
-  if (spu.bSpuInit == 0)
+  //if (spu.bSpuInit == 0)
   {
       spu.spuMemC = calloc(1, 512 * 1024);
      InitADSR();
@@ -1578,7 +1578,7 @@ long DF_SPUclose(void)
 
     exit_spu_thread();
 
-    if (shutdown)
+    //if (shutdown)
     {
         if (spu.spuMemC)
         {
