@@ -1333,26 +1333,41 @@ void ClearWorkingState(void)
  spu.pS=(short *)spu.pSpuBuffer;                       // setup soundbuffer pointer
 }
 
+extern char spuMemC[512 * 1024];
+extern char s_chan[(MAXCHAN + 1) * sizeof(spu.s_chan[0])];
+extern char rvb[sizeof(REVERBInfo)];
+extern char SB[MAXCHAN * sizeof(spu.SB[0]) * SB_SIZE];
+
+extern char pSpuBuffer[48000];
+extern char SSumLR[NSSIZE * 2 * sizeof(spu.SSumLR[0])];
+
+extern char XABuf[SPU_FREQ * sizeof(uint32_t) * 2];
+extern char CDDABuf[CDDA_BUFFER_SIZE];
+
 // SETUPSTREAMS: init most of the spu buffers
 static void SetupStreams(void)
 {
     //if (spu.bSpuInit == 0)
     {
-        spu.pSpuBuffer = (unsigned char *)malloc(48000);      // alloc mixing buffer
+        //spu.pSpuBuffer = (unsigned char *)malloc(48000);      // alloc mixing buffer
+        spu.pSpuBuffer = (unsigned char *)pSpuBuffer;      // alloc mixing buffer
        //spu.whichBuffer = 0;
        //spu.pSpuBuffer = spu.spuBuffer[spu.whichBuffer];            // alloc mixing buffer
-       spu.SSumLR = calloc(NSSIZE * 2, sizeof(spu.SSumLR[0]));
+       //spu.SSumLR = calloc(NSSIZE * 2, sizeof(spu.SSumLR[0]));
+       spu.SSumLR = (int *)SSumLR;
     }
 
 
- spu.XAStart =                                         // alloc xa buffer
-  (uint32_t *)malloc(SPU_FREQ * sizeof(uint32_t) * 2);
+// spu.XAStart =                                         // alloc xa buffer
+//  (uint32_t *)malloc(SPU_FREQ * sizeof(uint32_t) * 2);
+  spu.XAStart = (uint32_t *)XABuf;
  spu.XAEnd   = spu.XAStart + SPU_FREQ;
  spu.XAPlay  = spu.XAStart;
  spu.XAFeed  = spu.XAStart;
 
- spu.CDDAStart =                                       // alloc cdda buffer
-  (uint32_t *)malloc(CDDA_BUFFER_SIZE);
+// spu.CDDAStart =                                       // alloc cdda buffer
+//  (uint32_t *)malloc(CDDA_BUFFER_SIZE);
+  spu.CDDAStart = (uint32_t *)CDDABuf;
  spu.CDDAEnd   = spu.CDDAStart + CDDA_BUFFER_UNIT;
  spu.CDDAPlay  = spu.CDDAStart;
  spu.CDDAFeed  = spu.CDDAStart;
@@ -1363,26 +1378,26 @@ static void SetupStreams(void)
 // REMOVESTREAMS: free most buffer
 static void RemoveStreams(void)
 {
-    if (spu.pSpuBuffer)
-    {
-        free(spu.pSpuBuffer);                                 // free mixing buffer
-        spu.pSpuBuffer = NULL;
-    }
-    if (spu.SSumLR)
-    {
-        free(spu.SSumLR);
-        spu.SSumLR = NULL;
-    }
-    if (spu.XAStart)
-    {
-        free(spu.XAStart);                                    // free XA buffer
-        spu.XAStart = NULL;
-    }
-    if (spu.CDDAStart)
-    {
-        free(spu.CDDAStart);                                  // free CDDA buffer
-        spu.CDDAStart = NULL;
-    }
+//    if (spu.pSpuBuffer)
+//    {
+//        free(spu.pSpuBuffer);                                 // free mixing buffer
+//        spu.pSpuBuffer = NULL;
+//    }
+//    if (spu.SSumLR)
+//    {
+//        free(spu.SSumLR);
+//        spu.SSumLR = NULL;
+//    }
+//    if (spu.XAStart)
+//    {
+//        free(spu.XAStart);                                    // free XA buffer
+//        spu.XAStart = NULL;
+//    }
+//    if (spu.CDDAStart)
+//    {
+//        free(spu.CDDAStart);                                  // free CDDA buffer
+//        spu.CDDAStart = NULL;
+//    }
 }
 
 #if defined(C64X_DSP)
@@ -1521,12 +1536,16 @@ long DF_SPUinit(void)
 
   //if (spu.bSpuInit == 0)
   {
-      spu.spuMemC = calloc(1, 512 * 1024);
+     //spu.spuMemC = calloc(1, 512 * 1024);
+     spu.spuMemC = spuMemC;
      InitADSR();
 
-     spu.s_chan = calloc(MAXCHAN+1, sizeof(spu.s_chan[0])); // channel + 1 infos (1 is security for fmod handling)
-     spu.rvb = calloc(1, sizeof(REVERBInfo));
-     spu.SB = calloc(MAXCHAN, sizeof(spu.SB[0]) * SB_SIZE);
+//     spu.s_chan = calloc(MAXCHAN+1, sizeof(spu.s_chan[0])); // channel + 1 infos (1 is security for fmod handling)
+//     spu.rvb = calloc(1, sizeof(REVERBInfo));
+//     spu.SB = calloc(MAXCHAN, sizeof(spu.SB[0]) * SB_SIZE);
+     spu.s_chan = (SPUCHAN *)s_chan;
+     spu.rvb = (REVERBInfo *)rvb;
+     spu.SB = (int *)SB;
   }
 
  spu.spuAddr = 0;
@@ -1580,26 +1599,26 @@ long DF_SPUclose(void)
 
     //if (shutdown)
     {
-        if (spu.spuMemC)
-        {
-            free(spu.spuMemC);
-            spu.spuMemC = NULL;
-        }
-        if (spu.SB)
-        {
-            free(spu.SB);
-            spu.SB = NULL;
-        }
-        if (spu.s_chan)
-        {
-            free(spu.s_chan);
-            spu.s_chan = NULL;
-        }
-        if (spu.rvb)
-        {
-            free(spu.rvb);
-            spu.rvb = NULL;
-        }
+//        if (spu.spuMemC)
+//        {
+//            free(spu.spuMemC);
+//            spu.spuMemC = NULL;
+//        }
+//        if (spu.SB)
+//        {
+//            free(spu.SB);
+//            spu.SB = NULL;
+//        }
+//        if (spu.s_chan)
+//        {
+//            free(spu.s_chan);
+//            spu.s_chan = NULL;
+//        }
+//        if (spu.rvb)
+//        {
+//            free(spu.rvb);
+//            spu.rvb = NULL;
+//        }
 
         RemoveStreams();
 
