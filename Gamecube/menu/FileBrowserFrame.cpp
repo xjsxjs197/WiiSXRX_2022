@@ -587,7 +587,7 @@ void fileBrowserFrame_LoadFile(int i)
 			strcat(RomInfo,buffer);
 			sprintf(buffer,"Country: %s\n",(!Config.PsxType) ? "NTSC":"PAL");
 			strcat(RomInfo,buffer);
-			sprintf(buffer,"BIOS: %s\n",(Config.HLE==BIOS_USER_DEFINED) ? "USER DEFINED":"HLE");
+			sprintf(buffer,"BIOS: %s\n",(Config.HLE==BIOS_USER_DEFINED) ? "PSX":"HLE");
 			strcat(RomInfo,buffer);
 			unsigned char tracks[2];
             ISOgetTN(&tracks[0]);
