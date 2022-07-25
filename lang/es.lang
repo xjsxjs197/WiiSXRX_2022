@@ -80,8 +80,8 @@ msgstr "Arrancar con Bios"
 msgid "Execute Bios"
 msgstr "Correr Bios"
 
-msgid "Save settings.cfg"
-msgstr "Guardar settings.cfg"
+msgid "Save settings"
+msgstr "Guardar ajustes"
 
 msgid "Interpreter"
 msgstr "Interpreter"
@@ -224,20 +224,20 @@ msgstr "Fallo arranque de sistema.\Carga una ISO"
 msgid "Error opening directory sd:/wiisxr"
 msgstr "Error abriendo carpeta sd:/wiisxr"
 
-msgid "Saved settings.cfg to SD"
-msgstr "setting.cfg guardado en SD"
+msgid "Saved settings to SD"
+msgstr "Ajustes guardados en SD"
 
-msgid "Error saving settings.cfg to SD"
-msgstr "Error guardando settings.cfg en SD"
+msgid "Error saving settings to SD"
+msgstr "Error guardando ajustes en SD"
 
 msgid "Error opening directory usb:/wiisxr"
 msgstr "Error abriendo carpeta usb:/wiisxr"
 
-msgid "Saved settings.cfg to USB"
-msgstr "settings.cfg guardado en USB"
+msgid "Saved settings to USB"
+msgstr "Ajustes guardados en USB"
 
-msgid "Error saving settings.cfg to USB"
-msgstr "Error guardando settings.cfg en USB"
+msgid "Error saving settings to USB"
+msgstr "Error guardando ajustes en USB"
 
 msgid "Saved Button Configs to SD"
 msgstr "Mapeo Guardado en SD"
