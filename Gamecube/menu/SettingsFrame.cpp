@@ -135,7 +135,7 @@ Select CPU Core: Interpreter; Dynarec
 Select Bios: HLE; SD; USB
 Boot Games Through Bios: Yes; No
 Execute Bios
-Save settings.cfg: SD; USB
+Save settings: SD; USB
 
 Video Tab:
 Show FPS: Yes; No
@@ -175,7 +175,7 @@ static char FRAME_STRINGS[61][24] =
 	  "Select Bios",
 	  "Boot Through Bios",
 	  "Execute Bios",
-	  "Save settings.cfg",
+	  "Save settings",
 	  "Interpreter",
 	  "Dynarec",
 	  "HLE",
@@ -330,7 +330,7 @@ struct TextBoxInfo
 	{	NULL,	FRAME_STRINGS[5],	155.0,	128.0,	 1.0,	true }, // CPU Core: Pure Interp/Dynarec
 	{	NULL,	FRAME_STRINGS[6],	155.0,	198.0,	 1.0,	true }, // Bios: HLE/SD/USB/DVD
 	{	NULL,	FRAME_STRINGS[7],	155.0,	268.0,	 1.0,	true }, // Boot Thru Bios: Yes/No
-	{	NULL,	FRAME_STRINGS[9],	155.0,	408.0,	 1.0,	true }, // Save settings.cfg: SD/USB
+	{	NULL,	FRAME_STRINGS[9],	155.0,	408.0,	 1.0,	true }, // Save settings: SD/USB
 	//TextBoxes for Video Tab (starts at textBox[4])
 	{	NULL,	FRAME_STRINGS[18],	190.0,	128.0,	 1.0,	true }, // Show FPS: On/Off
 	{	NULL,	FRAME_STRINGS[19],	190.0,	198.0,	 1.0,	true }, // Limit FPS: Auto/Off
@@ -956,11 +956,11 @@ void Func_SaveSettingsSD()
 		return;
 	}
 	if(configFile_init(configFile_file)) {                //only if device initialized ok
-		FILE* f = fopen( "sd:/wiisxrx/settings.cfg", "wb" );  //attempt to open file
+		FILE* f = fopen( "sd:/wiisxrx/settingsRX2022.cfg", "wb" );  //attempt to open file
 		if(f) {
 			writeConfig(f);                                   //write out the config
 			fclose(f);
-			menu::MessageBox::getInstance().setMessage("Saved settings.cfg to SD");
+			menu::MessageBox::getInstance().setMessage("Saved settings to SD");
 			if (oldLang != lang)
             {
                 menu::MessageBox::getInstance().setMessage("Because the language has changed, please restart");
@@ -968,7 +968,7 @@ void Func_SaveSettingsSD()
 			return;
 		}
 	}
-	menu::MessageBox::getInstance().setMessage("Error saving settings.cfg to SD");
+	menu::MessageBox::getInstance().setMessage("Error saving settings to SD");
 }
 
 void Func_SaveSettingsUSB()
@@ -982,11 +982,11 @@ void Func_SaveSettingsUSB()
 		return;
 	}
 	if(configFile_init(configFile_file)) {                //only if device initialized ok
-		FILE* f = fopen( "usb:/wiisxrx/settings.cfg", "wb" ); //attempt to open file
+		FILE* f = fopen( "usb:/wiisxrx/settingsRX2022.cfg", "wb" ); //attempt to open file
 		if(f) {
 			writeConfig(f);                                   //write out the config
 			fclose(f);
-			menu::MessageBox::getInstance().setMessage("Saved settings.cfg to USB");
+			menu::MessageBox::getInstance().setMessage("Saved settings to USB");
 			if (oldLang != lang)
             {
                 menu::MessageBox::getInstance().setMessage("Because the language has changed, please restart");
@@ -994,7 +994,7 @@ void Func_SaveSettingsUSB()
 			return;
 		}
 	}
-	menu::MessageBox::getInstance().setMessage("Error saving settings.cfg to USB");
+	menu::MessageBox::getInstance().setMessage("Error saving settings to USB");
 }
 
 void Func_ShowFpsOn()
