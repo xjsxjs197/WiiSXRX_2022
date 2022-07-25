@@ -80,8 +80,8 @@ msgstr "通过Bios启动"
 msgid "Execute Bios"
 msgstr "执行Bios"
 
-msgid "Save settings.cfg"
-msgstr "保存settings.cfg"
+msgid "Save settings"
+msgstr "保存各种设定"
 
 msgid "Interpreter"
 msgstr "解释型"
@@ -224,20 +224,20 @@ msgstr "初始化系统失败, 试着加载镜像."
 msgid "Error opening directory sd:/wiisxr"
 msgstr "打开目录失败 sd:/wiisxr"
 
-msgid "Saved settings.cfg to SD"
-msgstr "settings.cfg保存到了SD卡"
+msgid "Saved settings to SD"
+msgstr "各种设定保存到了SD卡"
 
-msgid "Error saving settings.cfg to SD"
-msgstr "保存settings.cfg到SD卡时失败了"
+msgid "Error saving settings to SD"
+msgstr "保存各种设定到SD卡时失败了"
 
 msgid "Error opening directory usb:/wiisxr"
 msgstr "打开目录失败 usb:/wiisxr"
 
-msgid "Saved settings.cfg to USB"
-msgstr "settings.cfg保存到了USB"
+msgid "Saved settings to USB"
+msgstr "各种设定保存到了USB"
 
-msgid "Error saving settings.cfg to USB"
-msgstr "保存settings.cfg到USB时失败了"
+msgid "Error saving settings to USB"
+msgstr "保存各种设定到USB时失败了"
 
 msgid "Saved Button Configs to SD"
 msgstr "按键设置保存到了SD卡"
