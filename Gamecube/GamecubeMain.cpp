@@ -245,7 +245,7 @@ void loadSettings(int argc, char *argv[])
             memset(Config.PatchesDir, '\0', sizeof(Config.PatchesDir));
             strcpy(Config.PatchesDir, "usb:/wiisxrx/ppf/");
             // add xjsxjs197 end
-			FILE* f = fopen( "usb:/wiisxrx/settings.cfg", "r" );  //attempt to open file
+			FILE* f = fopen( "usb:/wiisxrx/settingsRX2022.cfg", "r" );  //attempt to open file
 			if(f) {        //open ok, read it
 				readConfig(f);
 				fclose(f);
@@ -293,7 +293,7 @@ void loadSettings(int argc, char *argv[])
             memset(Config.PatchesDir, '\0', sizeof(Config.PatchesDir));
             strcpy(Config.PatchesDir, "sd:/wiisxrx/ppf/");
             // add xjsxjs197 end
-			FILE* f = fopen( "sd:/wiisxrx/settings.cfg", "r" );  //attempt to open file
+			FILE* f = fopen( "sd:/wiisxrx/settingsRX2022.cfg", "r" );  //attempt to open file
 			if(f) {        //open ok, read it
 				readConfig(f);
 				fclose(f);
