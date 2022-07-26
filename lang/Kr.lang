@@ -80,8 +80,8 @@ msgstr "바이오스를 통한 부팅"
 msgid "Execute Bios"
 msgstr "바이오스 실행"
 
-msgid "Save settings.cfg"
-msgstr "settings.cfg 저장"
+msgid "Save settings"
+msgstr "설정 저장"
 
 msgid "Interpreter"
 msgstr "해석기"
@@ -224,20 +224,20 @@ msgstr "시스템 초기화에 실패했습니다.\nISO 불러오기를 시도�
 msgid "Error opening directory sd:/wiisxr"
 msgstr "sd:/wiisxr 디렉토리 열기 오류"
 
-msgid "Saved settings.cfg to SD"
-msgstr "settings.cfg를 SD에 저장했습니다."
+msgid "Saved settings to SD"
+msgstr "설정를 SD에 저장했습니다."
 
-msgid "Error saving settings.cfg to SD"
-msgstr "settings.cfg를 SD에 저장하는 동안 오류가 발생했습니다."
+msgid "Error saving settings to SD"
+msgstr "설정를 SD에 저장하는 동안 오류가 발생했습니다."
 
 msgid "Error opening directory usb:/wiisxr"
 msgstr "usb:/wiisxr 디렉토리 열기 오류"
 
-msgid "Saved settings.cfg to USB"
-msgstr "USB에 settings.cfg 저장"
+msgid "Saved settings to USB"
+msgstr "USB에 설정 저장"
 
-msgid "Error saving settings.cfg to USB"
-msgstr "settings.cfg를 USB에 저장하는 동안 오류 발생"
+msgid "Error saving settings to USB"
+msgstr "설정를 USB에 저장하는 동안 오류 발생"
 
 msgid "Saved Button Configs to SD"
 msgstr "SD에 버튼 구성 저장"
