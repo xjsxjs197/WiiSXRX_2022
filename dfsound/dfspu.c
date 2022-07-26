@@ -78,9 +78,6 @@ static int iFMod[NSSIZE];
 static int RVB[NSSIZE * 2];
 int ChanBuf[NSSIZE];
 
-#define CDDA_BUFFER_UNIT  16384   //16384
-#define CDDA_BUFFER_SIZE (CDDA_BUFFER_UNIT * sizeof(uint32_t)) // must be power of 2
-
 ////////////////////////////////////////////////////////////////////////
 // CODE AREA
 ////////////////////////////////////////////////////////////////////////
@@ -1347,16 +1344,12 @@ extern char CDDABuf[CDDA_BUFFER_SIZE];
 // SETUPSTREAMS: init most of the spu buffers
 static void SetupStreams(void)
 {
-    //if (spu.bSpuInit == 0)
-    {
-        //spu.pSpuBuffer = (unsigned char *)malloc(48000);      // alloc mixing buffer
-        spu.pSpuBuffer = (unsigned char *)pSpuBuffer;      // alloc mixing buffer
-       //spu.whichBuffer = 0;
-       //spu.pSpuBuffer = spu.spuBuffer[spu.whichBuffer];            // alloc mixing buffer
-       //spu.SSumLR = calloc(NSSIZE * 2, sizeof(spu.SSumLR[0]));
-       spu.SSumLR = (int *)SSumLR;
-    }
-
+    //spu.pSpuBuffer = (unsigned char *)malloc(48000);      // alloc mixing buffer
+    spu.pSpuBuffer = (unsigned char *)pSpuBuffer;      // alloc mixing buffer
+   //spu.whichBuffer = 0;
+   //spu.pSpuBuffer = spu.spuBuffer[spu.whichBuffer];            // alloc mixing buffer
+   //spu.SSumLR = calloc(NSSIZE * 2, sizeof(spu.SSumLR[0]));
+   spu.SSumLR = (int *)SSumLR;
 
 // spu.XAStart =                                         // alloc xa buffer
 //  (uint32_t *)malloc(SPU_FREQ * sizeof(uint32_t) * 2);
@@ -1534,19 +1527,16 @@ long DF_SPUinit(void)
   spu_config.iTempo = 0;
   spu_config.iUseThread = 1; // no effect if only 1 core is detected
 
-  //if (spu.bSpuInit == 0)
-  {
-     //spu.spuMemC = calloc(1, 512 * 1024);
-     spu.spuMemC = spuMemC;
-     InitADSR();
+  //spu.spuMemC = calloc(1, 512 * 1024);
+  spu.spuMemC = spuMemC;
+  InitADSR();
 
-//     spu.s_chan = calloc(MAXCHAN+1, sizeof(spu.s_chan[0])); // channel + 1 infos (1 is security for fmod handling)
-//     spu.rvb = calloc(1, sizeof(REVERBInfo));
-//     spu.SB = calloc(MAXCHAN, sizeof(spu.SB[0]) * SB_SIZE);
-     spu.s_chan = (SPUCHAN *)s_chan;
-     spu.rvb = (REVERBInfo *)rvb;
-     spu.SB = (int *)SB;
-  }
+  //     spu.s_chan = calloc(MAXCHAN+1, sizeof(spu.s_chan[0])); // channel + 1 infos (1 is security for fmod handling)
+  //     spu.rvb = calloc(1, sizeof(REVERBInfo));
+  //     spu.SB = calloc(MAXCHAN, sizeof(spu.SB[0]) * SB_SIZE);
+  spu.s_chan = (SPUCHAN *)s_chan;
+  spu.rvb = (REVERBInfo *)rvb;
+  spu.SB = (int *)SB;
 
  spu.spuAddr = 0;
  spu.decode_pos = 0;
@@ -1597,8 +1587,6 @@ long DF_SPUclose(void)
 
     exit_spu_thread();
 
-    //if (shutdown)
-    {
 //        if (spu.spuMemC)
 //        {
 //            free(spu.spuMemC);
@@ -1623,7 +1611,6 @@ long DF_SPUclose(void)
         RemoveStreams();
 
         spu.bSpuInit=0;
-    }
                                         // no more streaming
  return 0;
 }

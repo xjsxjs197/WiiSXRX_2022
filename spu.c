@@ -24,15 +24,6 @@
 #include "spu.h"
 #include "dfsound/externals.h"
 
-// num of channels
-#define MAXCHAN     24
-#define SB_SIZE (32 + 4)
-#define SPU_FREQ	48000
-// note: must be even due to the way reverb works now
-#define NSSIZE ((SPU_FREQ / 50 + 16) & ~1)
-#define CDDA_BUFFER_UNIT  16384   //16384
-#define CDDA_BUFFER_SIZE (CDDA_BUFFER_UNIT * sizeof(uint32_t)) // must be power of 2
-
 char spuMemC[512 * 1024] __attribute__((aligned(32)));
 char s_chan[(MAXCHAN + 1) * sizeof(spu.s_chan[0])] __attribute__((aligned(32)));
 char rvb[sizeof(REVERBInfo)] __attribute__((aligned(32)));
