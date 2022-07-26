@@ -335,7 +335,7 @@ void IplFont::drawString(int x, int y, char *string, float scale, bool centered)
 		utf8Txt++;
 	}
 
-	free(tmpPtr);
+    delete[] tmpPtr;
 }
 
 int IplFont::drawStringWrap(int x, int y, char *string, float scale, bool centered, int maxWidth, int lineSpacing)
@@ -431,7 +431,7 @@ void IplFont::drawStringAtOrigin(char *string, float scale)
 	}
     x0 = (int) -x / 2;
 	y0 = (int) -CH_FONT_HEIGHT / 2;
-	free(tmpPtr);
+	delete[] tmpPtr;
 
 	drawString(x0, y0, string, scale, false);
 }
@@ -446,7 +446,7 @@ int IplFont::getStringWidth(char *string, float scale)
 		strWidth += this->getCharCode(*utf8Txt);
 		utf8Txt++;
 	}
-	free(tmpPtr);
+	delete[] tmpPtr;
 
 	return strWidth;
 }
