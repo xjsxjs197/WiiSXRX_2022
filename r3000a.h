@@ -20,6 +20,10 @@
 #ifndef __R3000A_H__
 #define __R3000A_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "psxcommon.h"
 #include "psxmem.h"
 #include "psxcounters.h"
@@ -43,25 +47,42 @@ extern R3000Acpu psxRec;
 #endif
 
 typedef union {
+#if defined(HW_RVL) || defined(HW_DOL)
+	struct { u8 h3, h2, h, l; } b;
+	struct { s8 h3, h2, h, l; } sb;
+	struct { u16 h, l; } w;
+	struct { s16 h, l; } sw;
+#else
+	struct { u8 l, h, h2, h3; } b;
+	struct { u16 l, h; } w;
+	struct { s8 l, h, h2, h3; } sb;
+	struct { s16 l, h; } sw;
+#endif
+	u32 d;
+	s32 sd;
+} PAIR;
+
+typedef union {
 	struct {
 		u32   r0, at, v0, v1, a0, a1, a2, a3,
 						t0, t1, t2, t3, t4, t5, t6, t7,
 						s0, s1, s2, s3, s4, s5, s6, s7,
 						t8, t9, k0, k1, gp, sp, s8, ra, lo, hi;
 	} n;
-	u32 r[34]; /* Lo, Hi in r[33] and r[34] */
+	u32 r[34]; /* Lo, Hi in r[32] and r[33] */
+	PAIR p[34];
 } psxGPRRegs;
 
 typedef union {
 	struct {
-		u32	Index,     Random,    EntryLo0,  EntryLo1,
-						Context,   PageMask,  Wired,     Reserved0,
-						BadVAddr,  Count,     EntryHi,   Compare,
-						Status,    Cause,     EPC,       PRid,
-						Config,    LLAddr,    WatchLO,   WatchHI,
-						XContext,  Reserved1, Reserved2, Reserved3,
-						Reserved4, Reserved5, ECC,       CacheErr,
-						TagLo,     TagHi,     ErrorEPC,  Reserved6;
+		u32	Index,     Random,    EntryLo0,  BPC,
+				Context,   BDA,       PIDMask,   DCIC,
+				BadVAddr,  BDAM,      EntryHi,   BPCM,
+				Status,    Cause,     EPC,       PRid,
+				Config,    LLAddr,    WatchLO,   WatchHI,
+				XContext,  Reserved1, Reserved2, Reserved3,
+				Reserved4, Reserved5, ECC,       CacheErr,
+				TagLo,     TagHi,     ErrorEPC,  Reserved6;
 	} n;
 	u32 r[32];
 } psxCP0Regs;
@@ -105,6 +126,7 @@ typedef union {
 		s32          lzcs, lzcr;
 	} n;
 	u32 r[32];
+	PAIR p[32];
 } psxCP2Data;
 
 typedef union {
@@ -122,22 +144,8 @@ typedef union {
 		s32      flag;
 	} n;
 	u32 r[32];
+	PAIR p[32];
 } psxCP2Ctrl;
-
-typedef struct {
-    psxCP2Data CP2D; 	/* Cop2 data registers */
-	psxCP2Ctrl CP2C; 	/* Cop2 control registers */
-	psxGPRRegs GPR;		/* General Purpose Registers */
-	psxCP0Regs CP0;		/* Coprocessor0 Registers */
-    u32 pc;				/* Program counter */
-    u32 code;			/* The instruction */
-	u32 cycle;
-	u32 interrupt;
-	//u32 intCycle[32];
-	struct { u32 sCycle, cycle; } intCycle[32];
-} psxRegisters;
-
-extern psxRegisters psxRegs;
 
 enum {
 	PSXINT_SIO = 0,
@@ -157,6 +165,21 @@ enum {
 	PSXINT_SPU_UPDATE,
 	PSXINT_COUNT
 };
+
+typedef struct {
+	psxGPRRegs GPR;		/* General Purpose Registers */
+	psxCP0Regs CP0;		/* Coprocessor0 Registers */
+	psxCP2Data CP2D; 	/* Cop2 data registers */
+	psxCP2Ctrl CP2C; 	/* Cop2 control registers */
+    u32 pc;						/* Program counter */
+    u32 code;					/* The instruction */
+	u32 cycle;
+	u32 interrupt;
+	struct { u32 sCycle, cycle; } intCycle[32];
+
+} psxRegisters;
+
+extern psxRegisters psxRegs;
 
 #if defined(HW_RVL) || defined(HW_DOL) || defined(BIG_ENDIAN)
 
@@ -240,4 +263,7 @@ void psxTestSWInts();
 void psxTestHWInts();
 void psxJumpTest();
 
-#endif /* __R3000A_H__ */
+#ifdef __cplusplus
+}
+#endif
+#endif
