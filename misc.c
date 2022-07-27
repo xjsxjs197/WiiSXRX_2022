@@ -58,7 +58,11 @@ struct iso_directory_record {
 void mmssdd( char *b, char *p )
 {
 	int m, s, d;
-	int block = SWAP32(*((uint32_t*) b));
+#if defined(HW_RVL) || defined(HW_DOL) || defined(BIG_ENDIAN)
+	int block = (b[0] & 0xff) | ((b[1] & 0xff) << 8) | ((b[2] & 0xff) << 16) | (b[3] << 24);
+#else
+	int block = *((int*)b);
+#endif
 
 	block += 150;
 	m = block / 4500;			// minutes
@@ -315,7 +319,7 @@ int CheckCdrom() {
 	char exename[256];
 	int i, len, c;
 
-	FreePPFCache();
+	//FreePPFCache();
 
 	time[0] = itob(0);
 	time[1] = itob(2);

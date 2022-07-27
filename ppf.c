@@ -92,8 +92,8 @@ void FreePPFCache() {
 
 void CheckPPFCache(unsigned char *pB, unsigned char m, unsigned char s, unsigned char f) {
 	PPF_CACHE *pcstart, *pcend, *pcpos;
-	//int addr = MSF2SECT(btoi(m), btoi(s), btoi(f)), pos, anz, start;
-	int addr = MSF2SECT((m), (s), btoi(f)), pos, anz, start;
+	int addr = MSF2SECT(btoi(m), btoi(s), btoi(f)), pos, anz, start;
+	//int addr = MSF2SECT((m), (s), btoi(f)), pos, anz, start;
 
 	if (ppfCache == NULL) return;
 
@@ -181,8 +181,8 @@ static void AddToPPF(s32 ladr, s32 pos, s32 anz, unsigned char *ppfmem) {
 void BuildPPFCache() {
 	FILE			*ppffile;
 	char			buffer[12];
-	char			undo = 0, blockcheck = 0;
-	int				method, dizlen, dizyn;
+	char			method, undo = 0, blockcheck = 0;
+	int				dizlen, dizyn;
 	unsigned char	ppfmem[512];
 	char			szPPF[MAXPATHLEN * 2];
 	int				count, seekpos, pos;
@@ -208,78 +208,43 @@ void BuildPPFCache() {
 	buffer[11] = '\0';
 
 	sprintf(szPPF, "%s%s", Config.PatchesDir, buffer);
-	#ifdef DISP_DEBUG
-	sprintf(debugInfo, "%s", szPPF);
-	#endif // DISP_DEBUG
 
 	ppffile = fopen(szPPF, "rb");
-	if (ppffile == NULL)
-    {
-        #ifdef DISP_DEBUG
-        strcat(debugInfo, " file open error");
-        #endif // DISP_DEBUG
-        return;
-    }
+	if (ppffile == NULL) return;
 
 	memset(buffer, 0, 5);
-	if (fread(buffer, 3, 1, ppffile) != 1)
-    {
-        #ifdef DISP_DEBUG
-        strcat(debugInfo, " fread 3 Error");
-        #endif // DISP_DEBUG
-        goto fail_io;
-    }
+	if (fread(buffer, 3, 1, ppffile) != 3)
+		goto fail_io;
 
 	if (strcmp(buffer, "PPF") != 0) {
-        #ifdef DISP_DEBUG
-        strcat(debugInfo, " Invalid PPF");
-        #endif // DISP_DEBUG
 		SysPrintf(_("Invalid PPF patch: %s.\n"), szPPF);
 		fclose(ppffile);
 		return;
 	}
 
-	fseek(ppffile, 3, SEEK_SET);
+	fseek(ppffile, 5, SEEK_SET);
 	method = fgetc(ppffile);
-	#ifdef DISP_DEBUG
-    sprintf(debugInfo, " method: %c", method);
-    #endif // DISP_DEBUG
 
-    method -= 48;
 	switch (method) {
-		case 1: // ppf1
+		case 0: // ppf1
 			fseek(ppffile, 0, SEEK_END);
 			count = ftell(ppffile);
 			count -= 56;
 			seekpos = 56;
 			break;
 
-		case 2: // ppf2
+		case 1: // ppf2
 			fseek(ppffile, -8, SEEK_END);
 
 			memset(buffer, 0, 5);
-			if (fread(buffer, 4, 1, ppffile) != 1)
-            {
-                #ifdef DISP_DEBUG
-                sprintf(debugInfo, " ppf2 fread end error");
-                #endif // DISP_DEBUG
-                goto fail_io;
-            }
+			if (fread(buffer, 4, 1, ppffile) != 4)
+				goto fail_io;
 
 			if (strcmp(".DIZ", buffer) != 0) {
-                #ifdef DISP_DEBUG
-                sprintf(debugInfo, " DIZ = 0");
-                #endif // DISP_DEBUG
 				dizyn = 0;
 			} else {
-				if (fread(&dizlen, 4, 1, ppffile) != 1)
-				{
-				    #ifdef DISP_DEBUG
-                    sprintf(debugInfo, " dizlen ERROR");
-                    #endif // DISP_DEBUG
-                    goto fail_io;
-				}
-
+				if (fread(&dizlen, 4, 1, ppffile) != 4)
+					goto fail_io;
 				dizlen = SWAP32(dizlen);
 				dizyn = 1;
 			}
@@ -298,21 +263,21 @@ void BuildPPFCache() {
 			}
 			break;
 
-		case 3: // ppf3
+		case 2: // ppf3
 			fseek(ppffile, 57, SEEK_SET);
 			blockcheck = fgetc(ppffile);
 			undo = fgetc(ppffile);
 
 			fseek(ppffile, -6, SEEK_END);
 			memset(buffer, 0, 5);
-			if (fread(buffer, 4, 1, ppffile) != 1)
+			if (fread(buffer, 4, 1, ppffile) != 4)
 				goto fail_io;
 			dizlen = 0;
 
 			if (strcmp(".DIZ", buffer) == 0) {
 				fseek(ppffile, -2, SEEK_END);
 				// TODO: Endian/size unsafe?
-				if (fread(&dizlen, 2, 1, ppffile) != 1)
+				if (fread(&dizlen, 2, 1, ppffile) != 2)
 					goto fail_io;
 				dizlen = SWAP32(dizlen);
 				dizlen += 36;
@@ -332,46 +297,27 @@ void BuildPPFCache() {
 			break;
 
 		default:
-		    #ifdef DISP_DEBUG
-            sprintf(debugInfo, " default ERROR %d", method);
-            #endif // DISP_DEBUG
 			fclose(ppffile);
 			SysPrintf(_("Unsupported PPF version (%d).\n"), method + 1);
 			return;
 	}
 
 	// now do the data reading
-	do {
+	do {                                                
 		fseek(ppffile, seekpos, SEEK_SET);
-		if (fread(&pos, sizeof(pos), 1, ppffile) != 1)
-        {
-            #ifdef DISP_DEBUG
-            sprintf(debugInfo, " data reading Pos Error");
-            #endif // DISP_DEBUG
-            goto fail_io;
-        }
-
+		if (fread(&pos, sizeof(pos), 1, ppffile) != sizeof(pos))
+			goto fail_io;
 		pos = SWAP32(pos);
 
-		if (method == 3) {
+		if (method == 2) {
 			// skip 4 bytes on ppf3 (no int64 support here)
-			if (fread(buffer, 4, 1, ppffile) != 1)
-            {
-                #ifdef DISP_DEBUG
-                sprintf(debugInfo, " skip 4 bytes on ppf3 (no int64 support here)");
-                #endif // DISP_DEBUG
+			if (fread(buffer, 4, 1, ppffile) != 4)
 				goto fail_io;
-		    }
 		}
 
 		anz = fgetc(ppffile);
-		if (fread(ppfmem, anz, 1, ppffile) != 1)
-        {
-            #ifdef DISP_DEBUG
-            sprintf(debugInfo, " anz pos Error");
-            #endif // DISP_DEBUG
-            goto fail_io;
-        }
+		if (fread(ppfmem, anz, 1, ppffile) != anz)
+			goto fail_io;
 
 		ladr = pos / CD_FRAMESIZE_RAW;
 		off = pos % CD_FRAMESIZE_RAW;
@@ -384,34 +330,26 @@ void BuildPPFCache() {
 
 		AddToPPF(ladr, off, anz, ppfmem); // add to link list
 
-		if (method == 3) {
+		if (method == 2) {
 			if (undo) anz += anz;
 			anz += 4;
 		}
 
 		seekpos = seekpos + 5 + anz;
 		count = count - 5 - anz;
-	} while (count > 0); // loop til end
+	} while (count != 0); // loop til end
 
 	fclose(ppffile);
 
 	FillPPFCache(); // build address array
 
 	SysPrintf(_("Loaded PPF %d.0 patch: %s.\n"), method + 1, szPPF);
-	#ifdef DISP_DEBUG
-    sprintf(debugInfo, "Loaded PPF %d.0 patch: %s.\n", method + 1, szPPF);
-    #endif // DISP_DEBUG
-
-    ppffile = NULL;
 
 fail_io:
 #ifndef NDEBUG
 	SysPrintf(_("File IO error in <%s:%s>.\n"), __FILE__, __func__);
 #endif
-    if (ppffile != NULL)
-    {
-        fclose(ppffile);
-    }
+	fclose(ppffile);
 }
 
 // redump.org SBI files, slightly different handling from PCSX-Reloaded
@@ -441,7 +379,7 @@ int LoadSBI(const char *fname, int sector_count) {
 		s = fread(sbitime, 1, 3, sbihandle);
 		if (s != 3)
 			goto fail_io;
-		if (fread(&t, sizeof(t), 1, sbihandle) != 1)
+		if (fread(&t, sizeof(t), 1, sbihandle) != sizeof(t))
 			goto fail_io;
 		switch (t) {
 		default:
@@ -455,8 +393,8 @@ int LoadSBI(const char *fname, int sector_count) {
 		}
 		fseek(sbihandle, s, SEEK_CUR);
 
-		//s = MSF2SECT(btoi(sbitime[0]), btoi(sbitime[1]), btoi(sbitime[2]));
-		s = MSF2SECT((sbitime[0]), (sbitime[1]), btoi(sbitime[2]));
+		s = MSF2SECT(btoi(sbitime[0]), btoi(sbitime[1]), btoi(sbitime[2]));
+		//s = MSF2SECT((sbitime[0]), (sbitime[1]), btoi(sbitime[2]));
 		if (s < sector_count)
 			sbi_sectors[s >> 3] |= 1 << (s&7);
 		else
