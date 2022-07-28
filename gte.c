@@ -9,6 +9,15 @@
 #include "psxmem.h"
 #include "Gamecube/wiiSXconfig.h"
 
+// U64 and S64 are used to wrap long integer constants.
+#if defined __GNUC__ || defined _MSC_VER_
+#define U64(val) val##ULL
+#define S64(val) val##LL
+#else
+#define U64(val) val
+#define S64(val) val
+#endif
+
 #define GTE_SF(op) ((op >> 19) & 1)
 #define GTE_MX(op) ((op >> 17) & 3)
 #define GTE_V(op) ((op >> 15) & 3)
@@ -287,10 +296,10 @@ static inline s64 gte_shift(s64 a, int sf) {
 }
 
 s32 BOUNDS(/*int44*/s64 value, int max_flag, int min_flag) {
-	if(value/*.positive_overflow()*/ > (s64)(0x7ffffffffff))
+	if(value/*.positive_overflow()*/ > S64(0x7ffffffffff))
 		FLAG |= max_flag;
 
-	if(value/*.negative_overflow()*/ < (s64)(-0x80000000000))
+	if(value/*.negative_overflow()*/ < S64(-0x80000000000))
 		FLAG |= min_flag;
 
 	return gte_shift(value/*.value()*/, m_sf);
@@ -382,10 +391,10 @@ u32 Lm_E(u32 result) {
 s64 F(s64 a) {
 	m_mac0 = a;
 
-	if(a > (s64)(0x7fffffff))
+	if(a > S64(0x7fffffff))
 		FLAG |= (1 << 31) | (1 << 16);
 
-	if(a < (s64)(-0x80000000))
+	if(a < S64(-0x80000000))
 		FLAG |= (1 << 31) | (1 << 15);
 
 	return a;
