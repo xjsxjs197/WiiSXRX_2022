@@ -18,7 +18,7 @@
 
 #ifndef _pR3000A_H_
 #define _pR3000A_H_
- 
+
 #include <gccore.h>
 #include <malloc.h>
 #include <stdint.h>
@@ -39,7 +39,7 @@
 #ifdef HW_DOL
 #define RECMEM_SIZE		(6*1024*1024)
 #elif HW_RVL
-#define RECMEM_SIZE		(7*1024*1024)
+#define RECMEM_SIZE		(7*1024*1024 - 512*1024)
 #endif
 #define NUM_REGISTERS	34
 #undef _Op_
@@ -139,7 +139,7 @@ typedef struct {
     u32 k;
     int usage;
     int lastUsed;
-    
+
     void (*flush)(int hwreg);
     int private;
 } HWRegister;
