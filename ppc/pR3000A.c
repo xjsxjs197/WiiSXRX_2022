@@ -32,6 +32,8 @@
 #include "../r3000a.h"
 #include "../psxhle.h"
 #include "../Gamecube/DEBUG.h"
+#include "../Gamecube/MEM2.h"
+#include <ogc/lwp_heap.h>
 
 #define printFunctionLog() { \
     sprintf(txtbuffer, "recFunction %s\n", __FUNCTION__); \
@@ -40,7 +42,8 @@
 
 /* variable declarations */
 static u32 psxRecLUT[0x010000];
-static char recMem[RECMEM_SIZE] __attribute__((aligned(32)));	/* the recompiled blocks will be here */
+//static char recMem[RECMEM_SIZE] __attribute__((aligned(32)));	/* the recompiled blocks will be here */
+static char *recMem = RECMEM2_LO;	/* the recompiled blocks will be here */
 static char recRAM[0x200000] __attribute__((aligned(32)));	/* and the ptr to the blocks here */
 static char recROM[0x080000] __attribute__((aligned(32)));	/* and here */
 
