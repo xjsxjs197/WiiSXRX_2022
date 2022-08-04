@@ -1102,7 +1102,7 @@ int do_samples(unsigned int cycles_to, int do_direct)
  int cycle_diff;
  int ns_to;
 
- cycles_to = cycles_to << 1;
+ //cycles_to = cycles_to << 1;
  cycle_diff = cycles_to - spu.cycles_played;
  if (cycle_diff < -2*1048576 || cycle_diff > 2*1048576)
   {
