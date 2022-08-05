@@ -225,10 +225,10 @@ msgid "Error opening directory sd:/wiisxr"
 msgstr "sd:/wiisxr 디렉토리 열기 오류"
 
 msgid "Saved settings to SD"
-msgstr "설정를 SD에 저장했습니다."
+msgstr "설정을 SD에 저장했습니다."
 
 msgid "Error saving settings to SD"
-msgstr "설정를 SD에 저장하는 동안 오류가 발생했습니다."
+msgstr "설정을 SD에 저장하는 동안 오류가 발생했습니다."
 
 msgid "Error opening directory usb:/wiisxr"
 msgstr "usb:/wiisxr 디렉토리 열기 오류"
@@ -237,7 +237,7 @@ msgid "Saved settings to USB"
 msgstr "USB에 설정 저장"
 
 msgid "Error saving settings to USB"
-msgstr "설정를 USB에 저장하는 동안 오류 발생"
+msgstr "설정을 USB에 저장하는 동안 오류 발생"
 
 msgid "Saved Button Configs to SD"
 msgstr "SD에 버튼 구성 저장"
