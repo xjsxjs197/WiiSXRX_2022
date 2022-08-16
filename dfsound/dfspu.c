@@ -1338,7 +1338,7 @@ extern char SB[MAXCHAN * sizeof(spu.SB[0]) * SB_SIZE];
 extern char pSpuBuffer[48000];
 extern char SSumLR[NSSIZE * 2 * sizeof(spu.SSumLR[0])];
 
-extern char XABuf[SPU_FREQ * sizeof(uint32_t) * 20];
+extern char XABuf[SPU_FREQ * sizeof(uint32_t) * 2];
 extern char CDDABuf[CDDA_BUFFER_SIZE];
 
 // SETUPSTREAMS: init most of the spu buffers
