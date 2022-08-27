@@ -35,10 +35,11 @@
 #include "../Gamecube/MEM2.h"
 #include <ogc/lwp_heap.h>
 
-#define printFunctionLog() { \
-    sprintf(txtbuffer, "recFunction %s\n", __FUNCTION__); \
-    printFunctionName(); \
-}
+//#define printFunctionLog() { \
+//    sprintf(txtbuffer, "recFunction %s\n", __FUNCTION__); \
+//    printFunctionName(); \
+//}
+#define printFunctionLog()
 
 /* variable declarations */
 static u32 psxRecLUT[0x010000];

@@ -201,12 +201,20 @@ void InitRemovalThread()
 // add xjsxjs197 start
 bool isCueFileExist(const char *filePath, const char *fileName) {
     char cuename[FILE_BROWSER_MAX_PATH_LEN];
-    //strncpy(cuename, fileName, sizeof(cuename));
     sprintf(cuename, "%s/%s", filePath, fileName);
 	cuename[FILE_BROWSER_MAX_PATH_LEN - 1] = '\0';
 	if (strlen(cuename) >= 4) {
         FILE *fi;
-		strcpy(cuename + strlen(cuename) - 4, ".cue");
+        char *trackPos = strstr(cuename, " (Track");
+        if (trackPos)
+        {
+            strcpy(trackPos, ".cue");
+        }
+        else
+        {
+            strcpy(cuename + strlen(cuename) - 4, ".cue");
+        }
+
         if ((fi = fopen(cuename, "r")) == NULL) {
 		    return false;
 	    }

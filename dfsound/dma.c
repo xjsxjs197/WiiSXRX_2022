@@ -78,7 +78,7 @@ void DF_SPUreadDMAMem(unsigned short *pusPSXMem, int iSize,
  /* Note: When messing with xa.c like fixing Suikoden II's demo video sound issue
  /* this should be handled as well.
  */
- do_samples_if_needed(cycles, 1);
+ //do_samples_if_needed(cycles, 1);
 
  #ifdef SHOW_DEBUG
  sprintf(txtbuffer, "SPUreadDMA crc %x", crc);
@@ -117,7 +117,7 @@ void DF_SPUwriteDMAMem(unsigned short *pusPSXMem, int iSize,
 {
  int i;
 
- do_samples_if_needed(cycles, 1);
+ //do_samples_if_needed(cycles, 1);
  spu.bMemDirty = 1;
 
  if(spu.spuAddr + iSize*2 < 0x80000)

@@ -75,7 +75,7 @@ typedef struct {
 
 	unsigned char Prev[4];
 	unsigned char Param[8];
-	unsigned char Result[8];
+	unsigned char Result[16];
 
 	unsigned char ParamC;
 	unsigned char ParamP;
@@ -85,7 +85,7 @@ typedef struct {
 	unsigned char Cmd;
 	unsigned char Readed;
 	unsigned char SetlocPending;
-	unsigned long Reading;
+	u32 Reading;
 
 	unsigned char ResultTN[6];
 	unsigned char ResultTD[4];
@@ -94,7 +94,7 @@ typedef struct {
 	unsigned char SetSector[4];
 	//unsigned char SetSectorSeek[4];
 	unsigned char Track;
-	bool Play, Muted;
+	bool Play, Muted, PlayAdpcm;
 	int CurTrack;
 	int Mode, File, Channel;
 	int Reset;
@@ -105,11 +105,11 @@ typedef struct {
 
 	int Init;
 
-	unsigned char Irq;
-	unsigned char IrqRepeated;
-	unsigned long eCycle;
+	u16 Irq;
+	u8 IrqRepeated;
+	u32 eCycle;
 
-	int Seeked;
+	u8 Seeked;
 
 	u8 DriveState;
 	u8 FastForward;
@@ -149,6 +149,7 @@ void cdrWrite3(unsigned char rt);
 int cdrFreeze(gzFile f, int Mode);
 
 bool swapIso;
+void (*p_cdrPlayDataEnd)();
 
 #ifdef __cplusplus
 }

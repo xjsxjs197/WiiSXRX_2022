@@ -171,9 +171,12 @@ static long GetTickCount(void) {
 
 static void *playthread(void *param)
 {
+    usleep(CD_FRAMESIZE_RAW * 10);
+
 	long osleep, d, t, i, s;
 	unsigned char	tmp;
 	int ret = 0, sector_offs;
+	int isEnd = 0;
 
 	t = GetTickCount();
 
@@ -191,6 +194,7 @@ static void *playthread(void *param)
 				if (d < CD_FRAMESIZE_RAW)
                 {
                     s += d;
+                    isEnd = 1;
                     break;
                 }
 			}
@@ -202,6 +206,10 @@ static void *playthread(void *param)
 		if (s == 0) {
 			playing = FALSE;
 			initial_offset = 0;
+			if (isEnd)
+            {
+                p_cdrPlayDataEnd();
+            }
 			break;
 		}
 
@@ -252,6 +260,12 @@ static void *playthread(void *param)
 			t += CDDA_FRAMETIME;
 		}
 
+		if (isEnd)
+        {
+            playing = FALSE;
+            p_cdrPlayDataEnd();
+            break;
+        }
 	}
 
 	//pthread_exit(0);  // TODO
@@ -1667,7 +1681,7 @@ static long CALLBACK ISOopen(void) {
 	fseek(cdHandle, 0, SEEK_SET);
 
 	//SysPrintf("%s.\n", image_str);
-	PRINT_LOG1("ISOopen: %s", image_str);
+	//PRINT_LOG1("ISOopen: %s", image_str);
 
 	//PrintTracks();
 
@@ -1701,6 +1715,8 @@ static long CALLBACK ISOclose(void) {
 		subHandle = NULL;
 	}
 	stopCDDA();
+	//playing = FALSE;
+	cddaHandle = NULL;
 
 	if (compr_img != NULL) {
 		free(compr_img->index_table);
@@ -1714,8 +1730,6 @@ static long CALLBACK ISOclose(void) {
 			ti[i].handle = NULL;
 		}
 	}
-	cddaHandle = NULL;
-
 	numtracks = 0;
 	ti[1].type = 0;
 	UnloadSBI();
@@ -1845,6 +1859,7 @@ static long CALLBACK ISOreadTrack(unsigned char *time) {
 // sector: byte 0 - minute; byte 1 - second; byte 2 - frame
 // does NOT uses bcd format
 static long CALLBACK ISOplay(unsigned char *time) {
+    //playing = TRUE;
 	unsigned int i;
 	#ifdef DISP_DEBUG
 	sprintf(txtbuffer, "CDR_play time %d %d %d", time[0], time[1], time[2]);
@@ -1879,6 +1894,7 @@ static long CALLBACK ISOplay(unsigned char *time) {
 // stops cdda audio
 static long CALLBACK ISOstop(void) {
 	stopCDDA();
+	//playing = FALSE;
 	return 0;
 }
 
