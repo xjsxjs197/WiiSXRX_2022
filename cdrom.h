@@ -150,6 +150,7 @@ int cdrFreeze(gzFile f, int Mode);
 
 bool swapIso;
 void (*p_cdrPlayDataEnd)();
+void (*p_cdrPlayCddaData)(int timePlus, int isEnd);
 
 #ifdef __cplusplus
 }

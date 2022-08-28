@@ -425,6 +425,55 @@ static void Find_CurTrack(const u8 *time)
 #endif
 }
 
+static void generate_subq(const u8 *time)
+{
+	unsigned char start[3], next[3];
+	unsigned int this_s, start_s, next_s, pregap;
+	int relative_s;
+
+	CDR_getTD(cdr.CurTrack, start);
+	if (cdr.CurTrack + 1 <= cdr.ResultTN[1]) {
+		pregap = 150;
+		CDR_getTD(cdr.CurTrack + 1, next);
+	}
+	else {
+		// last track - cd size
+		pregap = 0;
+		next[0] = cdr.SetSectorEnd[2];
+		next[1] = cdr.SetSectorEnd[1];
+		next[2] = cdr.SetSectorEnd[0];
+	}
+
+	this_s = msf2sec(time);
+	start_s = fsm2sec(start);
+	next_s = fsm2sec(next);
+
+	cdr.TrackChanged = FALSE;
+
+	if (next_s - this_s < pregap) {
+		cdr.TrackChanged = TRUE;
+		cdr.CurTrack++;
+		start_s = next_s;
+	}
+
+	cdr.subq.Index = 1;
+
+	relative_s = this_s - start_s;
+	if (relative_s < 0) {
+		cdr.subq.Index = 0;
+		relative_s = -relative_s;
+	}
+	sec2msf(relative_s, cdr.subq.Relative);
+
+	cdr.subq.Track = itob(cdr.CurTrack);
+	cdr.subq.Relative[0] = itob(cdr.subq.Relative[0]);
+	cdr.subq.Relative[1] = itob(cdr.subq.Relative[1]);
+	cdr.subq.Relative[2] = itob(cdr.subq.Relative[2]);
+	cdr.subq.Absolute[0] = itob(time[0]);
+	cdr.subq.Absolute[1] = itob(time[1]);
+	cdr.subq.Absolute[2] = itob(time[2]);
+}
+
 // ReadTrack=========================
 void ReadTrack() {
     unsigned char tmp[3];
@@ -552,6 +601,33 @@ static void cdrPlayInterrupt_Autopause()
 		SetResultSize(8);
 		setIrq();
 	}
+}
+
+// called by playthread
+static void cdrPlayCddaData(int timePlus, int isEnd)
+{
+	if (!cdr.Play) return;
+
+	if (isEnd == 1) {
+		StopCdda();
+		cdr.TrackChanged = TRUE;
+	}
+
+	if (!cdr.Irq && !cdr.Stat && (cdr.Mode & (MODE_AUTOPAUSE | MODE_REPORT)))
+		cdrPlayInterrupt_Autopause();
+
+	cdr.SetSectorPlay[2] += timePlus;
+	if (cdr.SetSectorPlay[2] >= 75) {
+		cdr.SetSectorPlay[2] = 0;
+		cdr.SetSectorPlay[1]++;
+		if (cdr.SetSectorPlay[1] == 60) {
+			cdr.SetSectorPlay[1] = 0;
+			cdr.SetSectorPlay[0]++;
+		}
+	}
+
+	// update for CdlGetlocP/autopause
+	generate_subq(cdr.SetSectorPlay);
 }
 
 // also handles seek
