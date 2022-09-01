@@ -266,7 +266,7 @@ static void *playthread(void *param)
             playing = FALSE;
         }
 
-        p_cdrPlayCddaData(timePlus, isEnd);
+        //p_cdrPlayCddaData(timePlus, isEnd);
 
 	}
 
@@ -1835,7 +1835,7 @@ static long CALLBACK ISOreadTrack(unsigned char *time) {
 	long ret;
 
 	if (cdHandle == NULL) {
-		return -1;
+		return 0;
 	}
 
 	if (pregapOffset) {
@@ -1849,7 +1849,7 @@ static long CALLBACK ISOreadTrack(unsigned char *time) {
 
 	ret = cdimg_read_func(cdHandle, 0, cdbuffer, sector);
 	if (ret < 0)
-		return -1;
+		return 0;
 
 	if (subHandle != NULL) {
 		fseek(subHandle, sector * SUB_FRAMESIZE, SEEK_SET);
@@ -1860,7 +1860,7 @@ static long CALLBACK ISOreadTrack(unsigned char *time) {
 		if (subChanRaw) DecodeRawSubData();
 	}
 
-	return 0;
+	return 1;
 }
 
 // plays cdda audio

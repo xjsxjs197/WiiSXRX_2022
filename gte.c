@@ -382,7 +382,7 @@ __inline float limD1 (float x) { _LIMX(-1024.0, 1023.0, 14); }
 __inline float limD2 (float x) { _LIMX(-1024.0, 1023.0, 13); }
 __inline float limE  (float x) { _LIMX(0.0, 4095.0, 12); }
 
-__inline float limG1(float x) {
+/*__inline float limG1(float x) {
 	if (x > 2147483647.0) { gteFLAG |= (1<<16); } else
 	if (x <-2147483648.0) { gteFLAG |= (1<<15); }
 
@@ -398,7 +398,7 @@ __inline float limG2(float x) {
 	if (x >       1023.0) { x =  1023.0; gteFLAG |= (1<<13); } else
 	if (x <      -1024.0) { x = -1024.0; gteFLAG |= (1<<13); }
 	return (x);
-}
+}*/
 
 __inline s32 F12limA1S(s64 x) { _LIMX(-32768<<12, 32767<<12, 24); }
 __inline s32 F12limA2S(s64 x) { _LIMX(-32768<<12, 32767<<12, 23); }

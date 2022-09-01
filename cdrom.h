@@ -60,9 +60,7 @@ typedef struct {
 	unsigned char StatP;
 
 	unsigned char Transfer[DATA_SIZE];
-	unsigned char *pTransfer;
-	unsigned int  transferIndex;
-    struct {
+	struct {
 		unsigned char Track;
 		unsigned char Index;
 		unsigned char Relative[3];
@@ -92,13 +90,12 @@ typedef struct {
 	unsigned char SetSectorPlay[4];
 	unsigned char SetSectorEnd[4];
 	unsigned char SetSector[4];
-	//unsigned char SetSectorSeek[4];
 	unsigned char Track;
 	bool Play, Muted, PlayAdpcm;
 	int CurTrack;
 	int Mode, File, Channel;
 	int Reset;
-	int RErr;
+	int NoErr;
 	int FirstSector;
 
 	xa_decode_t Xa;
@@ -110,6 +107,7 @@ typedef struct {
 	u32 eCycle;
 
 	u8 Seeked;
+	u8 ReadRescheduled;
 
 	u8 DriveState;
 	u8 FastForward;
@@ -122,7 +120,7 @@ typedef struct {
 	u8 AttenuatorRightToRightT, AttenuatorRightToLeftT;
 } cdrStruct;
 
-cdrStruct cdr;
+extern cdrStruct cdr;
 extern unsigned char btoiBuf[];
 extern unsigned char itobBuf[];
 extern int msf2SectM[];

@@ -55,17 +55,10 @@ struct iso_directory_record {
 	char name			[1];
 };
 
-//#define btoi(b)		((b)/16*10 + (b)%16)		/* BCD to u_char */
-//#define itob(i)		((i)/10*16 + (i)%10)		/* u_char to BCD */
-
 void mmssdd( char *b, char *p )
- {
+{
 	int m, s, d;
-#if defined(HW_RVL) || defined(HW_DOL) || defined(BIG_ENDIAN)
-	int block = (b[0]&0xff) | ((b[1]&0xff)<<8) | ((b[2]&0xff)<<16) | (b[3]<<24);
-#else
-	int block = *((int*)b);
-#endif
+	int block = SWAP32(*((uint32_t*) b));
 
 	block += 150;
 	m = block / 4500;			// minutes
@@ -96,19 +89,18 @@ void mmssdd( char *b, char *p )
 	time[0] = itob(time[0]); time[1] = itob(time[1]); time[2] = itob(time[2]);
 
 #define READTRACK() \
-    /*time[0] = btoi(time[0]); time[1] = btoi(time[1]); time[2] = btoi(time[2]);*/ \
-	if (CDR_readTrack(time) == -1) return -1; \
+	if (CDR_readTrack(time) == 0) return -1; \
 	buf = (void *)CDR_getBuffer(); \
 	if (buf == NULL) return -1; \
 	/*else CheckPPFCache((u8 *)buf, time[0], time[1], time[2]);*/
 
 #define READDIR(_dir) \
 	READTRACK(); \
-	memcpy(_dir, buf+12, 2048); \
+	memcpy(_dir, buf + 12, 2048); \
  \
 	incTime(); \
 	READTRACK(); \
-	memcpy(_dir+2048, buf+12, 2048);
+	memcpy(_dir + 2048, buf + 12, 2048);
 
 int GetCdromFile(u8 *mdir, u8 *time, char *filename) {
 	struct iso_directory_record *dir;
@@ -393,7 +385,13 @@ int CheckCdrom() {
 		strcpy(CdromId, "SLUS99999");
 
 	if (Config.PsxAuto) { // autodetect system (pal or ntsc)
-		if (CdromId[2] == 'e' || CdromId[2] == 'E')
+		if (
+			/* Make sure Wild Arms SCUS-94608 is not detected as a PAL game. */
+			((CdromId[0] == 's' || CdromId[0] == 'S') && (CdromId[2] == 'e' || CdromId[2] == 'E')) ||
+			!strncmp(CdromId, "DTLS3035", 8) ||
+			!strncmp(CdromId, "PBPX95001", 9) || // according to redump.org, these PAL
+			!strncmp(CdromId, "PBPX95007", 9) || // discs have a non-standard ID;
+			!strncmp(CdromId, "PBPX95008", 9))   // add more serials if they are discovered.
 			Config.PsxType = PSX_TYPE_PAL; // pal
 		else Config.PsxType = PSX_TYPE_NTSC; // ntsc
 	}
