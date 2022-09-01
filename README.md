@@ -1,18 +1,20 @@
-## WiiSXRX_2022
+# WiiSXRX_2022
 
-## The following changes have been made to the code based on wiisxrx.
+A fork of the original WiiSX-RX (http://github.com/niuus/WiiSXRX), originally a port of PCSX-Reloaded, but with many changes from PCSX-ReARMed, for the Nintendo Wii/Wii U.
 
-* Incorporating the CDROM and cdiso codes of pcsxrearmed, the compatibility of the system has been greatly improved.
+## The following changes have been made to the code based on WiiSXRX.
+
+* Incorporating the CDROM and cdiso codes of PCSX-ReARMed, the compatibility of the system has been greatly improved.
   Many games that could not be run or had problems before can be run.
 
-* Combined the dfsound module of pcsxrearmed and used the SDL Library.
+* Combined the dfsound module of PCSX-ReARMed and used the SDL Library.
   The sound quality of the system has been greatly improved.
 
-* Modification of some dynamic compilation instructions, such as sllv, SRLV, srav, FF9 and biohazard3 can be run.
+* Modification of some dynamic compilation instructions, such as sllv, SRLV, srav, Final Fantasy 9 and Biohazard 3 can be run.
   (Part of the division instruction uses a static compilation instruction)
 
 * Support for multiple languages.
-  At first, I wanted to refer to snes9xgx and support TTF font library.
+  At first, I wanted to refer to Snes9x GX and support TTF font library.
   However, it encountered a memory leak problem, resulting in automatic exit.
   So it can only be made into a specific font.
   Font char information: first two byte: BigEndianUnicode char code, followed by a character picture in IA8 format with a size of 24 * 24.
@@ -20,7 +22,7 @@
 * For some customed Chinese culture games, specific BIOS is automatically loaded.
   For example:  sd:\wiisxrx\isos\武藏传.ISO => sd:\wiisxrx\bios\武藏传.bin
 
-* Other minor corrections, such as disc changing and automatic fixed of some games.
+* Other minor corrections, such as disc changing (swap) and automatic fixed of some games.
 
   ※※※ It reads a font file in a fixed location, So make sure that [sd:/wiisxrx/fonts/chs.dat] exists ※※※
 
@@ -35,7 +37,9 @@
 ## Compilation information
 
 * devkitPPC r29 + libOGC 1.8.16 + SDL
+  
   You can download everything here: https://wii.leseratte10.de/devkitPro/
+  
   The compiled SDL is here: https://github.com/xjsxjs197/WiiSXRX_2022/raw/main/libSDL.a
 
 
@@ -102,4 +106,4 @@ Original WiiSXR coder:
 Mystro256
 
 Mods & updates:
-Matguitarist, daxtsu, Mystro256, FIX94
+Matguitarist, daxtsu, Mystro256, FIX94, xjsxjs197
