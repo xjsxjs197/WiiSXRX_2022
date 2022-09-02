@@ -175,14 +175,12 @@ static void *playthread(void *param)
 
 	long osleep, d, t, i, s;
 	unsigned char	tmp;
-	int ret = 0, sector_offs, timePlus;
-	int isEnd = 0;
+	int ret = 0, sector_offs;
 
 	t = GetTickCount();
 
 	while (playing) {
 		s = 0;
-		timePlus = 0;
 		for (i = 0; i < sizeof(sndbuffer) / CD_FRAMESIZE_RAW; i++) {
 			sector_offs = cdda_cur_sector - cdda_first_sector;
 			if (sector_offs <= 0) {
@@ -195,12 +193,7 @@ static void *playthread(void *param)
 				if (d < CD_FRAMESIZE_RAW)
                 {
                     s += d;
-                    isEnd = 1;
                     break;
-                }
-                else
-                {
-                    timePlus++;
                 }
 			}
 
@@ -216,7 +209,6 @@ static void *playthread(void *param)
 
 		if (!cdr.Muted && playing) {
 			if (cddaBigEndian) {
-			//if (true) {
 				for (i = 0; i < s / 2; i++) {
 					tmp = sndbuffer[i * 2];
 					sndbuffer[i * 2] = sndbuffer[i * 2 + 1];
@@ -260,12 +252,6 @@ static void *playthread(void *param)
 			usleep(osleep * 1000);
 			t += CDDA_FRAMETIME;
 		}
-
-		if (isEnd)
-        {
-            playing = FALSE;
-        }
-
         //p_cdrPlayCddaData(timePlus, isEnd);
 
 	}
