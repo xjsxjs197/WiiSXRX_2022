@@ -125,6 +125,8 @@ extern unsigned char btoiBuf[];
 extern unsigned char itobBuf[];
 extern int msf2SectM[];
 extern int msf2SectS[];
+extern int msf2SectMNoItob[];
+extern int msf2SectSNoItob[];
 
 void cdrReset();
 void cdrAttenuate(s16 *buf, int samples, int stereo);
