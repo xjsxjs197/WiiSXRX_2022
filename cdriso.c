@@ -54,9 +54,10 @@ static bool multifile = FALSE;
 static unsigned char cdbuffer[CD_FRAMESIZE_RAW];
 static unsigned char subbuffer[SUB_FRAMESIZE];
 
-static unsigned char sndbuffer[CD_FRAMESIZE_RAW * 10];
+#define CDDA_FRAME_COUNT 10
+static unsigned char sndbuffer[CD_FRAMESIZE_RAW * CDDA_FRAME_COUNT];
 
-#define CDDA_FRAMETIME			(1000 * (sizeof(sndbuffer) / CD_FRAMESIZE_RAW) / 75)
+#define CDDA_FRAMETIME			(1000 * CDDA_FRAME_COUNT / 75)
 
 //static pthread_t threadid;
 static lwp_t threadid = LWP_THREAD_NULL;
@@ -178,13 +179,13 @@ static void *playthread(void *param)
 
 	long osleep, d, t, i, s;
 	unsigned char	tmp;
-	int ret = 0, sector_offs;
+	int ret = 0, sector_offs, readSectors;
 
 	t = GetTickCount();
 
 	while (playing) {
-		s = 0;
-		for (i = 0; i < sizeof(sndbuffer) / CD_FRAMESIZE_RAW; i++) {
+		/*s = 0;
+		for (i = 0; i < CDDA_FRAME_COUNT; i++) {
 			sector_offs = cdda_cur_sector - cdda_first_sector;
 			if (sector_offs <= 0) {
 				d = CD_FRAMESIZE_RAW;
@@ -202,12 +203,31 @@ static void *playthread(void *param)
 
 			s += d;
 			cdda_cur_sector++;
-		}
+		}*/
+		if (cdda_cur_sector - cdda_first_sector < 0)
+        {
+            sector_offs = 0;
+            readSectors = CDDA_FRAME_COUNT - (cdda_first_sector - cdda_cur_sector);
+            s = (cdda_first_sector - cdda_cur_sector) * CD_FRAMESIZE_RAW;
+            memset(sndbuffer, 0, s);
+        }
+        else
+        {
+            sector_offs = cdda_cur_sector - cdda_first_sector;
+            readSectors = CDDA_FRAME_COUNT;
+            s = 0;
+        }
+        fseek(cddaHandle, cdda_file_offset + sector_offs * CD_FRAMESIZE_RAW, SEEK_SET);
+        s = fread(sndbuffer + s, 1, readSectors * CD_FRAMESIZE_RAW, cddaHandle);
+        cdda_cur_sector += CDDA_FRAME_COUNT;
 
 		if (s == 0) {
-			playing = FALSE;
-			initial_offset = 0;
-			break;
+			//playing = FALSE;
+			//initial_offset = 0;
+			//break;
+			// Hack, when reach the end, start from the beginning
+			cdda_cur_sector = cdda_first_sector;
+			continue;
 		}
 
 		if (!cdr.Muted && playing) {
