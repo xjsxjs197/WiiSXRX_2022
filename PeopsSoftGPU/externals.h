@@ -16,13 +16,13 @@
  *                                                                         *
  ***************************************************************************/
 
-//*************************************************************************// 
+//*************************************************************************//
 // History of changes:
 //
 // 2005/04/15 - Pete
 // - Changed user frame limit to floating point value
 //
-// 2004/01/31 - Pete  
+// 2004/01/31 - Pete
 // - added zn stuff
 //
 // 2002/04/20 - linuzappz
@@ -37,10 +37,10 @@
 // 2001/12/05 - syo
 // - added iSysMemory and iStopSaver
 //
-// 2001/10/28 - Pete  
+// 2001/10/28 - Pete
 // - generic cleanup for the Peops release
 //
-//*************************************************************************// 
+//*************************************************************************//
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -127,7 +127,7 @@ typedef struct PSXRECTTAG
 #define max(a,b)            (((a) > (b)) ? (a) : (b))
 #define min(a,b)            (((a) < (b)) ? (a) : (b))
 #define DWORD unsigned long
-#define __int64 long long int 
+#define __int64 long long int
 
 typedef struct RECTTAG
 {
@@ -142,6 +142,7 @@ typedef struct RECTTAG
 typedef struct TWINTAG
 {
  PSXRect_t  Position;
+ int xmask, ymask;
 } TWin_t;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -152,7 +153,7 @@ typedef struct PSXDISPLAYTAG
  PSXPoint_t  DisplayMode;
  PSXPoint_t  DisplayPosition;
  PSXPoint_t  DisplayEnd;
- 
+
  long        Double;
  long        Height;
  long        PAL;
@@ -165,7 +166,7 @@ typedef struct PSXDISPLAYTAG
  PSXRect_t   Range;
 
 } PSXDisplay_t;
-                                
+
 /////////////////////////////////////////////////////////////////////////////
 
 // draw.c
