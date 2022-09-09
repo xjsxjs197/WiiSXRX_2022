@@ -1096,7 +1096,7 @@ void cdrInterrupt() {
 			Rockman X5 = 0.5-4x
 			- fix capcom logo
 			*/
-			//CDRMISC_INT(cdr.Seeked == SEEK_DONE ? 0x800 : cdReadTime * 4);
+			CDRMISC_INT(cdr.Seeked == SEEK_DONE ? 0x800 : cdReadTime * 4);
 			cdr.Seeked = SEEK_PENDING;
 			start_rotating = 1;
 			break;

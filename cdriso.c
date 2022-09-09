@@ -229,7 +229,7 @@ static void *playthread(void *param)
         }
         else
         {
-            sector_offs = cdda_cur_sector - cdda_first_sector;
+            //sector_offs = cdda_cur_sector - cdda_first_sector;
             s = fread(sndbuffer, 1, CD_FRAMESIZE_RAW, cddaHandle);
         }
         cdda_cur_sector += 1;
@@ -292,7 +292,7 @@ static void *playthread(void *param)
 		else
         {
             p_cdrPlayCddaData(1, 0, (unsigned short *)sndbuffer);
-            usleep(CD_FRAMESIZE_RAW * 10);
+            usleep(CD_FRAMESIZE_RAW * 3);
         }
 
 	}
