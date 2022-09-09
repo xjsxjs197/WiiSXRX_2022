@@ -63,8 +63,8 @@ INLINE void MixXA(int *SSumLR, int ns_to, int decode_pos)
 
  if(spu.XAPlay != spu.XAFeed || spu.XARepeat > 0)
  {
-  if(spu.XAPlay == spu.XAFeed)
-   spu.XARepeat--;
+  //if(spu.XAPlay == spu.XAFeed)
+  // spu.XARepeat--;
 
   for(ns = 0; ns < ns_to*2; )
    {
@@ -82,10 +82,11 @@ INLINE void MixXA(int *SSumLR, int ns_to, int decode_pos)
    }
   spu.XALastVal = v;
  }
- // occasionally CDDAFeed underflows by a few samples due to poor timing,
- // hence this 'ns_to < 8'
- else if(spu.CDDAPlay != spu.CDDAFeed || ns_to < 8)
+
+ cursor = decode_pos;
+ if(spu.CDDAPlay != spu.CDDAFeed || spu.CDDARepeat > 0)
  {
+   v = spu.CDDALastVal;
   for(ns = 0; ns < ns_to*2; )
    {
     if(spu.CDDAPlay != spu.CDDAFeed) v=*spu.CDDAPlay++;
@@ -100,10 +101,8 @@ INLINE void MixXA(int *SSumLR, int ns_to, int decode_pos)
     spu.spuMem[cursor + 0x400/2] = v >> 16;
     cursor = (cursor + 1) & 0x1ff;
    }
-  spu.XALastVal = v;
+  spu.CDDALastVal = v;
  }
- else
-  spu.XALastVal = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -454,10 +453,11 @@ INLINE int FeedCDDA(unsigned char *pcm, int nBytes)
         *spu.CDDAFeed++ = l;
 
         if (spu.CDDAFeed == spu.CDDAEnd) spu.CDDAFeed = spu.CDDAStart;
-        if (spu.CDDAFeed == spu.CDDAPlay)
+
+        while (spu.CDDAFeed == spu.CDDAPlay-1
+               || (spu.CDDAFeed == spu.CDDAEnd - 1 && spu.CDDAPlay == spu.CDDAStart))
         {
             usleep(1000);
-            break;
         }
 
         spos += SINC;

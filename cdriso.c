@@ -54,7 +54,7 @@ static bool multifile = FALSE;
 static unsigned char cdbuffer[CD_FRAMESIZE_RAW];
 static unsigned char subbuffer[SUB_FRAMESIZE];
 
-#define CDDA_FRAME_COUNT 10
+#define CDDA_FRAME_COUNT 4
 static unsigned char sndbuffer[CD_FRAMESIZE_RAW * CDDA_FRAME_COUNT];
 
 #define CDDA_FRAMETIME			(1000 * CDDA_FRAME_COUNT / 75)
@@ -222,12 +222,12 @@ static void *playthread(void *param)
         cdda_cur_sector += CDDA_FRAME_COUNT;
 
 		if (s == 0) {
-			//playing = FALSE;
-			//initial_offset = 0;
-			//break;
-			// Hack, when reach the end, start from the beginning
-			cdda_cur_sector = cdda_first_sector;
-			continue;
+			playing = FALSE;
+			initial_offset = 0;
+			break;
+			//// Hack, when reach the end, start from the beginning
+			//cdda_cur_sector = cdda_first_sector;
+			//continue;
 		}
 
 		if (!cdr.Muted && playing) {
