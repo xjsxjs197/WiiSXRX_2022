@@ -54,7 +54,7 @@ static bool multifile = FALSE;
 static unsigned char cdbuffer[CD_FRAMESIZE_RAW];
 static unsigned char subbuffer[SUB_FRAMESIZE];
 
-#define CDDA_FRAME_COUNT 1
+#define CDDA_FRAME_COUNT 4
 #define PS_SPU_FREQ	48000
 #define SINC (((u32)1 << 16) * 44100 / (PS_SPU_FREQ))
 static unsigned char sndbuffer[CD_FRAMESIZE_RAW * CDDA_FRAME_COUNT];
@@ -179,7 +179,7 @@ static long GetTickCount(void) {
 static void *playthread(void *param)
 {
     usleep(CD_FRAMESIZE_RAW * 10);
-    fseek(cddaHandle, cdda_file_offset, SEEK_SET);
+    //fseek(cddaHandle, cdda_file_offset, SEEK_SET);
 
 	long osleep, d, t, i, s;
 	unsigned char	tmp;
@@ -208,7 +208,7 @@ static void *playthread(void *param)
 			s += d;
 			cdda_cur_sector++;
 		}*/
-		/*if (cdda_cur_sector - cdda_first_sector < 0)
+		if (cdda_cur_sector - cdda_first_sector < 0)
         {
             sector_offs = 0;
             readSectors = CDDA_FRAME_COUNT - (cdda_first_sector - cdda_cur_sector);
@@ -223,9 +223,9 @@ static void *playthread(void *param)
         }
         fseek(cddaHandle, cdda_file_offset + sector_offs * CD_FRAMESIZE_RAW, SEEK_SET);
         s = fread(sndbuffer + s, 1, readSectors * CD_FRAMESIZE_RAW, cddaHandle);
-        cdda_cur_sector += CDDA_FRAME_COUNT;*/
+        cdda_cur_sector += CDDA_FRAME_COUNT;
 
-        if (cdda_cur_sector - cdda_first_sector < 0)
+        /*if (cdda_cur_sector - cdda_first_sector < 0)
         {
             memset(sndbuffer, 0, CD_FRAMESIZE_RAW);
             s = CD_FRAMESIZE_RAW;
@@ -235,7 +235,7 @@ static void *playthread(void *param)
             //sector_offs = cdda_cur_sector - cdda_first_sector;
             s = fread(sndbuffer, 1, CD_FRAMESIZE_RAW, cddaHandle);
         }
-        cdda_cur_sector += CDDA_FRAME_COUNT;
+        cdda_cur_sector += CDDA_FRAME_COUNT;*/
 
 		if (s == 0) {
 			playing = FALSE;
@@ -311,11 +311,11 @@ static void *playthread(void *param)
 			usleep(osleep * 1000);
 			t += CDDA_FRAMETIME;
 		}
-//		else
-//        {
-//            p_cdrPlayCddaData(CDDA_FRAME_COUNT, 0, (unsigned short *)sndbuffer);
-//            usleep(CD_FRAMESIZE_RAW * CDDA_FRAME_COUNT >> 1);
-//        }
+		else
+        {
+            //p_cdrPlayCddaData(CDDA_FRAME_COUNT, 0, (unsigned short *)sndbuffer);
+            usleep(CD_FRAMESIZE_RAW * CDDA_FRAME_COUNT >> 1);
+        }
 
 	}
 
