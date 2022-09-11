@@ -240,7 +240,7 @@ static void *playthread(void *param)
 		if (s == 0) {
 			playing = FALSE;
 			initial_offset = 0;
-			p_cdrPlayCddaData(CDDA_FRAME_COUNT, 1, (unsigned short *)sndbuffer);
+			//p_cdrPlayCddaData(CDDA_FRAME_COUNT, 1, (unsigned short *)sndbuffer);
 			break;
 			//// Hack, when reach the end, start from the beginning
 			//cdda_cur_sector = cdda_first_sector;
@@ -311,11 +311,11 @@ static void *playthread(void *param)
 			usleep(osleep * 1000);
 			t += CDDA_FRAMETIME;
 		}
-		else
-        {
-            p_cdrPlayCddaData(CDDA_FRAME_COUNT, 0, (unsigned short *)sndbuffer);
-            usleep(CD_FRAMESIZE_RAW * CDDA_FRAME_COUNT >> 1);
-        }
+//		else
+//        {
+//            p_cdrPlayCddaData(CDDA_FRAME_COUNT, 0, (unsigned short *)sndbuffer);
+//            usleep(CD_FRAMESIZE_RAW * CDDA_FRAME_COUNT >> 1);
+//        }
 
 	}
 

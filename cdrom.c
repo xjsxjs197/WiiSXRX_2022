@@ -888,7 +888,7 @@ void cdrInterrupt() {
 			// BIOS player - set flag again
 			cdr.Play = TRUE;
 
-			//CDRMISC_INT( cdReadTime );
+			CDRMISC_INT( cdReadTime );
 			start_rotating = 1;
 			break;
 
