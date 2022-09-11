@@ -411,7 +411,7 @@ INLINE void FeedXA(xa_decode_t *xap)
 
 INLINE int FeedCDDA(unsigned char *pcm, int nBytes)
 {
- /*int space;
+ int space;
  space=(spu.CDDAPlay-spu.CDDAFeed-1)*4 & (CDDA_BUFFER_SIZE - 1);
  if(space<nBytes)
  {
@@ -435,9 +435,9 @@ INLINE int FeedCDDA(unsigned char *pcm, int nBytes)
    spu.CDDAFeed+=space/4;
    nBytes-=space;
    pcm+=space;
-  }*/
+  }
 
-    int spos = 0x10000L;
+    /*int spos = 0x10000L;
     uint32_t *pS = (uint32_t *)pcm;
     uint32_t l = 0;
     int iSize = (PS_SPU_FREQ * (nBytes >> 2)) / 44100;
@@ -461,7 +461,7 @@ INLINE int FeedCDDA(unsigned char *pcm, int nBytes)
         }
 
         spos += SINC;
-    }
+    }*/
 
  return 0x676f; // rearmed_go
 }

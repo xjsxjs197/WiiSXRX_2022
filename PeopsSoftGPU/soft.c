@@ -1195,7 +1195,7 @@ readdatamem 0x00008000 1
   {
    unsigned long *DSTPtr;
    unsigned short LineOffset;
-   uint32_t lcol = HOST2LE32(lSetMask | (((uint32_t)(col)) << 16) | col);
+   unsigned long lcol=lSetMask|(((unsigned long)(col))<<16)|col;
    dx>>=1;
    DSTPtr = (unsigned long *)(psxVuw + (1024*y0) + x0);
    LineOffset = 512 - dx;
@@ -1204,7 +1204,7 @@ readdatamem 0x00008000 1
     {
      for(i=0;i<dy;i++)
       {
-       for(j=0;j<dx;j++) { *DSTPtr++ = lcol; }
+       for(j=0;j<dx;j++) { PUTLE32(DSTPtr, lcol); DSTPtr++; }
        DSTPtr += LineOffset;
       }
     }
@@ -1253,16 +1253,16 @@ void FillSoftwareArea(short x0,short y0,short x1,      // FILL AREA (BLK FILL)
   }
  else
   {
-   uint32_t *DSTPtr;
+   unsigned long *DSTPtr;
    unsigned short LineOffset;
-   uint32_t lcol = HOST2LE32((((uint32_t)(col)) << 16) | col);
+   unsigned long lcol=(((long)col)<<16)|col;
    dx>>=1;
-   DSTPtr = (uint32_t *)(psxVuw + (1024*y0) + x0);
+   DSTPtr = (unsigned long *)(psxVuw + (1024*y0) + x0);
    LineOffset = 512 - dx;
 
    for(i=0;i<dy;i++)
     {
-     for(j=0;j<dx;j++) { *DSTPtr++ = lcol; }
+     for(j=0;j<dx;j++) { PUTLE32(DSTPtr, lcol); DSTPtr++; }
      DSTPtr += LineOffset;
     }
   }

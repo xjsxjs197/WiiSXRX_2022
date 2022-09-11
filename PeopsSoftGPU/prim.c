@@ -427,10 +427,10 @@ void cmdTexturePage(unsigned char * baseAddr)
 {
  uint32_t gdata = GETLE32(&((uint32_t*)baseAddr)[0]);
 
- //lGPUstatusRet&=~0x000007ff;
- //lGPUstatusRet|=(gdata & 0x07ff);
+ lGPUstatusRet&=~0x000007ff;
+ lGPUstatusRet|=(gdata & 0x07ff);
  
- //usMirror=gdata&0x3000;
+ usMirror=gdata&0x3000;
  
  UpdateGlobalTP((unsigned short)gdata);
  GlobalTextREST = (gdata&0x00ffffff)>>9;
