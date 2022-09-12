@@ -425,8 +425,13 @@ void cmdSTP(unsigned char * baseAddr)
 
 void cmdTexturePage(unsigned char * baseAddr)
 {
- unsigned long gdata = GETLE32(&((unsigned long*)baseAddr)[0]);
+ uint32_t gdata = GETLE32(&((uint32_t*)baseAddr)[0]);
 
+ lGPUstatusRet&=~0x000007ff;
+ lGPUstatusRet|=(gdata & 0x07ff);
+ 
+ usMirror=gdata&0x3000;
+ 
  UpdateGlobalTP((unsigned short)gdata);
  GlobalTextREST = (gdata&0x00ffffff)>>9;
 }
@@ -455,6 +460,7 @@ void cmdTextureWindow(unsigned char *baseAddr)
   TWin.Position.y1 = 128;  // 10000
  else
   TWin.Position.y1 = 256;  // 00000
+ TWin.ymask = TWin.Position.y1 - 1;
 
   // Texture window size is determined by the least bit set of the relevant 5 bits
 
@@ -470,6 +476,7 @@ void cmdTextureWindow(unsigned char *baseAddr)
   TWin.Position.x1 = 128;  // 10000
  else
   TWin.Position.x1 = 256;  // 00000
+ TWin.xmask = TWin.Position.x1 - 1;
 
  // Re-calculate the bit field, because we can't trust what is passed in the data
 
