@@ -172,8 +172,8 @@ void Func_Credits()
 	sprintf(CreditsInfo,"CubeStation Beta 1.0\n");
 #endif
 	strcat(CreditsInfo,"www.github.com/xjsxjs197/WiiSXRX_2022\n");
-	strcat(CreditsInfo,"WiiStation: xjsxjs197\n");
-	strcat(CreditsInfo,"Icon: [author name]\n");
+	strcat(CreditsInfo,"WiiStation: xjsxjs197 - Icon: [author name]\n");
+	strcat(CreditsInfo,"\n");
 	strcat(CreditsInfo,"Original WiiSX team:\n");
 	strcat(CreditsInfo,"emu_kidid - general coding\n");
 	strcat(CreditsInfo,"sepp256 - graphics & menu\n");
