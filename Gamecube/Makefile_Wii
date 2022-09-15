@@ -21,7 +21,7 @@ GPU = Soft
 # SOURCES is a list of directories containing source code
 # INCLUDES is a list of directories containing extra header files
 #---------------------------------------------------------------------------------
-TARGET		:=	WiiSXRX_debug
+TARGET		:=	WiiStation_debug
 BUILD		:=	build_debug
 SOURCES		:=	../lang ../fonts \
                 . ./gc_input/ ./libgui/ ./menu/ ./fileBrowser/ .. ../ppc/ ../Peops$(GPU)GPU/ \
