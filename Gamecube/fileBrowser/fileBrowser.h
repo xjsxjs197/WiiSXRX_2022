@@ -2,7 +2,7 @@
  * WiiSX - fileBrowser.h
  * Copyright (C) 2007, 2008, 2009 Mike Slegeir
  * Copyright (C) 2007, 2008, 2009 emu_kidid
- * 
+ *
  * Standard protoypes for accessing files from anywhere
  *
  * Wii64 homepage: http://www.emulatemii.com
@@ -27,7 +27,7 @@
 
 #include <stdint.h>
 
-#define FILE_BROWSER_MAX_PATH_LEN 128
+#define FILE_BROWSER_MAX_PATH_LEN 256
 
 #define FILE_BROWSER_ATTR_DIR     0x10
 
