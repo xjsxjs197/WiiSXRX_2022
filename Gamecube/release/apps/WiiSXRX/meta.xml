@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
  <app version="2">
-   <name>WiiSXRX</name>
-   <coder>NiuuS</coder>
-   <version>2.5 Beta</version>
-   <release_date>202009081918</release_date>
+   <name>WiiStation</name>
+   <coder>xjsxjs197, NiuuS</coder>
+   <version>1.0 Beta</version>
+   <release_date>20220913</release_date>
    <short_description>PSX Emulator for Wii</short_description>
    <long_description>
+WiiStation - A Sony PlayStation 1 emulator for Wii / Wii U, forked from WiiSXRX by NiuuS.
 Featuring:
 - Gamecube controller support.
 - Wii U Pro controller support.
-- Wii U Gamepad controller support through VC injects.
+- Wii U GamePad controller support through WiiVC injects.
 - Wii Classic Controller and Pro support.
 - Classic Controllers support (NES / SNES)
 
@@ -22,6 +23,8 @@ matguitarist
 Daxtsu
 Mystro256
 FIX94
+NiuuS
+xjsxjs197
    </long_description>
    <ahb_access/>
  </app>
