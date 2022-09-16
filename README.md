@@ -1,6 +1,6 @@
-# WiiSXRX_2022
+# WiiStation
 
-A fork of the original WiiSX-RX (http://github.com/niuus/WiiSXRX), originally a port of PCSX-Reloaded, but with many changes from PCSX-ReARMed, for the Nintendo Wii/Wii U.
+WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emulator, forked from the original WiiSX-RX (http://github.com/niuus/WiiSXRX) emulator by NiuuS, originally a port of PCSX-Reloaded, but with many changes from PCSX-ReARMed, for the Nintendo Wii/Wii U.
 
 ## The following changes have been made to the code based on WiiSXRX.
 
