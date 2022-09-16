@@ -73,7 +73,10 @@ void psxShutdown() {
 	psxMemShutdown();
 	psxBiosShutdown();
 
-	psxCpu->Shutdown();
+    if (psxCpu && psxCpu->Shutdown)
+    {
+        psxCpu->Shutdown();
+    }
 }
 
 void psxException(u32 code, u32 bd) {

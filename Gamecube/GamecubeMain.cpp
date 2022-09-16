@@ -757,7 +757,14 @@ int SysInit() {
  	}
 	biosFile = (fileBrowser_file*)memalign(32,sizeof(fileBrowser_file));
 	memcpy(biosFile,biosFile_dir,sizeof(fileBrowser_file));
-	strcat(biosFile->name, GetGameBios(biosFile->name, filenameFromAbsPath(isoFile.name)));
+	if (hasLoadedISO)
+    {
+        strcat(biosFile->name, GetGameBios(biosFile->name, filenameFromAbsPath(isoFile.name)));
+    }
+    else
+    {
+        strcat(biosFile->name, "/SCPH1001.BIN");
+    }
 	biosFile_init(biosFile);  //initialize the bios device (it might not be the same as ISO device)
 	// upd xjsxjs197 end
 
