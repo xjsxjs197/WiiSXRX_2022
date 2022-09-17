@@ -1638,8 +1638,8 @@ static long CALLBACK ISOopen(void) {
 		return 0; // it's already open
 	}
 
-	if (isoFile_open(GetIsoFile()) == FILE_BROWSER_ERROR_NO_FILE) {
-        return -1;
+	if (strlen(GetIsoFile()) == 0 || isoFile_open(GetIsoFile()) == FILE_BROWSER_ERROR_NO_FILE) {
+        return 0;
     }
 
 	cdHandle = fopen(GetIsoFile(), "rb");

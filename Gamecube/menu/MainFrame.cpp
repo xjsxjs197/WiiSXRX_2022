@@ -215,7 +215,10 @@ void Func_ExitToLoader()
 	if (menu::MessageBox::getInstance().askMessage("Are you sure you want to exit to loader?"))
     {
         shutdown = 2;
-        SysClose();
+        if (hasLoadedISO)
+        {
+            SysClose();
+        }
     }
 }
 
