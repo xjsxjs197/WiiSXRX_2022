@@ -149,8 +149,8 @@ void cdrWrite3(unsigned char rt);
 int cdrFreeze(gzFile f, int Mode);
 
 bool swapIso;
-void (*p_cdrPlayDataEnd)();
 void (*p_cdrPlayCddaData)(int timePlus, int isEnd, s16* cddaBuf);
+void (*p_cdrAttenuate)(s16 *buf, int samples, int stereo);
 
 #ifdef __cplusplus
 }

@@ -181,6 +181,7 @@ int msf2SectS[] = {
 // PSXCLK = 1 sec in the ps
 // so (PSXCLK / 75) = cdr read time (linuzappz)
 #define cdReadTime         (PSXCLK / 75) / 2  // OK
+//#define playAdpcmTime      178560  // =(PSXCLK * 930 / 4 / 44100) / 2  // OK
 #define playAdpcmTime      (PSXCLK * 930 / 4 / 44100) / 2  // OK
 #define WaitTime1st        (0x800)
 #define WaitTime1stInit    (0x13cce >> 1)
@@ -528,27 +529,6 @@ static void AddIrqQueue(unsigned short irq, unsigned long ecycle) {
 	CDR_INT(ecycle);
 }
 
-static void cdrPlayDataEnd()
-{
-    #ifdef DISP_DEBUG
-	sprintf(txtbuffer, "cdrPlayDataEnd cdr.Mode & MODE_AUTOPAUSE %d \n", cdr.Mode & MODE_AUTOPAUSE);
-    DEBUG_print(txtbuffer, DBG_CDR1);
-    #endif // DISP_DEBUG
-	//if (cdr.Mode & MODE_AUTOPAUSE)
-    {
-		cdr.Stat = DataEnd;
-        SetResultSize(1);
-		cdr.StatP |= STATUS_ROTATING;
-		cdr.StatP &= ~STATUS_SEEK;
-		cdr.Result[0] = cdr.StatP;
-		cdr.Seeked = SEEK_DONE;
-		psxHu32ref(0x1070) |= SWAP32((u32)0x4);
-		psxRegs.interrupt|= 0x80000000;
-
-		StopCdda();
-	}
-}
-
 static void cdrPlayInterrupt_Autopause(s16* cddaBuf)
 {
 	u32 abs_lev_max = 0;
@@ -616,13 +596,19 @@ static void cdrPlayCddaData(int timePlus, int isEnd, s16* cddaBuf)
 {
 	if (!cdr.Play) return;
 
-	if (isEnd == 1) {
+	if (*(u32 *)cdr.SetSectorPlay >= *(u32 *)cdr.SetSectorEnd) {
+        #ifdef SHOW_DEBUG
+        sprintf(txtbuffer, "cdrPlayCddaData End");
+        DEBUG_print(txtbuffer, DBG_CDR4);
+        #endif // DISP_DEBUG
 		StopCdda();
 		cdr.TrackChanged = TRUE;
 	}
 
 	if (!cdr.Irq && !cdr.Stat && (cdr.Mode & (MODE_AUTOPAUSE | MODE_REPORT)))
 		cdrPlayInterrupt_Autopause(cddaBuf);
+
+    if (!cdr.Play) return;
 
 	cdr.SetSectorPlay[2] += timePlus;
 	if (cdr.SetSectorPlay[2] >= 75) {
@@ -673,7 +659,12 @@ void cdrPlayInterrupt()
 	CDR_LOG( "CDDA - %d:%d:%d\n",
 		cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2] );
 
-	if (memcmp(cdr.SetSectorPlay, cdr.SetSectorEnd, 3) == 0) {
+	//if (memcmp(cdr.SetSectorPlay, cdr.SetSectorEnd, 3) == 0) {
+	if (*(u32 *)cdr.SetSectorPlay >= *(u32 *)cdr.SetSectorEnd) {
+        #ifdef SHOW_DEBUG
+        sprintf(txtbuffer, "cdrom check playCDDA End");
+        DEBUG_print(txtbuffer, DBG_CDR4);
+        #endif // DISP_DEBUG
 		StopCdda();
 		cdr.TrackChanged = TRUE;
 	}
@@ -717,12 +708,12 @@ void cdrPlayInterrupt()
 
 	if (cdr.m_locationChanged)
 	{
-		CDRMISC_INT(cdReadTime * 30 / 2);
+		CDRMISC_INT(cdReadTime * 30);
 		cdr.m_locationChanged = FALSE;
 	}
 	else
 	{
-		CDRMISC_INT(cdReadTime / 2);
+		CDRMISC_INT(cdReadTime);
 	}
 
 	// update for CdlGetlocP/autopause
@@ -1819,8 +1810,8 @@ void cdrReset() {
 	cdr.AttenuatorRightToRight = 0x80;
 	getCdInfo();
 
-	p_cdrPlayDataEnd = cdrPlayDataEnd;
 	p_cdrPlayCddaData = cdrPlayCddaData;
+	p_cdrAttenuate = cdrAttenuate;
 }
 
 int cdrFreeze(gzFile f, int Mode) {

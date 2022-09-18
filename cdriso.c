@@ -178,10 +178,10 @@ static long GetTickCount(void) {
 
 static void *playthread(void *param)
 {
-    usleep(CD_FRAMESIZE_RAW * 10);
+    usleep(CD_FRAMESIZE_RAW * CDDA_FRAME_COUNT >> 1);
     //fseek(cddaHandle, cdda_file_offset, SEEK_SET);
 
-	long osleep, d, t, i, s;
+	long osleep, d, t, i, s, startPos;
 	unsigned char	tmp;
 	int ret = 0, sector_offs, readSectors;
 
@@ -212,30 +212,35 @@ static void *playthread(void *param)
         {
             sector_offs = 0;
             readSectors = CDDA_FRAME_COUNT - (cdda_first_sector - cdda_cur_sector);
-            s = (cdda_first_sector - cdda_cur_sector) * CD_FRAMESIZE_RAW;
-            memset(sndbuffer, 0, s);
+            startPos = (cdda_first_sector - cdda_cur_sector) * CD_FRAMESIZE_RAW;
+            if (startPos > 0)
+            {
+                memset(sndbuffer, 0, startPos);
+            }
         }
         else
         {
             sector_offs = cdda_cur_sector - cdda_first_sector;
             readSectors = CDDA_FRAME_COUNT;
-            s = 0;
+            startPos = 0;
         }
         fseek(cddaHandle, cdda_file_offset + sector_offs * CD_FRAMESIZE_RAW, SEEK_SET);
-        s = fread(sndbuffer + s, 1, readSectors * CD_FRAMESIZE_RAW, cddaHandle);
+        s = fread(sndbuffer + startPos, 1, readSectors * CD_FRAMESIZE_RAW, cddaHandle);
         cdda_cur_sector += CDDA_FRAME_COUNT;
 
         /*if (cdda_cur_sector - cdda_first_sector < 0)
         {
-            memset(sndbuffer, 0, CD_FRAMESIZE_RAW);
-            s = CD_FRAMESIZE_RAW;
+            //memset(sndbuffer, 0, CD_FRAMESIZE_RAW);
+            //s = CD_FRAMESIZE_RAW;
+            cdda_cur_sector += CDDA_FRAME_COUNT;
+            continue;
         }
         else
         {
             //sector_offs = cdda_cur_sector - cdda_first_sector;
             s = fread(sndbuffer, 1, CD_FRAMESIZE_RAW, cddaHandle);
-        }
-        cdda_cur_sector += CDDA_FRAME_COUNT;*/
+            cdda_cur_sector += CDDA_FRAME_COUNT;
+        }*/
 
 		if (s == 0) {
 			playing = FALSE;
@@ -248,17 +253,18 @@ static void *playthread(void *param)
 		}
 
 		if (!cdr.Muted && playing) {
+		    unsigned char * newBufPos = sndbuffer + startPos;
 			if (cddaBigEndian) {
 				for (i = 0; i < s / 2; i++) {
-					tmp = sndbuffer[i * 2];
-					sndbuffer[i * 2] = sndbuffer[i * 2 + 1];
-					sndbuffer[i * 2 + 1] = tmp;
+					tmp = newBufPos[i * 2];
+					newBufPos[i * 2] = newBufPos[i * 2 + 1];
+					newBufPos[i * 2 + 1] = tmp;
 				}
 			}
 
             // pitch cdda 48000
             int spos = 0x10000L;
-            uint32_t *pS = (uint32_t *)sndbuffer;
+            uint32_t *pS = (uint32_t *)newBufPos;
             uint32_t *psPitch = (uint32_t *)sndbufferPitch;
             uint32_t l = 0;
             int iSize = (PS_SPU_FREQ * (s >> 2)) / 44100;
@@ -277,12 +283,13 @@ static void *playthread(void *param)
 
 			// can't do it yet due to readahead..
 			//cdrAttenuate((short *)sndbuffer, s / 4, 1);
+			//p_cdrAttenuate((short *)sndbufferPitch, iSize << 1, 1);
 			do {
 				ret = SPU_playCDDAchannel((short *)sndbufferPitch, iSize << 2);
 				if (ret == 0x7761)
-            {
+                {
 					usleep(6 * 1000);
-            }
+                }
 			} while (ret == 0x7761 && playing); // rearmed_wait
 		}
 
@@ -340,7 +347,7 @@ static void stopCDDA() {
     if (stop)
     {
         // wait pthread stop
-	    usleep(10000);
+	    usleep(5000);
 	    return;
     }
 
@@ -354,10 +361,10 @@ static void startCDDA(void) {
 		stopCDDA();
 	}
 
-    #ifdef SHOW_DEBUG
-    sprintf(txtbuffer, "startCDDA %ld %ld %ld", cdda_first_sector, cdda_cur_sector, cdda_file_offset);
-    DEBUG_print(txtbuffer, DBG_CDR2);
-    #endif // DISP_DEBUG
+//    #ifdef SHOW_DEBUG
+//    sprintf(txtbuffer, "startCDDA %ld %ld %ld", cdda_first_sector, cdda_cur_sector, cdda_file_offset);
+//    DEBUG_print(txtbuffer, DBG_CDR2);
+//    #endif // DISP_DEBUG
 
 	playing = TRUE;
 
