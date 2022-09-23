@@ -54,7 +54,6 @@ static bool multifile = FALSE;
 static unsigned char cdbuffer[CD_FRAMESIZE_RAW];
 static unsigned char subbuffer[SUB_FRAMESIZE];
 
-#define CDDA_FRAME_COUNT 4
 #define PS_SPU_FREQ	48000
 #define SINC (((u32)1 << 16) * 44100 / (PS_SPU_FREQ))
 static unsigned char sndbuffer[CD_FRAMESIZE_RAW * CDDA_FRAME_COUNT];
@@ -321,7 +320,8 @@ static void *playthread(void *param)
 		else
         {
             //p_cdrPlayCddaData(CDDA_FRAME_COUNT, 0, (unsigned short *)sndbuffer);
-            usleep(CD_FRAMESIZE_RAW * CDDA_FRAME_COUNT >> 1);
+            //usleep(CD_FRAMESIZE_RAW * CDDA_FRAME_COUNT >> 1);
+            usleep((cdr.Mode & 0x80) ? (13333 * CDDA_FRAME_COUNT / 2) : 13333 * CDDA_FRAME_COUNT);
         }
 
 	}
@@ -1937,7 +1937,7 @@ static long CALLBACK ISOplay(unsigned char *time) {
 	cdda_cur_sector = msf2sec((char *)time);
 	for (i = numtracks; i > 1; i--) {
 		cdda_first_sector = msf2sec(ti[i].start);
-		if (cdda_first_sector <= cdda_cur_sector + 2 * 75)
+		if (cdda_first_sector <= cdda_cur_sector)
 			break;
 	}
 	cdda_file_offset = ti[i].start_offset;
@@ -2066,6 +2066,7 @@ void cdrIsoInit(void) {
 	CDR_setfilename = CDR__setfilename;
 
 	numtracks = 0;
+	cddaBufPtr = sndbuffer;
 }
 
 int cdrIsoActive(void) {

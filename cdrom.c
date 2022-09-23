@@ -623,6 +623,7 @@ static void cdrPlayCddaData(int timePlus, int isEnd, s16* cddaBuf)
 	generate_subq(cdr.SetSectorPlay);
 }
 
+static int cddaBufIdx = 0;
 // also handles seek
 void cdrPlayInterrupt()
 {
@@ -672,7 +673,10 @@ void cdrPlayInterrupt()
 	//}
 
 	if (!cdr.Irq && !cdr.Stat && (cdr.Mode & (MODE_AUTOPAUSE|MODE_REPORT)))
-		cdrPlayInterrupt_Autopause(read_buf);
+    {
+        cdrPlayInterrupt_Autopause((u16*)(cddaBufPtr + cddaBufIdx * CD_FRAMESIZE_RAW));
+        cddaBufIdx = (cddaBufIdx + 1) & (CDDA_FRAME_COUNT - 1);
+    }
 
 	if (!cdr.Play) return;
 	//#ifdef DISP_DEBUG
@@ -712,7 +716,8 @@ void cdrPlayInterrupt()
 	}
 	else
 	{
-		CDRMISC_INT(cdReadTime);
+		//CDRMISC_INT(cdReadTime);
+		CDRMISC_INT((cdr.Mode & MODE_SPEED) ? (cdReadTime / 2) : cdReadTime);
 	}
 
 	// update for CdlGetlocP/autopause
@@ -866,6 +871,7 @@ void cdrInterrupt() {
 			cdr.TrackChanged = FALSE;
 
 			StopReading();
+			cddaBufIdx = 0;
 			if (!Config.Cdda)
 				CDR_play(cdr.SetSectorPlay);
 
@@ -1468,15 +1474,15 @@ void cdrReadInterrupt() {
 		CDREAD_INT(delay * 30);
 		cdr.m_locationChanged = FALSE;
 	} else {
-	    //CDREAD_INT(delay);
-	    if (cdr.PlayAdpcm)
+	    CDREAD_INT(delay);
+	    /*if (cdr.PlayAdpcm)
         {
             CDREAD_INT((cdr.Mode & 0x80) ? (playAdpcmTime / 2) : playAdpcmTime);
 		}
 		else
 		{
 		    CDREAD_INT(delay);
-		}
+		}*/
 	}
 
 	/*
