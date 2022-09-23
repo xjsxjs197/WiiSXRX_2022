@@ -59,10 +59,12 @@ char Mcd1Data[MCD_SIZE], Mcd2Data[MCD_SIZE];
 
 // clk cycle byte
 // 4us * 8bits = ((PSXCLK / 1000000) * 32) / BIAS; (linuzappz)
+#define SIO_CYCLES		535
+
 #define SIO_INT() { \
 	if (!Config.Sio) { \
 		psxRegs.interrupt |= (1 << PSXINT_SIO); \
-		psxRegs.intCycle[PSXINT_SIO].cycle = 200; \
+		psxRegs.intCycle[PSXINT_SIO].cycle = SIO_CYCLES; \
 		psxRegs.intCycle[PSXINT_SIO].sCycle = psxRegs.cycle; \
 	} \
 }

@@ -180,9 +180,8 @@ int msf2SectS[] = {
 // 1x = 75 sectors per second
 // PSXCLK = 1 sec in the ps
 // so (PSXCLK / 75) = cdr read time (linuzappz)
-#define cdReadTime         (PSXCLK / 75) / 2  // OK
-//#define playAdpcmTime      178560  // =(PSXCLK * 930 / 4 / 44100) / 2  // OK
-#define playAdpcmTime      (PSXCLK * 930 / 4 / 44100) / 2  // OK
+#define cdReadTime         (PSXCLK / 75)  // OK
+#define playAdpcmTime      178560  // =(PSXCLK * 930 / 4 / 44100) / 2  // OK
 #define WaitTime1st        (0x800)
 #define WaitTime1stInit    (0x13cce >> 1)
 #define WaitTime1stRead    (PSXCLK / 75)   // OK
@@ -1402,6 +1401,7 @@ void cdrReadInterrupt() {
 	//fprintf(emuLog, "cdrReadInterrupt() Log: cdr.Transfer %x:%x:%x\n", cdr.Transfer[0], cdr.Transfer[1], cdr.Transfer[2]);
 #endif
 
+	cdr.PlayAdpcm = FALSE;
 	if ((!cdr.Muted) && (cdr.Mode & MODE_STRSND) && (!Config.Xa) && (cdr.FirstSector != -1)) { // CD-XA
 		// Firemen 2: Multi-XA files - briefings, cutscenes
 		if( cdr.FirstSector == 1 && (cdr.Mode & MODE_SF)==0 ) {
@@ -1468,15 +1468,15 @@ void cdrReadInterrupt() {
 		CDREAD_INT(delay * 30);
 		cdr.m_locationChanged = FALSE;
 	} else {
-	    CDREAD_INT(delay);
-	    /*if (cdr.PlayAdpcm)
+	    //CDREAD_INT(delay);
+	    if (cdr.PlayAdpcm)
         {
             CDREAD_INT((cdr.Mode & 0x80) ? (playAdpcmTime / 2) : playAdpcmTime);
 		}
 		else
 		{
 		    CDREAD_INT(delay);
-		}*/
+		}
 	}
 
 	/*

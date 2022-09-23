@@ -156,7 +156,7 @@ void psxDma2(u32 madr, u32 bcr, u32 chcr) { // GPU
 			STORE_SWAP32p(psxHAddr(0x10a0), madr + (words << 2));
 
 			// already 32-bit word size ((size * 4) / 4)
-			GPUDMA_INT(words >> 3);
+			GPUDMA_INT(words >> 2);
 			return;
 
 		case 0x01000201: // mem2vram
@@ -178,7 +178,7 @@ void psxDma2(u32 madr, u32 bcr, u32 chcr) { // GPU
 			STORE_SWAP32p(psxHAddr(0x10a0), madr + (words << 2));
 
 			// already 32-bit word size ((size * 4) / 4)
-			GPUDMA_INT((words >> 3));
+			GPUDMA_INT((words >> 2));
 			return;
 
 		case 0x01000401: // dma chain
@@ -189,7 +189,7 @@ void psxDma2(u32 madr, u32 bcr, u32 chcr) { // GPU
 			size = GPU_dmaChain((u32 *)psxM, madr & 0x1fffff);
 			if ((int)size <= 0)
 				size = gpuDmaChainSize(madr);
-			HW_GPU_STATUS &= ~PSXGPU_nBUSY;
+			HW_GPU_STATUS &= SWAP32(~PSXGPU_nBUSY);
 
 			// we don't emulate progress, just busy flag and end irq,
 			// so pretend we're already at the last block
@@ -201,7 +201,7 @@ void psxDma2(u32 madr, u32 bcr, u32 chcr) { // GPU
 			// Final Fantasy 4 = internal vram time (todo)
 			// Rebel Assault 2 = parse linked list in pieces (todo)
 			// Vampire Hunter D = allow edits to linked list (todo)
-			GPUDMA_INT(size >> 1);
+			GPUDMA_INT(size);
 			return;
 
 #ifdef PSXDMA_LOG
@@ -221,7 +221,7 @@ void gpuInterrupt() {
 		HW_DMA2_CHCR &= SWAP32(~0x01000000);
 		DMA_INTERRUPT(2);
 	}
-	HW_GPU_STATUS |= PSXGPU_nBUSY; // GPU no longer busy
+	HW_GPU_STATUS |= SWAP32(PSXGPU_nBUSY); // GPU no longer busy
 }
 
 void psxDma6(u32 madr, u32 bcr, u32 chcr) {
@@ -255,11 +255,12 @@ void psxDma6(u32 madr, u32 bcr, u32 chcr) {
             // upd xjsxjs197 end
 			madr -= 4;
 		}
-		mem++; *mem = SWAPu32(0xffffff);
+		*++mem = SWAP32(0xffffff);
+
 		//GPUOTCDMA_INT(size);
 		// halted
-		psxRegs.cycle += words >> 1;
-		GPUOTCDMA_INT(16 >> 1);
+		psxRegs.cycle += words;
+		GPUOTCDMA_INT(16);
 		return;
 	}
 #ifdef PSXDMA_LOG
