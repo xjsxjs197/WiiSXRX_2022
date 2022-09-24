@@ -817,7 +817,7 @@ static void do_channels(int ns_to)
     }
 
    if (s_chan->bFMod == 2)                         // fmod freq channel
-    cacheable_kernel_memcpy(iFMod, &ChanBuf, ns_to * sizeof(iFMod[0]));
+    memcpy(iFMod, &ChanBuf, ns_to * sizeof(iFMod[0]));
    if (s_chan->bRVBActive && do_rvb)
     mix_chan_rvb(spu.SSumLR, ns_to, s_chan->iLeftVolume, s_chan->iRightVolume, RVB);
    else
@@ -1119,7 +1119,7 @@ int do_samples(unsigned int cycles_to, int do_direct)
 
  if (cycle_diff < 2 * 768)
  {
-     spu.cycles_played = cycles_to;
+     //spu.cycles_played = cycles_to;
      return 0;
  }
 
@@ -1270,13 +1270,13 @@ void CALLBACK DF_SPUasync(unsigned int cycle, unsigned int flags, unsigned int p
     int lastBytes;
     int nsTo = do_samples(cycle, spu_config.iUseFixedUpdates);
 
- //if (spu.spuCtrl & CTRL_IRQ)
-  //schedule_next_irq();
+ if (spu.spuCtrl & CTRL_IRQ)
+  schedule_next_irq();
 
  if (flags & 1) {
   lastBytes = out_current->feed(spu.pSpuBuffer, (unsigned char *)spu.pS - spu.pSpuBuffer);
   //spu.pSpuBuffer = spu.spuBuffer[spu.whichBuffer = ((spu.whichBuffer + 1) & 3)];
-  spu.pS = (short *)spu.pSpuBuffer + lastBytes;
+  spu.pS = (short *)spu.pSpuBuffer + (lastBytes >> 1);
 
   //if (spu_config.iTempo) {
    if (!out_current->busy() && nsTo > 0) {

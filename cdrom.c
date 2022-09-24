@@ -180,7 +180,7 @@ int msf2SectS[] = {
 // 1x = 75 sectors per second
 // PSXCLK = 1 sec in the ps
 // so (PSXCLK / 75) = cdr read time (linuzappz)
-#define cdReadTime         (PSXCLK / 75)  // OK
+#define cdReadTime         0x72000 // (PSXCLK / 75)  // OK
 #define playAdpcmTime      178560  // =(PSXCLK * 930 / 4 / 44100) / 2  // OK
 #define WaitTime1st        (0x800)
 #define WaitTime1stInit    (0x13cce >> 1)
@@ -716,8 +716,8 @@ void cdrPlayInterrupt()
 	}
 	else
 	{
-		//CDRMISC_INT(cdReadTime);
-		CDRMISC_INT((cdr.Mode & MODE_SPEED) ? (cdReadTime / 2) : cdReadTime);
+		CDRMISC_INT(cdReadTime);
+		//CDRMISC_INT((cdr.Mode & MODE_SPEED) ? (cdReadTime / 2) : cdReadTime);
 	}
 
 	// update for CdlGetlocP/autopause
@@ -1360,7 +1360,7 @@ void cdrReadInterrupt() {
     #endif // DISP_DEBUG
 	if (cdr.Irq || cdr.Stat) {
 		CDR_LOG_I("cdrom: read stat hack %02x %x\n", cdr.Irq, cdr.Stat);
-		CDREAD_INT(0x100);
+		CDREAD_INT(0x1000);
 		return;
 	}
 
