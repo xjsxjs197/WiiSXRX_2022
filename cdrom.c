@@ -185,10 +185,11 @@ int msf2SectS[] = {
 #define playAdpcmTime      (PSXCLK * 930 / 4 / 44100) / 2  // OK
 #define WaitTime1st        (0x800)
 #define WaitTime1stInit    (0x13cce >> 1)
-#define WaitTime1stRead    (PSXCLK / 75)   // OK
+#define WaitTime1stRead    cdReadTime  // (PSXCLK / 75)   // OK
 #define WaitTime2ndGetID   (0x4a00)  // OK
 #define WaitTime2ndPause   (cdReadTime * 3) // OK
 
+#define SeekTime           50000
 
 enum drive_state {
 	DRIVESTATE_STANDBY = 0,
@@ -713,7 +714,8 @@ void cdrPlayInterrupt()
 	}
 	else
 	{
-		CDRMISC_INT(cdReadTime);
+		//CDRMISC_INT(cdReadTime);
+		CDRMISC_INT((cdr.Mode & MODE_SPEED) ? (cdReadTime / 2) : cdReadTime);
 	}
 
 	// update for CdlGetlocP/autopause
@@ -824,7 +826,8 @@ void cdrInterrupt() {
 			cdr.FastForward = 0;
 
 			if (cdr.SetlocPending) {
-				memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
+				//memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
+				*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
 				cdr.SetlocPending = 0;
 				cdr.m_locationChanged = TRUE;
 			}
@@ -1087,7 +1090,12 @@ void cdrInterrupt() {
 			Rockman X5 = 0.5-4x
 			- fix capcom logo
 			*/
-			CDRMISC_INT(cdr.Seeked == SEEK_DONE ? 0x800 : cdReadTime * 4);
+			#ifdef SHOW_DEBUG
+			sprintf(txtbuffer, "%s SeekedType %d \n", CmdName[Irq], cdr.Seeked);
+            DEBUG_print(txtbuffer, DBG_PROFILE_IDLE);
+            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
+			CDRMISC_INT(cdr.Seeked == SEEK_DONE ? 0x800 : SeekTime);
 			cdr.Seeked = SEEK_PENDING;
 			start_rotating = 1;
 			break;
@@ -1170,7 +1178,7 @@ void cdrInterrupt() {
 		case CdlReadN:
 		case CdlReadS:
 			if (cdr.SetlocPending) {
-				seekTime = abs(msf2sec(cdr.SetSectorPlay) - msf2sec(cdr.SetSector)) * (cdReadTime / 200);
+				//seekTime = abs(msf2sec(cdr.SetSectorPlay) - msf2sec(cdr.SetSector)) * (cdReadTime / 200);
 				/*
 				* Gameblabla :
 				* It was originally set to 1000000 for Driver, however it is not high enough for Worms Pinball
@@ -1186,16 +1194,18 @@ void cdrInterrupt() {
 				* It seems that 3386880 * 5 is too much for Driver's titlescreen and it starts skipping.
 				* However, 1000000 is not enough for Worms Pinball to reliably boot.
 				*/
-				if(seekTime > 3386880 * 2) seekTime = 3386880 * 2;
-				memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
+				//if(seekTime > 3386880 * 2) seekTime = 3386880 * 2;
+				seekTime = SeekTime;
+				//memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
+				*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
 				cdr.SetlocPending = 0;
 				cdr.m_locationChanged = TRUE;
 			}
 			Find_CurTrack(cdr.SetSectorPlay);
 
         	#ifdef SHOW_DEBUG
-            sprintf(txtbuffer, "READ_ACK Mode %d CurTrack %d \n", cdr.Mode & MODE_CDDA, cdr.CurTrack);
-            DEBUG_print(txtbuffer, DBG_PROFILE_IDLE);
+            sprintf(txtbuffer, "READ_ACK Mode %d Track %d seekTime %ld\n", cdr.Mode & MODE_CDDA, cdr.CurTrack, seekTime);
+            DEBUG_print(txtbuffer, DBG_PROFILE_GFX);
             writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
 			if ((cdr.Mode & MODE_CDDA) && cdr.CurTrack > 1)
