@@ -1178,7 +1178,7 @@ void cdrInterrupt() {
 		case CdlReadN:
 		case CdlReadS:
 			if (cdr.SetlocPending) {
-				//seekTime = abs(msf2sec(cdr.SetSectorPlay) - msf2sec(cdr.SetSector)) * (cdReadTime / 200);
+				seekTime = abs(msf2sec(cdr.SetSectorPlay) - msf2sec(cdr.SetSector)) * (cdReadTime / 200);
 				/*
 				* Gameblabla :
 				* It was originally set to 1000000 for Driver, however it is not high enough for Worms Pinball
@@ -1195,7 +1195,8 @@ void cdrInterrupt() {
 				* However, 1000000 is not enough for Worms Pinball to reliably boot.
 				*/
 				//if(seekTime > 3386880 * 2) seekTime = 3386880 * 2;
-				seekTime = SeekTime;
+				if (seekTime > 500000) seekTime = 500000;
+				//seekTime = SeekTime;
 				//memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
 				*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
 				cdr.SetlocPending = 0;
@@ -1253,7 +1254,7 @@ void cdrInterrupt() {
 			*/
 			cdr.StatP |= STATUS_READ;
 			cdr.StatP &= ~STATUS_SEEK;
-			CDREAD_INT(((cdr.Mode & 0x80) ? (WaitTime1stRead) : WaitTime1stRead * 2) + seekTime);
+			CDREAD_INT(((cdr.Mode & 0x80) ? (WaitTime1stRead) : WaitTime1stRead * 2) + (seekTime >> 1));
 
 			cdr.Result[0] = cdr.StatP;
 			start_rotating = 1;
