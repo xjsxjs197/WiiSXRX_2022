@@ -183,10 +183,10 @@ int msf2SectS[] = {
 #define cdReadTime         (PSXCLK / 75) / 2  // OK
 //#define playAdpcmTime      178560  // =(PSXCLK * 930 / 4 / 44100) / 2  // OK
 #define playAdpcmTime      (PSXCLK * 930 / 4 / 44100) / 2  // OK
-#define WaitTime1st        (0x800)
+#define WaitTime1st        (0x800 >> 1)
 #define WaitTime1stInit    (0x13cce >> 1)
 #define WaitTime1stRead    cdReadTime  // (PSXCLK / 75)   // OK
-#define WaitTime2ndGetID   (0x4a00)  // OK
+#define WaitTime2ndGetID   (0x4a00 >> 1)  // OK
 #define WaitTime2ndPause   (cdReadTime * 3) // OK
 
 #define SeekTime           50000
