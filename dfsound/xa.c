@@ -63,8 +63,8 @@ INLINE void MixXA(int *SSumLR, int ns_to, int decode_pos)
 
  if(spu.XAPlay != spu.XAFeed || spu.XARepeat > 0)
  {
-  //if(spu.XAPlay == spu.XAFeed)
-  // spu.XARepeat--;
+  if(spu.XAPlay == spu.XAFeed)
+   spu.XARepeat--;
 
   for(ns = 0; ns < ns_to*2; )
    {
@@ -86,6 +86,8 @@ INLINE void MixXA(int *SSumLR, int ns_to, int decode_pos)
  cursor = decode_pos;
  if(spu.CDDAPlay != spu.CDDAFeed || spu.CDDARepeat > 0)
  {
+   if (spu.CDDAPlay == spu.CDDAFeed)
+     spu.CDDARepeat--;
    v = spu.CDDALastVal;
   for(ns = 0; ns < ns_to*2; )
    {
@@ -136,7 +138,7 @@ INLINE void FeedXA(xa_decode_t *xap)
  if(!spu.bSPUIsOpen) return;
 
  spu.xapGlobal = xap;                                  // store info for save states
- spu.XARepeat  = 100;                                  // set up repeat
+ spu.XARepeat  = 3;                                    // set up repeat
 
 #if 0//def XA_HACK
  iSize=((45500*xap->nsamples)/xap->freq);              // get size
@@ -421,7 +423,7 @@ INLINE int FeedCDDA(unsigned char *pcm, int nBytes)
      #endif // DISP_DEBUG
      return 0x7761; // rearmed_wait
  }
- spu.CDDARepeat  = 100;
+ spu.CDDARepeat  = 3;
  while(nBytes>0)
   {
    if(spu.CDDAFeed==spu.CDDAEnd) spu.CDDAFeed=spu.CDDAStart;
