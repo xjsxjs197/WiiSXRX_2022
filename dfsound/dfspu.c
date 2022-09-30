@@ -1093,7 +1093,7 @@ int do_samples(unsigned int cycles_to, int do_direct)
  if (cycle_diff < -2*1048576 || cycle_diff > 2*1048576)
   {
    //xprintf("desync %u %d\n", cycles_to, cycle_diff);
-   spu.cycles_played = cycles_to;
+   //spu.cycles_played = cycles_to;
    return 0;
   }
 
