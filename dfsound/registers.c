@@ -58,7 +58,7 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
  if (val == 0 && (r & 0xff8) == 0xd88)
   return;
 
- do_samples_if_needed(cycles, 0);
+ //do_samples_if_needed(cycles, 0);
 
  if(r>=0x0c00 && r<0x0d80)                             // some channel info?
   {
@@ -129,8 +129,8 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
     //-------------------------------------------------//
     case H_SPUdata:
       // upd by xjsxjs197 start
-      //*(unsigned short *)(spu.spuMemC + spu.spuAddr) = val;
-      STORE_SWAP16p(spu.spuMemC + spu.spuAddr, val);
+      *(unsigned short *)(spu.spuMemC + spu.spuAddr) = val;
+      //STORE_SWAP16p(spu.spuMemC + spu.spuAddr, val);
       // upd by xjsxjs197 end
       spu.spuAddr += 2;
       spu.spuAddr &= 0x7fffe;
@@ -139,8 +139,8 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
     case H_SPUctrl:
       if (!(spu.spuCtrl & CTRL_IRQ)) {
         spu.spuStat&=~STAT_IRQ;
-        if (val & CTRL_IRQ)
-         schedule_next_irq();
+        //if (val & CTRL_IRQ)
+        // schedule_next_irq();
       }
       spu.spuCtrl=val;
       break;
@@ -208,12 +208,12 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
       break;
     //-------------------------------------------------//
     case H_CDLeft:
-      spu.iLeftXAVol=(int16_t)val;
-      if(spu.cddavCallback) spu.cddavCallback(0,(int16_t)val);
+      spu.iLeftXAVol=val  & 0x7fff;
+      if(spu.cddavCallback) spu.cddavCallback(0,val);
       break;
     case H_CDRight:
-      spu.iRightXAVol=(int16_t)val;
-      if(spu.cddavCallback) spu.cddavCallback(1,(int16_t)val);
+      spu.iRightXAVol=val & 0x7fff;
+      if(spu.cddavCallback) spu.cddavCallback(1,val);
       break;
     //-------------------------------------------------//
     case H_FMod1:
@@ -276,8 +276,8 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
  return;
 
 upd_irq:
- if (spu.spuCtrl & CTRL_IRQ)
-  schedule_next_irq();
+ //if (spu.spuCtrl & CTRL_IRQ)
+ // schedule_next_irq();
  return;
 
 rvbd:
@@ -300,7 +300,7 @@ unsigned short CALLBACK DF_SPUreadRegister(unsigned long reg)
       {
        const int ch=(r>>4)-0xc0;
        if(spu.dwNewChannel&(1<<ch)) return 1;          // we are started, but not processed? return 1
-       if((spu.dwChannelOn&(1<<ch)) &&                 // same here... we haven't decoded one sample yet, so no envelope yet. return 1 as well
+       if((spu.dwChannelsAudible&(1<<ch)) &&                 // same here... we haven't decoded one sample yet, so no envelope yet. return 1 as well
           //!spu.s_chan[ch].ADSRX.EnvelopeVol)
           spu.s_chan[ch].ADSRX.EnvelopeVol < 1.0)
         return 1;
@@ -330,8 +330,8 @@ unsigned short CALLBACK DF_SPUreadRegister(unsigned long reg)
     case H_SPUdata:
      {
       // upd by xjsxjs197 start
-      //unsigned short s = *(unsigned short *)(spu.spuMemC + spu.spuAddr);
-      unsigned short s = LOAD_SWAP16p(spu.spuMemC + spu.spuAddr);
+      unsigned short s = *(unsigned short *)(spu.spuMemC + spu.spuAddr);
+      //unsigned short s = LOAD_SWAP16p(spu.spuMemC + spu.spuAddr);
       // upd by xjsxjs197 end
       spu.spuAddr += 2;
       spu.spuAddr &= 0x7fffe;
@@ -359,7 +359,7 @@ static void SoundOn(int start,int end,unsigned short val)
 
  for(ch=start;ch<end;ch++,val>>=1)                     // loop channels
   {
-   if((val&1) && regAreaGet(ch,6))                     // mmm... start has to be set before key on !?!
+   if((val&1) && regAreaGetCh(ch, 6))                  // mmm... start has to be set before key on !?!
     {
      spu.s_chan[ch].bIgnoreLoop = 0;
      spu.dwNewChannel|=(1<<ch);
@@ -499,6 +499,10 @@ static void SetPitch(int ch,unsigned short val)               // SET PITCH
  spu.s_chan[ch].sinc_inv=0;
  //if (spu_config.iUseInterpolation == 1)
   spu.SB[ch * SB_SIZE + 32] = 1; // -> freq change in simple interpolation mode: set flag
+ if (val)
+  spu.dwChannelsAudible |= 1u << ch;
+ else
+  spu.dwChannelsAudible &= ~(1u << ch);
 }
 
 ////////////////////////////////////////////////////////////////////////

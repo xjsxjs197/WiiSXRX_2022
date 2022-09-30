@@ -52,10 +52,10 @@ static void SOUND_FillAudio(void *unused, Uint8 *stream, int len) {
     }
     #endif // DISP_DEBUG
 	// Fill remaining space with zero
-	while (len > 0) {
-		*p++ = 0;
-		--len;
-	}
+//	while (len > 0) {
+//		*p++ = 0;
+//		--len;
+//	}
 	/*int minLen = buffers[play_buffer].len;
 	if (len < minLen)
     {
@@ -162,18 +162,18 @@ static int sdl_feed(void *pSound, int lBytes) {
 	if (pSndBuffer == NULL) return;
 
 	while (lBytes > 0) {
-		if (((iWritePos + 1) % BUFFER_SIZE) == iReadPos)
-		{
-		    #ifdef DISP_DEBUG
-            PRINT_LOG1("sdl_feed === error: %d ", lBytes);
-            #endif // DISP_DEBUG
-		    break;
-		}
+//		if (((iWritePos + 1) % BUFFER_SIZE) == iReadPos)
+//		{
+//		    #ifdef DISP_DEBUG
+//            PRINT_LOG1("sdl_feed === error: %d ", lBytes);
+//            #endif // DISP_DEBUG
+//		    break;
+//		}
 
-        //++iWritePos;
-        //if (iWritePos >= BUFFER_SIZE) iWritePos = 0;
+        ++iWritePos;
+        if (iWritePos >= BUFFER_SIZE) iWritePos = 0;
 
-        /*if (iWritePos == iReadPos)
+        if (iWritePos == iReadPos)
         {
             #ifdef SHOW_DEBUG
             DEBUG_print("sdl_feed === error", DBG_SPU1);
@@ -184,11 +184,11 @@ static int sdl_feed(void *pSound, int lBytes) {
                 iWritePos = BUFFER_SIZE - 1;
             }
             break;
-        }*/
+        }
 
 		pSndBuffer[iWritePos] = *p++;
-		++iWritePos;
-		if (iWritePos >= BUFFER_SIZE) iWritePos = 0;
+		//++iWritePos;
+		//if (iWritePos >= BUFFER_SIZE) iWritePos = 0;
 
 		lBytes -= sizeof(short);
 	}

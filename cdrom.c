@@ -716,8 +716,8 @@ void cdrPlayInterrupt()
 	}
 	else
 	{
-		CDRMISC_INT(cdReadTime);
-		//CDRMISC_INT((cdr.Mode & MODE_SPEED) ? (cdReadTime / 2) : cdReadTime);
+		//CDRMISC_INT(cdReadTime);
+		CDRMISC_INT((cdr.Mode & MODE_SPEED) ? (cdReadTime / 2) : cdReadTime);
 	}
 
 	// update for CdlGetlocP/autopause
@@ -828,7 +828,8 @@ void cdrInterrupt() {
 			cdr.FastForward = 0;
 
 			if (cdr.SetlocPending) {
-				memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
+				//memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
+				*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
 				cdr.SetlocPending = 0;
 				cdr.m_locationChanged = TRUE;
 			}
@@ -1092,6 +1093,11 @@ void cdrInterrupt() {
 			Rockman X5 = 0.5-4x
 			- fix capcom logo
 			*/
+			#ifdef SHOW_DEBUG
+			sprintf(txtbuffer, "%s SeekedType %d \n", CmdName[Irq], cdr.Seeked);
+            DEBUG_print(txtbuffer, DBG_PROFILE_IDLE);
+            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
 			CDRMISC_INT(cdr.Seeked == SEEK_DONE ? 0x800 : cdReadTime * 4);
 			cdr.Seeked = SEEK_PENDING;
 			start_rotating = 1;
@@ -1199,8 +1205,8 @@ void cdrInterrupt() {
 			Find_CurTrack(cdr.SetSectorPlay);
 
         	#ifdef SHOW_DEBUG
-            sprintf(txtbuffer, "READ_ACK Mode %d CurTrack %d \n", cdr.Mode & MODE_CDDA, cdr.CurTrack);
-            DEBUG_print(txtbuffer, DBG_PROFILE_IDLE);
+            sprintf(txtbuffer, "READ_ACK Mode %d Track %d seekTime %ld\n", cdr.Mode & MODE_CDDA, cdr.CurTrack, seekTime);
+            DEBUG_print(txtbuffer, DBG_PROFILE_GFX);
             writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
 			if ((cdr.Mode & MODE_CDDA) && cdr.CurTrack > 1)
