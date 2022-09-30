@@ -49,42 +49,15 @@ void DF_SPUreadDMAMem(unsigned short *pusPSXMem, int iSize,
  unsigned int cycles)
 {
  int i;
- unsigned short crc=0;
 
- #ifdef SHOW_DEBUG
- sprintf(txtbuffer, "SPUreadDMA spuAddr %08x size %x crc %x", spu.spuAddr, iSize, crc);
- DEBUG_print(txtbuffer, DBG_SPU1);
- #endif // DISP_DEBUG
+ do_samples_if_needed(cycles, 1);
 
  for(i=0;i<iSize;i++)
   {
-   *pusPSXMem = *(unsigned short *)(spu.spuMemC + spu.spuAddr);
-   crc |= *pusPSXMem;
-   pusPSXMem++;
+   *pusPSXMem++ = *(unsigned short *)(spu.spuMemC + spu.spuAddr);
    spu.spuAddr += 2;
-   //spu.spuAddr &= 0x7fffe;
-   // guess based on Vib Ribbon (below)
-   if (spu.spuAddr > 0x7ffff) break;
+   spu.spuAddr &= 0x7fffe;
   }
- /*
- /* Toshiden Subaru "story screen" hack.
- /*
- /* After character selection screen, the game checks values inside returned
- /* SPU buffer and all values cannot be 0x0.
- /* Due to XA timings(?) we return buffer that has only NULLs.
- /* Setting little lag to MixXA() causes buffer to have some non-NULL values,
- /* but causes garbage sound so this hack is preferable.
- /*
- /* Note: When messing with xa.c like fixing Suikoden II's demo video sound issue
- /* this should be handled as well.
- */
- //do_samples_if_needed(cycles, 1);
-
- #ifdef SHOW_DEBUG
- sprintf(txtbuffer, "SPUreadDMA crc %x", crc);
- DEBUG_print(txtbuffer, DBG_SPU3);
- #endif // DISP_DEBUG
- if (crc == 0) *--pusPSXMem=0xFF;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -116,8 +89,8 @@ void DF_SPUwriteDMAMem(unsigned short *pusPSXMem, int iSize,
  unsigned int cycles)
 {
  int i;
-
- //do_samples_if_needed(cycles, 1);
+ 
+ do_samples_if_needed(cycles, 1);
  spu.bMemDirty = 1;
 
  if(spu.spuAddr + iSize*2 < 0x80000)
@@ -131,9 +104,7 @@ void DF_SPUwriteDMAMem(unsigned short *pusPSXMem, int iSize,
   {
    *(unsigned short *)(spu.spuMemC + spu.spuAddr) = *pusPSXMem++;
    spu.spuAddr += 2;
-   //spu.spuAddr &= 0x7fffe;
-   // Vib Ribbon - stop transfer (reverb playback)
-   if (spu.spuAddr > 0x7ffff) break;
+   spu.spuAddr &= 0x7fffe;
   }
 }
 

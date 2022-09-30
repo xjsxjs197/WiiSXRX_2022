@@ -48,7 +48,8 @@ static void SOUND_FillAudio(void *unused, Uint8 *stream, int len) {
 
     #ifdef SHOW_DEBUG
     if (len > 0) {
-        DEBUG_print("SOUND_FillAudio === error", DBG_SPU2);
+        sprintf(txtbuffer, "Spu Speed slow %d \n", len * 2);
+        DEBUG_print(txtbuffer, DBG_SPU2);
     }
     #endif // DISP_DEBUG
 	// Fill remaining space with zero
