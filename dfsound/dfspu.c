@@ -1269,7 +1269,8 @@ void CALLBACK DF_SPUasync(unsigned int cycle, unsigned int flags, unsigned int p
  if (flags & 1) {
   lastBytes = out_current->feed(spu.pSpuBuffer, (unsigned char *)spu.pS - spu.pSpuBuffer);
   //spu.pSpuBuffer = spu.spuBuffer[spu.whichBuffer = ((spu.whichBuffer + 1) & 3)];
-  spu.pS = (short *)spu.pSpuBuffer + (lastBytes >> 1);
+  //spu.pS = (short *)spu.pSpuBuffer + (lastBytes >> 1);
+  spu.pS = (short *)spu.pSpuBuffer;
 
   //if (spu_config.iTempo) {
    if (!out_current->busy() && nsTo > 0) {
