@@ -534,6 +534,31 @@ static void CheckGameAutoFix(void)
     }
 }
 
+static void CheckGameR3000AutoFix(void)
+{
+    int autoFixLen = 8;
+    char autoFixGames[autoFixLen][10] = {
+         "SLES00037" // Alone in the Dark - Jack is Back
+        ,"SLPS00141"
+        ,"SLUS00239"
+
+        ,"SLUS00590" // Need for Speed - V-Rally
+        ,"SLES00250"
+        ,"SLPS01149"
+        ,"SLPS91099"
+        ,"SLPS91430"
+    };
+
+    Config.pR3000Fix = 0;
+    int i;
+    for (i = 0; i < autoFixLen; i++)
+    {
+        if (ChkString(CdromId, autoFixGames[i], strlen(autoFixGames[i]))) {
+            Config.pR3000Fix = 1;
+        }
+    }
+}
+
 void fileBrowserFrame_LoadFile(int i)
 {
 	char feedback_string[256] = "Failed to load ISO";
@@ -583,6 +608,18 @@ void fileBrowserFrame_LoadFile(int i)
                 sprintf(buffer, "AUTO FIXED: no\n");
             }
 			strcat(RomInfo,buffer);
+			// auto recJR => psxJR for some game
+			CheckGameR3000AutoFix();
+			if (Config.pR3000Fix)
+            {
+                sprintf(buffer, "AUTO pR3000Fix: yes\n");
+            }
+            else
+            {
+                sprintf(buffer, "AUTO pR3000Fix: no\n");
+            }
+			strcat(RomInfo,buffer);
+
 			sprintf(buffer,"ISO Size: %u Mb\n",isoFile.size/1024/1024);
 			strcat(RomInfo,buffer);
 			sprintf(buffer,"Country: %s\n",(!Config.PsxType) ? "NTSC":"PAL");

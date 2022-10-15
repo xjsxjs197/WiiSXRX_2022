@@ -2173,17 +2173,17 @@ static void recLHU() {
 
 					case 0x1f801104: case 0x1f801114: case 0x1f801124:
 						if (!_Rt_) return;
-						
+
                         ReserveArgs(1);
                         LIW(PutHWRegSpecial(ARG1), (addr >> 4) & 0x3);
                         DisposeHWReg(iRegs[_Rt_].reg);
                         InvalidateCPURegs();
                         CALLFunc((u32)psxRcntRmode);
-                        
+
                         SetDstCPUReg(3);
                         PutHWReg32(_Rt_);
 						return;
-	
+
 					case 0x1f801108: case 0x1f801118: case 0x1f801128:
 						if (!_Rt_) return;
 
@@ -2192,7 +2192,7 @@ static void recLHU() {
                         DisposeHWReg(iRegs[_Rt_].reg);
                         InvalidateCPURegs();
                         CALLFunc((u32)psxRcntRtarget);
-                        
+
                         SetDstCPUReg(3);
                         PutHWReg32(_Rt_);
 						return;
@@ -2784,6 +2784,7 @@ static void recJAL() {
 	iJump(_Target_ * 4 + (pc & 0xf0000000));
 }
 
+void psxJR();
 static void recJR() {
 // jr Rs
 
@@ -2794,8 +2795,22 @@ static void recJR() {
 		iJump(iRegs[_Rs_].k);
 		//LIW(PutHWRegSpecial(TARGET), iRegs[_Rs_].k);
 	} else {
-		MR(PutHWRegSpecial(TARGET), GetHWReg32(_Rs_));
-		SetBranch();
+	    if (Config.pR3000Fix)
+        {
+            iFlushRegs(0);
+            LIW(PutHWRegSpecial(ARG1), (u32)psxRegs.code);
+            STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.code), GetHWRegSpecial(PSXREGS));
+            LIW(PutHWRegSpecial(PSXPC), (u32)pc);
+            FlushAllHWReg();
+            CALLFunc((u32)psxJR);
+            branch = 2;
+            iRet();
+        }
+        else
+        {
+            MR(PutHWRegSpecial(TARGET), GetHWReg32(_Rs_));
+		    SetBranch();
+        }
 	}
 }
 
