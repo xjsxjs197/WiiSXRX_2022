@@ -129,8 +129,8 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
     //-------------------------------------------------//
     case H_SPUdata:
       // upd by xjsxjs197 start
-      *(unsigned short *)(spu.spuMemC + spu.spuAddr) = val;
-      //STORE_SWAP16p(spu.spuMemC + spu.spuAddr, val);
+      //*(unsigned short *)(spu.spuMemC + spu.spuAddr) = val;
+      STORE_SWAP16p(spu.spuMemC + spu.spuAddr, val);
       // upd by xjsxjs197 end
       spu.spuAddr += 2;
       spu.spuAddr &= 0x7fffe;
@@ -330,8 +330,8 @@ unsigned short CALLBACK DF_SPUreadRegister(unsigned long reg)
     case H_SPUdata:
      {
       // upd by xjsxjs197 start
-      unsigned short s = *(unsigned short *)(spu.spuMemC + spu.spuAddr);
-      //unsigned short s = LOAD_SWAP16p(spu.spuMemC + spu.spuAddr);
+      //unsigned short s = *(unsigned short *)(spu.spuMemC + spu.spuAddr);
+      unsigned short s = LOAD_SWAP16p(spu.spuMemC + spu.spuAddr);
       // upd by xjsxjs197 end
       spu.spuAddr += 2;
       spu.spuAddr &= 0x7fffe;
