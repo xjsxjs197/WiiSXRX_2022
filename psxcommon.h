@@ -115,6 +115,7 @@ typedef struct {
 	long RCntFix;
 	long UseNet;
 	long VSyncWA;
+	long pR3000Fix;
 } PcsxConfig;
 
 extern PcsxConfig Config;

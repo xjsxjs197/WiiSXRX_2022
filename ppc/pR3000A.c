@@ -2793,6 +2793,7 @@ static void recJAL() {
 	iJump(_Target_ * 4 + (pc & 0xf0000000));
 }
 
+void psxJR();
 static void recJR() {
 // jr Rs
 
@@ -2803,8 +2804,22 @@ static void recJR() {
 		iJump(iRegs[_Rs_].k);
 		//LIW(PutHWRegSpecial(TARGET), iRegs[_Rs_].k);
 	} else {
-		MR(PutHWRegSpecial(TARGET), GetHWReg32(_Rs_));
-		SetBranch();
+	    if (Config.pR3000Fix)
+        {
+            iFlushRegs(0);
+            LIW(PutHWRegSpecial(ARG1), (u32)psxRegs.code);
+            STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.code), GetHWRegSpecial(PSXREGS));
+            LIW(PutHWRegSpecial(PSXPC), (u32)pc);
+            FlushAllHWReg();
+            CALLFunc((u32)psxJR);
+            branch = 2;
+            iRet();
+        }
+        else
+        {
+            MR(PutHWRegSpecial(TARGET), GetHWReg32(_Rs_));
+		    SetBranch();
+        }
 	}
 }
 
