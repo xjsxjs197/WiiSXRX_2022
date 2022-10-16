@@ -253,11 +253,18 @@ inline void psxTestHWInts() {
 	if (*((u32*)psxHAddr(0x1070)) & *((u32*)psxHAddr(0x1074))) {
     // upd xjsxjs197 end
 		if ((psxRegs.CP0.n.Status & 0x401) == 0x401) {
+            u32 opcode;
+
+			// Crash Bandicoot 2: Don't run exceptions when GTE in pipeline
+			opcode = SWAP32(*Read_ICache(psxRegs.pc, TRUE));
+			if( ((opcode >> 24) & 0xfe) != 0x4a ) {
+			    psxException(0x400, 0);
+			}
 #ifdef PSXCPU_LOG
 			PSXCPU_LOG("Interrupt: %x %x\n", psxHu32(0x1070), psxHu32(0x1074));
 #endif
 //			SysPrintf("Interrupt (%x): %x %x\n", psxRegs.cycle, psxHu32(0x1070), psxHu32(0x1074));
-			psxException(0x400, 0);
+			//psxException(0x400, 0);
 		}
 	}
 }

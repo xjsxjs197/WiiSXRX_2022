@@ -290,6 +290,8 @@ int LoadCdromFile(char *filename, EXE_HEADER *head) {
 
 	psxCpu->Clear(addr, size / 4);
 
+	psxRegs.ICache_valid = FALSE;
+
 	while (size & ~2047) {
 		incTime();
 		READTRACK();

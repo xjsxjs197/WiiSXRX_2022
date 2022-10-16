@@ -1090,12 +1090,21 @@ __inline static void execute() {
 	char *p;
 
 	p =	(char*)PC_REC(psxRegs.pc);
-	/*if (p != NULL)*/ recFunc = (void (**)()) (u32)p;
+	/*if (p != NULL)*/
 	/*else { recError(); return; }*/
 
-	if (*recFunc == 0) {
+	if (*p == 0) {
 		recRecompile();
 	}
+	else if (psxRegs.ICache_valid == FALSE) { // Xenogears: fixes memory card access with original BIOS (0a_44_FlushCache issue)
+		//psxCpu->Clear(0x0, 0x20000);
+		memset(recRAM, 0, 0x200000);
+		recRecompile();
+		p = (char*)PC_REC(psxRegs.pc);
+		psxRegs.ICache_valid = TRUE;
+	}
+	recFunc = (void (**)()) (u32)p;
+
 	recRun(*recFunc, (u32)&psxRegs, (u32)&psxM);
 }
 
