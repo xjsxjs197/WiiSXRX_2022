@@ -536,8 +536,8 @@ static void CheckGameAutoFix(void)
 
 static void CheckGameR3000AutoFix(void)
 {
-    int autoFixLen = 8;
-    char autoFixGames[autoFixLen][10] = {
+    int autoFixR3000Len = 8;
+    char autoFixR3000JR[autoFixR3000Len][10] = {
          "SLES00037" // Alone in the Dark - Jack is Back
         ,"SLPS00141"
         ,"SLUS00239"
@@ -551,10 +551,24 @@ static void CheckGameR3000AutoFix(void)
 
     Config.pR3000Fix = 0;
     int i;
-    for (i = 0; i < autoFixLen; i++)
+    for (i = 0; i < autoFixR3000Len; i++)
     {
-        if (ChkString(CdromId, autoFixGames[i], strlen(autoFixGames[i]))) {
+        if (ChkString(CdromId, autoFixR3000JR[i], strlen(autoFixR3000JR[i]))) {
             Config.pR3000Fix = 1;
+            break;
+        }
+    }
+
+    autoFixR3000Len = 2;
+    char autoFixR3000LW[autoFixR3000Len][10] = {
+         "SLUS01005" // Supercross 2000
+        ,"SLES02373"
+    };
+    for (i = 0; i < autoFixR3000Len; i++)
+    {
+        if (ChkString(CdromId, autoFixR3000LW[i], strlen(autoFixR3000LW[i]))) {
+            Config.pR3000Fix = 2;
+            break;
         }
     }
 }
