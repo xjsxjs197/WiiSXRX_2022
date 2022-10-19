@@ -46,6 +46,8 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
 WiiStation (formely WiiSXRX_2022) - developed by xjsxjs197 - https://github.com/xjsxjs197/WiiSXRX_2022
 
+WiiStation icon - made by Dakangel (high quality logo made by saulfabreg)
+
 WiiSX-RX fork - developed by NiuuS - https://github.com/niuus/WiiSXRX
 
 WiiSX-R fork - developed by Mystro256 - https://github.com/Mystro256/WiiSXR
