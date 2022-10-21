@@ -188,6 +188,7 @@ DWORD             dwLaceCnt=0;
 int               iColDepth;
 int               iWindowMode;
 short             sDispWidths[8] = {256,320,512,640,368,384,512,640};
+int               rc0Index;
 PSXDisplay_t      PSXDisplay;
 PSXDisplay_t      PreviousPSXDisplay;
 long              lSelectedSlot=0;
@@ -443,6 +444,7 @@ long PEOPS_GPUinit()                                // GPU INIT
  PSXDisplay.DrawOffset.y = 0;
  PSXDisplay.DisplayMode.x= 320;
  PSXDisplay.DisplayMode.y= 240;
+ rc0Index                = 1;
  PreviousPSXDisplay.DisplayMode.x= 320;
  PreviousPSXDisplay.DisplayMode.y= 240;
  PSXDisplay.Disabled     = FALSE;
@@ -999,6 +1001,29 @@ void PEOPS_GPUwriteStatus(unsigned long gdata)
 
     PSXDisplay.DisplayModeNew.x =
      sDispWidths[(gdata & 0x03) | ((gdata & 0x40) >> 4)];
+
+    switch (PSXDisplay.DisplayModeNew.x)
+    {
+        case 256:
+            rc0Index = 0;
+            break;
+        case 320:
+            rc0Index = 1;
+            break;
+        case 368:
+        case 384:
+            rc0Index = 2;
+            break;
+        case 512:
+            rc0Index = 3;
+            break;
+        case 640:
+            rc0Index = 4;
+            break;
+        default:
+            rc0Index = 1;
+            break;
+    }
 
     if (gdata&0x04) PSXDisplay.Double=2;
     else            PSXDisplay.Double=1;

@@ -52,7 +52,7 @@ enum
     RcUnknown15       = 0x8000, // 15   ? (always zero)
 };
 
-#define CounterQuantity           ( 4 )
+#define CounterQuantity           ( 5 )
 //static const u32 CounterQuantity  = 4;
 
 static const u32 CountToOverflow  = 0;
@@ -60,7 +60,12 @@ static const u32 CountToTarget    = 1;
 
 static const u32 FrameRate[]      = { 60, 50 };
 static const u32 HSyncTotal[]     = { 263, 314 }; // actually one more on odd lines for PAL
-#define VBlankStart 240
+static const u32 VBlankStart[]    = { 243, 256 };
+static const f32 Rc0Rate[2][5]    = { {6.31232, 5.05282, 4.41992, 3.15616, 2.52345},
+                                      {6.31697, 5.04171, 4.41928, 3.15385, 2.52382}
+                                    };
+static const f32 Rc1Rate[]        = { 15734.63413, 15769.29134 };
+//#define VBlankStart 240
 
 #define VERBOSE_LEVEL 0
 
@@ -100,6 +105,15 @@ void setIrq( u32 irq )
 //#endif
 //}
 
+static inline u32 getCntValue(u32 val, u32 intRate, u32 cntIdx)
+{
+    if (intRate > 1 && cntIdx < 2)
+    {
+        return (u32)((f32)val * rcnts[cntIdx].rateF);
+    }
+    return val * intRate;
+}
+
 /******************************************************************************/
 
 static inline
@@ -112,17 +126,20 @@ void _psxRcntWcount( u32 index, u32 value )
     }
 
     rcnts[index].cycleStart  = psxRegs.cycle;
-    rcnts[index].cycleStart -= value * rcnts[index].rate;
+    //rcnts[index].cycleStart -= value * rcnts[index].rate;
+    rcnts[index].cycleStart -= getCntValue(value, rcnts[index].rate, index);
 
     // TODO: <=.
     if( value < rcnts[index].target )
     {
-        rcnts[index].cycle = rcnts[index].target * rcnts[index].rate;
+        //rcnts[index].cycle = rcnts[index].target * rcnts[index].rate;
+        rcnts[index].cycle = getCntValue(rcnts[index].target, rcnts[index].rate, index);
         rcnts[index].counterState = CountToTarget;
     }
     else
     {
-        rcnts[index].cycle = 0x10000 * rcnts[index].rate;
+        //rcnts[index].cycle = 0x10000 * rcnts[index].rate;
+        rcnts[index].cycle = getCntValue(0x10000, rcnts[index].rate, index);
         rcnts[index].counterState = CountToOverflow;
     }
 }
@@ -135,7 +152,17 @@ u32 _psxRcntRcount( u32 index )
     count  = psxRegs.cycle;
     count -= rcnts[index].cycleStart;
     if (rcnts[index].rate > 1)
-        count /= rcnts[index].rate;
+        //count /= rcnts[index].rate;
+        switch (index)
+        {
+            case 0:
+            case 1:
+                count = (u32)((f32)count / rcnts[index].rateF);
+                break;
+            default:
+                count /= rcnts[index].rate;
+                break;
+        }
 
     if( count > 0x10000 )
     {
@@ -146,6 +173,7 @@ u32 _psxRcntRcount( u32 index )
     return count;
 }
 
+extern int rc0Index;
 static
 void _psxRcntWmode( u32 index, u32 value )
 {
@@ -157,30 +185,36 @@ void _psxRcntWmode( u32 index, u32 value )
             if( value & Rc0PixelClock )
             {
                 rcnts[index].rate = 5;
+                rcnts[index].rateF = Rc0Rate[Config.PsxType][rc0Index];
             }
             else
             {
                 rcnts[index].rate = 1;
+                rcnts[index].rateF = 1.0;
             }
         break;
         case 1:
             if( value & Rc1HSyncClock )
             {
                 rcnts[index].rate = (PSXCLK / (FrameRate[Config.PsxType] * HSyncTotal[Config.PsxType]));
+                rcnts[index].rateF = Rc1Rate[Config.PsxType];
             }
             else
             {
                 rcnts[index].rate = 1;
+                rcnts[index].rateF = 1.0;
             }
         break;
         case 2:
             if( value & Rc2OneEighthClock )
             {
                 rcnts[index].rate = 8;
+                rcnts[index].rateF = 8.0;
             }
             else
             {
                 rcnts[index].rate = 1;
+                rcnts[index].rateF = 1.0;
             }
 
             // TODO: wcount must work.
@@ -237,12 +271,14 @@ void psxRcntReset( u32 index )
         rcycles = psxRegs.cycle - rcnts[index].cycleStart;
         if( rcnts[index].mode & RcCountToTarget )
         {
-            rcycles -= rcnts[index].target * rcnts[index].rate;
+            //rcycles -= rcnts[index].target * rcnts[index].rate;
+            rcycles -= getCntValue(rcnts[index].target, rcnts[index].rate, index);
             rcnts[index].cycleStart = psxRegs.cycle - rcycles;
         }
         else
         {
-            rcnts[index].cycle = 0x10000 * rcnts[index].rate;
+            //rcnts[index].cycle = 0x10000 * rcnts[index].rate;
+            rcnts[index].cycle = getCntValue(0x10000, rcnts[index].rate, index);
             rcnts[index].counterState = CountToOverflow;
         }
 
@@ -258,20 +294,24 @@ void psxRcntReset( u32 index )
 
         rcnts[index].mode |= RcCountEqTarget;
 
-        if( rcycles < 0x10000 * rcnts[index].rate )
+        //if( rcycles < 0x10000 * rcnts[index].rate )
+        if( rcycles < getCntValue(0x10000, rcnts[index].rate, index) )
             return;
     }
 
     if( rcnts[index].counterState == CountToOverflow )
     {
         rcycles = psxRegs.cycle - rcnts[index].cycleStart;
-        rcycles -= 0x10000 * rcnts[index].rate;
+        //rcycles -= 0x10000 * rcnts[index].rate;
+        rcycles -= getCntValue(0x10000, rcnts[index].rate, index);
 
         rcnts[index].cycleStart = psxRegs.cycle - rcycles;
 
-        if( rcycles < rcnts[index].target * rcnts[index].rate )
+        //if( rcycles < rcnts[index].target * rcnts[index].rate )
+        if( rcycles < getCntValue(rcnts[index].target, rcnts[index].rate, index) )
         {
-            rcnts[index].cycle = rcnts[index].target * rcnts[index].rate;
+            //rcnts[index].cycle = rcnts[index].target * rcnts[index].rate;
+            rcnts[index].cycle = getCntValue(rcnts[index].target, rcnts[index].rate, index);
             rcnts[index].counterState = CountToTarget;
         }
 
@@ -292,8 +332,8 @@ void psxRcntReset( u32 index )
 static void scheduleRcntBase(void)
 {
     // Schedule next call, in hsyncs
-    if (hSyncCount < VBlankStart)
-        hsync_steps = VBlankStart - hSyncCount;
+    if (hSyncCount < VBlankStart[Config.PsxType])
+        hsync_steps = VBlankStart[Config.PsxType] - hSyncCount;
     else
         hsync_steps = HSyncTotal[Config.PsxType] - hSyncCount;
 
@@ -340,7 +380,7 @@ void psxRcntUpdate()
         hSyncCount += hsync_steps;
 
         // VSync irq.
-        if( hSyncCount == VBlankStart )
+        if( hSyncCount == VBlankStart[Config.PsxType] )
         {
             HW_GPU_STATUS &= SWAP32(~PSXGPU_LCF);
             //GPU_vBlank( 1, 0 );
@@ -349,12 +389,12 @@ void psxRcntUpdate()
             SysUpdate();
             GPU_updateLace();
 
-            if( SPU_async )
-            {
-                SPU_async( cycle, 1 , Config.PsxType);
-            }
+//            if( SPU_async )
+//            {
+//                SPU_async( cycle, 1 , Config.PsxType);
+//            }
         }
-        
+
         // Update lace. (with InuYasha fix)
         if( hSyncCount >= (Config.VSyncWA ? HSyncTotal[Config.PsxType] / BIAS : HSyncTotal[Config.PsxType]) )
         {
@@ -369,6 +409,14 @@ void psxRcntUpdate()
         }
 
         scheduleRcntBase();
+    }
+
+    // spu counter
+    if( cycle - rcnts[4].cycleStart >= rcnts[4].cycle )
+    {
+        SPU_async( cycle, 1 , Config.PsxType);
+
+        psxRcntReset(4);
     }
 
     psxRcntSet();
@@ -461,20 +509,29 @@ void psxRcntInit()
 
     // rcnt 0.
     rcnts[0].rate   = 1;
+    rcnts[0].rateF   = 1.0;
     rcnts[0].irq    = 0x10;
 
     // rcnt 1.
     rcnts[1].rate   = 1;
+    rcnts[1].rateF   = 1.0;
     rcnts[1].irq    = 0x20;
 
     // rcnt 2.
     rcnts[2].rate   = 1;
+    rcnts[2].rateF   = 1.0;
     rcnts[2].irq    = 0x40;
 
     // rcnt base.
     rcnts[3].rate   = 1;
+    rcnts[3].rateF   = 1.0;
     rcnts[3].mode   = RcCountToTarget;
     rcnts[3].target = (PSXCLK / (FrameRate[Config.PsxType] * HSyncTotal[Config.PsxType]));
+
+    // spu counter
+    rcnts[4].rate = 768 * 64;
+    rcnts[4].target = 1;
+    rcnts[4].mode = 0x58;
 
     for( i = 0; i < CounterQuantity; ++i )
     {

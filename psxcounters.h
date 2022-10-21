@@ -38,6 +38,7 @@ typedef struct Rcnt
     u16 mode, target;
     u32 rate, irq, counterState, irqState;
     u32 cycle, cycleStart;
+    f32 rateF;
 } Rcnt;
 extern Rcnt rcnts[];
 
