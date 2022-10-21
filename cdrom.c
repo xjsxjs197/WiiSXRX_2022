@@ -973,9 +973,19 @@ void cdrInterrupt() {
 			{
 				delay = (((cdr.Mode & MODE_SPEED) ? 2 : 1) * (1000000));
 				CDRMISC_INT((cdr.Mode & MODE_SPEED) ? cdReadTime / 2 : cdReadTime);
+			}*/
+			if (cdr.StatP & (STATUS_PLAY | STATUS_READ))
+			{
+				delay = ((cdr.Mode & MODE_SPEED) ? 2000000 : 1000000);
+				// call CompleteSeek
+				//CDRMISC_INT((cdr.Mode & MODE_SPEED) ? cdReadTime / 2 : cdReadTime);
 			}
-			AddIrqQueue(CdlPause + 0x100, delay);*/
-			AddIrqQueue(CdlPause + 0x100, WaitTime2ndPause);
+			else
+			{
+				delay = 7000;
+			}
+			AddIrqQueue(CdlPause + 0x100, delay);
+			//AddIrqQueue(CdlPause + 0x100, WaitTime2ndPause);
 			cdr.Ctrl |= 0x80;
 			break;
 
@@ -1595,8 +1605,22 @@ void cdrWrite1(unsigned char rt) {
 	switch (cdr.Cmd) {
 	case CdlReadN:
 	case CdlReadS:
+	    StopCdda();
+		StopReading();
+		break;
+
 	case CdlPause:
 		StopCdda();
+		if (cdr.StatP & STATUS_SEEK)
+        {
+            // call CompleteSeek
+            #ifdef SHOW_DEBUG
+            sprintf(txtbuffer, "CDROM Pause command while seeking\n");
+            DEBUG_print(txtbuffer, DBG_CORE3);
+            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
+            CDRMISC_INT((cdr.Mode & MODE_SPEED) ? cdReadTime / 2 : cdReadTime);
+        }
 		StopReading();
 		break;
 
