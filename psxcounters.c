@@ -52,7 +52,7 @@ enum
     RcUnknown15       = 0x8000, // 15   ? (always zero)
 };
 
-#define CounterQuantity           ( 5 )
+#define CounterQuantity           ( 4 )
 //static const u32 CounterQuantity  = 4;
 
 static const u32 CountToOverflow  = 0;
@@ -76,6 +76,10 @@ Rcnt rcnts[ CounterQuantity ];
 u32 hSyncCount = 0;
 u32 frame_counter = 0;
 static u32 hsync_steps = 0;
+
+static const u32 spuVBlankStart[]    = { 131, 157 };
+static u32 spuHSyncCount = 0;
+static u32 spuHSyncSteps = 0;
 
 u32 psxNextCounter = 0, psxNextsCounter = 0;
 
@@ -331,6 +335,11 @@ void psxRcntReset( u32 index )
 
 static void scheduleRcntBase(void)
 {
+    if (spuHSyncCount < spuVBlankStart[Config.PsxType])
+        spuHSyncSteps = spuVBlankStart[Config.PsxType] - spuHSyncCount;
+    else
+        spuHSyncSteps = HSyncTotal[Config.PsxType] - spuHSyncCount;
+
     // Schedule next call, in hsyncs
     if (hSyncCount < VBlankStart[Config.PsxType])
         hsync_steps = VBlankStart[Config.PsxType] - hSyncCount;
@@ -378,28 +387,36 @@ void psxRcntUpdate()
     if( cycle - rcnts[3].cycleStart >= rcnts[3].cycle )
     {
         hSyncCount += hsync_steps;
+        spuHSyncCount += spuHSyncSteps;
+
+        if( spuHSyncCount == spuVBlankStart[Config.PsxType] )
+        {
+            SPU_async( cycle, 1 , Config.PsxType);
+        }
 
         // VSync irq.
         if( hSyncCount == VBlankStart[Config.PsxType] )
         {
             HW_GPU_STATUS &= SWAP32(~PSXGPU_LCF);
             //GPU_vBlank( 1, 0 );
-            setIrq( 0x01 );
+            //setIrq( 0x01 );
 
-            SysUpdate();
             GPU_updateLace();
+            SysUpdate();
 
 //            if( SPU_async )
 //            {
-//                SPU_async( cycle, 1 , Config.PsxType);
+                SPU_async( cycle, 1 , Config.PsxType);
 //            }
         }
 
         // Update lace. (with InuYasha fix)
         if( hSyncCount >= (Config.VSyncWA ? HSyncTotal[Config.PsxType] / BIAS : HSyncTotal[Config.PsxType]) )
         {
+            setIrq( 0x01 );
             rcnts[3].cycleStart += Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
             hSyncCount = 0;
+            spuHSyncCount = 0;
             frame_counter++;
 
             gpuSyncPluginSR();
@@ -409,14 +426,6 @@ void psxRcntUpdate()
         }
 
         scheduleRcntBase();
-    }
-
-    // spu counter
-    if( cycle - rcnts[4].cycleStart >= rcnts[4].cycle )
-    {
-        SPU_async( cycle, 1 , Config.PsxType);
-
-        psxRcntReset(4);
     }
 
     psxRcntSet();
@@ -527,11 +536,6 @@ void psxRcntInit()
     rcnts[3].rateF   = 1.0;
     rcnts[3].mode   = RcCountToTarget;
     rcnts[3].target = (PSXCLK / (FrameRate[Config.PsxType] * HSyncTotal[Config.PsxType]));
-
-    // spu counter
-    rcnts[4].rate = 768 * 64;
-    rcnts[4].target = 1;
-    rcnts[4].mode = 0x58;
 
     for( i = 0; i < CounterQuantity; ++i )
     {
