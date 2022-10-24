@@ -1105,7 +1105,7 @@ int do_samples(unsigned int cycles_to, int do_direct)
 
  if (cycle_diff < 2 * 768)
  {
-     spu.cycles_played = cycles_to;
+     //spu.cycles_played = cycles_to;
      return 0;
  }
 
@@ -1269,7 +1269,8 @@ void CALLBACK DF_SPUasync(unsigned int cycle, unsigned int flags, unsigned int p
  if (flags & 1) {
   lastBytes = out_current->feed(spu.pSpuBuffer, (unsigned char *)spu.pS - spu.pSpuBuffer);
   //spu.pSpuBuffer = spu.spuBuffer[spu.whichBuffer = ((spu.whichBuffer + 1) & 3)];
-  spu.pS = (short *)spu.pSpuBuffer + (lastBytes >> 1);
+  //spu.pS = (short *)spu.pSpuBuffer + (lastBytes >> 1);
+  spu.pS = (short *)spu.pSpuBuffer;
 
   //if (spu_config.iTempo) {
    if (!out_current->busy() && nsTo > 0) {

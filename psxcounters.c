@@ -61,6 +61,8 @@ static const u32 CountToTarget    = 1;
 static const u32 FrameRate[]      = { 60, 50 };
 static const u32 HSyncTotal[]     = { 263, 314 }; // actually one more on odd lines for PAL
 static const u32 VBlankStart[]    = { 243, 256 };
+static const u32 spuVBlankStart[] = { 197, 235 };
+
 static const f32 Rc0Rate[2][5]    = { {6.31232, 5.05282, 4.41992, 3.15616, 2.52345},
                                       {6.31697, 5.04171, 4.41928, 3.15385, 2.52382}
                                     };
@@ -77,7 +79,6 @@ u32 hSyncCount = 0;
 u32 frame_counter = 0;
 static u32 hsync_steps = 0;
 
-static const u32 spuVBlankStart[]    = { 131, 157 };
 static u32 spuHSyncCount = 0;
 static u32 spuHSyncSteps = 0;
 
@@ -88,7 +89,8 @@ u32 psxNextCounter = 0, psxNextsCounter = 0;
 static inline
 void setIrq( u32 irq )
 {
-    psxHu32ref(0x1070) |= SWAPu32(irq);
+    //psxHu32ref(0x1070) |= SWAPu32(irq);
+    psxHu32ref(0x1070) |= irq;
 }
 
 //static
@@ -118,12 +120,21 @@ static inline u32 getCntValue(u32 val, u32 intRate, u32 cntIdx)
     return val * intRate;
 }
 
+static inline u32 getCntValueSub(u32 val, u32 intRate, u32 cntIdx)
+{
+    if (intRate > 1 && cntIdx < 2)
+    {
+        return (u32)(((f32)val - 1) * rcnts[cntIdx].rateF);
+    }
+    return (val - 1) * intRate;
+}
+
 /******************************************************************************/
 
 static inline
 void _psxRcntWcount( u32 index, u32 value )
 {
-    if( value > 0xffff )
+    //if( value > 0xffff )
     {
         //verboseLog( 1, "[RCNT %i] wcount > 0xffff: %x\n", index, value );
         value &= 0xffff;
@@ -143,7 +154,7 @@ void _psxRcntWcount( u32 index, u32 value )
     else
     {
         //rcnts[index].cycle = 0x10000 * rcnts[index].rate;
-        rcnts[index].cycle = getCntValue(0x10000, rcnts[index].rate, index);
+        rcnts[index].cycle = getCntValueSub(0x10000, rcnts[index].rate, index);
         rcnts[index].counterState = CountToOverflow;
     }
 }
@@ -168,10 +179,10 @@ u32 _psxRcntRcount( u32 index )
                 break;
         }
 
-    if( count > 0x10000 )
-    {
+    //if( count > 0x10000 )
+    //{
         //verboseLog( 1, "[RCNT %i] rcount > 0xffff: %x\n", index, count );
-    }
+    //}
     count &= 0xffff;
 
     return count;
@@ -282,7 +293,7 @@ void psxRcntReset( u32 index )
         else
         {
             //rcnts[index].cycle = 0x10000 * rcnts[index].rate;
-            rcnts[index].cycle = getCntValue(0x10000, rcnts[index].rate, index);
+            rcnts[index].cycle = getCntValueSub(0x10000, rcnts[index].rate, index);
             rcnts[index].counterState = CountToOverflow;
         }
 
@@ -299,7 +310,7 @@ void psxRcntReset( u32 index )
         rcnts[index].mode |= RcCountEqTarget;
 
         //if( rcycles < 0x10000 * rcnts[index].rate )
-        if( rcycles < getCntValue(0x10000, rcnts[index].rate, index) )
+        if( rcycles < getCntValueSub(0x10000, rcnts[index].rate, index) )
             return;
     }
 
@@ -307,7 +318,7 @@ void psxRcntReset( u32 index )
     {
         rcycles = psxRegs.cycle - rcnts[index].cycleStart;
         //rcycles -= 0x10000 * rcnts[index].rate;
-        rcycles -= getCntValue(0x10000, rcnts[index].rate, index);
+        rcycles -= getCntValueSub(0x10000, rcnts[index].rate, index);
 
         rcnts[index].cycleStart = psxRegs.cycle - rcycles;
 
@@ -399,7 +410,7 @@ void psxRcntUpdate()
         {
             HW_GPU_STATUS &= SWAP32(~PSXGPU_LCF);
             //GPU_vBlank( 1, 0 );
-            //setIrq( 0x01 );
+            setIrq( SWAPu32((u32)0x01) );
 
             GPU_updateLace();
             SysUpdate();
@@ -413,7 +424,6 @@ void psxRcntUpdate()
         // Update lace. (with InuYasha fix)
         if( hSyncCount >= (Config.VSyncWA ? HSyncTotal[Config.PsxType] / BIAS : HSyncTotal[Config.PsxType]) )
         {
-            setIrq( 0x01 );
             rcnts[3].cycleStart += Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
             hSyncCount = 0;
             spuHSyncCount = 0;
@@ -519,17 +529,17 @@ void psxRcntInit()
     // rcnt 0.
     rcnts[0].rate   = 1;
     rcnts[0].rateF   = 1.0;
-    rcnts[0].irq    = 0x10;
+    rcnts[0].irq    = SWAPu32(0x10);
 
     // rcnt 1.
     rcnts[1].rate   = 1;
     rcnts[1].rateF   = 1.0;
-    rcnts[1].irq    = 0x20;
+    rcnts[1].irq    = SWAPu32(0x20);
 
     // rcnt 2.
     rcnts[2].rate   = 1;
     rcnts[2].rateF   = 1.0;
-    rcnts[2].irq    = 0x40;
+    rcnts[2].irq    = SWAPu32(0x40);
 
     // rcnt base.
     rcnts[3].rate   = 1;
