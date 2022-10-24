@@ -974,7 +974,7 @@ void cdrInterrupt() {
 				delay = (((cdr.Mode & MODE_SPEED) ? 2 : 1) * (1000000));
 				CDRMISC_INT((cdr.Mode & MODE_SPEED) ? cdReadTime / 2 : cdReadTime);
 			}*/
-			if (cdr.StatP & (STATUS_PLAY | STATUS_READ))
+			/*if (cdr.StatP & (STATUS_PLAY | STATUS_READ))
 			{
 				delay = ((cdr.Mode & MODE_SPEED) ? 2000000 : 1000000);
 				// call CompleteSeek
@@ -983,9 +983,9 @@ void cdrInterrupt() {
 			else
 			{
 				delay = 7000;
-			}
-			AddIrqQueue(CdlPause + 0x100, delay);
-			//AddIrqQueue(CdlPause + 0x100, WaitTime2ndPause);
+			}*/
+			//AddIrqQueue(CdlPause + 0x100, delay);
+			AddIrqQueue(CdlPause + 0x100, WaitTime2ndPause);
 			cdr.Ctrl |= 0x80;
 			break;
 

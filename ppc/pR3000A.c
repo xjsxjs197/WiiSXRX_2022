@@ -76,8 +76,8 @@ static void (*recBSC[64])();
 static void (*recSPC[64])();
 static void (*recREG[32])();
 static void (*recCP0[32])();
-static void (*recCP2[64])();
-static void (*recCP2BSC[32])();
+static void (*recCP2[64])(struct psxCP2Regs *regs);
+static void (*recCP2BSC[32])(struct psxCP2Regs *regs);
 
 static HWRegister HWRegisters[NUM_HW_REGISTERS];
 // added xjsxjs197 start
@@ -1009,6 +1009,7 @@ static void rec##f() { \
 	iFlushRegs(0); \
 	LIW(0, (u32)psxRegs.code); \
 	STW(0, OFFSET(&psxRegs, &psxRegs.code), GetHWRegSpecial(PSXREGS)); \
+	LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D); \
 	FlushAllHWReg(); \
 	CALLFunc ((u32)gte##f); \
 	cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)]<<2); \
@@ -1019,6 +1020,7 @@ void gte##f(); \
 static void rec##f() { \
 	if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2); \
 	iFlushRegs(0); \
+	LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D); \
 	CALLFunc ((u32)gte##f); \
 /*	branch = 2; */\
 	cop2readypc = pc + psxCP2time[_fFunct_(psxRegs.code)]; \
@@ -1150,14 +1152,14 @@ static void recCOP2() {
     #ifdef SHOW_DEBUG
     printFunctionLog();
     #endif // SHOW_DEBUG
-	recCP2[_Funct_]();
+	recCP2[_Funct_]((struct psxCP2Regs *)&psxRegs.CP2D);
 }
 
-static void recBASIC() {
+static void recBASIC(struct psxCP2Regs *regs) {
     #ifdef SHOW_DEBUG
     printFunctionLog();
     #endif // SHOW_DEBUG
-	recCP2BSC[_Rs_]();
+	recCP2BSC[_Rs_](regs);
 }
 
 //end of Tables opcodes...
@@ -3240,7 +3242,7 @@ static void (*recCP0[32])() = {
 	recNULL, recNULL, recNULL, recNULL, recNULL, recNULL, recNULL, recNULL
 };
 
-static void (*recCP2[64])() = {
+static void (*recCP2[64])(struct psxCP2Regs *regs) = {
 	recBASIC, recRTPS , recNULL , recNULL, recNULL, recNULL , recNCLIP, recNULL, // 00
 	recNULL , recNULL , recNULL , recNULL, recOP  , recNULL , recNULL , recNULL, // 08
 	recDPCS , recINTPL, recMVMVA, recNCDS, recCDP , recNULL , recNCDT , recNULL, // 10
