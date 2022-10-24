@@ -160,6 +160,7 @@ typedef struct {
     u32 pc;				/* Program counter */
     u32 code;			/* The instruction */
 	u32 cycle;
+	u32 gteCycle;
 	u32 interrupt;
 	//u32 intCycle[32];
 	struct { u32 sCycle, cycle; } intCycle[32];

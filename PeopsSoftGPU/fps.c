@@ -126,6 +126,7 @@ unsigned long timeGetTime()
  return diff_usec(0,nowTick)/10;
 }
 
+extern int newDwFrameRateTicks;
 void FrameCap (void)
 {
  static unsigned long curticks, lastticks, _ticks_since_last_update;
@@ -139,9 +140,9 @@ void FrameCap (void)
     {
      lastticks = curticks;
 
-     if((_ticks_since_last_update-TicksToWait) > dwFrameRateTicks)
+     if((_ticks_since_last_update-TicksToWait) > newDwFrameRateTicks)
           TicksToWait=0;
-     else TicksToWait=dwFrameRateTicks-(_ticks_since_last_update-TicksToWait);
+     else TicksToWait=newDwFrameRateTicks-(_ticks_since_last_update-TicksToWait);
 #ifdef SHOW_DEBUG
 //	sprintf(txtbuffer, "FrameCap: No Wait; dwFrameRateTicks %i; TicksToWait %i",(int)dwFrameRateTicks, (int)TicksToWait);
 //	DEBUG_print(txtbuffer,DBG_GPU2);
@@ -167,7 +168,7 @@ void FrameCap (void)
 #endif //SHOW_DEBUG
          Waiting = FALSE;
          lastticks = curticks;
-         TicksToWait = dwFrameRateTicks;
+         TicksToWait = newDwFrameRateTicks;
         }
       }
     }

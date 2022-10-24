@@ -189,6 +189,7 @@ int               iColDepth;
 int               iWindowMode;
 short             sDispWidths[8] = {256,320,512,640,368,384,512,640};
 int               rc0Index;
+unsigned long     newDwFrameRateTicks;
 PSXDisplay_t      PSXDisplay;
 PSXDisplay_t      PreviousPSXDisplay;
 long              lSelectedSlot=0;
