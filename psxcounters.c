@@ -53,16 +53,17 @@ enum
     RcUnknown15       = 0x8000, // 15   ? (always zero)
 };
 
-#define CounterQuantity           ( 4 )
+#define CounterQuantity           ( 5 )
 //static const u32 CounterQuantity  = 4;
 
 static const u32 CountToOverflow  = 0;
 static const u32 CountToTarget    = 1;
 
 static const u32 FrameRate[]      = { 60, 50 };
+static const u32 FrameCycles[]    = { PSXCLK / 60, PSXCLK / 50 };
+static const u32 HSyncLineCycles[]= { 8791293, 8836089 };
 static const u32 HSyncTotal[]     = { 263, 314 }; // actually one more on odd lines for PAL
 static const u32 VBlankStart[]    = { 243, 256 };
-static const u32 spuVBlankStart[] = { 197, 235 };
 
 static const f32 Rc0Rate[2][5]    = { {6.31232, 5.05282, 4.41992, 3.15616, 2.52345},
                                       {6.31697, 5.04171, 4.41928, 3.15385, 2.52382}
@@ -79,9 +80,6 @@ Rcnt rcnts[ CounterQuantity ];
 u32 hSyncCount = 0;
 u32 frame_counter = 0;
 static u32 hsync_steps = 0;
-
-static u32 spuHSyncCount = 0;
-static u32 spuHSyncSteps = 0;
 
 u32 psxNextCounter = 0, psxNextsCounter = 0;
 
@@ -116,18 +114,18 @@ static inline u32 getCntValue(u32 val, u32 intRate, u32 cntIdx)
 {
     if (intRate > 1 && cntIdx < 2)
     {
-        return (u32)((f32)val * rcnts[cntIdx].rateF);
+        return (u32)((f32)val * rcnts[cntIdx].rateF) >> 1;
     }
-    return val * intRate;
+    return val * intRate >> 1;
 }
 
 static inline u32 getCntValueSub(u32 val, u32 intRate, u32 cntIdx)
 {
     if (intRate > 1 && cntIdx < 2)
     {
-        return (u32)(((f32)val - 1) * rcnts[cntIdx].rateF);
+        return (u32)(((f32)val - 1) * rcnts[cntIdx].rateF) >> 1;
     }
-    return (val - 1) * intRate;
+    return (val - 1) * intRate >> 1;
 }
 
 /******************************************************************************/
@@ -184,7 +182,8 @@ u32 _psxRcntRcount( u32 index )
     //{
         //verboseLog( 1, "[RCNT %i] rcount > 0xffff: %x\n", index, count );
     //}
-    count &= 0xffff;
+    //count &= 0xffff;
+    count = (count << 1) & 0xffff;
 
     return count;
 }
@@ -350,28 +349,26 @@ void psxRcntReset( u32 index )
 
 static void scheduleRcntBase(void)
 {
-    if (spuHSyncCount < spuVBlankStart[Config.PsxType])
-        spuHSyncSteps = spuVBlankStart[Config.PsxType] - spuHSyncCount;
-    else
-        spuHSyncSteps = HSyncTotal[Config.PsxType] - spuHSyncCount;
-
     // Schedule next call, in hsyncs
     if (hSyncCount < VBlankStart[Config.PsxType])
         hsync_steps = VBlankStart[Config.PsxType] - hSyncCount;
     else
         hsync_steps = HSyncTotal[Config.PsxType] - hSyncCount;
 
-    // clk / 50 / 314 ~= 2157.25
-    // clk / 60 / 263 ~= 2146.31
-    u32 mult = Config.PsxType ? 8836089 : 8791293;
     if (hSyncCount + hsync_steps == HSyncTotal[Config.PsxType])
     {
-        rcnts[3].cycle = Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
+        //rcnts[3].cycle = Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
+        rcnts[3].cycle = FrameCycles[Config.PsxType] - (hsync_steps * HSyncLineCycles[Config.PsxType] >> 12);
     }
     else
     {
-        rcnts[3].cycle = hsync_steps * mult >> 12;
+        // clk / 50 / 314 ~= 2157.25
+        // clk / 60 / 263 ~= 2146.31
+        //u32 mult = Config.PsxType ? 8836089 : 8791293;
+        rcnts[3].cycle = hsync_steps * HSyncLineCycles[Config.PsxType] >> 12;
     }
+
+    rcnts[3].cycle = rcnts[3].cycle >> 1;
 }
 
 void psxRcntUpdate()
@@ -402,12 +399,6 @@ void psxRcntUpdate()
     if( cycle - rcnts[3].cycleStart >= rcnts[3].cycle )
     {
         hSyncCount += hsync_steps;
-        spuHSyncCount += spuHSyncSteps;
-
-//        if( spuHSyncCount == spuVBlankStart[Config.PsxType] )
-//        {
-//            SPU_async( cycle, 1 , Config.PsxType);
-//        }
 
         // VSync irq.
         if( hSyncCount == VBlankStart[Config.PsxType] )
@@ -439,7 +430,7 @@ void psxRcntUpdate()
 
 //            if( SPU_async )
 //            {
-                SPU_async( cycle, 1 , Config.PsxType);
+//                SPU_async( cycle, 1 , Config.PsxType);
 //            }
             psxRegs.gteCycle = 0;
         }
@@ -450,7 +441,6 @@ void psxRcntUpdate()
             //rcnts[3].cycleStart += Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
             rcnts[3].cycleStart = cycle;
             hSyncCount = 0;
-            spuHSyncCount = 0;
             frame_counter++;
 
             gpuSyncPluginSR();
@@ -460,6 +450,11 @@ void psxRcntUpdate()
         }
 
         scheduleRcntBase();
+    }
+
+    if ((cycle - rcnts[4].cycleStart) >= rcnts[4].cycle) {
+        SPU_async(cycle, 1, Config.PsxType);
+        psxRcntReset(4);
     }
 
     psxRcntSet();
@@ -570,6 +565,12 @@ void psxRcntInit()
     rcnts[3].rateF   = 1.0;
     rcnts[3].mode   = RcCountToTarget;
     rcnts[3].target = (PSXCLK / (FrameRate[Config.PsxType] * HSyncTotal[Config.PsxType]));
+
+    // spu timer
+    rcnts[4].rate = 768 * 64;
+    rcnts[4].rateF   = 1.0;
+    rcnts[4].target = 1;
+    rcnts[4].mode = 0x58;
 
     for( i = 0; i < CounterQuantity; ++i )
     {

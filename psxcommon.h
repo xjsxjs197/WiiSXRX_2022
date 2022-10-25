@@ -131,8 +131,8 @@ extern int NetOpened;
 
 #define gzfreezel(ptr) gzfreeze(ptr, sizeof(ptr))
 
-//#define BIAS	4
-#define BIAS	2
+#define BIAS	1
+//#define BIAS	2
 #define PSXCLK	33868800	/* 33.8688 Mhz */
 
 enum {
