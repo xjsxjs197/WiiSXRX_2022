@@ -63,7 +63,7 @@ static const u32 FrameRate[]      = { 60, 50 };
 static const u32 FrameCycles[]    = { PSXCLK / 60, PSXCLK / 50 };
 static const u32 HSyncLineCycles[]= { 8791293, 8836089 };
 static const u32 HSyncTotal[]     = { 263, 314 }; // actually one more on odd lines for PAL
-static const u32 VBlankStart[]    = { 243, 256 };
+static const u32 VBlankStart[]    = { 240, 286 };
 
 static const f32 Rc0Rate[2][5]    = { {6.31232, 5.05282, 4.41992, 3.15616, 2.52345},
                                       {6.31697, 5.04171, 4.41928, 3.15385, 2.52382}
@@ -403,41 +403,44 @@ void psxRcntUpdate()
         // VSync irq.
         if( hSyncCount == VBlankStart[Config.PsxType] )
         {
-            u32 curGteTicks;
-            curGteTicks = (u32)(((u64)1000000 * psxRegs.gteCycle) / (PSXCLK * FrameRate[Config.PsxType]));
-
-            if (curGteTicks > dwFrameRateTicks)
-            {
-                newDwFrameRateTicks = 0;
-            }
-            else
-            {
-                newDwFrameRateTicks = dwFrameRateTicks - curGteTicks;
-            }
-
-            #ifdef SHOW_DEBUG
-            sprintf(txtbuffer, "VBlankStart gteCycle %ld gteTicks %d\n", psxRegs.gteCycle, curGteTicks);
-            DEBUG_print(txtbuffer, DBG_CORE1);
-            writeLogFile(txtbuffer);
-            #endif // DISP_DEBUG
+//            u32 curGteTicks;
+//            curGteTicks = (u32)(((u64)1000000 * psxRegs.gteCycle) / (PSXCLK * FrameRate[Config.PsxType]));
+//
+//            if (curGteTicks > dwFrameRateTicks)
+//            {
+//                newDwFrameRateTicks = 0;
+//            }
+//            else
+//            {
+//                newDwFrameRateTicks = dwFrameRateTicks - curGteTicks;
+//            }
+//
+//            #ifdef SHOW_DEBUG
+//            sprintf(txtbuffer, "VBlankStart gteCycle %ld gteTicks %d\n", psxRegs.gteCycle, curGteTicks);
+//            DEBUG_print(txtbuffer, DBG_CORE1);
+//            writeLogFile(txtbuffer);
+//            #endif // DISP_DEBUG
 
             HW_GPU_STATUS &= SWAP32(~PSXGPU_LCF);
             //GPU_vBlank( 1, 0 );
             setIrq( SWAPu32((u32)0x01) );
 
-            GPU_updateLace();
-            SysUpdate();
+//            GPU_updateLace();
+//            SysUpdate();
 
 //            if( SPU_async )
 //            {
 //                SPU_async( cycle, 1 , Config.PsxType);
 //            }
-            psxRegs.gteCycle = 0;
+            //psxRegs.gteCycle = 0;
         }
 
         // Update lace. (with InuYasha fix)
         if( hSyncCount >= (Config.VSyncWA ? HSyncTotal[Config.PsxType] / BIAS : HSyncTotal[Config.PsxType]) )
         {
+            GPU_updateLace();
+            SysUpdate();
+
             //rcnts[3].cycleStart += Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
             rcnts[3].cycleStart = cycle;
             hSyncCount = 0;

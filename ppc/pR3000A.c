@@ -1005,33 +1005,33 @@ static void rec##f() { \
 #define CP2_FUNC(f) \
 void gte##f(); \
 static void rec##f() { \
-	/*if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2);*/ \
+	if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2); \
 	iFlushRegs(0); \
 	LIW(0, (u32)psxRegs.code); \
 	STW(0, OFFSET(&psxRegs, &psxRegs.code), GetHWRegSpecial(PSXREGS)); \
 	/*LWZ(PutHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.gteCycle), GetHWRegSpecial(PSXREGS));*/ \
 	/*ADDI(0, GetHWRegSpecial(ARG1), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2));*/ \
 	/*STW(0, OFFSET(&psxRegs, &psxRegs.gteCycle), GetHWRegSpecial(PSXREGS));*/ \
-	ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2)); \
+	/*ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2));*/ \
 	LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D); \
 	FlushAllHWReg(); \
 	CALLFunc ((u32)gte##f); \
-	/*cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)]<<2);*/ \
+	cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)]<<2); \
 }
 
 #define CP2_FUNCNC(f) \
 void gte##f(); \
 static void rec##f() { \
-	/*if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2);*/ \
+	if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2); \
 	iFlushRegs(0); \
 	/*LWZ(PutHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.gteCycle), GetHWRegSpecial(PSXREGS));*/ \
 	/*ADDI(0, GetHWRegSpecial(ARG1), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2));*/ \
 	/*STW(0, OFFSET(&psxRegs, &psxRegs.gteCycle), GetHWRegSpecial(PSXREGS));*/ \
-	ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2)); \
+	/*ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2));*/ \
 	LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D); \
 	CALLFunc ((u32)gte##f); \
 /*	branch = 2; */\
-	/*cop2readypc = pc + psxCP2time[_fFunct_(psxRegs.code)];*/ \
+	cop2readypc = pc + psxCP2time[_fFunct_(psxRegs.code)]; \
 }
 
 static int allocMem() {
