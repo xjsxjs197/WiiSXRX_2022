@@ -7,7 +7,7 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 * Incorporating the CDROM and cdiso codes of PCSX-ReARMed, the compatibility of the system has been greatly improved.
   Many games that could not be run or had problems before can be run.
 
-* Combined the dfsound module of PCSX-ReARMed and used the SDL Library.
+* Combined the dfsound module of PCSX-ReARMed and used the SDL library.
   The sound quality of the system has been greatly improved.
 
 * Modification of some dynamic compilation instructions, such as sllv, SRLV, srav, Final Fantasy 9 and Biohazard 3 can be run.
@@ -24,7 +24,7 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
 * Other minor corrections, such as disc changing (swap) and automatic fixed of some games.
 
-  ※※※ It reads a font file in a fixed location, So make sure that [sd:/wiisxrx/fonts/chs.dat] exists ※※※
+  ※※※ Note: It reads a font file in a fixed location, so make sure that [sd:/wiisxrx/fonts/chs.dat] exists ※※※
 
 ## Goals
 
@@ -41,7 +41,22 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
   You can download everything here: https://wii.leseratte10.de/devkitPro/
   
   The compiled SDL is here: https://github.com/xjsxjs197/WiiSXRX_2022/raw/main/libSDL.a
+  
+## WiiStation Credits
 
+WiiStation (formely WiiSXRX_2022) - developed by xjsxjs197 - https://github.com/xjsxjs197/WiiSXRX_2022
+
+WiiStation icon - made by Dakangel (high quality logo made by saulfabreg)
+
+WiiSX-RX fork - developed by NiuuS - https://github.com/niuus/WiiSXRX
+
+WiiSX-R fork - developed by Mystro256 - https://github.com/Mystro256/WiiSXR
+
+PCSX-Revolution - developed by Firnis - https://code.google.com/archive/p/pcsx-revolution/downloads
+
+WiiSX - developed by emu_kidid, tehpola, sepp256 - https://code.google.com/archive/p/pcsxgc/downloads ; https://github.com/emukidid/pcsxgc
+
+PCSX-ReARMed - developed by notaz - https://github.com/notaz/pcsx_rearmed
 
 ## The following is the basic code information
 
@@ -106,4 +121,4 @@ Original WiiSXR coder:
 Mystro256
 
 Mods & updates:
-Matguitarist, daxtsu, Mystro256, FIX94, xjsxjs197
+Matguitarist, daxtsu, Mystro256, FIX94, NiuuS, xjsxjs197

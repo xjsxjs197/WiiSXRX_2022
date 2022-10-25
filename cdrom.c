@@ -1035,12 +1035,14 @@ void cdrInterrupt() {
 
 		case CdlGetlocL:
 			SetResultSize(8);
-			memcpy(cdr.Result, cdr.Transfer, 8);
+			//memcpy(cdr.Result, cdr.Transfer, 8);
+			*(long long int *)(&cdr.Result) = *(long long int *)(&cdr.Transfer);
 			break;
 
 		case CdlGetlocP:
 			SetResultSize(8);
-			memcpy(&cdr.Result, &cdr.subq, 8);
+			//memcpy(&cdr.Result, &cdr.subq, 8);
+			*(long long int *)(&cdr.Result) = *(long long int *)(&cdr.subq);
 			if (!cdr.Play && !cdr.Reading)
 				cdr.Result[1] = 0; // HACK?
 			break;

@@ -1263,8 +1263,8 @@ void CALLBACK DF_SPUasync(unsigned int cycle, unsigned int flags, unsigned int p
     int lastBytes;
     int nsTo = do_samples(cycle, spu_config.iUseFixedUpdates);
 
- if (spu.spuCtrl & CTRL_IRQ)
-  schedule_next_irq();
+ //if (spu.spuCtrl & CTRL_IRQ)
+  //schedule_next_irq();
 
  if (flags & 1) {
   lastBytes = out_current->feed(spu.pSpuBuffer, (unsigned char *)spu.pS - spu.pSpuBuffer);

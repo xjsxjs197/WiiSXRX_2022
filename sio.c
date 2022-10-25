@@ -59,7 +59,7 @@ char Mcd1Data[MCD_SIZE], Mcd2Data[MCD_SIZE];
 
 // clk cycle byte
 // 4us * 8bits = ((PSXCLK / 1000000) * 32) / BIAS; (linuzappz)
-#define SIO_CYCLES		1084
+#define SIO_CYCLES		535
 
 #define SIO_INT() { \
 	if (!Config.Sio) { \
