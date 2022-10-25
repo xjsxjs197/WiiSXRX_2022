@@ -590,6 +590,11 @@ void fileBrowserFrame_LoadFile(int i)
 
 		if(!ret){	// If the read succeeded.
 			if(Autoboot){
+				// saulfabreg: autoFix function (timing and pR3000a fixes) works but not
+				// in autoboot mode... let's fix this :)
+				CheckGameAutoFix(); // for timing autoFix (Vandal Hearts, Parasite Eve II, etc.)
+				CheckGameR3000AutoFix(); // for pR3000a autoFix (Supercross 2000, etc.)
+				
 				// FIXME: The MessageBox is a hacky way to fix input not responding.
 				// No time to improve this...
 				menu::MessageBox::getInstance().setMessage("Autobooting game...");
