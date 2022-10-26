@@ -26,6 +26,7 @@
 #include "psxhw.h"
 #include "mdec.h"
 #include "ppf.h"
+#include "gpu.h"
 #include "Gamecube/wiiSXconfig.h"
 #include "Gamecube/fileBrowser/fileBrowser-libfat.h"
 
@@ -397,7 +398,7 @@ int CheckCdrom() {
 			Config.PsxType = PSX_TYPE_PAL; // pal
 		else Config.PsxType = PSX_TYPE_NTSC; // ntsc
 	}
-	psxUpdateVSyncRate();
+	//psxUpdateVSyncRate();
 	if (CdromLabel[0] == ' ') {
 		memcpy(CdromLabel, CdromId, 9);
 	}
@@ -646,6 +647,8 @@ int LoadState() {
 	gzread(f, gpufP, sizeof(GPUFreeze_t));
 	GPU_freeze(0, gpufP);
 	free(gpufP);
+	if (HW_GPU_STATUS == 0)
+		HW_GPU_STATUS = SWAP32(GPU_readStatus());
 	// gpu VRAM load (load directly to save memory)
 	gzread(f, &psxVub[0], 1024*iGPUHeight*2);
 	LoadingBar_showBar(0.80f, LOAD_STATE_MSG);
@@ -724,7 +727,7 @@ int RecvPcsxInfo() {
 	NET_recvData(&Config.SpuIrq, sizeof(Config.SpuIrq), PSE_NET_BLOCKING);
 	NET_recvData(&Config.RCntFix, sizeof(Config.RCntFix), PSE_NET_BLOCKING);
 	NET_recvData(&Config.PsxType, sizeof(Config.PsxType), PSE_NET_BLOCKING);
-	psxUpdateVSyncRate();
+	//psxUpdateVSyncRate();
 
 	SysUpdate();
 

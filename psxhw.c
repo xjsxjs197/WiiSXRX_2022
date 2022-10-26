@@ -45,7 +45,7 @@ void psxHwReset() {
 	mdecInit(); // initialize mdec decoder
 	cdrReset();
 	psxRcntInit();
-	//HW_GPU_STATUS = 0x14802000;
+	HW_GPU_STATUS = SWAP32(0x14802000);
 }
 
 u8 psxHwRead8(u32 add) {
@@ -131,13 +131,13 @@ u16 psxHwRead16(u32 add) {
 #endif
 			return hard;
 		case 0x1f801104:
-			hard = psxCounters[0].mode;
+			hard = psxRcntRmode(0);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T0 mode read16: %x\n", hard);
 #endif
 			return hard;
 		case 0x1f801108:
-			hard = psxCounters[0].target;
+			hard = psxRcntRtarget(0);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T0 target read16: %x\n", hard);
 #endif
@@ -149,13 +149,13 @@ u16 psxHwRead16(u32 add) {
 #endif
 			return hard;
 		case 0x1f801114:
-			hard = psxCounters[1].mode;
+			hard = psxRcntRmode(1);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T1 mode read16: %x\n", hard);
 #endif
 			return hard;
 		case 0x1f801118:
-			hard = psxCounters[1].target;
+			hard = psxRcntRtarget(1);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T1 target read16: %x\n", hard);
 #endif
@@ -167,13 +167,13 @@ u16 psxHwRead16(u32 add) {
 #endif
 			return hard;
 		case 0x1f801124:
-			hard = psxCounters[2].mode;
+			hard = psxRcntRmode(2);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T2 mode read16: %x\n", hard);
 #endif
 			return hard;
 		case 0x1f801128:
-			hard = psxCounters[2].target;
+			hard = psxRcntRtarget(2);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T2 target read16: %x\n", hard);
 #endif
@@ -240,11 +240,11 @@ u32 psxHwRead32(u32 add) {
 #endif
 			return hard;
 		case 0x1f801814:
-			hard = GPU_readStatus();
-			//gpuSyncPluginSR();
-			//hard = HW_GPU_STATUS;
-			//if (hSyncCount < 240 && (HW_GPU_STATUS & PSXGPU_ILACE_BITS) != PSXGPU_ILACE_BITS)
-			//	hard |= PSXGPU_LCF & (psxRegs.cycle << 20);
+			//hard = GPU_readStatus();
+			gpuSyncPluginSR();
+			hard = SWAP32(HW_GPU_STATUS);
+			if (hSyncCount < 240 && (hard & PSXGPU_ILACE_BITS) != PSXGPU_ILACE_BITS)
+				hard |= PSXGPU_LCF & (psxRegs.cycle << 20);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("GPU STATUS 32bit read %lx\n", hard);
 #endif
@@ -294,13 +294,13 @@ u32 psxHwRead32(u32 add) {
 #endif
 			return hard;
 		case 0x1f801104:
-			hard = psxCounters[0].mode;
+			hard = psxRcntRmode(0);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T0 mode read32: %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801108:
-			hard = psxCounters[0].target;
+			hard = psxRcntRtarget(0);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T0 target read32: %lx\n", hard);
 #endif
@@ -312,13 +312,13 @@ u32 psxHwRead32(u32 add) {
 #endif
 			return hard;
 		case 0x1f801114:
-			hard = psxCounters[1].mode;
+			hard = psxRcntRmode(1);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T1 mode read32: %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801118:
-			hard = psxCounters[1].target;
+			hard = psxRcntRtarget(1);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T1 target read32: %lx\n", hard);
 #endif
@@ -330,13 +330,13 @@ u32 psxHwRead32(u32 add) {
 #endif
 			return hard;
 		case 0x1f801124:
-			hard = psxCounters[2].mode;
+			hard = psxRcntRmode(2);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T2 mode read32: %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801128:
-			hard = psxCounters[2].target;
+			hard = psxRcntRtarget(2);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T2 target read32: %lx\n", hard);
 #endif
@@ -428,8 +428,8 @@ void psxHwWrite16(u32 add, u16 value) {
 			if (Config.Sio) psxHu16ref(0x1070) |= SWAPu16(0x80);
 			if (Config.SpuIrq) psxHu16ref(0x1070) |= SWAPu16(0x200);
 			// upd xjsxjs197 start
-			//psxHu16ref(0x1070) &= SWAPu16((psxHu16(0x1074) & value));
-            STORE_SWAP16p(tmpAddr16, (LOAD_SWAP16p(psxHAddr(0x1074)) & value));
+			//psxHu16ref(0x1070) &= SWAPu16(value);
+            STORE_SWAP16p(tmpAddr16, (value));
             psxHu16ref(0x1070) &= tmpAddr16[0];
 			// upd xjsxjs197 end
 			return;
@@ -564,8 +564,8 @@ void psxHwWrite32(u32 add, u32 value) {
 			if (Config.Sio) psxHu32ref(0x1070) |= SWAPu32(0x80);
 			if (Config.SpuIrq) psxHu32ref(0x1070) |= SWAPu32(0x200);
 			// upd xjsxjs197 start
-			//psxHu32ref(0x1070) &= SWAPu32((psxHu32(0x1074) & value));
-            STORE_SWAP32p(tmpAddr, (LOAD_SWAP32p(psxHAddr(0x1074)) & value));
+			//psxHu32ref(0x1070) &= SWAPu32(value);
+            STORE_SWAP32p(tmpAddr, (value));
             psxHu32ref(0x1070) &= (u32)(tmpAddr[0]);
 			// upd xjsxjs197 end
 			return;
@@ -733,7 +733,7 @@ void psxHwWrite32(u32 add, u32 value) {
 			PSXHW_LOG("GPU STATUS 32bit write %lx\n", value);
 #endif
 			GPU_writeStatus(value);
-			//gpuSyncPluginSR();
+			gpuSyncPluginSR();
 			return;
 
 		case 0x1f801820:
@@ -817,9 +817,5 @@ void psxHwWrite32(u32 add, u32 value) {
 }
 
 int psxHwFreeze(gzFile f, int Mode) {
-	char Unused[4096];
-
-	gzfreezel(Unused);
-
 	return 0;
 }

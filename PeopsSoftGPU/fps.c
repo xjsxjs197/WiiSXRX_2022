@@ -126,6 +126,7 @@ unsigned long timeGetTime()
  return diff_usec(0,nowTick)/10;
 }
 
+extern int newDwFrameRateTicks;
 void FrameCap (void)
 {
  static unsigned long curticks, lastticks, _ticks_since_last_update;

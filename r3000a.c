@@ -154,6 +154,7 @@ void psxException(u32 code, u32 bd) {
 	// upd xjsxjs197 end
 }
 
+extern u32 psxNextCounter, psxNextsCounter;
 void psxBranchTest() {
 
 	if ((psxRegs.cycle - psxNextsCounter) >= psxNextCounter)

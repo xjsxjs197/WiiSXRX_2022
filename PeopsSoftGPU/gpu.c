@@ -188,6 +188,9 @@ DWORD             dwLaceCnt=0;
 int               iColDepth;
 int               iWindowMode;
 short             sDispWidths[8] = {256,320,512,640,368,384,512,640};
+int               rc0Index;
+int               dispHeight;
+unsigned long     newDwFrameRateTicks;
 PSXDisplay_t      PSXDisplay;
 PSXDisplay_t      PreviousPSXDisplay;
 long              lSelectedSlot=0;
@@ -443,6 +446,8 @@ long PEOPS_GPUinit()                                // GPU INIT
  PSXDisplay.DrawOffset.y = 0;
  PSXDisplay.DisplayMode.x= 320;
  PSXDisplay.DisplayMode.y= 240;
+ rc0Index                = 1;
+ dispHeight              = 240;
  PreviousPSXDisplay.DisplayMode.x= 320;
  PreviousPSXDisplay.DisplayMode.y= 240;
  PSXDisplay.Disabled     = FALSE;
@@ -538,12 +543,12 @@ void updateDisplay(void)                               // UPDATE DISPLAY
    return;                                             // -> and bye
   }
 
- if(dwActFixes&32)                                     // pc fps calculation fix
-  {
-   if(UseFrameLimit) PCFrameCap();                     // -> brake
-   if(UseFrameSkip || ulKeybits&KEY_SHOWFPS)
-    PCcalcfps();
-  }
+// if(dwActFixes&32)                                     // pc fps calculation fix
+//  {
+//   if(UseFrameLimit) PCFrameCap();                     // -> brake
+//   if(UseFrameSkip || ulKeybits&KEY_SHOWFPS)
+//    PCcalcfps();
+//  }
 
  if(ulKeybits&KEY_SHOWFPS)                             // make fps display buf
   {
@@ -566,13 +571,14 @@ void updateDisplay(void)                               // UPDATE DISPLAY
  if(UseFrameSkip)                                      // skip ?
   {
    if(!bSkipNextFrame) DoBufferSwap();                 // -> to skip or not to skip
-   if(dwActFixes&0xa0)                                 // -> pc fps calculation fix/old skipping fix
-    {
-     if((fps_skip < fFrameRateHz) && !(bSkipNextFrame))  // -> skip max one in a row
-         {bSkipNextFrame = TRUE; fps_skip=fFrameRateHz;}
-     else bSkipNextFrame = FALSE;
-    }
-   else FrameSkip();
+//   if(dwActFixes&0xa0)                                 // -> pc fps calculation fix/old skipping fix
+//    {
+//     if((fps_skip < fFrameRateHz) && !(bSkipNextFrame))  // -> skip max one in a row
+//         {bSkipNextFrame = TRUE; fps_skip=fFrameRateHz;}
+//     else bSkipNextFrame = FALSE;
+//    }
+//   else
+    FrameSkip();
   }
  else                                                  // no skip ?
   {
@@ -760,16 +766,15 @@ void CALLBACK GPUcursor(int iPlayer,int x,int y)
 
 void PEOPS_GPUupdateLace(void)
 {
-#ifdef PEOPS_SDLOG
-	DEBUG_print("append",DBG_SDGECKOAPPEND);
-	sprintf(txtbuffer,"Calling GPUupdateLace()\r\n");
-	DEBUG_print(txtbuffer,DBG_SDGECKOPRINT);
-	DEBUG_print("close",DBG_SDGECKOCLOSE);
-#endif //PEOPS_SDLOG
- if(!(dwActFixes&1))
+    #ifdef SHOW_DEBUG
+    sprintf(txtbuffer, "GPUupdateLace Interlaced %d \n", PSXDisplay.Interlaced);
+    DEBUG_print(txtbuffer, DBG_CORE2);
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
+ //if(!(dwActFixes&1))
   lGPUstatusRet^=0x80000000;                           // odd/even bit
 
- if(!(dwActFixes&32))                                  // std fps limitation?
+ //if(!(dwActFixes&32))                                  // std fps limitation?
   CheckFrameRate();
 
  if(PSXDisplay.Interlaced)                             // interlaced mode?
@@ -781,13 +786,13 @@ void PEOPS_GPUupdateLace(void)
   }
  else                                                  // non-interlaced?
   {
-   if(dwActFixes&64)                                   // lazy screen update fix
-    {
-     if(bDoLazyUpdate && !UseFrameSkip)
-      updateDisplay();
-     bDoLazyUpdate=FALSE;
-    }
-   else
+//   if(dwActFixes&64)                                   // lazy screen update fix
+//    {
+//     if(bDoLazyUpdate && !UseFrameSkip)
+//      updateDisplay();
+//     bDoLazyUpdate=FALSE;
+//    }
+//   else
     {
      if(bDoVSyncUpdate && !UseFrameSkip)               // some primitives drawn?
       updateDisplay();                                 // -> update display
@@ -803,15 +808,15 @@ void PEOPS_GPUupdateLace(void)
 
 unsigned long PEOPS_GPUreadStatus(void)
 {
- if(dwActFixes&1)
-  {
-   static int iNumRead=0;                              // odd/even hack
-   if((iNumRead++)==2)
-    {
-     iNumRead=0;
-     lGPUstatusRet^=0x80000000;                        // interlaced bit toggle... we do it on every 3 read status... needed by some games (like ChronoCross) with old epsxe versions (1.5.2 and older)
-    }
-  }
+// if(dwActFixes&1)
+//  {
+//   static int iNumRead=0;                              // odd/even hack
+//   if((iNumRead++)==2)
+//    {
+//     iNumRead=0;
+//     lGPUstatusRet^=0x80000000;                        // interlaced bit toggle... we do it on every 3 read status... needed by some games (like ChronoCross) with old epsxe versions (1.5.2 and older)
+//    }
+//  }
 
 // if(GetAsyncKeyState(VK_SHIFT)&32768) auxprintf("1 %08x\n",lGPUstatusRet);
 
@@ -954,7 +959,7 @@ void PEOPS_GPUwriteStatus(unsigned long gdata)
      if (!(PSXDisplay.Interlaced))                      // stupid frame skipping option
       {
        if(UseFrameSkip)  updateDisplay();
-       if(dwActFixes&64) bDoLazyUpdate=TRUE;
+       //if(dwActFixes&64) bDoLazyUpdate=TRUE;
       }
     }return;
    //--------------------------------------------------//
@@ -1000,10 +1005,34 @@ void PEOPS_GPUwriteStatus(unsigned long gdata)
     PSXDisplay.DisplayModeNew.x =
      sDispWidths[(gdata & 0x03) | ((gdata & 0x40) >> 4)];
 
+    switch (PSXDisplay.DisplayModeNew.x)
+    {
+        case 256:
+            rc0Index = 0;
+            break;
+        case 320:
+            rc0Index = 1;
+            break;
+        case 368:
+        case 384:
+            rc0Index = 2;
+            break;
+        case 512:
+            rc0Index = 3;
+            break;
+        case 640:
+            rc0Index = 4;
+            break;
+        default:
+            rc0Index = 1;
+            break;
+    }
+
     if (gdata&0x04) PSXDisplay.Double=2;
     else            PSXDisplay.Double=1;
 
     PSXDisplay.DisplayModeNew.y = PSXDisplay.Height*PSXDisplay.Double;
+    dispHeight = PSXDisplay.DisplayModeNew.y;
 
     ChangeDispOffsetsY();
 

@@ -180,12 +180,10 @@ int msf2SectS[] = {
 // 1x = 75 sectors per second
 // PSXCLK = 1 sec in the ps
 // so (PSXCLK / 75) = cdr read time (linuzappz)
-#define cdReadTime         (PSXCLK / 75) / 2  // OK
-//#define playAdpcmTime      178560  // =(PSXCLK * 930 / 4 / 44100) / 2  // OK
-#define playAdpcmTime      (PSXCLK * 930 / 4 / 44100) / 2  // OK
+#define cdReadTime         (PSXCLK / 75 / 2)  // OK
 #define WaitTime1st        (0x800 >> 1)
 #define WaitTime1stInit    (0x13cce >> 1)
-#define WaitTime1stRead    cdReadTime  // (PSXCLK / 75)   // OK
+#define WaitTime1stRead    cdReadTime   // OK
 #define WaitTime2ndGetID   (0x4a00 >> 1)  // OK
 #define WaitTime2ndPause   (cdReadTime * 3) // OK
 
@@ -1593,8 +1591,22 @@ void cdrWrite1(unsigned char rt) {
 	switch (cdr.Cmd) {
 	case CdlReadN:
 	case CdlReadS:
+	    StopCdda();
+		StopReading();
+		break;
+
 	case CdlPause:
 		StopCdda();
+		if (cdr.StatP & STATUS_SEEK)
+        {
+            // call CompleteSeek
+            #ifdef SHOW_DEBUG
+            sprintf(txtbuffer, "CDROM Pause command while seeking\n");
+            DEBUG_print(txtbuffer, DBG_CORE3);
+            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
+            CDRMISC_INT((cdr.Mode & MODE_SPEED) ? cdReadTime / 2 : cdReadTime);
+        }
 		StopReading();
 		break;
 
