@@ -68,7 +68,7 @@ static const u32 VBlankStart[]    = { 240, 286 };
 static const f32 Rc0Rate[2][5]    = { {6.31232, 5.05282, 4.41992, 3.15616, 2.52345},
                                       {6.31697, 5.04171, 4.41928, 3.15385, 2.52382}
                                     };
-static const f32 Rc1Rate[]        = { 15734.63413, 15769.29134 };
+static const f32 Rc1Rate[]        = { 2152.5000, 2147.7693 };
 //#define VBlankStart 240
 
 #define VERBOSE_LEVEL 0
@@ -127,6 +127,8 @@ static inline u32 getCntValueSub(u32 val, u32 intRate, u32 cntIdx)
     }
     return (val - 1) * intRate >> 1;
 }
+//#define getCntValue(val, intRate)      (val * intRate >> 1)
+//#define getCntValueSub(val, intRate)   ((val - 1) * intRate >> 1)
 
 /******************************************************************************/
 
@@ -142,18 +144,21 @@ void _psxRcntWcount( u32 index, u32 value )
     rcnts[index].cycleStart  = psxRegs.cycle;
     //rcnts[index].cycleStart -= value * rcnts[index].rate;
     rcnts[index].cycleStart -= getCntValue(value, rcnts[index].rate, index);
+    //rcnts[index].cycleStart -= getCntValue(value, rcnts[index].rate);
 
     // TODO: <=.
     if( value < rcnts[index].target )
     {
         //rcnts[index].cycle = rcnts[index].target * rcnts[index].rate;
         rcnts[index].cycle = getCntValue(rcnts[index].target, rcnts[index].rate, index);
+        //rcnts[index].cycle = getCntValue(rcnts[index].target, rcnts[index].rate);
         rcnts[index].counterState = CountToTarget;
     }
     else
     {
         //rcnts[index].cycle = 0x10000 * rcnts[index].rate;
         rcnts[index].cycle = getCntValueSub(0x10000, rcnts[index].rate, index);
+        //rcnts[index].cycle = getCntValueSub(0x10000, rcnts[index].rate);
         rcnts[index].counterState = CountToOverflow;
     }
 }
@@ -166,18 +171,17 @@ u32 _psxRcntRcount( u32 index )
     count  = psxRegs.cycle;
     count -= rcnts[index].cycleStart;
     if (rcnts[index].rate > 1)
+    {
         //count /= rcnts[index].rate;
-        switch (index)
+        if (index < 2)
         {
-            case 0:
-            case 1:
-                count = (u32)((f32)count / rcnts[index].rateF);
-                break;
-            default:
-                count /= rcnts[index].rate;
-                break;
+            count = (u32)((f32)count / rcnts[index].rateF);
         }
-
+        else
+        {
+            count /= rcnts[index].rate;
+        }
+    }
     //if( count > 0x10000 )
     //{
         //verboseLog( 1, "[RCNT %i] rcount > 0xffff: %x\n", index, count );
@@ -189,6 +193,7 @@ u32 _psxRcntRcount( u32 index )
 }
 
 extern int rc0Index;
+extern int dispHeight;
 extern unsigned long dwFrameRateTicks;
 extern unsigned long newDwFrameRateTicks;
 
@@ -291,12 +296,14 @@ void psxRcntReset( u32 index )
         {
             //rcycles -= rcnts[index].target * rcnts[index].rate;
             rcycles -= getCntValue(rcnts[index].target, rcnts[index].rate, index);
+            //rcycles -= getCntValue(rcnts[index].target, rcnts[index].rate);
             rcnts[index].cycleStart = psxRegs.cycle - rcycles;
         }
         else
         {
             //rcnts[index].cycle = 0x10000 * rcnts[index].rate;
             rcnts[index].cycle = getCntValueSub(0x10000, rcnts[index].rate, index);
+            //rcnts[index].cycle = getCntValueSub(0x10000, rcnts[index].rate);
             rcnts[index].counterState = CountToOverflow;
         }
 
@@ -314,6 +321,7 @@ void psxRcntReset( u32 index )
 
         //if( rcycles < 0x10000 * rcnts[index].rate )
         if( rcycles < getCntValueSub(0x10000, rcnts[index].rate, index) )
+        //if( rcycles < getCntValueSub(0x10000, rcnts[index].rate) )
             return;
     }
 
@@ -322,14 +330,17 @@ void psxRcntReset( u32 index )
         rcycles = psxRegs.cycle - rcnts[index].cycleStart;
         //rcycles -= 0x10000 * rcnts[index].rate;
         rcycles -= getCntValueSub(0x10000, rcnts[index].rate, index);
+        //rcycles -= getCntValueSub(0x10000, rcnts[index].rate);
 
         rcnts[index].cycleStart = psxRegs.cycle - rcycles;
 
         //if( rcycles < rcnts[index].target * rcnts[index].rate )
         if( rcycles < getCntValue(rcnts[index].target, rcnts[index].rate, index) )
+        //if( rcycles < getCntValue(rcnts[index].target, rcnts[index].rate) )
         {
             //rcnts[index].cycle = rcnts[index].target * rcnts[index].rate;
             rcnts[index].cycle = getCntValue(rcnts[index].target, rcnts[index].rate, index);
+            //rcnts[index].cycle = getCntValue(rcnts[index].target, rcnts[index].rate);
             rcnts[index].counterState = CountToTarget;
         }
 
@@ -415,18 +426,19 @@ void psxRcntUpdate()
 //                newDwFrameRateTicks = dwFrameRateTicks - curGteTicks;
 //            }
 //
-//            #ifdef SHOW_DEBUG
-//            sprintf(txtbuffer, "VBlankStart gteCycle %ld gteTicks %d\n", psxRegs.gteCycle, curGteTicks);
-//            DEBUG_print(txtbuffer, DBG_CORE1);
-//            writeLogFile(txtbuffer);
-//            #endif // DISP_DEBUG
+            #ifdef SHOW_DEBUG
+            //sprintf(txtbuffer, "VBlankStart gteCycle %ld gteTicks %d\n", psxRegs.gteCycle, curGteTicks);
+            sprintf(txtbuffer, "VBlankStart dispHeight %d\n", dispHeight);
+            DEBUG_print(txtbuffer, DBG_CORE1);
+            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
 
             HW_GPU_STATUS &= SWAP32(~PSXGPU_LCF);
             //GPU_vBlank( 1, 0 );
             setIrq( SWAPu32((u32)0x01) );
 
-//            GPU_updateLace();
-//            SysUpdate();
+            GPU_updateLace();
+            SysUpdate();
 
 //            if( SPU_async )
 //            {
@@ -438,8 +450,8 @@ void psxRcntUpdate()
         // Update lace. (with InuYasha fix)
         if( hSyncCount >= (Config.VSyncWA ? HSyncTotal[Config.PsxType] / BIAS : HSyncTotal[Config.PsxType]) )
         {
-            GPU_updateLace();
-            SysUpdate();
+            //GPU_updateLace();
+            //SysUpdate();
 
             //rcnts[3].cycleStart += Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
             rcnts[3].cycleStart = cycle;

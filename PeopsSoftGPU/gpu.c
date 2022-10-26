@@ -189,6 +189,7 @@ int               iColDepth;
 int               iWindowMode;
 short             sDispWidths[8] = {256,320,512,640,368,384,512,640};
 int               rc0Index;
+int               dispHeight;
 unsigned long     newDwFrameRateTicks;
 PSXDisplay_t      PSXDisplay;
 PSXDisplay_t      PreviousPSXDisplay;
@@ -446,6 +447,7 @@ long PEOPS_GPUinit()                                // GPU INIT
  PSXDisplay.DisplayMode.x= 320;
  PSXDisplay.DisplayMode.y= 240;
  rc0Index                = 1;
+ dispHeight              = 240;
  PreviousPSXDisplay.DisplayMode.x= 320;
  PreviousPSXDisplay.DisplayMode.y= 240;
  PSXDisplay.Disabled     = FALSE;
@@ -1030,6 +1032,7 @@ void PEOPS_GPUwriteStatus(unsigned long gdata)
     else            PSXDisplay.Double=1;
 
     PSXDisplay.DisplayModeNew.y = PSXDisplay.Height*PSXDisplay.Double;
+    dispHeight = PSXDisplay.DisplayModeNew.y;
 
     ChangeDispOffsetsY();
 
