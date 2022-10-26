@@ -181,10 +181,10 @@ int msf2SectS[] = {
 // PSXCLK = 1 sec in the ps
 // so (PSXCLK / 75) = cdr read time (linuzappz)
 #define cdReadTime         (PSXCLK / 75 / 2)  // OK
-#define WaitTime1st        (0x800)
+#define WaitTime1st        (0x800 >> 1)
 #define WaitTime1stInit    (0x13cce >> 1)
 #define WaitTime1stRead    cdReadTime   // OK
-#define WaitTime2ndGetID   (0x4a00)  // OK
+#define WaitTime2ndGetID   (0x4a00 >> 1)  // OK
 #define WaitTime2ndPause   (cdReadTime * 3) // OK
 
 #define SeekTime           50000

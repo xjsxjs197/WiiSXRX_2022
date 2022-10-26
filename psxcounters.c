@@ -112,7 +112,7 @@ void setIrq( u32 irq )
 
 static inline u32 getCntValue(u32 val, u32 intRate, u32 cntIdx)
 {
-    if (intRate > 1 && cntIdx < 2)
+    if (intRate > 1 && cntIdx == 0)
     {
         return (u32)((f32)val * rcnts[cntIdx].rateF) >> 1;
     }
@@ -121,14 +121,12 @@ static inline u32 getCntValue(u32 val, u32 intRate, u32 cntIdx)
 
 static inline u32 getCntValueSub(u32 val, u32 intRate, u32 cntIdx)
 {
-    if (intRate > 1 && cntIdx < 2)
+    if (intRate > 1 && cntIdx == 0)
     {
         return (u32)(((f32)val - 1) * rcnts[cntIdx].rateF) >> 1;
     }
     return (val - 1) * intRate >> 1;
 }
-//#define getCntValue(val, intRate)      (val * intRate >> 1)
-//#define getCntValueSub(val, intRate)   ((val - 1) * intRate >> 1)
 
 /******************************************************************************/
 
@@ -144,21 +142,18 @@ void _psxRcntWcount( u32 index, u32 value )
     rcnts[index].cycleStart  = psxRegs.cycle;
     //rcnts[index].cycleStart -= value * rcnts[index].rate;
     rcnts[index].cycleStart -= getCntValue(value, rcnts[index].rate, index);
-    //rcnts[index].cycleStart -= getCntValue(value, rcnts[index].rate);
 
     // TODO: <=.
     if( value < rcnts[index].target )
     {
         //rcnts[index].cycle = rcnts[index].target * rcnts[index].rate;
         rcnts[index].cycle = getCntValue(rcnts[index].target, rcnts[index].rate, index);
-        //rcnts[index].cycle = getCntValue(rcnts[index].target, rcnts[index].rate);
         rcnts[index].counterState = CountToTarget;
     }
     else
     {
         //rcnts[index].cycle = 0x10000 * rcnts[index].rate;
         rcnts[index].cycle = getCntValueSub(0x10000, rcnts[index].rate, index);
-        //rcnts[index].cycle = getCntValueSub(0x10000, rcnts[index].rate);
         rcnts[index].counterState = CountToOverflow;
     }
 }
@@ -173,7 +168,7 @@ u32 _psxRcntRcount( u32 index )
     if (rcnts[index].rate > 1)
     {
         //count /= rcnts[index].rate;
-        if (index < 2)
+        if (index == 0)
         {
             count = (u32)((f32)count / rcnts[index].rateF);
         }
@@ -296,14 +291,12 @@ void psxRcntReset( u32 index )
         {
             //rcycles -= rcnts[index].target * rcnts[index].rate;
             rcycles -= getCntValue(rcnts[index].target, rcnts[index].rate, index);
-            //rcycles -= getCntValue(rcnts[index].target, rcnts[index].rate);
             rcnts[index].cycleStart = psxRegs.cycle - rcycles;
         }
         else
         {
             //rcnts[index].cycle = 0x10000 * rcnts[index].rate;
             rcnts[index].cycle = getCntValueSub(0x10000, rcnts[index].rate, index);
-            //rcnts[index].cycle = getCntValueSub(0x10000, rcnts[index].rate);
             rcnts[index].counterState = CountToOverflow;
         }
 
@@ -321,7 +314,6 @@ void psxRcntReset( u32 index )
 
         //if( rcycles < 0x10000 * rcnts[index].rate )
         if( rcycles < getCntValueSub(0x10000, rcnts[index].rate, index) )
-        //if( rcycles < getCntValueSub(0x10000, rcnts[index].rate) )
             return;
     }
 
@@ -330,17 +322,14 @@ void psxRcntReset( u32 index )
         rcycles = psxRegs.cycle - rcnts[index].cycleStart;
         //rcycles -= 0x10000 * rcnts[index].rate;
         rcycles -= getCntValueSub(0x10000, rcnts[index].rate, index);
-        //rcycles -= getCntValueSub(0x10000, rcnts[index].rate);
 
         rcnts[index].cycleStart = psxRegs.cycle - rcycles;
 
         //if( rcycles < rcnts[index].target * rcnts[index].rate )
         if( rcycles < getCntValue(rcnts[index].target, rcnts[index].rate, index) )
-        //if( rcycles < getCntValue(rcnts[index].target, rcnts[index].rate) )
         {
             //rcnts[index].cycle = rcnts[index].target * rcnts[index].rate;
             rcnts[index].cycle = getCntValue(rcnts[index].target, rcnts[index].rate, index);
-            //rcnts[index].cycle = getCntValue(rcnts[index].target, rcnts[index].rate);
             rcnts[index].counterState = CountToTarget;
         }
 
@@ -369,17 +358,15 @@ static void scheduleRcntBase(void)
     if (hSyncCount + hsync_steps == HSyncTotal[Config.PsxType])
     {
         //rcnts[3].cycle = Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
-        rcnts[3].cycle = FrameCycles[Config.PsxType] - (hsync_steps * HSyncLineCycles[Config.PsxType] >> 12);
+        rcnts[3].cycle = FrameCycles[Config.PsxType] >> 1;
     }
     else
     {
         // clk / 50 / 314 ~= 2157.25
         // clk / 60 / 263 ~= 2146.31
         //u32 mult = Config.PsxType ? 8836089 : 8791293;
-        rcnts[3].cycle = hsync_steps * HSyncLineCycles[Config.PsxType] >> 12;
+        rcnts[3].cycle = (hsync_steps * HSyncLineCycles[Config.PsxType] >> 12) >> 1;
     }
-
-    rcnts[3].cycle = rcnts[3].cycle >> 1;
 }
 
 void psxRcntUpdate()
@@ -388,25 +375,7 @@ void psxRcntUpdate()
 
     cycle = psxRegs.cycle;
 
-    // rcnt 0.
-    while( cycle - rcnts[0].cycleStart >= rcnts[0].cycle )
-    {
-        psxRcntReset( 0 );
-    }
-
-    // rcnt 1.
-    while( cycle - rcnts[1].cycleStart >= rcnts[1].cycle )
-    {
-        psxRcntReset( 1 );
-    }
-
-    // rcnt 2.
-    while( cycle - rcnts[2].cycleStart >= rcnts[2].cycle )
-    {
-        psxRcntReset( 2 );
-    }
-
-    // rcnt base.
+        // rcnt base.
     if( cycle - rcnts[3].cycleStart >= rcnts[3].cycle )
     {
         hSyncCount += hsync_steps;
@@ -428,7 +397,7 @@ void psxRcntUpdate()
 //
             #ifdef SHOW_DEBUG
             //sprintf(txtbuffer, "VBlankStart gteCycle %ld gteTicks %d\n", psxRegs.gteCycle, curGteTicks);
-            sprintf(txtbuffer, "VBlankStart dispHeight %d\n", dispHeight);
+            sprintf(txtbuffer, "DispHeight %d rcnt0 rate %f \n", dispHeight, rcnts[0].rateF);
             DEBUG_print(txtbuffer, DBG_CORE1);
             writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
@@ -448,11 +417,8 @@ void psxRcntUpdate()
         }
 
         // Update lace. (with InuYasha fix)
-        if( hSyncCount >= (Config.VSyncWA ? HSyncTotal[Config.PsxType] / BIAS : HSyncTotal[Config.PsxType]) )
+        else if( hSyncCount >= (Config.VSyncWA ? HSyncTotal[Config.PsxType] / BIAS : HSyncTotal[Config.PsxType]) )
         {
-            //GPU_updateLace();
-            //SysUpdate();
-
             //rcnts[3].cycleStart += Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
             rcnts[3].cycleStart = cycle;
             hSyncCount = 0;
@@ -465,6 +431,24 @@ void psxRcntUpdate()
         }
 
         scheduleRcntBase();
+    }
+
+    // rcnt 0.
+    while( cycle - rcnts[0].cycleStart >= rcnts[0].cycle )
+    {
+        psxRcntReset( 0 );
+    }
+
+    // rcnt 1.
+    while( cycle - rcnts[1].cycleStart >= rcnts[1].cycle )
+    {
+        psxRcntReset( 1 );
+    }
+
+    // rcnt 2.
+    while( cycle - rcnts[2].cycleStart >= rcnts[2].cycle )
+    {
+        psxRcntReset( 2 );
     }
 
     if ((cycle - rcnts[4].cycleStart) >= rcnts[4].cycle) {
