@@ -191,6 +191,8 @@ extern int rc0Index;
 extern int dispHeight;
 extern unsigned long dwFrameRateTicks;
 extern unsigned long newDwFrameRateTicks;
+// hack for emulating "gpu busy" in some games
+extern unsigned long dwEmuFixes;
 
 static
 void _psxRcntWmode( u32 index, u32 value )
@@ -397,7 +399,7 @@ void psxRcntUpdate()
 //
             #ifdef SHOW_DEBUG
             //sprintf(txtbuffer, "VBlankStart gteCycle %ld gteTicks %d\n", psxRegs.gteCycle, curGteTicks);
-            sprintf(txtbuffer, "DispHeight %d rcnt0 rate %f \n", dispHeight, rcnts[0].rateF);
+            sprintf(txtbuffer, "DispHeight %d rcnt0 rate %f dwEmuFixes %d \n", dispHeight, rcnts[0].rateF, dwEmuFixes);
             DEBUG_print(txtbuffer, DBG_CORE1);
             writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
