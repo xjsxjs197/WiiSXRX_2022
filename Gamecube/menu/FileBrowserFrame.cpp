@@ -536,7 +536,7 @@ static void CheckGameAutoFix(void)
         }
     }
 
-    autoFixLen = 15;
+    autoFixLen = 17;
     char gpuBusyAutoFixGames[autoFixLen][10] = {
         // Hot Wheels - Turbo Racing
          "SLUS00964" // NTSC-U
@@ -547,6 +547,8 @@ static void CheckGameAutoFix(void)
         ,"SLPS01920" // Disc 2
 
         // FIFA: Road to World Cup '98
+        ,"SLPS01383" // NTSC-J - normal version
+        ,"SLPS91150" // NTSC-J - PlayStation The Best version
         ,"SLUS00520" // NTSC-U
         ,"SLES00914" // PAL
 	,"SLES00915" // France
