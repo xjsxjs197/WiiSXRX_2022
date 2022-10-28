@@ -766,11 +766,11 @@ void CALLBACK GPUcursor(int iPlayer,int x,int y)
 
 void PEOPS_GPUupdateLace(void)
 {
-    #ifdef SHOW_DEBUG
-    sprintf(txtbuffer, "GPUupdateLace Interlaced %d \n", PSXDisplay.Interlaced);
-    DEBUG_print(txtbuffer, DBG_CORE2);
-    writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
+//    #ifdef SHOW_DEBUG
+//    sprintf(txtbuffer, "GPUupdateLace Interlaced %d \n", PSXDisplay.Interlaced);
+//    DEBUG_print(txtbuffer, DBG_CORE2);
+//    writeLogFile(txtbuffer);
+//    #endif // DISP_DEBUG
  //if(!(dwActFixes&1))
   lGPUstatusRet^=0x80000000;                           // odd/even bit
 
@@ -1439,8 +1439,8 @@ ENDVRAM:
        gpuDataC=gpuDataP=0;
        primFunc[gpuCommand]((unsigned char *)gpuDataM);
 
-//       if(dwEmuFixes&0x0001 || dwActFixes&0x0400)      // hack for emulating "gpu busy" in some games
-//        iFakePrimBusy=4;
+       if(dwEmuFixes&0x0001 || dwActFixes&0x0400)      // hack for emulating "gpu busy" in some games
+        iFakePrimBusy=4;
       }
     }
   }

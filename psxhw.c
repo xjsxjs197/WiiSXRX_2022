@@ -25,6 +25,7 @@
 #include "mdec.h"
 #include "cdrom.h"
 #include "gpu.h"
+#include "Gamecube/DEBUG.h"
 
 // add xjsxjs197 start
 u32 tmpVal;
@@ -240,9 +241,24 @@ u32 psxHwRead32(u32 add) {
 #endif
 			return hard;
 		case 0x1f801814:
-			//hard = GPU_readStatus();
-			gpuSyncPluginSR();
-			hard = SWAP32(HW_GPU_STATUS);
+			hard = GPU_readStatus();
+			//gpuSyncPluginSR();
+			//HW_GPU_STATUS &= SWAP32(PSXGPU_TIMING_BITS);
+			// Gameshark Lite - wants to see VRAM busy
+            // - Must enable GPU 'Fake Busy States' hack
+            if( (hard & GPUSTATUS_IDLE) == 0 )
+            {
+                #ifdef SHOW_DEBUG
+                sprintf(txtbuffer, "Read GPU_STATUS Fake Busy \n");
+                DEBUG_print(txtbuffer, DBG_CORE2);
+                writeLogFile(txtbuffer);
+                #endif // DISP_DEBUG
+                hard &= ~GPUSTATUS_READYFORVRAM;
+                //HW_GPU_STATUS &= SWAP32(~GPUSTATUS_READYFORVRAM);
+            }
+
+	        //HW_GPU_STATUS |= SWAP32(hard & ~PSXGPU_TIMING_BITS);
+			//hard = SWAP32(HW_GPU_STATUS);
 			if (hSyncCount < 240 && (hard & PSXGPU_ILACE_BITS) != PSXGPU_ILACE_BITS)
 				hard |= PSXGPU_LCF & (psxRegs.cycle << 20);
 #ifdef PSXHW_LOG

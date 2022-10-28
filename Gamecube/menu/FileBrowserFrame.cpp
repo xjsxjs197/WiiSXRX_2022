@@ -478,6 +478,9 @@ int ChkString(char * str1, char * str2, int len)
 }
 // add xjsxjs197 end
 
+// hack for emulating "gpu busy" in some games
+extern unsigned long dwEmuFixes;
+
 static void CheckGameAutoFix(void)
 {
     int autoFixLen = 34;
@@ -530,6 +533,43 @@ static void CheckGameAutoFix(void)
     {
         if (ChkString(CdromId, autoFixGames[i], strlen(autoFixGames[i]))) {
             Config.RCntFix = 1;
+        }
+    }
+
+    autoFixLen = 15;
+    char gpuBusyAutoFixGames[autoFixLen][10] = {
+        // Hot Wheels Turbo Racing
+         "SLUS00964" // for NTSC-U,
+        ,"SLES02198" // for PAL]
+
+        // To Heart NTSC-J only, two discs
+        ,"SLPS01919" // for NTSC-J
+        ,"SLPS01920" // for NTSC-J
+
+        // FIFA: Road to World Cup 98
+        ,"SLUS00520" // for NTSC-U
+        ,"SLES00914" // for PAL
+        ,"SLES00918" // for Spain
+        ,"SLES00917" // for Italy
+        ,"SLES00916" // for Germany
+        ,"SLES00915" // for France
+
+        // Ishin no Arashi [NTSC-J only
+        ,"SLPS01158" // NTSC-J
+        ,"SLPM86861" // NTSC-J ?
+        ,"SLPM86235" // NTSC-J ?
+
+        // The Dukes of Hazzard: Racing for Home
+        ,"SLUS00859" // for NTSC-U
+        ,"SLES02343" // for PAL
+    };
+
+    // hack for emulating "gpu busy" in some games
+    dwEmuFixes = 0;
+    for (i = 0; i < autoFixLen; i++)
+    {
+        if (ChkString(CdromId, gpuBusyAutoFixGames[i], strlen(gpuBusyAutoFixGames[i]))) {
+            dwEmuFixes = 0x0001;
         }
     }
 }
@@ -594,7 +634,7 @@ void fileBrowserFrame_LoadFile(int i)
 				// in autoboot mode... let's fix this :)
 				CheckGameAutoFix(); // for timing autoFix (Vandal Hearts, Parasite Eve II, etc.)
 				CheckGameR3000AutoFix(); // for pR3000a autoFix (Supercross 2000, etc.)
-				
+
 				// FIXME: The MessageBox is a hacky way to fix input not responding.
 				// No time to improve this...
 				menu::MessageBox::getInstance().setMessage("Autobooting game...");
@@ -620,24 +660,22 @@ void fileBrowserFrame_LoadFile(int i)
 			strcat(RomInfo,buffer);
 			if (Config.RCntFix)
             {
-                sprintf(buffer, "AUTO FIXED: yes\n");
+                sprintf(buffer, "RCnt2 auto fixed\n");
+                strcat(RomInfo,buffer);
             }
-            else
+            if (dwEmuFixes)
             {
-                sprintf(buffer, "AUTO FIXED: no\n");
+                sprintf(buffer, "GPU 'Fake Busy States' hacked\n");
+                strcat(RomInfo,buffer);
             }
-			strcat(RomInfo,buffer);
+
 			// auto recJR => psxJR for some game
 			CheckGameR3000AutoFix();
 			if (Config.pR3000Fix)
             {
-                sprintf(buffer, "AUTO pR3000Fix: yes\n");
+                sprintf(buffer, "pR3000 auto fixed\n");
+                strcat(RomInfo,buffer);
             }
-            else
-            {
-                sprintf(buffer, "AUTO pR3000Fix: no\n");
-            }
-			strcat(RomInfo,buffer);
 
 			sprintf(buffer,"ISO Size: %u Mb\n",isoFile.size/1024/1024);
 			strcat(RomInfo,buffer);
