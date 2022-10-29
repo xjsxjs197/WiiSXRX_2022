@@ -2554,11 +2554,23 @@ static void recSRL() {
 }
 
 //REC_FUNC(SRA);
+void psxSRA();
 static void recSRA() {
 // Rd = Rt >> Sa
     #ifdef SHOW_DEBUG
     printFunctionLog();
     #endif // SHOW_DEBUG
+    if (Config.pR3000Fix == 3)
+    {
+        iFlushRegs(0);
+        LIW(PutHWRegSpecial(ARG1), (u32)psxRegs.code);
+        STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.code), GetHWRegSpecial(PSXREGS));
+        LIW(PutHWRegSpecial(PSXPC), (u32)pc);
+        FlushAllHWReg();
+        CALLFunc((u32)psxSRA);
+        return;
+    }
+
     if (!_Rd_) return;
 
     if (IsConst(_Rt_)) {

@@ -611,6 +611,20 @@ static void CheckGameR3000AutoFix(void)
             break;
         }
     }
+
+    autoFixR3000Len = 2;
+    char autoFixR3000SRA[autoFixR3000Len][10] = {
+         // Hot Wheels Turbo Racing
+         "SLUS00964" // for NTSC-U,
+        ,"SLES02198" // for PAL
+    };
+    for (i = 0; i < autoFixR3000Len; i++)
+    {
+        if (ChkString(CdromId, autoFixR3000SRA[i], strlen(autoFixR3000SRA[i]))) {
+            Config.pR3000Fix = 3;
+            break;
+        }
+    }
 }
 
 void fileBrowserFrame_LoadFile(int i)
