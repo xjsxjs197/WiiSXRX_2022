@@ -31,36 +31,51 @@ extern "C" {
 
 struct psxCP2Regs;
 
-void gteMFC2();
-void gteCFC2();
-void gteMTC2();
-void gteCTC2();
-void gteLWC2();
-void gteSWC2();
+void gteMFC2_R();
+void gteCFC2_R();
+void gteMTC2_R();
+void gteCTC2_R();
+void gteLWC2_R();
+void gteSWC2_R();
 
-void gteRTPS(struct psxCP2Regs *regs);
-void gteOP(struct psxCP2Regs *regs);
-void gteNCLIP(struct psxCP2Regs *regs);
-void gteDPCS(struct psxCP2Regs *regs);
-void gteINTPL(struct psxCP2Regs *regs);
-void gteMVMVA(struct psxCP2Regs *regs);
-void gteNCDS(struct psxCP2Regs *regs);
-void gteNCDT(struct psxCP2Regs *regs);
-void gteCDP(struct psxCP2Regs *regs);
-void gteNCCS(struct psxCP2Regs *regs);
-void gteCC(struct psxCP2Regs *regs);
-void gteNCS(struct psxCP2Regs *regs);
-void gteNCT(struct psxCP2Regs *regs);
-void gteSQR(struct psxCP2Regs *regs);
-void gteDCPL(struct psxCP2Regs *regs);
-void gteDPCT(struct psxCP2Regs *regs);
-void gteAVSZ3(struct psxCP2Regs *regs);
-void gteAVSZ4(struct psxCP2Regs *regs);
-void gteRTPT(struct psxCP2Regs *regs);
-void gteGPF(struct psxCP2Regs *regs);
-void gteGPL(struct psxCP2Regs *regs);
-void gteNCCT(struct psxCP2Regs *regs);
+void gteRTPS_R(struct psxCP2Regs *regs);
+void gteOP_R(struct psxCP2Regs *regs);
+void gteNCLIP_R(struct psxCP2Regs *regs);
+void gteDPCS_R(struct psxCP2Regs *regs);
+void gteINTPL_R(struct psxCP2Regs *regs);
+void gteMVMVA_R(struct psxCP2Regs *regs);
+void gteNCDS_R(struct psxCP2Regs *regs);
+void gteNCDT_R(struct psxCP2Regs *regs);
+void gteCDP_R(struct psxCP2Regs *regs);
+void gteNCCS_R(struct psxCP2Regs *regs);
+void gteCC_R(struct psxCP2Regs *regs);
+void gteNCS_R(struct psxCP2Regs *regs);
+void gteNCT_R(struct psxCP2Regs *regs);
+void gteSQR_R(struct psxCP2Regs *regs);
+void gteDCPL_R(struct psxCP2Regs *regs);
+void gteDPCT_R(struct psxCP2Regs *regs);
+void gteAVSZ3_R(struct psxCP2Regs *regs);
+void gteAVSZ4_R(struct psxCP2Regs *regs);
+void gteRTPT_R(struct psxCP2Regs *regs);
+void gteGPF_R(struct psxCP2Regs *regs);
+void gteGPL_R(struct psxCP2Regs *regs);
+void gteNCCT_R(struct psxCP2Regs *regs);
 
+void gteSQR_part_noshift(struct psxCP2Regs *regs);
+void gteSQR_part_shift(struct psxCP2Regs *regs);
+void gteOP_part_noshift(struct psxCP2Regs *regs);
+void gteOP_part_shift(struct psxCP2Regs *regs);
+void gteDCPL_part(struct psxCP2Regs *regs);
+void gteGPF_part_noshift(struct psxCP2Regs *regs);
+void gteGPF_part_shift(struct psxCP2Regs *regs);
+
+void gteGPL_part_noshift(struct psxCP2Regs *regs);
+void gteGPL_part_shift(struct psxCP2Regs *regs);
+void gteDPCS_part_noshift(struct psxCP2Regs *regs);
+void gteDPCS_part_shift(struct psxCP2Regs *regs);
+void gteINTPL_part_noshift(struct psxCP2Regs *regs);
+void gteINTPL_part_shift(struct psxCP2Regs *regs);
+void gteMACtoRGB(struct psxCP2Regs *regs);
 
 #ifdef __cplusplus
 }
