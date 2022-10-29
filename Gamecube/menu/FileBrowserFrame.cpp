@@ -536,32 +536,34 @@ static void CheckGameAutoFix(void)
         }
     }
 
-    autoFixLen = 15;
+    autoFixLen = 17;
     char gpuBusyAutoFixGames[autoFixLen][10] = {
-        // Hot Wheels Turbo Racing
-         "SLUS00964" // for NTSC-U,
-        ,"SLES02198" // for PAL]
+        // Hot Wheels - Turbo Racing
+         "SLUS00964" // NTSC-U
+        ,"SLES02198" // PAL
 
-        // To Heart NTSC-J only, two discs
-        ,"SLPS01919" // for NTSC-J
-        ,"SLPS01920" // for NTSC-J
+        // To Heart (NTSC-J)
+        ,"SLPS01919" // Disc 1
+        ,"SLPS01920" // Disc 2
 
-        // FIFA: Road to World Cup 98
-        ,"SLUS00520" // for NTSC-U
-        ,"SLES00914" // for PAL
-        ,"SLES00918" // for Spain
-        ,"SLES00917" // for Italy
-        ,"SLES00916" // for Germany
-        ,"SLES00915" // for France
+        // FIFA: Road to World Cup '98
+        ,"SLPS01383" // NTSC-J - normal version
+        ,"SLPS91150" // NTSC-J - PlayStation The Best version
+        ,"SLUS00520" // NTSC-U
+        ,"SLES00914" // PAL
+	    ,"SLES00915" // France
+        ,"SLES00916" // Germany
+        ,"SLES00917" // Italy
+        ,"SLES00918" // Spain
 
-        // Ishin no Arashi [NTSC-J only
-        ,"SLPS01158" // NTSC-J
-        ,"SLPM86861" // NTSC-J ?
-        ,"SLPM86235" // NTSC-J ?
+        // Ishin no Arashi (NTSC-J)
+        ,"SLPS01158" // normal version
+        ,"SLPM86861" // Koei Teiban Series version
+        ,"SLPM86235" // Koei The Best version
 
         // The Dukes of Hazzard: Racing for Home
-        ,"SLUS00859" // for NTSC-U
-        ,"SLES02343" // for PAL
+        ,"SLUS00859" // NTSC-U
+        ,"SLES02343" // PAL
     };
 
     // hack for emulating "gpu busy" in some games
@@ -644,10 +646,10 @@ void fileBrowserFrame_LoadFile(int i)
 
 		if(!ret){	// If the read succeeded.
 			if(Autoboot){
-				// saulfabreg: autoFix function (timing and pR3000a fixes) works but not
+				// saulfabreg: autoFix function (per-game and pR3000A fixes) works but not
 				// in autoboot mode... let's fix this :)
-				CheckGameAutoFix(); // for timing autoFix (Vandal Hearts, Parasite Eve II, etc.)
-				CheckGameR3000AutoFix(); // for pR3000a autoFix (Supercross 2000, etc.)
+				CheckGameAutoFix(); // for per-game autoFix (Vandal Hearts, Parasite Eve II, Hot Wheels Turbo Racing, etc.)
+				CheckGameR3000AutoFix(); // for pR3000A autoFix (Supercross 2000, etc.)
 
 				// FIXME: The MessageBox is a hacky way to fix input not responding.
 				// No time to improve this...
