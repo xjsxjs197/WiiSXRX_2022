@@ -173,43 +173,32 @@ extern void asm_rtpt(register s32 *cp2c, register s32 *cp2d);
 __inline s32 LIM(s32 x) { _LIMX(0x1f, 0, 0); }
 
 __inline u32 MFC2(int reg) {
-	switch (reg) {
-		case 1:
-		case 3:
-		case 5:
-		case 8:
-		case 9:
-		case 10:
-		case 11:
-			psxRegs.CP2D.r[reg] = (s32)psxRegs.CP2D.p[reg].sw.l;
-			break;
-
-		case 7:
-		case 16:
-		case 17:
-		case 18:
-		case 19:
-			psxRegs.CP2D.r[reg] = (u32)psxRegs.CP2D.p[reg].w.l;
-			break;
-
-		case 15:
-			psxRegs.CP2D.r[reg] = gteSXY2;
-			break;
-
-		case 28:
+	switch(reg) {
 		case 29:
-			psxRegs.CP2D.r[reg] = LIM(gteIR1 >> 7) |
-									(LIM(gteIR2 >> 7) << 5) |
-									(LIM(gteIR3 >> 7) << 10);
-			break;
+			gteORGB = (((gteIR1 >> 7) & 0x1f)) |
+					  (((gteIR2 >> 7) & 0x1f)<<5) |
+					  (((gteIR3 >> 7) & 0x1f)<<10);
+//			gteORGB = (gteIR1      ) |
+//					  (gteIR2 <<  5) |
+//					  (gteIR3 << 10);
+//			gteORGB = ((gteIR1 & 0xf80)>>7) |
+//					  ((gteIR2 & 0xf80)>>2) |
+//					  ((gteIR3 & 0xf80)<<3);
+			return gteORGB;
+
+		default:
+			return psxRegs.CP2D.r[reg];
 	}
-	return psxRegs.CP2D.r[reg];
 }
 
 __inline void MTC2(u32 value, int reg) {
 	int a;
 
-	switch (reg) {
+	switch(reg) {
+		case 8: case 9: case 10: case 11:
+			psxRegs.CP2D.r[reg] = (short)value;
+			break;
+
 		case 15:
 			gteSXY0 = gteSXY1;
 			gteSXY1 = gteSXY2;
@@ -217,36 +206,40 @@ __inline void MTC2(u32 value, int reg) {
 			gteSXYP = value;
 			break;
 
+		case 16: case 17: case 18: case 19:
+			psxRegs.CP2D.r[reg] = (value & 0xffff);
+			break;
+
 		case 28:
-			gteIRGB = value;
-			gteIR1 = (value & 0x1f) << 7;
-			gteIR2 = (value & 0x3e0) << 2;
-			gteIR3 = (value & 0x7c00) >> 3;
+			psxRegs.CP2D.r[28] = value;
+			gteIR1 = ((value      ) & 0x1f) << 7;
+			gteIR2 = ((value >>  5) & 0x1f) << 7;
+			gteIR3 = ((value >> 10) & 0x1f) << 7;
+//			gteIR1 = (value      ) & 0x1f;
+//			gteIR2 = (value >>  5) & 0x1f;
+//			gteIR3 = (value >> 10) & 0x1f;
+//			gteIR1 = ((value      ) & 0x1f) << 4;
+//			gteIR2 = ((value >>  5) & 0x1f) << 4;
+//			gteIR3 = ((value >> 10) & 0x1f) << 4;
 			break;
 
 		case 30:
-			{
-				int a;
-				gteLZCS = value;
+			psxRegs.CP2D.r[30] = value;
 
-				a = gteLZCS;
-				if (a > 0) {
-					int i;
-					for (i = 31; (a & (1 << i)) == 0 && i >= 0; i--);
-					gteLZCR = 31 - i;
-				} else if (a < 0) {
-					int i;
-					a ^= 0xffffffff;
-					for (i = 31; (a & (1 << i)) == 0 && i >= 0; i--);
-					gteLZCR = 31 - i;
-				} else {
-					gteLZCR = 32;
-				}
+			a = psxRegs.CP2D.r[30];
+			if (a > 0) {
+				int i;
+				for (i=31; (a & (1 << i)) == 0 && i >= 0; i--);
+				psxRegs.CP2D.r[31] = 31 - i;
+			} else if (a < 0) {
+				int i;
+				a^= 0xffffffff;
+				for (i=31; (a & (1 << i)) == 0 && i >= 0; i--);
+				psxRegs.CP2D.r[31] = 31 - i;
+			} else {
+				psxRegs.CP2D.r[31] = 32;
 			}
 			break;
-
-		case 31:
-			return;
 
 		default:
 			psxRegs.CP2D.r[reg] = value;
@@ -303,22 +296,22 @@ void gteSWC2() {
 }
 
 __inline float NC_OVERFLOW1(float x) {
-	if (x<-2147483648.0) {gteFLAG |= 1<<30;}
-	else if (x> 2147483647.0) {gteFLAG |= (1 << 31) | (1 << 27);}
+	if (x<-2147483648.0) {gteFLAG |= 1<<29;}
+	else if (x> 2147483647.0) {gteFLAG |= 1<<26;}
 
 	return x;
 }
 
 __inline float NC_OVERFLOW2(float x) {
-	if (x<-2147483648.0) {gteFLAG |= 1<<29;}
-	else if (x> 2147483647.0) {gteFLAG |= (1 << 31) | (1 << 26);}
+	if (x<-2147483648.0) {gteFLAG |= 1<<28;}
+	else if (x> 2147483647.0) {gteFLAG |= 1<<25;}
 
 	return x;
 }
 
 __inline float NC_OVERFLOW3(float x) {
-	if (x<-2147483648.0) {gteFLAG |= 1<<28;}
-	else if (x> 2147483647.0) {gteFLAG |= (1 << 31) | (1 << 25);}
+	if (x<-2147483648.0) {gteFLAG |= 1<<27;}
+	else if (x> 2147483647.0) {gteFLAG |= 1<<24;}
 
 	return x;
 }
@@ -338,22 +331,22 @@ __inline s32 FNC_OVERFLOW(s64 x) {
 }
 
 __inline s32 FNC_OVERFLOW1(s64 x) {
-	if (x< (s64)0xffffffff80000000LL) {gteFLAG |= 1<<30;}
-	else if (x> 2147483647) {gteFLAG |= (1 << 31) | (1 << 27);}
+	if (x< (s64)0xffffffff80000000LL) {gteFLAG |= 1<<29;}
+	else if (x> 2147483647) {gteFLAG |= 1<<26;}
 
 	return (s32)x;
 }
 
 __inline s32 FNC_OVERFLOW2(s64 x) {
-	if (x< (s64)0xffffffff80000000LL) {gteFLAG |= 1<<29;}
-	else if (x> 2147483647) {gteFLAG |= (1 << 31) | (1 << 26);}
+	if (x< (s64)0xffffffff80000000LL) {gteFLAG |= 1<<28;}
+	else if (x> 2147483647) {gteFLAG |= 1<<25;}
 
 	return (s32)x;
 }
 
 __inline s32 FNC_OVERFLOW3(s64 x) {
-	if (x< (s64)0xffffffff80000000LL) {gteFLAG |= 1<<28;}
-	else if (x> 2147483647) {gteFLAG |= (1 << 31) | (1 << 25);}
+	if (x< (s64)0xffffffff80000000LL) {gteFLAG |= 1<<27;}
+	else if (x> 2147483647) {gteFLAG |= 1<<24;}
 
 	return (s32)x;
 }
