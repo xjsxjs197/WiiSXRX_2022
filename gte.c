@@ -526,7 +526,7 @@ printf("zero %x, %x\n", gteMAC0, gteIR0); \
 
 #define GTE_RTPS3() { \
 	FDSZ = (s64)((s64)gteDQB + (((s64)((s64)gteDQA << 8) * tmp) >> 8)); \
-	gteMAC0 = FDSZ; \
+	gteMAC0 = FNC_OVERFLOW(FDSZ); \
 	gteIR0  = FlimE(FDSZ >> 12); \
 }
 //#endif
@@ -699,6 +699,7 @@ void gteRTPT(psxCP2Regs *regs) {
 
 	gteIR1 = FlimA1S(gteMAC1);
 	gteIR2 = FlimA2S(gteMAC2);
+	gteIR3 = FlimA3S(gteMAC3);
 	GTE_RTPS2(0);
 	#ifdef DISP_DEBUG
 	//PRINT_LOG1("FDSZ=====%llu=", FDSZ);
@@ -711,6 +712,7 @@ void gteRTPT(psxCP2Regs *regs) {
 
 	gteIR1 = FlimA1S(gteMAC1);
 	gteIR2 = FlimA2S(gteMAC2);
+	gteIR3 = FlimA3S(gteMAC3);
 	GTE_RTPS2(1);
 
 	GTE_RTPS1(2);
