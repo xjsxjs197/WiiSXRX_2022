@@ -438,13 +438,13 @@ __inline s32 FlimG2(s64 x) {
 }
 
 #define MAC2IR() { \
-	if (gteMAC1 < (long)(-32768)) { gteIR1=(long)(-32768); gteFLAG|=1<<24;} \
+	if (gteMAC1 < (long)(-32768)) { gteIR1=(long)(-32768); gteFLAG|=(1 << 31) | 1<<24;} \
 	else \
-	if (gteMAC1 > (long)( 32767)) { gteIR1=(long)( 32767); gteFLAG|=1<<24;} \
+	if (gteMAC1 > (long)( 32767)) { gteIR1=(long)( 32767); gteFLAG|=(1 << 31) | 1<<24;} \
 	else gteIR1=(long)gteMAC1; \
-	if (gteMAC2 < (long)(-32768)) { gteIR2=(long)(-32768); gteFLAG|=1<<23;} \
+	if (gteMAC2 < (long)(-32768)) { gteIR2=(long)(-32768); gteFLAG|=(1 << 31) | 1<<23;} \
 	else \
-	if (gteMAC2 > (long)( 32767)) { gteIR2=(long)( 32767); gteFLAG|=1<<23;} \
+	if (gteMAC2 > (long)( 32767)) { gteIR2=(long)( 32767); gteFLAG|=(1 << 31) | 1<<23;} \
 	else gteIR2=(long)gteMAC2; \
 	if (gteMAC3 < (long)(-32768)) { gteIR3=(long)(-32768); gteFLAG|=1<<22;} \
 	else \
@@ -516,8 +516,9 @@ printf("zero %x, %x\n", gteMAC0, gteIR0); \
 */
 #define GTE_RTPS2(vn) { \
     tmp = DIVIDE_INT(gteH, gteSZ##vn); \
-	if (tmp == 0x1ffff) { \
+	if (tmp > 0x1ffff) { \
 		gteFLAG |= 1<<17; \
+		tmp = 0x1ffff; \
 	} \
  \
 	gteSX##vn = FlimG1((gteOFX + (((s64)((s64)gteIR1 << 16) * tmp) >> 16)) >> 16); \
