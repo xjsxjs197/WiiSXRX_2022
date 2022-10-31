@@ -757,7 +757,7 @@ int SysInit() {
  	}
 	biosFile = (fileBrowser_file*)memalign(32,sizeof(fileBrowser_file));
 	memcpy(biosFile,biosFile_dir,sizeof(fileBrowser_file));
-	if (hasLoadedISO)
+	if (strlen(isoFile.name) > 0)
     {
         strcat(biosFile->name, GetGameBios(biosFile->name, filenameFromAbsPath(isoFile.name)));
     }
