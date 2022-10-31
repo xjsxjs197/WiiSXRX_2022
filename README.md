@@ -9,6 +9,10 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 * Incorporating the CDROM and cdiso codes of PCSX-ReARMed, the compatibility of the system has been greatly improved.
   Many games that could not be run or had problems before can be run.
 
+* Cdda support.
+
+* Incorporating the timer codes of PCSX-ReARMed.
+
 * Combined the dfsound module of PCSX-ReARMed and used the SDL library.
   The sound quality of the system has been greatly improved.
 
