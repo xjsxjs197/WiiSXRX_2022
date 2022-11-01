@@ -480,6 +480,8 @@ int ChkString(char * str1, char * str2, int len)
 
 // hack for emulating "gpu busy" in some games
 extern unsigned long dwEmuFixes;
+// For special game correction
+extern unsigned long dwActFixes;
 
 static void CheckGameAutoFix(void)
 {
@@ -572,6 +574,23 @@ static void CheckGameAutoFix(void)
     {
         if (ChkString(CdromId, gpuBusyAutoFixGames[i], strlen(gpuBusyAutoFixGames[i]))) {
             dwEmuFixes = 0x0001;
+        }
+    }
+
+    // For special game correction
+    autoFixLen = 4;
+    char autoFixSpecialGames[autoFixLen][10] = {
+        // Star Wars - Dark Forces
+         "SLPS00685" // NTSC-U
+        ,"SLES00585" // PAL
+        ,"SLES00640" // PAL
+        ,"SLES00646" // PAL
+    };
+    dwActFixes = 0;
+    for (i = 0; i < autoFixLen; i++)
+    {
+        if (ChkString(CdromId, autoFixSpecialGames[i], strlen(autoFixSpecialGames[i]))) {
+            dwActFixes |= 0x100;
         }
     }
 }
@@ -682,6 +701,11 @@ void fileBrowserFrame_LoadFile(int i)
             if (dwEmuFixes)
             {
                 sprintf(buffer, "GPU 'Fake Busy States' hacked\n");
+                strcat(RomInfo,buffer);
+            }
+            if (dwActFixes)
+            {
+                sprintf(buffer, "Special game auto fixed\n");
                 strcat(RomInfo,buffer);
             }
 
