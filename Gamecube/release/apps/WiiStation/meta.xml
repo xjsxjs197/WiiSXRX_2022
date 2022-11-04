@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
  <app version="2">
    <name>WiiStation</name>
-   <coder>xjsxjs197, NiuuS</coder>
+   <coder>xjsxjs197</coder>
    <version>1.0</version>
    <release_date>20221105</release_date>
    <short_description>PSX Emulator for Wii</short_description>
    <long_description>
 WiiStation - A Sony PlayStation 1 emulator for Wii / Wii U, forked from WiiSXRX by NiuuS.
 Featuring:
+- CDDA (Compact Disc Digital Audio) tracks support.
+- Multiple languages support.
 - Gamecube controller support.
 - Wii U Pro controller support.
 - Wii U GamePad controller support through WiiVC injects.
