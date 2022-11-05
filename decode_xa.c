@@ -26,7 +26,7 @@
 #define _FIXED
 
 #define NOT(_X_)				(!(_X_))
-#define XACLAMP(_X_,_MI_,_MA_)	{if(_X_<_MI_)_X_=_MI_;if(_X_>_MA_)_X_=_MA_;}
+#define XACLAMP(_X_,_MI_,_MA_)	{if(_X_<_MI_)_X_=_MI_;else if(_X_>_MA_)_X_=_MA_;}
 
 #define SH	4
 #define SHC	10
