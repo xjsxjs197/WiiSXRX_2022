@@ -1,3 +1,5 @@
+#ifndef _SWAP_H
+#define _SWAP_H
 
 // byteswappings
 
@@ -50,3 +52,5 @@ inline void PUTLE32(unsigned long *ptr, unsigned long val) {
 #define PUTLE16(X, Y) {((unsigned short *)X)=(unsigned short)X}
 #define PUTLE32(X, Y) {((unsigned long *)X)=(unsigned long)X}
 #endif //!_BIG_ENDIAN
+
+#endif   // _SWAP_H

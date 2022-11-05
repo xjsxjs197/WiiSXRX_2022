@@ -133,7 +133,6 @@
 //#define SMALLDEBUG
 //#include <dbgout.h>
 
-
 ////////////////////////////////////////////////////////////////////////
 // PPDK developer must change libraryName field and can change revision and build
 ////////////////////////////////////////////////////////////////////////
@@ -535,7 +534,7 @@ long PEOPS_GPUshutdown()
 // Update display (swap buffers)
 ////////////////////////////////////////////////////////////////////////
 
-void updateDisplay(void)                               // UPDATE DISPLAY
+static void updateDisplay(void)                               // UPDATE DISPLAY
 {
  if(PSXDisplay.Disabled)                               // disable?
   {
@@ -705,7 +704,7 @@ void ChangeDispOffsetsY(void)                          // Y CENTER
 // check if update needed
 ////////////////////////////////////////////////////////////////////////
 
-void updateDisplayIfChanged(void)                      // UPDATE DISPLAY IF CHANGED
+static void updateDisplayIfChanged(void)                      // UPDATE DISPLAY IF CHANGED
 {
  if ((PSXDisplay.DisplayMode.y == PSXDisplay.DisplayModeNew.y) &&
      (PSXDisplay.DisplayMode.x == PSXDisplay.DisplayModeNew.x))
@@ -1229,12 +1228,18 @@ unsigned long PEOPS_GPUreadData(void)
  return lGPUdataRet;
 }
 
+// Software drawing function
+#include "soft.c"
+
+// PSX drawing primitives
+#include "prim.c"
+
 ////////////////////////////////////////////////////////////////////////
 // processes data send to GPU data register
 // extra table entries for fixing polyline troubles
 ////////////////////////////////////////////////////////////////////////
 
-const unsigned char primTableCX[256] =
+static const unsigned char primTableCX[256] =
 {
     // 00
     0,0,3,0,0,0,0,0,
@@ -1522,6 +1527,7 @@ long PEOPS_GPUdmaChain(unsigned long * baseAddrL, unsigned long addr)
 {
  unsigned char * baseAddrB;
  unsigned int DMACommandCounter = 0;
+ long dmaWords = 0;
 
  #ifdef PEOPS_SDLOG
 	DEBUG_print("append",DBG_SDGECKOAPPEND);
@@ -1543,18 +1549,19 @@ long PEOPS_GPUdmaChain(unsigned long * baseAddrL, unsigned long addr)
    if(CheckForEndlessLoop(addr)) break;
 
    short count = baseAddrB[addr+3];
+   dmaWords += 1 + count;
 
    unsigned long dmaMem=addr+4;
 
    if(count>0) PEOPS_GPUwriteDataMem(&baseAddrL[dmaMem>>2],count);
 
    addr = GETLE32(&baseAddrL[addr>>2])&0xffffff;
-  }
- while (addr != 0xffffff);
+   } while (!(addr & 0x800000)); // contrary to some documentation, the end-of-linked-list marker is not actually 0xFF'FFFF
+                                  // any pointer with bit 23 set will do.
 
  GPUIsIdle;
 
- return 0;
+ return dmaWords;
 }
 
 ////////////////////////////////////////////////////////////////////////
