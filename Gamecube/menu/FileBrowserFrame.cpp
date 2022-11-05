@@ -582,7 +582,7 @@ static void CheckGameAutoFix(void)
     char autoFixSpecialGames[autoFixLen][10] = {
         // Star Wars - Dark Forces
          "SLUS00297" // NTSC-U
-	,"SLPS00685" // NTSC-J
+        ,"SLPS00685" // NTSC-J
         ,"SLES00585" // PAL
         ,"SLES00640" // PAL (Italy)
         ,"SLES00646" // PAL (Spain)
