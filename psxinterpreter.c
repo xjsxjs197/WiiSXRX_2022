@@ -47,7 +47,7 @@ void (*psxBSC[64])();
 void (*psxSPC[64])();
 void (*psxREG[32])();
 void (*psxCP0[32])();
-void (*psxCP2[64])(struct psxCP2Regs *regs);
+void (*psxCP2[64])();
 void (*psxCP2BSC[32])();
 
 static void delayRead(int reg, u32 bpc) {
@@ -514,7 +514,7 @@ void psxDIV() {
             _i32(_rLo_) = 0xFFFFFFFF;
         }
 /*
- * Notaz said that this was "not needed" for ARM platforms and could slow it down so let's disable for ARM. 
+ * Notaz said that this was "not needed" for ARM platforms and could slow it down so let's disable for ARM.
  * This fixes a crash issue that can happen when running Amidog's CPU test.
  * (It still stays stuck to a black screen but at least it doesn't crash anymore)
  */
@@ -858,10 +858,10 @@ void psxCOP0() {
 }
 
 void psxCOP2() {
-	psxCP2[_Funct_]((struct psxCP2Regs *)&psxRegs.CP2D);
+	psxCP2[_Funct_]();
 }
 
-void psxBASIC(struct psxCP2Regs *regs) {
+void psxBASIC() {
 	psxCP2BSC[_Rs_]();
 }
 
@@ -913,7 +913,7 @@ void (*psxCP0[32])() = {
 	psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL
 };
 
-void (*psxCP2[64])(struct psxCP2Regs *regs) = {
+void (*psxCP2[64])() = {
 	psxBASIC, gteRTPS , psxNULL , psxNULL, psxNULL, psxNULL , gteNCLIP, psxNULL, // 00
 	psxNULL , psxNULL , psxNULL , psxNULL, gteOP  , psxNULL , psxNULL , psxNULL, // 08
 	gteDPCS , gteINTPL, gteMVMVA, gteNCDS, gteCDP , psxNULL , gteNCDT , psxNULL, // 10
