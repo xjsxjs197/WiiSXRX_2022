@@ -164,7 +164,7 @@ Auto Save Memcards: Yes; No
 Save States Device: SD; USB
 */
 
-static char FRAME_STRINGS[61][24] =
+static char FRAME_STRINGS[62][24] =
 	{ "General",
 	  "Video",
 	  "Input",
@@ -231,7 +231,8 @@ static char FRAME_STRINGS[61][24] =
       "En", // English
       "Chs", // Simplified Chinese
       "Kr", // Korean
-      "Es" // SPANISH
+      "Es", // SPANISH
+      "Pte" // PORTUGUESE
       };
 
 
@@ -935,7 +936,7 @@ void Func_SelectLanguage()
 //	FRENCH,
 //	ITALIAN
     lang++;
-    if (lang > SPANISH)
+    if (lang > PORTUGUESE)
     {
         lang = ENGLISH;
     }

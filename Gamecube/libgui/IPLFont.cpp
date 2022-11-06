@@ -146,6 +146,10 @@ FILE* IplFont::getFontFile(char* sdUsb)
             sprintf(fontPathBuf, "%s%s", sdUsb, ":/wiisxrx/fonts/Es.dat");
             break;
 
+        case PORTUGUESE:
+            sprintf(fontPathBuf, "%s%s", sdUsb, ":/wiisxrx/fonts/Pt.dat");
+            break;
+
         default:
             sprintf(fontPathBuf, "%s%s", sdUsb, ":/wiisxrx/fonts/Chs.dat");
             break;
