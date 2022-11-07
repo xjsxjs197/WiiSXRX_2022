@@ -709,6 +709,9 @@ void fileBrowserFrame_LoadFile(int i)
                 sprintf(buffer, "Special game auto fixed\n");
                 strcat(RomInfo,buffer);
             }
+            // Switches for painting textured quads as 2 triangles (small glitches, but better shading!)
+            // This function has been automatically started in soft.c and dwActFixes have been determined in gpu code, so need to set it here
+            dwActFixes |= 0x200;
 
 			// auto recJR => psxJR for some game
 			CheckGameR3000AutoFix();
