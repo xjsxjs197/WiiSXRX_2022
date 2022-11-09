@@ -1566,6 +1566,7 @@ int DoShift(u32 k)
 }
 
 //REC_FUNC(MULT);
+void psxMULT();
 // FIXME: doesn't work in GT - wrong way marker
 static void recMULT() {
 // Lo/Hi = Rs * Rt (signed)
@@ -1610,6 +1611,18 @@ static void recMULT() {
 	if (r != -1) {
 		int shift = DoShift(k);
 		if (shift != -1) {
+            if (Config.pR3000Fix == 3)
+            {
+                // Hot Wheels Turbo Racing auto fix
+                iFlushRegs(0);
+                LIW(PutHWRegSpecial(ARG1), (u32)psxRegs.code);
+                STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.code), GetHWRegSpecial(PSXREGS));
+                LIW(PutHWRegSpecial(PSXPC), (u32)pc);
+                FlushAllHWReg();
+                CALLFunc((u32)psxMULT);
+                return;
+            }
+
 			if (uselo) {
 				SLWI(PutHWReg32(REG_LO), GetHWReg32(r), shift)
 			}
