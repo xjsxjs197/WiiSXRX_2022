@@ -1719,9 +1719,24 @@ void cdrWrite3(unsigned char rt) {
 	}
 }
 
+static void adjustTransferIndex(void)
+{
+	unsigned int bufSize = 0;
+
+	switch (cdr.Mode & (MODE_SIZE_2340|MODE_SIZE_2328)) {
+		case MODE_SIZE_2340: bufSize = 2340; break;
+		case MODE_SIZE_2328: bufSize = 12 + 2328; break;
+		default:
+		case MODE_SIZE_2048: bufSize = 12 + 2048; break;
+	}
+
+	if (pTransfer >= cdr.Transfer + bufSize)
+		pTransfer = cdr.Transfer;
+}
+
 void psxDma3(u32 madr, u32 bcr, u32 chcr) {
 	u32 cdsize;
-	int size;
+	int size, i;
 	u8 *ptr;
 
 	CDR_LOG("psxDma3() Log: *** DMA 3 *** %x addr = %x size = %x\n", chcr, madr, bcr);
@@ -1761,16 +1776,21 @@ void psxDma3(u32 madr, u32 bcr, u32 chcr) {
 			- CdlPlay
 			- Spams DMA3 and gets buffer overrun
 			*/
-			size = CD_FRAMESIZE_RAW - (pTransfer - cdr.Transfer);
-			if (size > cdsize)
-				size = cdsize;
-			if (size > 0)
-			{
-				memcpy(ptr, pTransfer, size);
+//			size = CD_FRAMESIZE_RAW - (pTransfer - cdr.Transfer);
+//			if (size > cdsize)
+//				size = cdsize;
+//			if (size > 0)
+//			{
+//				memcpy(ptr, pTransfer, size);
+//			}
+            for (i = 0; i < cdsize; ++i) {
+				ptr[i] = *pTransfer;
+				pTransfer++;
+				adjustTransferIndex();
 			}
 
 			psxCpu->Clear(madr, cdsize / 4);
-			pTransfer += cdsize;
+			//pTransfer += cdsize;
 
 			if( chcr == 0x11400100 ) {
 				HW_DMA3_MADR = SWAPu32(madr + cdsize);

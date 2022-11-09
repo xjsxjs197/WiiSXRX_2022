@@ -51,6 +51,9 @@
 #define RTS			0x0020
 #define SIO_RESET	0x0040
 
+// MCD flags
+#define MCDST_CHANGED 0x08
+
 extern unsigned short StatReg;
 extern unsigned short ModeReg;
 extern unsigned short CtrlReg;

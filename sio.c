@@ -24,12 +24,21 @@
 #include "sio.h"
 #include "Gamecube/fileBrowser/fileBrowser.h"
 #include "Gamecube/fileBrowser/fileBrowser-libfat.h"
+#include "Gamecube/wiiSXconfig.h"
 #include <sys/stat.h>
 
 // *** FOR WORKS ON PADS AND MEMORY CARDS *****
 
-static unsigned char buf[256];
-unsigned char cardh[4] = { 0x00, 0x00, 0x5a, 0x5d };
+void LoadDongle( char *str );
+void SaveDongle( char *str );
+#define BUFFER_SIZE 0x1010
+
+static unsigned char buf[ BUFFER_SIZE ];
+//[0] -> dummy
+//[1] -> memory card status flag
+//[2] -> card 1 id, 0x5a->plugged, any other not plugged
+//[3] -> card 2 id, 0x5d->plugged, any other not plugged
+unsigned char cardh[4] = { 0x00, 0x08, 0x5a, 0x5d };
 
 //static unsigned short StatReg = 0x002b;
 // Transfer Ready and the Buffer is Empty
@@ -43,6 +52,7 @@ static unsigned int parp;
 static unsigned int mcdst,rdwr;
 static unsigned char adrH,adrL;
 static unsigned int padst;
+static unsigned int gsdonglest;
 
 char mcd1Written = 0;
 char mcd2Written = 0;
@@ -57,9 +67,16 @@ char *Mcd2Data = (char*)MCD2_LO;
 char Mcd1Data[MCD_SIZE], Mcd2Data[MCD_SIZE];
 #endif
 
+#define DONGLE_SIZE 0x40 * 0x1000
+
+static unsigned int DongleBank;
+static unsigned char DongleData[ DONGLE_SIZE ];
+static int DongleInit;
+
 // clk cycle byte
 // 4us * 8bits = ((PSXCLK / 1000000) * 32) / BIAS; (linuzappz)
-#define SIO_CYCLES		535
+//#define SIO_CYCLES		535
+#define SIO_CYCLES (BaudReg * 8)
 
 #define SIO_INT() { \
 	if (!Config.Sio) { \
@@ -110,6 +127,23 @@ void netError() {
 	ClosePlugins();
 	SysMessage(_("Connection closed!\n"));
 	SysRunGui();
+}
+
+unsigned char reverse_8( unsigned char bits )
+{
+	unsigned char tmp;
+	int lcv;
+
+	tmp = 0;
+	for( lcv = 0; lcv < 8; lcv++ )
+	{
+		tmp >>= 1;
+		tmp |= (bits & 0x80);
+
+		bits <<= 1;
+	}
+
+	return tmp;
 }
 
 void sioWrite8(unsigned char value) {
@@ -236,6 +270,7 @@ void sioWrite8(unsigned char value) {
 					buf[130] = 0x5d;
 					buf[131] = 0x47;
 					bufcount = 131;
+					cardh[1] &= ~MCDST_CHANGED;
 					break;
 			}
 			mcdst = 5;
@@ -246,6 +281,369 @@ void sioWrite8(unsigned char value) {
 				if (parp < 128) buf[parp+1] = value;
 			}
 			SIO_INT();
+			return;
+	}
+    /*
+	GameShark CDX
+
+	ae - be - ef - 04 + [00]
+	ae - be - ef - 01 + 00 + [00] * $1000
+	ae - be - ef - 01 + 42 + [00] * $1000
+	ae - be - ef - 03 + 01,01,1f,e3,85,ae,d1,28 + [00] * 4
+	*/
+	switch (gsdonglest) {
+		// main command loop
+		case 1:
+			SIO_INT( );
+
+			// GS CDX
+			// - unknown output
+
+			// reset device when fail?
+			if( value == 0xae )
+			{
+				StatReg |= RX_RDY;
+
+				parp = 0;
+				bufcount = parp;
+			}
+
+
+			// GS CDX
+			else if( value == 0xbe )
+			{
+				StatReg |= RX_RDY;
+
+				parp = 0;
+				bufcount = parp;
+
+
+				buf[0] = reverse_8( 0xde );
+			}
+
+
+			// GS CDX
+			else if( value == 0xef )
+			{
+				StatReg |= RX_RDY;
+
+				parp = 0;
+				bufcount = parp;
+
+
+				buf[0] = reverse_8( 0xad );
+			}
+
+
+			// GS CDX [1 in + $1000 out + $1 out]
+			else if( value == 0x01 )
+			{
+				StatReg |= RX_RDY;
+
+				parp = 0;
+				bufcount = parp;
+
+
+				// $00 = 0000 0000
+				// - (reverse) 0000 0000
+				buf[0] = 0x00;
+				gsdonglest = 2;
+			}
+
+
+			// GS CDX [1 in + $1000 in + $1 out]
+			else if( value == 0x02 )
+			{
+				StatReg |= RX_RDY;
+
+				parp = 0;
+				bufcount = parp;
+
+
+				// $00 = 0000 0000
+				// - (reverse) 0000 0000
+				buf[0] = 0x00;
+				gsdonglest = 3;
+			}
+
+
+			// GS CDX [8 in, 4 out]
+			else if( value == 0x03 )
+			{
+				StatReg |= RX_RDY;
+
+				parp = 0;
+				bufcount = parp;
+
+				// $00 = 0000 0000
+				// - (reverse) 0000 0000
+				buf[0] = 0x00;
+
+				gsdonglest = 4;
+			}
+
+
+			// GS CDX [out 1]
+			else if( value == 0x04 )
+			{
+				StatReg |= RX_RDY;
+
+				parp = 0;
+				bufcount = parp;
+
+
+				// $00 = 0000 0000
+				// - (reverse) 0000 0000
+				buf[0] = 0x00;
+				gsdonglest = 5;
+			}
+			else
+			{
+				// ERROR!!
+				StatReg |= RX_RDY;
+
+				parp = 0;
+				bufcount = parp;
+				buf[0] = 0xff;
+
+				gsdonglest = 0;
+			}
+
+			return;
+
+
+		// be - ef - 01
+		case 2: {
+			unsigned char checksum;
+			unsigned int lcv;
+
+			SIO_INT( );
+			StatReg |= RX_RDY;
+
+
+			// read 1 byte
+			DongleBank = buf[ 0 ];
+
+
+			// write data + checksum
+			checksum = 0;
+			for( lcv = 0; lcv < 0x1000; lcv++ )
+			{
+				unsigned char data;
+
+				data = DongleData[ DongleBank * 0x1000 + lcv ];
+
+				buf[ lcv+1 ] = reverse_8( data );
+				checksum += data;
+			}
+
+
+			parp = 0;
+			bufcount = 0x1001;
+			buf[ 0x1001 ] = reverse_8( checksum );
+
+
+			gsdonglest = 255;
+			return;
+		}
+
+
+		// be - ef - 02
+		case 3:
+			SIO_INT( );
+			StatReg |= RX_RDY;
+
+			// command start
+			if( parp < 0x1000+1 )
+			{
+				// read 1 byte
+				buf[ parp ] = value;
+				parp++;
+			}
+
+			if( parp == 0x1001 )
+			{
+				unsigned char checksum;
+				unsigned int lcv;
+
+				DongleBank = buf[0];
+				memcpy( DongleData + DongleBank * 0x1000, buf+1, 0x1000 );
+
+				// save to file
+				if (saveStateDevice == SAVESTATEDEVICE_SD)
+                {
+                    SaveDongle( "sd:/wiisxrx/saves/CDX_Dongle.bin" );
+                }
+				else
+                {
+                    SaveDongle( "usb:/wiisxrx/saves/CDX_Dongle.bin" );
+                }
+
+				// write 8-bit checksum
+				checksum = 0;
+				for( lcv = 1; lcv < 0x1001; lcv++ )
+				{
+					checksum += buf[ lcv ];
+				}
+
+				parp = 0;
+				bufcount = 1;
+				buf[1] = reverse_8( checksum );
+
+
+				// flush result
+				gsdonglest = 255;
+			}
+			return;
+
+
+		// be - ef - 03
+		case 4:
+			SIO_INT( );
+			StatReg |= RX_RDY;
+
+			// command start
+			if( parp < 8 )
+			{
+				// read 2 (?,?) + 4 (DATA?) + 2 (CRC?)
+				buf[ parp ] = value;
+				parp++;
+			}
+
+			if( parp == 8 )
+			{
+				// now write 4 bytes via -FOUR- $00 writes
+				parp = 8;
+				bufcount = 12;
+
+
+				// TODO: Solve CDX algorithm
+
+
+				// GS CDX [magic key]
+				if( buf[2] == 0x12 && buf[3] == 0x34 &&
+						buf[4] == 0x56 && buf[5] == 0x78 )
+				{
+					buf[9] = reverse_8( 0x3e );
+					buf[10] = reverse_8( 0xa0 );
+					buf[11] = reverse_8( 0x40 );
+					buf[12] = reverse_8( 0x29 );
+				}
+
+				// GS CDX [address key #2 = 6ec]
+				else if( buf[2] == 0x1f && buf[3] == 0xe3 &&
+								 buf[4] == 0x45 && buf[5] == 0x60 )
+				{
+					buf[9] = reverse_8( 0xee );
+					buf[10] = reverse_8( 0xdd );
+					buf[11] = reverse_8( 0x71 );
+					buf[12] = reverse_8( 0xa8 );
+				}
+
+				// GS CDX [address key #3 = ???]
+				else if( buf[2] == 0x1f && buf[3] == 0xe3 &&
+								 buf[4] == 0x72 && buf[5] == 0xe3 )
+				{
+					// unsolved!!
+
+					// Used here: 80090348 / 80090498
+
+					// dummy value - MSB
+					buf[9] = reverse_8( 0xfa );
+					buf[10] = reverse_8( 0xde );
+					buf[11] = reverse_8( 0x21 );
+					buf[12] = reverse_8( 0x97 );
+				}
+
+				// GS CDX [address key #4 = a00]
+				else if( buf[2] == 0x1f && buf[3] == 0xe3 &&
+								 buf[4] == 0x85 && buf[5] == 0xae )
+				{
+					buf[9] = reverse_8( 0xee );
+					buf[10] = reverse_8( 0xdd );
+					buf[11] = reverse_8( 0x7d );
+					buf[12] = reverse_8( 0x44 );
+				}
+
+				// GS CDX [address key #5 = 9ec]
+				else if( buf[2] == 0x17 && buf[3] == 0xe3 &&
+								 buf[4] == 0xb5 && buf[5] == 0x60 )
+				{
+					buf[9] = reverse_8( 0xee );
+					buf[10] = reverse_8( 0xdd );
+					buf[11] = reverse_8( 0x7e );
+					buf[12] = reverse_8( 0xa8 );
+				}
+
+				else
+				{
+					// dummy value - MSB
+					buf[9] = reverse_8( 0xfa );
+					buf[10] = reverse_8( 0xde );
+					buf[11] = reverse_8( 0x21 );
+					buf[12] = reverse_8( 0x97 );
+				}
+
+				// flush bytes -> done
+				gsdonglest = 255;
+			}
+			return;
+
+
+		// be - ef - 04
+		case 5:
+			if( value == 0x00 )
+			{
+				SIO_INT( );
+				StatReg |= RX_RDY;
+
+
+				// read 1 byte
+				parp = 0;
+				bufcount = parp;
+
+				// size of dongle card?
+				buf[ 0 ] = reverse_8( DONGLE_SIZE / 0x1000 );
+
+
+				// done already
+				gsdonglest = 0;
+			}
+			return;
+
+
+		// flush bytes -> done
+		case 255:
+			if( value == 0x00 )
+			{
+				//SIO_INT( SIO_CYCLES );
+				//SIO_INT(1);
+				psxRegs.interrupt |= (1 << PSXINT_SIO);
+		        psxRegs.intCycle[PSXINT_SIO].cycle = 1;
+		        psxRegs.intCycle[PSXINT_SIO].sCycle = psxRegs.cycle;
+				StatReg |= RX_RDY;
+
+				parp++;
+				if( parp == bufcount )
+				{
+					gsdonglest = 0;
+
+#ifdef GSDONGLE_LOG
+					PAD_LOG("(gameshark dongle) DONE!!\n" );
+#endif
+				}
+			}
+			else
+			{
+				// ERROR!!
+				StatReg |= RX_RDY;
+
+				parp = 0;
+				bufcount = parp;
+				buf[0] = 0xff;
+
+				gsdonglest = 0;
+			}
 			return;
 	}
 
@@ -304,6 +702,33 @@ void sioWrite8(unsigned char value) {
 			rdwr = 0;
 			SIO_INT();
 			return;
+		case 0xae: // GameShark CDX - start dongle
+			StatReg |= RX_RDY;
+			gsdonglest = 1;
+
+			parp = 0;
+			bufcount = parp;
+
+			if( !DongleInit )
+			{
+			    if (saveStateDevice == SAVESTATEDEVICE_SD)
+                {
+                    LoadDongle( "sd:/wiisxrx/saves/CDX_Dongle.bin" );
+                }
+                else
+                {
+                    LoadDongle( "usb:/wiisxrx/saves/CDX_Dongle.bin" );
+                }
+
+				DongleInit = 1;
+			}
+
+			SIO_INT( );
+			return;
+
+		default: // no hardware found
+			StatReg |= RX_RDY;
+			return;
 	}
 }
 
@@ -359,6 +784,10 @@ int LoadMcd(int mcd, fileBrowser_file *savepath) {
 			  ret = 1;
 		}
 	}
+
+	// flag indicating entries have not yet been read (i.e. new card plugged)
+	cardh[1] |= MCDST_CHANGED;
+
 	return ret;
 }
 
@@ -616,4 +1045,52 @@ int sioFreeze(gzFile f, int Mode) {
 	gzfreezel(Unused);
 
 	return 0;
+}
+
+
+void LoadDongle( char *str )
+{
+	FILE *f;
+
+	f = fopen(str, "rb");
+	if (f != NULL) {
+		fread( DongleData, 1, DONGLE_SIZE, f );
+		fclose( f );
+	}
+	else {
+		u32 *ptr, lcv;
+
+		ptr = (unsigned int *) DongleData;
+
+		// create temp data
+		ptr[0] = (u32) 0x02015447;
+		ptr[1] = (u32) 7;
+		ptr[2] = (u32) 1;
+		ptr[3] = (u32) 0;
+
+		for( lcv=4; lcv<0x6c / 4; lcv++ )
+		{
+			ptr[ lcv ] = 0;
+		}
+
+		ptr[ lcv ] = (u32) 0x02000100;
+		lcv++;
+
+		while( lcv < 0x1000/4 )
+		{
+			ptr[ lcv ] = (u32) 0xffffffff;
+			lcv++;
+		}
+	}
+}
+
+void SaveDongle( char *str )
+{
+	FILE *f;
+
+	f = fopen(str, "wb");
+	if (f != NULL) {
+		fwrite( DongleData, 1, DONGLE_SIZE, f );
+		fclose( f );
+	}
 }
