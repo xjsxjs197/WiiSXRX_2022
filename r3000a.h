@@ -54,6 +54,8 @@ typedef union {
 	struct { s8 l, h, h2, h3; } sb;
 	struct { s16 l, h; } sw;
 #endif
+	u32 d;
+	s32 sd;
 } PAIR;
 
 typedef union {
