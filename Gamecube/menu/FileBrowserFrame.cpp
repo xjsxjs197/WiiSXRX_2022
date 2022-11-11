@@ -666,10 +666,16 @@ void fileBrowserFrame_LoadFile(int i)
 
 		if(!ret){	// If the read succeeded.
 			if(Autoboot){
-				// saulfabreg: autoFix function (per-game and pR3000A fixes) works but not
-				// in autoboot mode... let's fix this :)
-				CheckGameAutoFix(); // for per-game autoFix (Vandal Hearts, Parasite Eve II, Hot Wheels Turbo Racing, etc.)
-				CheckGameR3000AutoFix(); // for pR3000A autoFix (Supercross 2000, etc.)
+				// saulfabreg: let's not forget to WiiFlow and SRL (Single ROM Loaders) users
+				// who likes to load PS1 games automatically... so let's call to all autoFix
+				// functions when in autoboot (argument) mode.
+				CheckGameAutoFix(); // call to check per-game autoFix (Vandal Hearts, Parasite Eve II, Hot Wheels Turbo Racing, etc.)
+				
+				// Switches for painting textured quads as 2 triangles (small glitches, but better shading!)
+            			// This function has been automatically started in soft.c and dwActFixes have been determined in gpu code, so need to set it here
+            			dwActFixes |= 0x200;
+	    
+				CheckGameR3000AutoFix(); // call to check pR3000A autoFix (Supercross 2000, etc.)
 
 				// FIXME: The MessageBox is a hacky way to fix input not responding.
 				// No time to improve this...
