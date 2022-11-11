@@ -21,13 +21,13 @@ QUICK USAGE:
  * Select 'Play Game' to play
    The game can be exited any time by pressing a configurable key combination together
    on a GC pad (START & X), Wii Classic Controller or Pro (HOME), Wiimote (- & +),
-   Wii U Pro Controller (HOME), or Wii U Gamepad (HOME)
-   Wiimote+Nunchuck (1 & 2), or the reset button
+   Wii U Pro Controller (HOME), or Wii U GamePad (HOME)
+   Wiimote+Nunchuk (1 & 2), or the RESET button
 		(Note: this must be done to save your game; it will not be done automatically)
 
 Controls:
- * While the Gamecube pad is compatible, a Wii Classic Controller, Wii Classic Controller Pro, or Wii U Pro Controller is recommended.
- * The Wii U Gamepad is also compatible, but only when doing Wii U injections (no, you can't use it on vWii).
+ * While the GameCube pad is compatible, a Wii Classic Controller, Wii Classic Controller Pro, or Wii U Pro Controller is recommended.
+ * The Wii U GamePad is also compatible, but only when doing Wii U VC injections (no, you can't use it on vWii).
  * Controls are now fully configurable so any button on your controller can be mapped
  * The controller configuration screen presents each PSX button and allows you to toggle through sources
  * There are 4 configuration slots for each type of controller
@@ -42,9 +42,9 @@ Settings:
  * General
    * Native Saves Device: Choose where to load and save native game saves
    * Save States Device: Choose where to load and save save states
-   * Select CPU Core: Choose whether to play games with pure interpreter
-		(better compatibility) or dynarec (better speed)
-   * Save settings.cfg: Save all of these settings either SD or USB (to be loaded automatically next time)
+   * Select CPU Core: Choose whether to play games with Pure Interpreter
+		(better compatibility) or Dynarec (better speed)
+   * Save settings: Save all of these settings either SD or USB (to be loaded automatically next time)
  * Video
    * Show FPS: Display the framerate in the top-left corner of the screen
    * Screen Mode: Select the aspect ratio of the display; 'Force 16:9' will pillar-box the in-game display
@@ -55,6 +55,8 @@ Settings:
    * Auto Load Slot: Select which slot to automatically be loaded for each type of controller
  * Audio
    * Disable Audio: Select to mute the sound
+   * Disable XA: Select to mute the XA audio samples
+   * Disable CDDA: Select to mute the CDDA audio tracks
  * Saves
    * Auto Save Native Saves: When enabled, the emulator will automatically load
 	 saves from the selected device on ISO load and save when returning to the menu or
@@ -74,23 +76,27 @@ CREDITS:
  * WiiStation logo: made by Dakangel (high quality logo made by saulfabreg)
  * WiiSX RX fork: NiuuS - https://github.com/niuus/WiiSXRX
  * WiiSX RX logo: NiuuS
- * WIISXR fork: mystro256 - https://github.com/Mystro256/WiiSXR
- * WIISXR logo: iiiGerardoiii
+ * WiiSXR fork: Mystro256 - https://github.com/Mystro256/WiiSXR
+ * WiiSXR logo: iiiGerardoiii
+ * WiiSX (PCSXGC): Wii64 Team (emu_kidid, tehpola, sepp256) - https://github.com/emukidid/pcsxgc
  * General Coder: emu_kidid
  * Graphics & Menu Coder: sepp256
  * Audio & Core Coder: tehpola
  * Artwork: drmr
  * USB 2.0 support: matguitarist
- * LibWiiDRC integration: FIX94
- * https://https://github.com/FIX94/libwiidrc
+ * LibWiiDRC library & integration: FIX94
+ * https://github.com/FIX94/libwiidrc
  * LibWUPC integration: Daxtsu
+ * LibWUPC library: FIX94
  * https://github.com/FIX94/libwupc
- * pcsx team http://www.pcsx.net/
- * pcsx-df http://pcsx-df.sourceforge.net/
- * pcsx-r http://pcsxr.codeplex.com/
- * pcsx 1.5-test3 mac version by Gil Pederson http://pcsx.gpost.dk/
- * P.E.Op.S. PSX Gpu & SPU http://sourceforge.net/projects/peops/
- * franspu
+ * PCSX team - http://www.pcsx.net
+ * PCSX-df - http://pcsx-df.sourceforge.net
+ * PCSX-R - http://pcsxr.codeplex.com
+ * PCSX 1.5-test3 Mac version by Gil Pederson - http://pcsx.gpost.dk
+ * PCSX-Revolution: Firnis - https://github.com/Firnis/pcsx-revolution
+ * PCSX-ReARMed: notaz - https://github.com/notaz/pcsx_rearmed
+ * P.E.Op.S. PSX GPU & SPU - http://sourceforge.net/projects/peops
+ * FranSPU
  * CDRMooby
  * SSSPSX
  * Compiled using devKitPro
@@ -99,15 +105,15 @@ CREDITS:
 
 WiiStation CHANGE LOG:
 Ver 1.0:
-* Incorporating the CDROM and cdiso codes of PCSX-ReARMed.
-* Cdda support.
+* Incorporating the CDROM and CDRISO codes of PCSX-ReARMed.
+* CDDA (Compact Disc Digital Audio) tracks support.
 * Incorporating the timer codes of PCSX-ReARMed.
-* Combined the dfsound module of PCSX-ReARMed and used the SDL library.
+* Combined the DFSound module of PCSX-ReARMed and used the SDL library.
 * Modification of some dynamic compilation instructions.
 * Support for multiple languages.
   ※※※ Note: It reads a font file in a fixed location, so make sure that [sd:/wiisxrx/fonts/chs.dat] exists ※※※
 * For some customed Chinese culture games, specific BIOS is automatically loaded.
-* Other minor corrections, such as disc changing (swap) and automatic fixed of some games.
+* Other minor corrections, such as disc changing (swap) and automatic fixes (autoFix functions) for some games.
 
 ------------------------------------------------------------------------
 WiiSX RX CHANGE LOG:
