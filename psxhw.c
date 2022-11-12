@@ -205,6 +205,9 @@ u16 psxHwRead16(u32 add) {
 	return hard;
 }
 
+// hack for emulating "gpu busy" in some games
+extern unsigned long dwEmuFixes;
+
 u32 psxHwRead32(u32 add) {
 	u32 hard;
 
@@ -241,24 +244,25 @@ u32 psxHwRead32(u32 add) {
 #endif
 			return hard;
 		case 0x1f801814:
-			hard = GPU_readStatus();
-			//gpuSyncPluginSR();
-			//HW_GPU_STATUS &= SWAP32(PSXGPU_TIMING_BITS);
-			// Gameshark Lite - wants to see VRAM busy
-            // - Must enable GPU 'Fake Busy States' hack
-            if( (hard & GPUSTATUS_IDLE) == 0 )
+		    // hack for emulating "gpu busy" in some games
+		    if (dwEmuFixes)
             {
-                #ifdef SHOW_DEBUG
-                sprintf(txtbuffer, "Read GPU_STATUS Fake Busy \n");
-                DEBUG_print(txtbuffer, DBG_CORE2);
-                writeLogFile(txtbuffer);
-                #endif // DISP_DEBUG
-                hard &= ~GPUSTATUS_READYFORVRAM;
-                //HW_GPU_STATUS &= SWAP32(~GPUSTATUS_READYFORVRAM);
+                hard = GPU_readStatus();
+                if( (hard & GPUSTATUS_IDLE) == 0 )
+                {
+                    #ifdef SHOW_DEBUG
+                    sprintf(txtbuffer, "Read GPU_STATUS Fake Busy \n");
+                    DEBUG_print(txtbuffer, DBG_CORE2);
+                    writeLogFile(txtbuffer);
+                    #endif // DISP_DEBUG
+                    hard &= ~GPUSTATUS_READYFORVRAM;
+                }
             }
-
-	        //HW_GPU_STATUS |= SWAP32(hard & ~PSXGPU_TIMING_BITS);
-			//hard = SWAP32(HW_GPU_STATUS);
+            else
+            {
+                gpuSyncPluginSR();
+                hard = SWAP32(HW_GPU_STATUS);
+            }
 			if (hSyncCount < 240 && (hard & PSXGPU_ILACE_BITS) != PSXGPU_ILACE_BITS)
 				hard |= PSXGPU_LCF & (psxRegs.cycle << 20);
 #ifdef PSXHW_LOG
