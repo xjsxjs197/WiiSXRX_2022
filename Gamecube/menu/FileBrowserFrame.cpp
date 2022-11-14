@@ -647,6 +647,11 @@ static void CheckGameR3000AutoFix(void)
             break;
         }
     }
+
+    // GameShark CDX auto fix
+    if (ChkString(CdromId, "ARCDEXE", strlen("ARCDEXE"))) {
+        Config.pR3000Fix = 4;
+    }
 }
 
 void fileBrowserFrame_LoadFile(int i)
