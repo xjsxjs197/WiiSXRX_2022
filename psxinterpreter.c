@@ -665,18 +665,6 @@ void psxJALR() {
 #define _oB_ (_u32(_rRs_) + _Imm_)
 
 void psxLB() {
-	// load delay = 1 latency
-	if( branch == 0 )
-	{
-		// simulate: beq r0,r0,lw+4 / lw / (delay slot)
-		psxRegs.pc -= 4;
-		doBranch( psxRegs.pc + 4 );
-
-		return;
-	}
-
-
-
 	if (_Rt_) {
 		_i32(_rRt_) = (signed char)psxMemRead8(_oB_);
 	} else {
@@ -685,18 +673,6 @@ void psxLB() {
 }
 
 void psxLBU() {
-	// load delay = 1 latency
-	if( branch == 0 )
-	{
-		// simulate: beq r0,r0,lw+4 / lw / (delay slot)
-		psxRegs.pc -= 4;
-		doBranch( psxRegs.pc + 4 );
-
-		return;
-	}
-
-
-
 	if (_Rt_) {
 		_u32(_rRt_) = psxMemRead8(_oB_);
 	} else {
@@ -705,18 +681,6 @@ void psxLBU() {
 }
 
 void psxLH() {
-	// load delay = 1 latency
-	if( branch == 0 )
-	{
-		// simulate: beq r0,r0,lw+4 / lw / (delay slot)
-		psxRegs.pc -= 4;
-		doBranch( psxRegs.pc + 4 );
-
-		return;
-	}
-
-
-
 	if (_Rt_) {
 		_i32(_rRt_) = (short)psxMemRead16(_oB_);
 	} else {
@@ -725,18 +689,6 @@ void psxLH() {
 }
 
 void psxLHU() {
-	// load delay = 1 latency
-	if( branch == 0 )
-	{
-		// simulate: beq r0,r0,lw+4 / lw / (delay slot)
-		psxRegs.pc -= 4;
-		doBranch( psxRegs.pc + 4 );
-
-		return;
-	}
-
-
-
 	if (_Rt_) {
 		_u32(_rRt_) = psxMemRead16(_oB_);
 	} else {
@@ -745,18 +697,6 @@ void psxLHU() {
 }
 
 void psxLW() {
-	// load delay = 1 latency
-	if( branch == 0 )
-	{
-		// simulate: beq r0,r0,lw+4 / lw / (delay slot)
-		psxRegs.pc -= 4;
-		doBranch( psxRegs.pc + 4 );
-
-		return;
-	}
-
-
-
 	if (_Rt_) {
 		_u32(_rRt_) = psxMemRead32(_oB_);
 	} else {
@@ -771,18 +711,6 @@ void psxLWL() {
 	u32 addr = _oB_;
 	u32 shift = addr & 3;
 	u32 mem = psxMemRead32(addr & ~3);
-
-
-	// load delay = 1 latency
-	if( branch == 0 )
-	{
-		// simulate: beq r0,r0,lw+4 / lw / (delay slot)
-		psxRegs.pc -= 4;
-		doBranch( psxRegs.pc + 4 );
-
-		return;
-	}
-
 
 	if (!_Rt_) return;
 	_u32(_rRt_) =	( _u32(_rRt_) & LWL_MASK[shift]) |
@@ -805,20 +733,6 @@ void psxLWR() {
 	u32 addr = _oB_;
 	u32 shift = addr & 3;
 	u32 mem = psxMemRead32(addr & ~3);
-
-
-	
-	// load delay = 1 latency
-	if( branch == 0 )
-	{
-		// simulate: beq r0,r0,lw+4 / lw / (delay slot)
-		psxRegs.pc -= 4;
-		doBranch( psxRegs.pc + 4 );
-
-		return;
-	}
-
-
 
 	if (!_Rt_) return;
 	_u32(_rRt_) =	( _u32(_rRt_) & LWR_MASK[shift]) |
@@ -883,41 +797,8 @@ void psxSWR() {
 * Moves between GPR and COPx                             *
 * Format:  OP rt, fs                                     *
 *********************************************************/
-void psxMFC0()
-{
-	// load delay = 1 latency
-	if( branch == 0 )
-	{
-		// simulate: beq r0,r0,lw+4 / lw / (delay slot)
-		psxRegs.pc -= 4;
-		doBranch( psxRegs.pc + 4 );
-
-		return;
-	}
-
-
-	if (!_Rt_) return;
-	
-	_i32(_rRt_) = (int)_rFs_;
-}
-
-void psxCFC0()
-{
-	// load delay = 1 latency
-	if( branch == 0 )
-	{
-		// simulate: beq r0,r0,lw+4 / lw / (delay slot)
-		psxRegs.pc -= 4;
-		doBranch( psxRegs.pc + 4 );
-
-		return;
-	}
-
-
-	if (!_Rt_) return;
-	
-	_i32(_rRt_) = (int)_rFs_;
-}
+void psxMFC0() { if (!_Rt_) return; _i32(_rRt_) = (int)_rFs_; }
+void psxCFC0() { if (!_Rt_) return; _i32(_rRt_) = (int)_rFs_; }
 
 void psxTestSWInts() {
 	if (psxRegs.CP0.n.Cause & psxRegs.CP0.n.Status & 0x0300 &&
@@ -954,40 +835,6 @@ __inline void MTC0(int reg, u32 val) {
 void psxMTC0() { MTC0(_Rd_, _u32(_rRt_)); }
 void psxCTC0() { MTC0(_Rd_, _u32(_rRt_)); }
 
-
-
-void psxMFC2()
-{
-	// load delay = 1 latency
-	if( branch == 0 )
-	{
-		// simulate: beq r0,r0,lw+4 / lw / (delay slot)
-		psxRegs.pc -= 4;
-		doBranch( psxRegs.pc + 4 );
-
-		return;
-	}
-
-	gteMFC2();
-}
-
-
-void psxCFC2()
-{
-	// load delay = 1 latency
-	if( branch == 0 )
-	{
-		// simulate: beq r0,r0,lw+4 / lw / (delay slot)
-		psxRegs.pc -= 4;
-		doBranch( psxRegs.pc + 4 );
-
-		return;
-	}
-
-	gteCFC2();
-}
-
-
 /*********************************************************
 * Unknow instruction (would generate an exception)       *
 * Format:  ?                                             *
@@ -1011,9 +858,6 @@ void psxCOP0() {
 }
 
 void psxCOP2() {
-	if ((psxRegs.CP0.n.Status & 0x40000000) == 0 )
-		return;
-
 	psxCP2[_Funct_]();
 }
 
@@ -1081,7 +925,7 @@ void (*psxCP2[64])() = {
 };
 
 void (*psxCP2BSC[32])() = {
-	psxMFC2, psxNULL, psxCFC2, psxNULL, gteMTC2, psxNULL, gteCTC2, psxNULL,
+	gteMFC2, psxNULL, gteCFC2, psxNULL, gteMTC2, psxNULL, gteCTC2, psxNULL,
 	psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL,
 	psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL,
 	psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL
