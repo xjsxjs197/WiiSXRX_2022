@@ -155,11 +155,23 @@ void Func_ShowRomInfo()
 	strcat(RomInfo,buffer);
   if (Config.RCntFix)
   {
-    sprintf(buffer, "AUTO FIXED: yes\n");
+  	sprintf(buffer, "RCnt2 auto fixed\n");
+  	strcat(RomInfo,buffer);
   }
-  else
+  if (dwEmuFixes)
   {
-    sprintf(buffer, "AUTO FIXED: no\n");
+  	sprintf(buffer, "GPU 'Fake Busy States' hacked\n");
+  	strcat(RomInfo,buffer);
+  }
+  if (dwActFixes)
+  {
+  	sprintf(buffer, "Special game auto fixed\n");
+  	strcat(RomInfo,buffer);
+  }
+  if (Config.pR3000Fix)
+  {
+  	sprintf(buffer, "pR3000 auto fixed\n");
+  	strcat(RomInfo,buffer);
   }
   strcat(RomInfo,buffer);
   sprintf(buffer,"ISO Size: %u Mb\n",isoFile.size/1024/1024);
