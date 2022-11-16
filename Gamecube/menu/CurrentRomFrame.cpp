@@ -178,7 +178,6 @@ void Func_ShowRomInfo()
   	sprintf(buffer, "pR3000 auto fixed\n");
   	strcat(RomInfo,buffer);
   }
-  strcat(RomInfo,buffer);
   sprintf(buffer,"ISO Size: %u Mb\n",isoFile.size/1024/1024);
   strcat(RomInfo,buffer);
   sprintf(buffer,"Country: %s\n",(!Config.PsxType) ? "NTSC":"PAL");
