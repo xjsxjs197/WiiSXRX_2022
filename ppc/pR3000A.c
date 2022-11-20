@@ -2532,12 +2532,24 @@ static void recSW() {
 }
 
 //REC_FUNC(SLL);
+void psxSLL();
 static void recSLL() {
 // Rd = Rt << Sa
     #ifdef SHOW_DEBUG
     printFunctionLog();
     #endif // SHOW_DEBUG
     if (!_Rd_) return;
+
+    if (Config.pR3000Fix == 4)
+    {
+        iFlushRegs(0);
+        LIW(PutHWRegSpecial(ARG1), (u32)psxRegs.code);
+        STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.code), GetHWRegSpecial(PSXREGS));
+        LIW(PutHWRegSpecial(PSXPC), (u32)pc);
+        FlushAllHWReg();
+        CALLFunc((u32)psxSLL);
+        return;
+    }
 
     if (IsConst(_Rt_)) {
         MapConst(_Rd_, iRegs[_Rt_].k << _Sa_);

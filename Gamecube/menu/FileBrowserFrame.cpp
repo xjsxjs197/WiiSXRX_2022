@@ -533,7 +533,7 @@ static void CheckGameAutoFix(void)
         ,"SLPS02780" // PARASITE EVE II [SQUARESOFT MILLENNIUM COLLECTION]  -  [ 2 DISCS ]
 
     };
- 
+
     Config.RCntFix = 0;
     PerGameFix_timing = 0;
     int i;
@@ -602,7 +602,7 @@ static void CheckGameAutoFix(void)
     {
         if (ChkString(CdromId, autoFixSpecialGames[i], strlen(autoFixSpecialGames[i]))) {
             dwActFixes |= 0x100;
-	    PerGameFix_specialCorrect = 1;
+	        PerGameFix_specialCorrect = 1;
         }
     }
 }
@@ -629,7 +629,7 @@ static void CheckGameR3000AutoFix(void)
     {
         if (ChkString(CdromId, autoFixR3000JR[i], strlen(autoFixR3000JR[i]))) {
             Config.pR3000Fix = 1;
-	    PerGameFix_pR3000A = 1;
+	        PerGameFix_pR3000A = 1;
             break;
         }
     }
@@ -643,7 +643,7 @@ static void CheckGameR3000AutoFix(void)
     {
         if (ChkString(CdromId, autoFixR3000LW[i], strlen(autoFixR3000LW[i]))) {
             Config.pR3000Fix = 2;
-	    PerGameFix_pR3000A = 1;
+	        PerGameFix_pR3000A = 1;
             break;
         }
     }
@@ -658,7 +658,22 @@ static void CheckGameR3000AutoFix(void)
     {
         if (ChkString(CdromId, autoFixR3000SRA[i], strlen(autoFixR3000SRA[i]))) {
             Config.pR3000Fix = 3;
-	    PerGameFix_pR3000A = 1;
+	        PerGameFix_pR3000A = 1;
+            break;
+        }
+    }
+
+    autoFixR3000Len = 2;
+    char autoFixR3000SLL[autoFixR3000Len][10] = {
+         // Blast chamber
+         "SLUS00219" // for NTSC,
+        ,"SLES00476" // for PAL
+    };
+    for (i = 0; i < autoFixR3000Len; i++)
+    {
+        if (ChkString(CdromId, autoFixR3000SLL[i], strlen(autoFixR3000SLL[i]))) {
+            Config.pR3000Fix = 4;
+	        PerGameFix_pR3000A = 1;
             break;
         }
     }
@@ -685,11 +700,11 @@ void fileBrowserFrame_LoadFile(int i)
 				// who likes to load PS1 games automatically... so let's call to all autoFix
 				// functions when in autoboot (argument) mode.
 				CheckGameAutoFix(); // call to check per-game autoFix (Vandal Hearts, Parasite Eve II, Hot Wheels Turbo Racing, etc.)
-				
+
 				// Switches for painting textured quads as 2 triangles (small glitches, but better shading!)
-            			// This function has been automatically started in soft.c and dwActFixes have been determined in gpu code, so need to set it here
-            			dwActFixes |= 0x200;
-	    
+                // This function has been automatically started in soft.c and dwActFixes have been determined in gpu code, so need to set it here
+            	dwActFixes |= 0x200;
+
 				CheckGameR3000AutoFix(); // call to check pR3000A autoFix (Supercross 2000, etc.)
 
 				// FIXME: The MessageBox is a hacky way to fix input not responding.
