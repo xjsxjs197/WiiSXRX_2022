@@ -975,7 +975,8 @@ void cdrInterrupt(void) {
 			}
 			else
 			{
-				second_resp_time = (((cdr.Mode & MODE_SPEED) ? 2 : 1) * 1000000);
+				//second_resp_time = (((cdr.Mode & MODE_SPEED) ? 2 : 1) * 1000000);
+				second_resp_time = ((cdr.Mode & MODE_SPEED) ? WaitTime2ndPause : WaitTime2ndPause >> 1);
 			}
 			SetPlaySeekRead(cdr.StatP, 0);
 			break;
@@ -1363,7 +1364,7 @@ static u8 ReadRescheduled = 0;
 static void cdrReadInterrupt(void)
 {
 	u8 *buf = NULL, *hdr;
-	u8 subqPos[3];
+	u8 subqPos[4];
 	int read_ok;
 
 	if ((psxHu32ref(0x1070) & psxHu32ref(0x1074) & SWAP32((u32)0x4)) && !ReadRescheduled) {
@@ -1376,7 +1377,8 @@ static void cdrReadInterrupt(void)
 	}
 	ReadRescheduled = 0;
 
-	memcpy(subqPos, cdr.SetSectorPlay, sizeof(subqPos));
+	//memcpy(subqPos, cdr.SetSectorPlay, sizeof(subqPos));
+	*(u32*)&subqPos = cdr.SetSectorPlayU32;
 	msfiAdd(subqPos, cdr.SubqForwardSectors);
 	UpdateSubq(subqPos);
 	if (cdr.SubqForwardSectors < SUBQ_FORWARD_SECTORS) {
