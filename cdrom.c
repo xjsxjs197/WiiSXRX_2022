@@ -775,6 +775,20 @@ void cdrInterrupt(void) {
 		return;
 	}
 
+    #ifdef SHOW_DEBUG
+	if (cdr.CmdInProgress > 0x100)
+    {
+        sprintf(txtbuffer, "cdrInterrupt2 (%s) cdr.Irq %02x cdr.Stat %x\n", CmdName[cdr.CmdInProgress - 0x100], cdr.CmdInProgress, cdr.Stat);
+    }
+    else
+    {
+        sprintf(txtbuffer, "cdrInterrupt2 (%s) cdr.Irq %02x cdr.Stat %x\n", CmdName[cdr.CmdInProgress], cdr.CmdInProgress, cdr.Stat);
+    }
+
+	DEBUG_print(txtbuffer, DBG_CDR2);
+	writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
+
 	// default response
 	SetResultSize(1);
 	cdr.Result[0] = cdr.StatP;
@@ -789,19 +803,7 @@ void cdrInterrupt(void) {
 		cdr.ParamC = 0;
 		cdr.Cmd = 0;
 	}
-	#ifdef SHOW_DEBUG
-	if (cdr.CmdInProgress > 0x100)
-    {
-        sprintf(txtbuffer, "cdrInterrupt2 (%s) cdr.Irq %02x cdr.Stat %x\n", CmdName[cdr.CmdInProgress - 0x100], cdr.CmdInProgress, cdr.Stat);
-    }
-    else
-    {
-        sprintf(txtbuffer, "cdrInterrupt2 (%s) cdr.Irq %02x cdr.Stat %x\n", CmdName[cdr.CmdInProgress], cdr.CmdInProgress, cdr.Stat);
-    }
 
-	DEBUG_print(txtbuffer, DBG_CDR2);
-	writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
 	switch (cdr.DriveState) {
 	case DRIVESTATE_PREPARE_CD:
 		if (Cmd > 2) {
@@ -1372,11 +1374,23 @@ static void cdrUpdateTransferBuf(const u8 *buf)
 	//	CDR_LOG("cdrom: FifoOffset(1) %d/%d\n", cdr.FifoOffset, cdr.FifoSize);
 }
 
+static u8 ReadRescheduled = 0;
+
 static void cdrReadInterrupt(void)
 {
 	u8 *buf = NULL, *hdr;
 	u8 subqPos[3];
 	int read_ok;
+
+	if ((psxHu32ref(0x1070) & psxHu32ref(0x1074) & SWAP32((u32)0x4)) && !ReadRescheduled) {
+		// HACK: with BIAS 2, emulated CPU is often slower than real thing,
+		// game may be unfinished with prev data read, so reschedule
+		// (Brave Fencer Musashi)
+		CDRPLAYREAD_INT(cdReadTime, 0);
+		ReadRescheduled = 1;
+		return;
+	}
+	ReadRescheduled = 0;
 
 	memcpy(subqPos, cdr.SetSectorPlay, sizeof(subqPos));
 	msfiAdd(subqPos, cdr.SubqForwardSectors);
