@@ -586,7 +586,7 @@ static void cdrPlayCddaData(int timePlus, int isEnd, s16* cddaBuf)
 {
 	if (!cdr.Play) return;
 
-	if (*(u32 *)cdr.SetSectorPlay >= *(u32 *)cdr.SetSectorEnd) {
+	if (cdr.SetSectorPlayU32 >= cdr.SetSectorEndU32) {
         #ifdef SHOW_DEBUG
         sprintf(txtbuffer, "cdrPlayCddaData End");
         DEBUG_print(txtbuffer, DBG_CDR4);
@@ -633,7 +633,8 @@ static int cdrSeekTime(unsigned char *target)
 	* It seems that 3386880 * 5 is too much for Driver's titlescreen and it starts skipping.
 	* However, 1000000 is not enough for Worms Pinball to reliably boot.
 	*/
-	if(seekTime > 3386880 * 2) seekTime = 3386880 * 2;
+	//if(seekTime > 3386880 * 2) seekTime = 3386880 * 2;
+	if (seekTime > 500000) seekTime = 500000;
 	CDR_LOG("seek: %.2f %.2f\n", (float)seekTime / PSXCLK, (float)seekTime / cdReadTime);
 	return seekTime;
 }
@@ -698,7 +699,7 @@ void cdrPlayReadInterrupt(void)
 
 	SetPlaySeekRead(cdr.StatP, STATUS_PLAY);
 	//if (memcmp(cdr.SetSectorPlay, cdr.SetSectorEnd, 3) == 0) {
-	if (*(u32 *)cdr.SetSectorPlay >= *(u32 *)cdr.SetSectorEnd) {
+	if (cdr.SetSectorPlayU32 >= cdr.SetSectorEndU32) {
 		StopCdda();
 		SetPlaySeekRead(cdr.StatP, 0);
 		cdr.TrackChanged = TRUE;
@@ -741,7 +742,8 @@ void cdrInterrupt(void) {
 	u32 second_resp_time = 0;
 	const void *buf;
 	u8 ParamC;
-	u8 set_loc[3];
+	u8 set_loc[4];
+	set_loc[3] = 0;
 	int read_ok;
 	u16 not_ready = 0;
 	u16 Cmd;
@@ -844,8 +846,9 @@ void cdrInterrupt(void) {
 			{
 				for (i = 0; i < 3; i++)
 					set_loc[i] = btoi(cdr.Param[i]);
-				memcpy(cdr.SetSector, set_loc, 3);
-				cdr.SetSector[3] = 0;
+				//memcpy(cdr.SetSector, set_loc, 3);
+				//cdr.SetSector[3] = 0;
+				cdr.SetSectorU32 = *(u32*)&set_loc;
 				cdr.SetlocPending = 1;
 			}
 			break;
@@ -873,12 +876,14 @@ void cdrInterrupt(void) {
 					for (i = 0; i < 3; i++)
 						set_loc[i] = cdr.ResultTD[2 - i];
 					seekTime = cdrSeekTime(set_loc);
-					memcpy(cdr.SetSectorPlay, set_loc, 3);
+					//memcpy(cdr.SetSectorPlay, set_loc, 3);
+					cdr.SetSectorPlayU32 = *(u32*)&set_loc;
 				}
 			}
 			else if (cdr.SetlocPending) {
 				seekTime = cdrSeekTime(cdr.SetSector);
-				memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
+				//memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
+				cdr.SetSectorPlayU32 = cdr.SetSectorU32;
 			}
 			else {
 				CDR_LOG("PLAY Resume @ %d:%d:%d\n",
@@ -1057,12 +1062,14 @@ void cdrInterrupt(void) {
 				goto set_error;
 			}
 			SetResultSize(8);
-			memcpy(cdr.Result, cdr.LocL, 8);
+			//memcpy(cdr.Result, cdr.LocL, 8);
+			*(long long int *)(&cdr.Result) = *(long long int *)(&cdr.LocL);
 			break;
 
 		case CdlGetlocP:
 			SetResultSize(8);
-			memcpy(&cdr.Result, &cdr.subq, 8);
+			//memcpy(&cdr.Result, &cdr.subq, 8);
+			*(long long int *)(&cdr.Result) = *(long long int *)(&cdr.subq);
 			break;
 
 		case CdlReadT: // SetSession?
@@ -1111,7 +1118,8 @@ void cdrInterrupt(void) {
 			SetPlaySeekRead(cdr.StatP, STATUS_SEEK | STATUS_ROTATING);
 
 			seekTime = cdrSeekTime(cdr.SetSector);
-			memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
+			//memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
+			cdr.SetSectorPlayU32 = cdr.SetSectorU32;
 			/*
 			Crusaders of Might and Magic = 0.5x-4x
 			- fix cutscene speech start
@@ -1138,7 +1146,8 @@ void cdrInterrupt(void) {
 			Find_CurTrack(cdr.SetSectorPlay);
 			read_ok = ReadTrack(cdr.SetSectorPlay);
 			if (read_ok && (buf = CDR_getBuffer()))
-				memcpy(cdr.LocL, buf, 8);
+				//memcpy(cdr.LocL, buf, 8);
+				*(long long int *)(&cdr.LocL) = *(long long int *)(&buf);
 			UpdateSubq(cdr.SetSectorPlay);
 			cdr.TrackChanged = FALSE;
 			break;
@@ -1236,7 +1245,8 @@ void cdrInterrupt(void) {
 			StopCdda();
 			if (cdr.SetlocPending) {
 				seekTime = cdrSeekTime(cdr.SetSector);
-				memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
+				//memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
+				cdr.SetSectorPlayU32 = cdr.SetSectorU32;
 				cdr.SetlocPending = 0;
 			}
 			cdr.Reading = 1;
@@ -1538,7 +1548,7 @@ void cdrWrite1(unsigned char rt) {
 	if (!cdr.CmdInProgress) {
 		cdr.CmdInProgress = rt;
 		// should be something like 12k + controller delays
-		CDR_INT(5000);
+		CDR_INT(WaitTime1st);
 	}
 	else {
 		CDR_LOG_I("%u cdrom: cmd while busy: %02x, prev %02x, busy %02x\n",

@@ -88,9 +88,18 @@ typedef struct {
 
 	unsigned char ResultTN[6];
 	unsigned char ResultTD[4];
-	unsigned char SetSectorPlay[4];
-	unsigned char SetSectorEnd[4];
-	unsigned char SetSector[4];
+	union {
+        unsigned char SetSectorPlay[4];
+        u32           SetSectorPlayU32;
+    };
+	union {
+        unsigned char SetSectorEnd[4];
+        u32           SetSectorEndU32;
+    };
+	union {
+        unsigned char SetSector[4];
+        u32           SetSectorU32;
+    };
 	unsigned char Track;
 	bool Play, Muted;
 	int CurTrack;
