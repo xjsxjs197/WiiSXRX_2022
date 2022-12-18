@@ -407,12 +407,14 @@ static void Find_CurTrack(const u8 *time)
 {
 	int current, sect;
 
-	current = msf2sec(time);
+	//current = msf2sec(time);
+	current = msf2sec(time) + 150;
 
 	for (cdr.CurTrack = 1; cdr.CurTrack < cdr.ResultTN[1]; cdr.CurTrack++) {
 		CDR_getTD(cdr.CurTrack + 1, cdr.ResultTD);
 		sect = fsm2sec(cdr.ResultTD);
-		if (sect - current >= 150)
+		//if (sect - current >= 150)
+		if (sect >= current)
 			break;
 	}
 }
@@ -584,39 +586,6 @@ static void cdrPlayInterrupt_Autopause(s16* cddaBuf)
 		SetResultSize(8);
 		setIrq(0x1001);
 	}
-}
-
-// called by playthread
-static void cdrPlayCddaData(int timePlus, int isEnd, s16* cddaBuf)
-{
-	if (!cdr.Play) return;
-
-	if (cdr.SetSectorPlayU32 >= cdr.SetSectorEndU32) {
-        #ifdef SHOW_DEBUG
-        sprintf(txtbuffer, "cdrPlayCddaData End");
-        DEBUG_print(txtbuffer, DBG_CDR4);
-        #endif // DISP_DEBUG
-		StopCdda();
-		cdr.TrackChanged = TRUE;
-	}
-
-	if (!cdr.Stat && (cdr.Mode & (MODE_AUTOPAUSE | MODE_REPORT)))
-		cdrPlayInterrupt_Autopause(cddaBuf);
-
-    if (!cdr.Play) return;
-
-	cdr.SetSectorPlay[2] += timePlus;
-	if (cdr.SetSectorPlay[2] >= 75) {
-		cdr.SetSectorPlay[2] = 0;
-		cdr.SetSectorPlay[1]++;
-		if (cdr.SetSectorPlay[1] == 60) {
-			cdr.SetSectorPlay[1] = 0;
-			cdr.SetSectorPlay[0]++;
-		}
-	}
-
-	// update for CdlGetlocP/autopause
-	generate_subq(cdr.SetSectorPlay);
 }
 
 static int cdrSeekTime(unsigned char *target)
