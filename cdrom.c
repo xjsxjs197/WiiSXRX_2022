@@ -468,21 +468,26 @@ static void generate_subq(const u8 *time)
 
 static int ReadTrack(const u8 *time)
 {
-	unsigned char tmp[3];
+	unsigned char tmp[4];
 	int read_ok;
+
+	if (*(u32*)&cdr.Prev == *(u32*)time)
+        return 1;
 
 	tmp[0] = itob(time[0]);
 	tmp[1] = itob(time[1]);
 	tmp[2] = itob(time[2]);
+	tmp[3] = 0;
 
-	if (memcmp(cdr.Prev, tmp, 3) == 0)
-		return 1;
+//	if (memcmp(cdr.Prev, tmp, 3) == 0)
+//		return 1;
 
 	CDR_LOG("ReadTrack *** %02x:%02x:%02x\n", tmp[0], tmp[1], tmp[2]);
 
 	read_ok = CDR_readTrack(tmp);
 	if (read_ok)
-		memcpy(cdr.Prev, tmp, 3);
+		//memcpy(cdr.Prev, tmp, 3);
+		*(u32*)&cdr.Prev = *(u32*)tmp;
 	return read_ok;
 }
 
@@ -1780,7 +1785,7 @@ void cdrReset() {
 
 int cdrFreeze(gzFile f, int Mode) {
 	u32 tmp;
-	u8 tmpp[3];
+	u8 tmpp[4];
 
 	if (Mode == 0 && !Config.Cdda)
 		CDR_stop();
@@ -1807,6 +1812,7 @@ int cdrFreeze(gzFile f, int Mode) {
 		tmpp[0] = btoi(cdr.Prev[0]);
 		tmpp[1] = btoi(cdr.Prev[1]);
 		tmpp[2] = btoi(cdr.Prev[2]);
+		tmpp[3] = 0;
 		cdr.Prev[0]++;
 		ReadTrack(tmpp);
 
