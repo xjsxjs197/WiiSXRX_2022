@@ -179,7 +179,7 @@ void psxBranchTest() {
 		    //if ((psxRegs.cycle - psxRegs.intCycle[2+16]) >= psxRegs.intCycle[2+16+1]) {
 		    if ((psxRegs.cycle - psxRegs.intCycle[PSXINT_CDREAD].sCycle) >= psxRegs.intCycle[PSXINT_CDREAD].cycle) {
 				psxRegs.interrupt&=~(1 << PSXINT_CDREAD);
-				cdrReadInterrupt();
+				cdrPlayReadInterrupt();
 			}
 		}
 		if (psxRegs.interrupt & (1 << PSXINT_GPUDMA)) { // gpu dma
@@ -202,12 +202,12 @@ void psxBranchTest() {
 				spuInterrupt();
 			}
 		}
-//		if (psxRegs.interrupt & (1 << PSXINT_MDECINDMA)) { // mdec in
-//			if ((psxRegs.cycle - psxRegs.intCycle[PSXINT_MDECINDMA].sCycle) >= psxRegs.intCycle[PSXINT_MDECINDMA].cycle) {
-//				psxRegs.interrupt &= ~(1 << PSXINT_MDECINDMA);
-//				mdec0Interrupt();
-//			}
-//		}
+		if (psxRegs.interrupt & (1 << PSXINT_MDECINDMA)) { // mdec in
+			if ((psxRegs.cycle - psxRegs.intCycle[PSXINT_MDECINDMA].sCycle) >= psxRegs.intCycle[PSXINT_MDECINDMA].cycle) {
+				psxRegs.interrupt &= ~(1 << PSXINT_MDECINDMA);
+				mdec0Interrupt();
+			}
+		}
 		if (psxRegs.interrupt & (1 << PSXINT_GPUOTCDMA)) { // gpu otc
 			if ((psxRegs.cycle - psxRegs.intCycle[PSXINT_GPUOTCDMA].sCycle) >= psxRegs.intCycle[PSXINT_GPUOTCDMA].cycle) {
 				psxRegs.interrupt &= ~(1 << PSXINT_GPUOTCDMA);
@@ -218,12 +218,6 @@ void psxBranchTest() {
 			if ((psxRegs.cycle - psxRegs.intCycle[PSXINT_CDRDMA].sCycle) >= psxRegs.intCycle[PSXINT_CDRDMA].cycle) {
 				psxRegs.interrupt &= ~(1 << PSXINT_CDRDMA);
 				cdrDmaInterrupt();
-			}
-		}
-		if (psxRegs.interrupt & (1 << PSXINT_CDRPLAY)) { // cdr play timing
-			if ((psxRegs.cycle - psxRegs.intCycle[PSXINT_CDRPLAY].sCycle) >= psxRegs.intCycle[PSXINT_CDRPLAY].cycle) {
-				psxRegs.interrupt &= ~(1 << PSXINT_CDRPLAY);
-				cdrPlayInterrupt();
 			}
 		}
 		if (psxRegs.interrupt & (1 << PSXINT_CDRLID)) { // cdr lid states
@@ -241,9 +235,10 @@ void psxBranchTest() {
 
 		//if (psxRegs.interrupt & 0x80000000) {
 		//	psxRegs.interrupt&=~0x80000000;
-			psxTestHWInts();
+			//psxTestHWInts();
 		//}
 	}
+	psxTestHWInts();
 //	if (psxRegs.cycle > 0xd29c6500) Log=1;
 }
 

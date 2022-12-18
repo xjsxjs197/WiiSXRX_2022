@@ -741,13 +741,14 @@ int SysInit() {
 		Config.HLE = BIOS_HLE;
 	}*/
 
+	biosFile_dir = &biosDir_libfat_Default;
 	if(biosDevice != BIOSDEVICE_HLE) {
 		Config.HLE = BIOS_USER_DEFINED;
+		biosFile_dir = (biosDevice == BIOSDEVICE_SD) ? &biosDir_libfat_Default : &biosDir_libfat_USB;
 	} else {
 		Config.HLE = BIOS_HLE;
 	}
 
-	biosFile_dir = &biosDir_libfat_Default;
 	biosFile_readFile  = fileBrowser_libfat_readFile;
 	biosFile_open      = fileBrowser_libfat_open;
 	biosFile_init      = fileBrowser_libfat_init;

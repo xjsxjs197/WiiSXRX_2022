@@ -59,7 +59,8 @@ struct iso_directory_record {
 void mmssdd( char *b, char *p )
 {
 	int m, s, d;
-	int block = SWAP32(*((uint32_t*) b));
+	unsigned char *ub = (void *)b;
+	int block = (ub[3] << 24) | (ub[2] << 16) | (ub[1] << 8) | ub[0];
 
 	block += 150;
 	m = block / 4500;			// minutes
@@ -90,7 +91,7 @@ void mmssdd( char *b, char *p )
 	time[0] = itob(time[0]); time[1] = itob(time[1]); time[2] = itob(time[2]);
 
 #define READTRACK() \
-	if (CDR_readTrack(time) == 0) return -1; \
+	if (!CDR_readTrack(time)) return -1; \
 	buf = (void *)CDR_getBuffer(); \
 	if (buf == NULL) return -1; \
 	/*else CheckPPFCache((u8 *)buf, time[0], time[1], time[2]);*/
@@ -243,6 +244,7 @@ int LoadCdrom() {
 	tmpHead.t_addr = SWAP32(tmpHead.t_addr);
 
 	psxCpu->Clear(tmpHead.t_addr, tmpHead.t_size / 4);
+	psxCpu->Reset();
 
 	// Read the rest of the main executable
 	while (tmpHead.t_size & ~2047) {

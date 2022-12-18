@@ -38,6 +38,10 @@ extern "C" {
 //#define itob(i)		((((i) / 10) << 4) + (i) % 10)  /* u_char to BCD */
 #define itob(i)		(itobBuf[i])  /* u_char to BCD */
 
+#define ABS_CD(x) ((x >= 0) ? x : -x)
+#define MIN_VALUE(a,b) ({ __typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a < _b ? _a : _b; })
+#define MAX_VALUE(a,b) ({ __typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b ? _a : _b; })
+
 //#define MSF2SECT(m, s, f)		(((m) * 60 + (s) - 2) * 75 + (f))
 #define MSF2SECT(m, s, f)		(msf2SectM[(m)] + msf2SectS[(s)] - 150 + (f))
 
@@ -46,14 +50,12 @@ extern "C" {
 
 #define SUB_FRAMESIZE			96
 
-#define MIN_VALUE(a,b) ({ __typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a < _b ? _a : _b; })
-#define MAX_VALUE(a,b) ({ __typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b ? _a : _b; })
-
 typedef struct {
-	unsigned char OCUP;
-	unsigned char Reg1Mode;
+	// unused members maintain savesate compatibility
+	unsigned char unused0;
+	unsigned char unused1;
 	unsigned char Reg2;
-	unsigned char CmdProcess;
+	unsigned char unused2;
 	unsigned char Ctrl;
 	unsigned char Stat;
 
@@ -67,8 +69,7 @@ typedef struct {
 		unsigned char Absolute[3];
 	} subq;
 	unsigned char TrackChanged;
-	bool m_locationChanged;
-	unsigned char pad1[2];
+	unsigned char unused3[3];
 	unsigned int  freeze_ver;
 
 	unsigned char Prev[4];
@@ -81,7 +82,7 @@ typedef struct {
 	unsigned char ResultP;
 	unsigned char ResultReady;
 	unsigned char Cmd;
-	unsigned char Readed;
+	unsigned char SubqForwardSectors;
 	unsigned char SetlocPending;
 	u32 Reading;
 
@@ -91,28 +92,28 @@ typedef struct {
 	unsigned char SetSectorEnd[4];
 	unsigned char SetSector[4];
 	unsigned char Track;
-	bool Play, Muted, PlayAdpcm;
+	bool Play, Muted;
 	int CurTrack;
 	int Mode, File, Channel;
-	int Reset;
-	int NoErr;
+	unsigned char LocL[8];
 	int FirstSector;
 
 	xa_decode_t Xa;
 
-	int Init;
+	u16 FifoOffset;
+	u16 FifoSize;
 
-	u16 Irq;
-	u8 IrqRepeated;
-	u32 eCycle;
+	u16 CmdInProgress;
+	u8 Irq1Pending;
+	u8 unused5;
+	u32 unused6;
 
-	u8 Seeked;
-	u8 ReadRescheduled;
+	u8 unused7;
 
 	u8 DriveState;
 	u8 FastForward;
 	u8 FastBackward;
-	u8 pad;
+	u8 unused8;
 
 	u8 AttenuatorLeftToLeft, AttenuatorLeftToRight;
 	u8 AttenuatorRightToRight, AttenuatorRightToLeft;
@@ -129,15 +130,12 @@ extern int msf2SectMNoItob[];
 extern int msf2SectSNoItob[];
 
 void cdrReset();
-void cdrAttenuate(s16 *buf, int samples, int stereo);
 
-void cdrInterrupt();
-void cdrReadInterrupt();
-void cdrRepplayInterrupt();
-void cdrLidSeekInterrupt();
-void cdrPlayInterrupt();
-void cdrDmaInterrupt();
-void LidInterrupt();
+void cdrInterrupt(void);
+void cdrPlayReadInterrupt(void);
+void cdrLidSeekInterrupt(void);
+void cdrDmaInterrupt(void);
+void LidInterrupt(void);
 unsigned char cdrRead0(void);
 unsigned char cdrRead1(void);
 unsigned char cdrRead2(void);

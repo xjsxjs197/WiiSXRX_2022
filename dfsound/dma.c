@@ -20,6 +20,7 @@
 #define _IN_DMA
 
 #include "externals.h"
+#include "../psxcommon.h"
 
 ////////////////////////////////////////////////////////////////////////
 // READ DMA (one value)
@@ -27,7 +28,8 @@
 
 unsigned short DF_SPUreadDMA(void)
 {
- unsigned short s = *(unsigned short *)(spu.spuMemC + spu.spuAddr);
+ //unsigned short s = *(unsigned short *)(spu.spuMemC + spu.spuAddr);
+ unsigned short s = LOAD_SWAP16p(spu.spuMemC + spu.spuAddr);
  spu.spuAddr += 2;
  spu.spuAddr &= 0x7fffe;
 
@@ -52,8 +54,8 @@ void DF_SPUreadDMAMem(unsigned short *pusPSXMem, int iSize,
  unsigned short crc=0;
 
  #ifdef SHOW_DEBUG
- sprintf(txtbuffer, "SPUreadDMA spuAddr %08x size %x crc %x", spu.spuAddr, iSize, crc);
- DEBUG_print(txtbuffer, DBG_SPU1);
+ //sprintf(txtbuffer, "SPUreadDMA spuAddr %08x size %x crc %x", spu.spuAddr, iSize, crc);
+ //DEBUG_print(txtbuffer, DBG_SPU1);
  #endif // DISP_DEBUG
 
  for(i=0;i<iSize;i++)
@@ -81,8 +83,8 @@ void DF_SPUreadDMAMem(unsigned short *pusPSXMem, int iSize,
  //do_samples_if_needed(cycles, 1);
 
  #ifdef SHOW_DEBUG
- sprintf(txtbuffer, "SPUreadDMA crc %x", crc);
- DEBUG_print(txtbuffer, DBG_SPU3);
+ //sprintf(txtbuffer, "SPUreadDMA crc %x", crc);
+ //DEBUG_print(txtbuffer, DBG_SPU3);
  #endif // DISP_DEBUG
  if (crc == 0) *--pusPSXMem=0xFF;
 }
@@ -101,7 +103,8 @@ void DF_SPUreadDMAMem(unsigned short *pusPSXMem, int iSize,
 
 void DF_SPUwriteDMA(unsigned short val)
 {
- *(unsigned short *)(spu.spuMemC + spu.spuAddr) = val;
+ //*(unsigned short *)(spu.spuMemC + spu.spuAddr) = val;
+ STORE_SWAP16p(spu.spuMemC + spu.spuAddr, val);
 
  spu.spuAddr += 2;
  spu.spuAddr &= 0x7fffe;

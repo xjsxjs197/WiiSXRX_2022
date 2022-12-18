@@ -42,6 +42,11 @@ extern int SaveMcd(int mcd, fileBrowser_file *savepath);
 extern long ISOgetTN(unsigned char *buffer);
 }
 
+extern int PerGameFix_timing; 		// variable for see if game has timing autoFix
+extern int PerGameFix_GPUbusy; 		// variable for see if game has GPU 'Fake Busy States' (dwEmuFixes) autoFix
+extern int PerGameFix_specialCorrect; 	// variable for see if game has special correction (dwActFixes) autoFix
+extern int PerGameFix_pR3000A; 		// variable for see if game has pR3000A autoFix
+
 void Func_ShowRomInfo();
 void Func_ResetROM();
 void Func_SwapCD();
@@ -153,20 +158,31 @@ void Func_ShowRomInfo()
   sprintf(buffer,"CD-ROM ID: %s\n", CdromId);
 
 	strcat(RomInfo,buffer);
-  if (Config.RCntFix)
+  if (PerGameFix_timing)
   {
-    sprintf(buffer, "AUTO FIXED: yes\n");
+  	sprintf(buffer, "RCnt2 auto fixed\n");
+  	strcat(RomInfo,buffer);
   }
-  else
+  if (PerGameFix_GPUbusy)
   {
-    sprintf(buffer, "AUTO FIXED: no\n");
+  	sprintf(buffer, "GPU 'Fake Busy States' hacked\n");
+  	strcat(RomInfo,buffer);
   }
-  strcat(RomInfo,buffer);
+  if (PerGameFix_specialCorrect)
+  {
+  	sprintf(buffer, "Special game auto fixed\n");
+  	strcat(RomInfo,buffer);
+  }
+  if (PerGameFix_pR3000A)
+  {
+  	sprintf(buffer, "pR3000 auto fixed\n");
+  	strcat(RomInfo,buffer);
+  }
   sprintf(buffer,"ISO Size: %u Mb\n",isoFile.size/1024/1024);
   strcat(RomInfo,buffer);
   sprintf(buffer,"Country: %s\n",(!Config.PsxType) ? "NTSC":"PAL");
   strcat(RomInfo,buffer);
-  sprintf(buffer,"BIOS: %s\n",(Config.HLE==BIOS_USER_DEFINED) ? "USER DEFINED":"HLE");
+  sprintf(buffer,"BIOS: %s\n",(Config.HLE==BIOS_USER_DEFINED) ? "PSX":"HLE");
   strcat(RomInfo,buffer);
   unsigned char tracks[2];
   ISOgetTN(&tracks[0]);

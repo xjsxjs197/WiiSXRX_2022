@@ -50,6 +50,16 @@ void (*psxCP0[32])();
 void (*psxCP2[64])();
 void (*psxCP2BSC[32])();
 
+// Make the timing events trigger faster as we are currently assuming everything
+// takes one cycle, which is not the case on real hardware.
+// FIXME: count cache misses, memory latencies, stalls to get rid of this
+static inline void addCycle(void)
+{
+	//assert(psxRegs.subCycleStep >= 0x10000);
+	psxRegs.subCycle += psxRegs.subCycleStep;
+	psxRegs.cycle += psxRegs.subCycle >> 16;
+	psxRegs.subCycle &= 0xffff;
+}
 static void delayRead(int reg, u32 bpc) {
 	u32 rold, rnew;
 
@@ -361,7 +371,7 @@ __inline int psxDelayBranchExec(u32 tar) {
 
 	branch = 0;
 	psxRegs.pc = tar;
-	psxRegs.cycle += BIAS;
+	addCycle();
 	psxBranchTest();
 	return 1;
 }
@@ -387,7 +397,7 @@ __inline int psxDelayBranchTest(u32 tar1) {
 		return psxDelayBranchExec(tar2);
 	}
 	debugI();
-	psxRegs.cycle += BIAS;
+	addCycle();
 
 	/*
 	 * Got a branch at tar1:
@@ -400,7 +410,7 @@ __inline int psxDelayBranchTest(u32 tar1) {
 		return psxDelayBranchExec(tmp1);
 	}
 	debugI();
-	psxRegs.cycle += BIAS;
+	addCycle();
 
 	/*
 	 * Got a branch at tar2:
@@ -430,7 +440,7 @@ __inline void doBranch(u32 tar) {
 	debugI();
 
 	psxRegs.pc += 4;
-	psxRegs.cycle += BIAS;
+	addCycle();
 
 	// check for load delay
 	tmp = psxRegs.code >> 26;
@@ -935,10 +945,12 @@ void (*psxCP2BSC[32])() = {
 ///////////////////////////////////////////
 
 static int intInit() {
+    psxRegs.subCycleStep = 0x10000 * CYCLE_MULT_DEFAULT / 100;
 	return 0;
 }
 
 static void intReset() {
+    psxRegs.subCycleStep = 0x10000 * CYCLE_MULT_DEFAULT / 100;
 	psxRegs.ICache_valid = FALSE;
 }
 
@@ -976,7 +988,7 @@ inline void execI() {
 	debugI();
 
 	psxRegs.pc += 4;
-	psxRegs.cycle += BIAS;
+	addCycle();
 
 	psxBSC[psxRegs.code >> 26]();
 

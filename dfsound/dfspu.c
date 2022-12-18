@@ -250,8 +250,7 @@ static void StartSoundMain(int ch)
 
  spu.dwNewChannel&=~(1<<ch);                           // clear new channel bit
  spu.dwChannelDead&=~(1<<ch);
- if (s_chan->iRawPitch)
-  spu.dwChannelsAudible|=1<<ch;
+ spu.dwChannelsAudible|=1<<ch;
 }
 
 static void StartSound(int ch)
@@ -441,7 +440,7 @@ static int decode_block(void *unused, int ch, int *SB)
  decode_block_data(SB, start + 2, predict_nr, shift_factor);
 
  flags = start[1];
- if (flags & 4 && (!s_chan->bIgnoreLoop))
+ if (flags & 4 && !s_chan->bIgnoreLoop)
   s_chan->pLoop = start;                   // loop adress
 
  start += 16;
@@ -778,10 +777,10 @@ static void do_channels(int ns_to)
 
    if (s_chan->bNoise)
     d = do_samples_noise(ch, ns_to);
-   /*else if (s_chan->bFMod == 2
+   else if (s_chan->bFMod == 2
          || (s_chan->bFMod == 0 && spu_config.iUseInterpolation == 0))
     d = do_samples_noint(decode_block, NULL, ch, ns_to,
-          SB, sinc, &s_chan->spos, &s_chan->iSBPos);*/
+          SB, sinc, &s_chan->spos, &s_chan->iSBPos);
    else if (s_chan->bFMod == 0 && spu_config.iUseInterpolation == 1)
     d = do_samples_simple(decode_block, NULL, ch, ns_to,
           SB, sinc, &s_chan->spos, &s_chan->iSBPos);
@@ -955,6 +954,7 @@ static void queue_channel_work(int ns_to, unsigned int silentch)
    d = SkipADSR(&s_chan->ADSRX, d);
    if (d < ns_to) {
     spu.dwChannelsAudible &= ~(1 << ch);
+    s_chan->ADSRX.State = ADSR_RELEASE;
     s_chan->ADSRX.EnvelopeVol = 0;
    }
   }

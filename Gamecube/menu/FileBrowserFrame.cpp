@@ -43,6 +43,11 @@ extern char debugInfo[256];
 
 extern "C" char * JoinString(char *s1, char *s2);
 
+int PerGameFix_timing; 		// variable for see if game has timing autoFix
+int PerGameFix_GPUbusy; 	// variable for see if game has GPU 'Fake Busy States' (dwEmuFixes) autoFix
+int PerGameFix_specialCorrect; 	// variable for see if game has special correction (dwActFixes) autoFix
+int PerGameFix_pR3000A; 	// variable for see if game has pR3000A autoFix
+
 void Func_PrevPage();
 void Func_NextPage();
 void Func_ReturnFromFileBrowserFrame();
@@ -530,11 +535,13 @@ static void CheckGameAutoFix(void)
     };
 
     Config.RCntFix = 0;
+    PerGameFix_timing = 0;
     int i;
     for (i = 0; i < autoFixLen; i++)
     {
         if (ChkString(CdromId, autoFixGames[i], strlen(autoFixGames[i]))) {
             Config.RCntFix = 1;
+	        PerGameFix_timing = 1;
         }
     }
 
@@ -570,10 +577,12 @@ static void CheckGameAutoFix(void)
 
     // hack for emulating "gpu busy" in some games
     dwEmuFixes = 0;
+    PerGameFix_GPUbusy = 0;
     for (i = 0; i < autoFixLen; i++)
     {
         if (ChkString(CdromId, gpuBusyAutoFixGames[i], strlen(gpuBusyAutoFixGames[i]))) {
             dwEmuFixes = 0x0001;
+	        PerGameFix_GPUbusy = 1;
         }
     }
 
@@ -588,10 +597,12 @@ static void CheckGameAutoFix(void)
         ,"SLES00646" // PAL (Spain)
     };
     dwActFixes = 0;
+    PerGameFix_specialCorrect = 0;
     for (i = 0; i < autoFixLen; i++)
     {
         if (ChkString(CdromId, autoFixSpecialGames[i], strlen(autoFixSpecialGames[i]))) {
             dwActFixes |= 0x100;
+	        PerGameFix_specialCorrect = 1;
         }
     }
 }
@@ -612,11 +623,13 @@ static void CheckGameR3000AutoFix(void)
     };
 
     Config.pR3000Fix = 0;
+    PerGameFix_pR3000A = 0;
     int i;
     for (i = 0; i < autoFixR3000Len; i++)
     {
         if (ChkString(CdromId, autoFixR3000JR[i], strlen(autoFixR3000JR[i]))) {
             Config.pR3000Fix = 1;
+	        PerGameFix_pR3000A = 1;
             break;
         }
     }
@@ -630,6 +643,7 @@ static void CheckGameR3000AutoFix(void)
     {
         if (ChkString(CdromId, autoFixR3000LW[i], strlen(autoFixR3000LW[i]))) {
             Config.pR3000Fix = 2;
+	        PerGameFix_pR3000A = 1;
             break;
         }
     }
@@ -644,6 +658,22 @@ static void CheckGameR3000AutoFix(void)
     {
         if (ChkString(CdromId, autoFixR3000SRA[i], strlen(autoFixR3000SRA[i]))) {
             Config.pR3000Fix = 3;
+	        PerGameFix_pR3000A = 1;
+            break;
+        }
+    }
+
+    autoFixR3000Len = 2;
+    char autoFixR3000SLL[autoFixR3000Len][10] = {
+         // Blast chamber
+         "SLUS00219" // for NTSC,
+        ,"SLES00476" // for PAL
+    };
+    for (i = 0; i < autoFixR3000Len; i++)
+    {
+        if (ChkString(CdromId, autoFixR3000SLL[i], strlen(autoFixR3000SLL[i]))) {
+            Config.pR3000Fix = 4;
+	        PerGameFix_pR3000A = 1;
             break;
         }
     }
@@ -666,10 +696,16 @@ void fileBrowserFrame_LoadFile(int i)
 
 		if(!ret){	// If the read succeeded.
 			if(Autoboot){
-				// saulfabreg: autoFix function (per-game and pR3000A fixes) works but not
-				// in autoboot mode... let's fix this :)
-				CheckGameAutoFix(); // for per-game autoFix (Vandal Hearts, Parasite Eve II, Hot Wheels Turbo Racing, etc.)
-				CheckGameR3000AutoFix(); // for pR3000A autoFix (Supercross 2000, etc.)
+				// saulfabreg: let's not forget to WiiFlow and SRL (Single ROM Loaders) users
+				// who likes to load PS1 games automatically... so let's call to all autoFix
+				// functions when in autoboot (argument) mode.
+				CheckGameAutoFix(); // call to check per-game autoFix (Vandal Hearts, Parasite Eve II, Hot Wheels Turbo Racing, etc.)
+
+				// Switches for painting textured quads as 2 triangles (small glitches, but better shading!)
+                // This function has been automatically started in soft.c and dwActFixes have been determined in gpu code, so need to set it here
+            	dwActFixes |= 0x200;
+
+				CheckGameR3000AutoFix(); // call to check pR3000A autoFix (Supercross 2000, etc.)
 
 				// FIXME: The MessageBox is a hacky way to fix input not responding.
 				// No time to improve this...

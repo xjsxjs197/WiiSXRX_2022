@@ -144,6 +144,25 @@ typedef union {
 	PAIR p[32];
 } psxCP2Ctrl;
 
+enum {
+	PSXINT_SIO = 0,
+	PSXINT_CDR,
+	PSXINT_CDREAD,
+	PSXINT_GPUDMA,
+	PSXINT_MDECOUTDMA,
+	PSXINT_SPUDMA,
+	PSXINT_GPUBUSY,
+	PSXINT_MDECINDMA,
+	PSXINT_GPUOTCDMA,
+	PSXINT_CDRDMA,
+	PSXINT_NEWDRC_CHECK,
+	PSXINT_RCNT,
+	PSXINT_CDRLID,
+	PSXINT_CDRPLAY_OLD,	/* unused */
+	PSXINT_SPU_UPDATE,
+	PSXINT_COUNT
+};
+
 typedef struct psxCP2Regs {
 	psxCP2Data CP2D; 	/* Cop2 data registers */
 	psxCP2Ctrl CP2C; 	/* Cop2 control registers */
@@ -169,6 +188,10 @@ typedef struct {
 	u8 ICache_Addr[0x1000];
 	u8 ICache_Code[0x1000];
 	bool ICache_valid;
+	u32 subCycle;		/* interpreter cycle counting */
+	u32 subCycleStep;
+	// warning: changing anything in psxRegisters requires update of all
+	// asm in libpcsxcore/new_dynarec/
 } psxRegisters;
 
 extern psxRegisters psxRegs;
@@ -247,24 +270,6 @@ static inline u32 *Read_ICache(u32 pc, bool isolate) {
 	return (u32 *)PSXM(pc);
 }
 
-enum {
-	PSXINT_SIO = 0,
-	PSXINT_CDR,
-	PSXINT_CDREAD,
-	PSXINT_GPUDMA,
-	PSXINT_MDECOUTDMA,
-	PSXINT_SPUDMA,
-	PSXINT_GPUBUSY,
-	PSXINT_MDECINDMA,
-	PSXINT_GPUOTCDMA,
-	PSXINT_CDRDMA,
-	PSXINT_NEWDRC_CHECK,
-	PSXINT_RCNT,
-	PSXINT_CDRLID,
-	PSXINT_CDRPLAY,
-	PSXINT_SPU_UPDATE,
-	PSXINT_COUNT
-};
 
 #if defined(HW_RVL) || defined(HW_DOL) || defined(BIG_ENDIAN)
 

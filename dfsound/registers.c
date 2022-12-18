@@ -24,6 +24,14 @@
 #include "spu_config.h"
 #include "../psxcommon.h"
 
+#define DBG_SPU1	7
+#define DBG_SPU2	8
+#define DBG_SPU3	9
+
+#ifdef SHOW_DEBUG
+extern char txtbuffer[1024];
+#endif // DISP_DEBUG
+
 static void SoundOn(int start,int end,unsigned short val);
 static void SoundOff(int start,int end,unsigned short val);
 static void FModOn(int start,int end,unsigned short val);
@@ -225,18 +233,34 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
       break;
     //-------------------------------------------------//
     case H_Noise1:
+        #ifdef SHOW_DEBUG
+      sprintf(txtbuffer, "H_Noise1 %04x", val);
+     DEBUG_print(txtbuffer, DBG_SPU1);
+      #endif // DISP_DEBUG
       NoiseOn(0,16,val);
       break;
     //-------------------------------------------------//
     case H_Noise2:
+        #ifdef SHOW_DEBUG
+      sprintf(txtbuffer, "H_Noise2 %04x", val);
+     DEBUG_print(txtbuffer, DBG_SPU2);
+      #endif // DISP_DEBUG
       NoiseOn(16,24,val);
       break;
     //-------------------------------------------------//
     case H_RVBon1:
+        #ifdef SHOW_DEBUG
+      sprintf(txtbuffer, "H_RVBon1 %04x", val);
+     DEBUG_print(txtbuffer, DBG_SPU1);
+      #endif // DISP_DEBUG
       ReverbOn(0,16,val);
       break;
     //-------------------------------------------------//
     case H_RVBon2:
+        #ifdef SHOW_DEBUG
+      sprintf(txtbuffer, "H_RVBon2 %04x", val);
+     DEBUG_print(txtbuffer, DBG_SPU2);
+      #endif // DISP_DEBUG
       ReverbOn(16,24,val);
       break;
     //-------------------------------------------------//
@@ -499,10 +523,8 @@ static void SetPitch(int ch,unsigned short val)               // SET PITCH
  spu.s_chan[ch].sinc_inv=0;
  //if (spu_config.iUseInterpolation == 1)
   spu.SB[ch * SB_SIZE + 32] = 1; // -> freq change in simple interpolation mode: set flag
- if (val)
-  spu.dwChannelsAudible |= 1u << ch;
- else
-  spu.dwChannelsAudible &= ~(1u << ch);
+
+ // don't mess spu.dwChannelsAudible as adsr runs independently
 }
 
 ////////////////////////////////////////////////////////////////////////

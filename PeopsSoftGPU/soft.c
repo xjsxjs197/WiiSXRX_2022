@@ -1139,9 +1139,10 @@ readdatamem 0x00008000 1
 
    if(!bCheckMask && !DrawSemiTrans)
     {
+     lcol = HOST2LE32(lcol);
      for(i=0;i<dy;i++)
       {
-       for(j=0;j<dx;j++) { PUTLE32(DSTPtr, lcol); DSTPtr++; }
+       for(j=0;j<dx;j++) { *DSTPtr++ = lcol; }
        DSTPtr += LineOffset;
       }
     }
@@ -2620,17 +2621,17 @@ static __inline__ void drawPoly3Fi(short x1,short y1,short x2,short y2,short x3,
 
  if(!bCheckMask && !DrawSemiTrans)
   {
-   color |=sSetMask;
+   lcolor = HOST2LE32(lcolor);
    for (i=ymin;i<=ymax;i++)
     {
      xmin=left_x >> 16;      if(drawX>xmin) xmin=drawX;
      xmax=(right_x >> 16)-1; if(drawW<xmax) xmax=drawW;
 
-     for(j=xmin;j<xmax;j+=2)
+     for(j=xmin;j<xmax;j+=2) 
       {
-       PUTLE32(((unsigned long *)&psxVuw[(i<<10)+j]), lcolor);
+       *(uint32_t *)&psxVuw[(i<<10)+j] = lcolor;
       }
-     if(j==xmax) PUTLE16(&psxVuw[(i<<10)+j], color);
+     if(j==xmax) psxVuw[(i<<10)+j] = lcolor;
 
      if(NextRow_F()) return;
     }
@@ -2700,17 +2701,17 @@ static void drawPoly4F(int32_t rgb)
 
  if(!bCheckMask && !DrawSemiTrans)
   {
-   color |=sSetMask;
+   lcolor = HOST2LE32(lcolor);
    for (i=ymin;i<=ymax;i++)
     {
      xmin=left_x >> 16;      if(drawX>xmin) xmin=drawX;
      xmax=(right_x >> 16)-1; if(drawW<xmax) xmax=drawW;
 
-     for(j=xmin;j<xmax;j+=2)
+     for(j=xmin;j<xmax;j+=2) 
       {
-       PUTLE32(((unsigned long *)&psxVuw[(i<<10)+j]), lcolor);
+       *(uint32_t *)&psxVuw[(i<<10)+j] = lcolor;
       }
-     if(j==xmax) PUTLE16(&psxVuw[(i<<10)+j], color);
+     if(j==xmax) psxVuw[(i<<10)+j] = lcolor;
 
      if(NextRow_F4()) return;
     }
