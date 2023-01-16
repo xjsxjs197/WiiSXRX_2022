@@ -238,11 +238,11 @@ enum lang
 	KOREAN,
 	SPANISH,
 	PORTUGUESE,
+	ITALIAN,
 	TRAD_CHINESE,
 	JAPANESE,
 	GERMAN,
-	FRENCH,
-	ITALIAN
+	FRENCH
 };
 
 extern const unsigned char En_dat[];

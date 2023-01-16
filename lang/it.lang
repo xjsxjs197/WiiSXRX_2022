@@ -1,0 +1,573 @@
+﻿
+msgid "It"
+msgid "It"):
+
+msgid "Load ISO"
+msgstr "Carica ISO"
+
+msgid "Current ISO"
+msgstr "ISO attuale"
+
+msgid "Settings"
+msgstr "Configurazioni"
+
+msgid "Credits"
+msgstr "Crediti"
+
+msgid "Quit"
+msgstr "Esci"
+
+msgid "Play Game"
+msgstr "Esegui Gioco"
+
+msgid "Resume Game"
+msgstr "Riprendi il Gioco"
+
+msgid "Please load an ISO first"
+msgstr "Caricare prima un ISO"
+
+msgid "Are you sure you want to exit to loader?"
+msgstr "Sicuro di voler uscire?"
+
+msgid "Automatically saved to SD card"
+msgstr "Salvato nella memoria SD"
+
+msgid "Automatically saved to USB device"
+msgstr "Salvato nel dispositivo USB"
+
+msgid "Automatically saved to memcard in Slot A"
+msgstr "Salvato nella Memory Card A"
+
+msgid "Automatically saved to memcard in Slot B"
+msgstr "Salvato nella Memory Card B"
+
+msgid "Failed to save game"
+msgstr "Salvataggio fallito"
+
+msgid "No ISO Loaded"
+msgstr "ISO non caricata"
+
+msgid "AutoSave Enabled"
+msgstr "AutoSave abilitato"
+
+msgid "Nothing to Save"
+msgstr "Nulla da salvare"
+
+msgid "Game Needs Saving"
+msgstr "Devi salvare"
+
+msgid "General"
+msgstr "Generale"
+
+msgid "Video"
+msgstr "Video"
+
+msgid "Input"
+msgstr "Controlli"
+
+msgid "Audio"
+msgstr "Audio"
+
+msgid "Saves"
+msgstr "Salva"
+
+msgid "Select CPU Core"
+msgstr "Seleziona Core"
+
+msgid "Select Bios"
+msgstr "Seleziona Bios"
+
+msgid "Boot Through Bios"
+msgstr "Avvia con Bios"
+
+msgid "Execute Bios"
+msgstr "Esegui Bios"
+
+msgid "Save settings"
+msgstr "Salva i settaggi"
+
+msgid "Interpreter"
+msgstr "Interprete"
+
+msgid "Dynarec"
+msgstr "Dynarec"
+
+msgid "Yes"
+msgstr "Si"
+
+msgid "No"
+msgstr "No"
+
+msgid "On"
+msgstr "ON"
+
+msgid "Off"
+msgstr "OFF"
+
+msgid "Show FPS"
+msgstr "Mostra FPS"
+
+msgid "Limit FPS"
+msgstr "Limita FPS"
+
+msgid "Frame Skip"
+msgstr "Salta Frame"
+
+msgid "Screen Mode"
+msgstr "Modalità schermo"
+
+msgid "Dithering"
+msgstr "Dithering"
+
+msgid "Scaling"
+msgstr "Ridimensionamento"
+
+msgid "Auto"
+msgstr "Auto"
+
+msgid "Force 16:9"
+msgstr "Forza 16:9"
+
+msgid "None"
+msgstr "Nessuno"
+
+msgid "NoneNone"
+msgstr "Nulla"
+
+msgid "2xSaI"
+msgstr "2xSaI"
+
+msgid "Default"
+msgstr "Predefinito"
+
+msgid "Always"
+msgstr "Sempre"
+
+msgid "Configure Input"
+msgstr "Config. Controlli"
+
+msgid "Configure Buttons"
+msgstr "Config. Bottoni"
+
+msgid "PSX Controller Type"
+msgstr "Controlli tipo PSX"
+
+msgid "Disable Rumble"
+msgstr "Vibrazioni NO"
+
+msgid "Standard"
+msgstr "Standard"
+
+msgid "Analog"
+msgstr "Analogico"
+
+msgid "Save Button Configs"
+msgstr "Salva conf. pulsanti"
+
+msgid "Auto Load Slot:"
+msgstr "Autocaricamento:"
+
+msgid "Disable Audio"
+msgstr "Disabilita Audio"
+
+msgid "Disable XA"
+msgstr "Disabilita XA"
+
+msgid "Disable CDDA"
+msgstr "Disabilita CDDA"
+
+msgid "Volume"
+msgstr "Volume"
+
+msgid "loudest"
+msgstr "Altissimo"
+
+msgid "loud"
+msgstr "Alto"
+
+msgid "medium"
+msgstr "Medio"
+
+msgid "low"
+msgstr "Basso"
+
+msgid "Memcard Save Device"
+msgstr "Percorso MemoryCard"
+
+msgid "Auto Save Memcards"
+msgstr "AutoSave MemCards"
+
+msgid "Save States Device"
+msgstr "Stato Dispositivi"
+
+msgid "CardA"
+msgstr "CardA"
+
+msgid "CardB"
+msgstr "CardB"
+
+msgid "Game Reset"
+msgstr "Resetta"
+
+msgid "BIOS not found on SD"
+msgstr "il BIOS non è in SD"
+
+msgid "BIOS not found on USB"
+msgstr "il BIOS non è in USB"
+
+msgid "DVD BIOS not implemented"
+msgstr "BIOS DVD non implementato"
+
+msgid "You must select a BIOS, not HLE"
+msgstr "Seleziona un BIOS, non HLE"
+
+msgid "Failed to initialize system.\nTry loading an ISO."
+msgstr "Avvio sistema fallito.\Carica un ISO"
+
+msgid "Error opening directory sd:/wiisxr"
+msgstr "Errore apertura cartella sd:/wiisxr"
+
+msgid "Saved settings to SD"
+msgstr "Impostazioni salvate in SD"
+
+msgid "Error saving settings to SD"
+msgstr "Errore salvataggio impostazioni in SD"
+
+msgid "Error opening directory usb:/wiisxr"
+msgstr "Errore apertura cartella usb:/wiisxr"
+
+msgid "Saved settings to USB"
+msgstr "Impostazioni salvate in USB"
+
+msgid "Error saving settings to USB"
+msgstr "Errore salvataggio impostazioni in USB"
+
+msgid "Saved Button Configs to SD"
+msgstr "Salva mappatura tasti in SD"
+
+msgid "Error saving Button Configs to SD"
+msgstr "Errore salvataggio mappatura in SD"
+
+msgid "Saved Button Configs to USB"
+msgstr "Salva mappatura tasti in USB"
+
+msgid "Error saving Button Configs to USB"
+msgstr "Errore salvataggio mappatura in USB"
+
+msgid "CDDA audio is not implemented"
+msgstr "Audio CDDA non implementato"
+
+msgid "Slot 0"
+msgstr "Slot 0"
+
+msgid "Slot 1"
+msgstr "Slot 1"
+
+msgid "Slot 2"
+msgstr "Slot 2"
+
+msgid "Slot 3"
+msgstr "Slot 3"
+
+msgid "Slot 4"
+msgstr "Slot 4"
+
+msgid "Slot 5"
+msgstr "Slot 5"
+
+msgid "Slot 6"
+msgstr "Slot 6"
+
+msgid "Slot 7"
+msgstr "Slot 7"
+
+msgid "Slot 8"
+msgstr "Slot 8"
+
+msgid "Slot 9"
+msgstr "Slot 9"
+
+msgid "Pad Assignment"
+msgstr "Assegna comandi"
+
+msgid "PSX Pad 1"
+msgstr "Controller PSX 1"
+
+msgid "PSX Pad 2"
+msgstr "Controller PSX 2"
+
+msgid "PSX Pad 3"
+msgstr "Controller PSX 3"
+
+msgid "PSX Pad 4"
+msgstr "Controller PSX 4"
+
+msgid "Automatic"
+msgstr "Automatico"
+
+msgid "Manual"
+msgstr "Manuale"
+
+msgid "None"
+msgstr "Niente"
+
+msgid "Gamecube Pad"
+msgstr "PAD Gamecube"
+
+msgid "Wii Pad"
+msgstr "PAD Wii"
+
+msgid "Auto Assign"
+msgstr "Auto-alloca"
+
+msgid "Next Pad"
+msgstr "Pad suc."
+
+msgid "Load Default"
+msgstr "Carica predefinito"
+
+msgid "Load"
+msgstr "Carica"
+
+msgid "Save"
+msgstr "Salva"
+
+msgid "PSX Pad 1: No Physical Controller Assigned"
+msgstr "Pad 1 PSX: controller fisico non assegnato"
+
+msgid "PSX Pad 2: No Physical Controller Assigned"
+msgstr "Pad 2 PSX: controller fisico non assegnato"
+
+msgid "PSX Pad 3: No Physical Controller Assigned"
+msgstr "Pad 3 PSX: controller fisico non assegnato"
+
+msgid "PSX Pad 4: No Physical Controller Assigned"
+msgstr "Pad 4 PSX: controller fisico non assegnato"
+
+msgid "Gamecube Pad 1 to PSX Pad 1 Mapping"
+msgstr "Mappatura Pad 1 Gamecube a Pad 1 PSX"
+
+msgid "Gamecube Pad 2 to PSX Pad 2 Mapping"
+msgstr "Mappatura Pad 2 Gamecube a Pad 2 PSX"
+
+msgid "Gamecube Pad 3 to PSX Pad 3 Mapping"
+msgstr "Mappatura Pad 3 Gamecube a Pad 3 PSX"
+
+msgid "Gamecube Pad 4 to PSX Pad 4 Mapping"
+msgstr "Mappatura Pad 4 Gamecube a Pad 4 PSX"
+
+msgid "PSX Pad 1: Gamecube Pad 1 Mapping"
+msgstr "Pad 1 PSX: Mappatura Pad 1 Gamecube"
+
+msgid "PSX Pad 2: Gamecube Pad 2 Mapping"
+msgstr "Pad 2 PSX: Mappatura Pad 2 Gamecube"
+
+msgid "PSX Pad 1: Gamecube Pad 2 Mapping"
+msgstr "Pad 1 PSX: Mappatura Pad 2 Gamecube"
+
+msgid "PSX Pad 2: Gamecube Pad 1 Mapping"
+msgstr "Pad 2 PSX: Mappatura Pad 1 Gamecube"
+
+msgid "PSX Pad 1: Classic Pad 1 Mapping"
+msgstr "Pad 1 PSX: Mappatura Pad 1 classica"
+
+msgid "PSX Pad 2: Classic Pad 2 Mapping"
+msgstr "Pad 2 PSX: Mappatura Pad 2 classica"
+
+msgid "PSX Pad 1: Classic Pad 2 Mapping"
+msgstr "Pad 1 PSX: Mappatura Pad 2 classica"
+
+msgid "PSX Pad 2: Classic Pad 1 Mapping"
+msgstr "Pad 2 PSX: Mappatura Pad 1 classica"
+
+msgid "PSX Pad 1: Wiimote+Nunchuck Pad 1 Mapping"
+msgstr "Pad 1 PSX: Mappatura Pad 1 Wiimote+Nunchuck"
+
+msgid "PSX Pad 2: Wiimote+Nunchuck Pad 2 Mapping"
+msgstr "Pad 2 PSX: Mappatura Pad 2 Wiimote+Nunchuck"
+
+msgid "PSX Pad 1: Wiimote+Nunchuck Pad 2 Mapping"
+msgstr "Pad 1 PSX: Mappatura Pad 2 Wiimote+Nunchuck"
+
+msgid "PSX Pad 2: Wiimote+Nunchuck Pad 1 Mapping"
+msgstr "Pad 2 PSX: Mappatura Pad 1 Wiimote+Nunchuck"
+
+msgid "PSX Pad 1: Wiimote Pad 1 Mapping"
+msgstr "Pad 1 PSX: Mappatura Pad 1 Wiimote"
+
+msgid "PSX Pad 2: Wiimote Pad 2 Mapping"
+msgstr "Pad 2 PSX: Mappatura Pad 2 Wiimote"
+
+msgid "PSX Pad 1: Wiimote Pad 2 Mapping"
+msgstr "Pad 1 PSX: Mappatura Pad 2 Wiimote"
+
+msgid "PSX Pad 2: Wiimote Pad 1 Mapping"
+msgstr "Pad 2 PSX: Mappatura Pad 1 Wiimote"
+
+msgid "PSX Pad 1: Wii U Pro Pad 1 Mapping"
+msgstr "Pad 1 PSX: Mappatura Pad 1 Wii U Pro"
+
+msgid "PSX Pad 2: Wii U Pro Pad 2 Mapping"
+msgstr "Pad 2 PSX: Mappatura Pad 2 Wii U Pro"
+
+msgid "PSX Pad 1: Wii U Pro Pad 2 Mapping"
+msgstr "Pad 1 PSX: Mappatura Pad 2 Wii U Pro"
+
+msgid "PSX Pad 2: Wii U Pro Pad 1 Mapping"
+msgstr "Pad 2 PSX: Mappatura Pad 1 Wii U Pro"
+
+msgid "Saved current button mapping to slot 1."
+msgstr "Salva mappatura tasti in Slot 1"
+
+msgid "Saved current button mapping to slot 2."
+msgstr "Salva mappatura tasti in Slot 2"
+
+msgid "Load from SD"
+msgstr "Carica da SD"
+
+msgid "Load from DVD"
+msgstr "Carica da DVD"
+
+msgid "Load from USB"
+msgstr "Carica da USB"
+
+msgid "Load from Samba"
+msgstr "Carica da Samba"
+
+msgid "Available only for Wii"
+msgstr "Disponibile solo per Wii"
+
+msgid "Network not yet initialized"
+msgstr "Rete non ancora inizializzata"
+
+msgid "SMB not configured"
+msgstr "SMB non configurato"
+
+msgid "SMB failed to connect"
+msgstr "Connessione SMB fallita"
+
+msgid "An error occured"
+msgstr "Si è verificato un errore"
+
+msgid "Failed to load ISO"
+msgstr "Caricamento ISO fallito"
+
+msgid "Error opening directory"
+msgstr "Errore apertura cartella"
+
+msgid "Game restarted"
+msgstr "Gioco riavviato"
+
+msgid "Restart Game"
+msgstr "Riavvia Gioco"
+
+msgid "Swap CD"
+msgstr "Cambia CD"
+
+msgid "Load MemCards"
+msgstr "Carica MemCard"
+
+msgid "Save MemCards"
+msgstr "Galva MemCard"
+
+msgid "Show ISO Info"
+msgstr "Info. ISO"
+
+msgid "Load State"
+msgstr "Carica stato"
+
+msgid "Save State"
+msgstr "Salva stato"
+
+msgid "Loaded save from SD card"
+msgstr "Salvataggio caricato da SD"
+
+msgid "No saves found on SD card"
+msgstr "Nessun salvataggio su SD"
+
+msgid "Loaded save from USB device"
+msgstr "Salvataggio caricato da USB"
+
+msgid "No saves found on USB device"
+msgstr "Nessun salvataggio su USB"
+
+msgid "Loaded save from memcard in slot A"
+msgstr "Salvataggio caricato da MemoryCard A"
+
+msgid "No saves found on memcard in slot A"
+msgstr "Nessun salvataggio su MemoryCard A"
+
+msgid "Loaded save from memcard in slot B"
+msgstr "Salvataggio caricato da MemoryCard B"
+
+msgid "No saves found on memcard in slot B"
+msgstr "Nessun salvataggio su MemoryCard B"
+
+msgid "Nothing to save"
+msgstr "Niente da salvare"
+
+msgid "Saved game to SD card"
+msgstr "Salvataggio gioco in SD"
+
+msgid "Saved game to USB device"
+msgstr "Salvataggio gioco in USB"
+
+msgid "Saved game to memcard in Slot A"
+msgstr "Salvataggio gioco in MemoryCard A"
+
+msgid "Saved game to memcard in Slot B"
+msgstr "Salvataggio gioco in MemoryCard B"
+
+msgid "Failed to Save"
+msgstr "Salvataggio fallito"
+
+msgid "Save State Loaded Successfully"
+msgstr "Stato caricato correttamente"
+
+msgid "Save doesn't exist"
+msgstr "Salvataggio assente"
+
+msgid "Save State Saved Successfully"
+msgstr "Stato salvato con successo"
+
+msgid "Error Saving State"
+msgstr "Errore salvataggio Stato"
+
+msgid "OK"
+msgstr "Bene"
+
+msgid "Cancel"
+msgstr "Annulla"
+
+msgid "Prev"
+msgstr "Prec."
+
+msgid "Next"
+msgstr "Pros."
+
+msgid "En"
+msgstr "En"
+
+msgid "Chs"
+msgstr "Chs"
+
+msgid "Cht"
+msgstr "Cht"
+
+msgid "Jp"
+msgstr "Jp"
+
+msgid "Kr"
+msgstr "Kr"
+
+msgid "Es"
+msgstr "Es"
+
+msgid "Pte"
+msgstr "Pt"
+
+msgid "Select language"
+msgstr "Seleziona lingua"
+
+msgid "Because the language has changed, please restart"
+msgstr "Poiché la lingua è cambiata, riavviare"

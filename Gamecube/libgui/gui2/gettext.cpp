@@ -223,6 +223,7 @@ bool LoadLanguage()
 		case TRAD_CHINESE: file = (char *)zh_lang; eof = file + zh_lang_size; break;
 		case KOREAN: file = (char *)Kr_lang; eof = file + Kr_lang_size; break;
 		case PORTUGUESE: file = (char *)pt_lang; eof = file + pt_lang_size; break;
+		case ITALIAN: file = (char *)it_lang; eof = file + it_lang_size; break;
 		//case LANG_BRAZILIAN_PORTUGUESE: file = (char *)pt_br_lang; eof = file + pt_br_lang_size; break;
 		//case LANG_CATALAN: file = (char *)ca_lang; eof = file + ca_lang_size; break;
 		//case LANG_TURKISH: file = (char *)tr_lang; eof = file + tr_lang_size; break;

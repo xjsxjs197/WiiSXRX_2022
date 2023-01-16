@@ -150,6 +150,10 @@ FILE* IplFont::getFontFile(char* sdUsb)
             sprintf(fontPathBuf, "%s%s", sdUsb, ":/wiisxrx/fonts/Pt.dat");
             break;
 
+        case ITALIAN:
+            sprintf(fontPathBuf, "%s%s", sdUsb, ":/wiisxrx/fonts/It.dat");
+            break;
+
         default:
             sprintf(fontPathBuf, "%s%s", sdUsb, ":/wiisxrx/fonts/Chs.dat");
             break;
