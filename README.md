@@ -7,16 +7,16 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 ## The following changes have been made to the code based on WiiSXRX.
 
 * Incorporating the CDROM and CDRISO codes of PCSX-ReARMed, the compatibility of the system has been greatly improved.
-  Many games that could not be run or had problems before can be run.
+  Many games that could not be run or had problems before can be run now.
 
-* CDDA (Compact Disc Digital Audio) tracks support.
+* CDDA (Compact Disc Digital Audio) tracks & multi-tracks support.
 
 * Incorporating the timer codes of PCSX-ReARMed.
 
 * Combined the DFSound module of PCSX-ReARMed and used the SDL library.
   The sound quality of the system has been greatly improved.
 
-* Modification of some dynamic compilation instructions, such as sllv, SRLV, srav, Final Fantasy 9 and Biohazard 3 can be run.
+* Modification of some dynamic compilation instructions, such as SLLV, SRLV, SRAV, Final Fantasy 9 and Biohazard 3 (Resident Evil 3) can be run.
   (Part of the division instruction uses a static compilation instruction)
 
 * Support for multiple languages.
@@ -25,7 +25,7 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
   So it can only be made into a specific font.
   Font char information: first two byte: BigEndianUnicode char code, followed by a character picture in IA8 format with a size of 24 * 24.
 
-* For some customed Chinese culture games, specific BIOS is automatically loaded.
+* For some customized Chinese culture games, specific BIOS is automatically loaded.
   For example:  sd:\wiisxrx\isos\武藏传.ISO => sd:\wiisxrx\bios\武藏传.bin
 
 * Other minor corrections, such as disc changing (swap) and automatic fixes (autoFix functions) for some games.
@@ -36,10 +36,10 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
 (some taken from NiuuS' WiiSXRX readme)
 
-* Improve GTE code to provide 3D game speed.
-  Although I used paired single instruction, but the speed is basically not improved.
+* Improve GTE (Geometry Transformation Engine) code to provide 3D game speed.
+  Although I used paired single instruction, the speed is basically not improved.
 
-* Use the display mode of GL to provide image quality and performance.
+* Use the graphics display mode of GL to provide image quality and performance.
   I don't know anything about OpenGL, and I don't know if I can use grrlib.
 
 * DualShock 3, DualShock 4 and DualShock 5 controller support.
