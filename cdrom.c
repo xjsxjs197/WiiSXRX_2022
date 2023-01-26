@@ -299,6 +299,11 @@ static void sec2msf(unsigned int s, u8 *msf) {
 	} \
 }
 
+#define SetPlaySeekRead(x, f) { \
+	x &= ~(STATUS_PLAY | STATUS_SEEK | STATUS_READ); \
+	x |= f; \
+}
+
 #define SetResultSize(size) { \
 	cdr.ResultP = 0; \
 	cdr.ResultC = size; \
@@ -468,48 +473,52 @@ static void generate_subq(const u8 *time)
 }
 
 static void ReadTrack(const u8 *time) {
-	unsigned char tmp[3];
-	struct SubQ *subq;
-	u16 crc;
+	unsigned char tmp[4];
+	//struct SubQ *subq;
+	//u16 crc;
 
 	tmp[0] = itob(time[0]);
 	tmp[1] = itob(time[1]);
 	tmp[2] = itob(time[2]);
+	tmp[3] = 0;
 
-	if (memcmp(cdr.Prev, tmp, 3) == 0)
+	//if (memcmp(cdr.Prev, tmp, 3) == 0)
+	if (*(u32*)&cdr.Prev == *(u32*)tmp)
 		return;
 
 	CDR_LOG("ReadTrack *** %02x:%02x:%02x\n", tmp[0], tmp[1], tmp[2]);
 
 	cdr.NoErr = CDR_readTrack(tmp);
-	memcpy(cdr.Prev, tmp, 3);
+	//memcpy(cdr.Prev, tmp, 3);
+	*(u32*)&cdr.Prev = *(u32*)tmp;
 
 	//if (CheckSBI(time))
 	//	return;
 
-	subq = (struct SubQ *)CDR_getBufferSub();
-	if (subq != NULL && cdr.CurTrack == 1) {
-		crc = calcCrc((u8 *)subq + 12, 10);
-		if (crc == (((u16)subq->CRC[0] << 8) | subq->CRC[1])) {
-			cdr.subq.Track = subq->TrackNumber;
-			cdr.subq.Index = subq->IndexNumber;
-			memcpy(cdr.subq.Relative, subq->TrackRelativeAddress, 3);
-			memcpy(cdr.subq.Absolute, subq->AbsoluteAddress, 3);
-		}
-		else {
-			CDR_LOG_I("subq bad crc @%02x:%02x:%02x\n",
-				tmp[0], tmp[1], tmp[2]);
-		}
-	}
-	else {
-		generate_subq(time);
-	}
-
-	CDR_LOG(" -> %02x,%02x %02x:%02x:%02x %02x:%02x:%02x\n",
-		cdr.subq.Track, cdr.subq.Index,
-		cdr.subq.Relative[0], cdr.subq.Relative[1], cdr.subq.Relative[2],
-		cdr.subq.Absolute[0], cdr.subq.Absolute[1], cdr.subq.Absolute[2]);
+//	subq = (struct SubQ *)CDR_getBufferSub();
+//	if (subq != NULL && cdr.CurTrack == 1) {
+//		crc = calcCrc((u8 *)subq + 12, 10);
+//		if (crc == (((u16)subq->CRC[0] << 8) | subq->CRC[1])) {
+//			cdr.subq.Track = subq->TrackNumber;
+//			cdr.subq.Index = subq->IndexNumber;
+//			memcpy(cdr.subq.Relative, subq->TrackRelativeAddress, 3);
+//			memcpy(cdr.subq.Absolute, subq->AbsoluteAddress, 3);
+//		}
+//		else {
+//			CDR_LOG_I("subq bad crc @%02x:%02x:%02x\n",
+//				tmp[0], tmp[1], tmp[2]);
+//		}
+//	}
+//	else {
+//		generate_subq(time);
+//	}
+//
+//	CDR_LOG(" -> %02x,%02x %02x:%02x:%02x %02x:%02x:%02x\n",
+//		cdr.subq.Track, cdr.subq.Index,
+//		cdr.subq.Relative[0], cdr.subq.Relative[1], cdr.subq.Relative[2],
+//		cdr.subq.Absolute[0], cdr.subq.Absolute[1], cdr.subq.Absolute[2]);
 }
+
 
 static void AddIrqQueue(unsigned short irq, unsigned long ecycle) {
 	if (cdr.Irq != 0) {
@@ -547,6 +556,7 @@ static void cdrPlayInterrupt_Autopause(s16* cddaBuf)
 		setIrq();
 
 		StopCdda();
+		SetPlaySeekRead(cdr.StatP, 0);
 	}
 	else if (((cdr.Mode & MODE_REPORT) || cdr.FastForward || cdr.FastBackward)) {
         #ifdef SHOW_DEBUG
@@ -590,39 +600,6 @@ static void cdrPlayInterrupt_Autopause(s16* cddaBuf)
 	}
 }
 
-// called by playthread
-static void cdrPlayCddaData(int timePlus, int isEnd, s16* cddaBuf)
-{
-	if (!cdr.Play) return;
-
-	if (*(u32 *)cdr.SetSectorPlay >= *(u32 *)cdr.SetSectorEnd) {
-        #ifdef SHOW_DEBUG
-        sprintf(txtbuffer, "cdrPlayCddaData End");
-        DEBUG_print(txtbuffer, DBG_CDR4);
-        #endif // DISP_DEBUG
-		StopCdda();
-		cdr.TrackChanged = TRUE;
-	}
-
-	if (!cdr.Irq && !cdr.Stat && (cdr.Mode & (MODE_AUTOPAUSE | MODE_REPORT)))
-		cdrPlayInterrupt_Autopause(cddaBuf);
-
-    if (!cdr.Play) return;
-
-	cdr.SetSectorPlay[2] += timePlus;
-	if (cdr.SetSectorPlay[2] >= 75) {
-		cdr.SetSectorPlay[2] = 0;
-		cdr.SetSectorPlay[1]++;
-		if (cdr.SetSectorPlay[1] == 60) {
-			cdr.SetSectorPlay[1] = 0;
-			cdr.SetSectorPlay[0]++;
-		}
-	}
-
-	// update for CdlGetlocP/autopause
-	generate_subq(cdr.SetSectorPlay);
-}
-
 // also handles seek
 void cdrPlayInterrupt()
 {
@@ -658,6 +635,7 @@ void cdrPlayInterrupt()
 	CDR_LOG( "CDDA - %d:%d:%d\n",
 		cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2] );
 
+	SetPlaySeekRead(cdr.StatP, STATUS_PLAY);
 	//if (memcmp(cdr.SetSectorPlay, cdr.SetSectorEnd, 3) == 0) {
 	if (*(u32 *)cdr.SetSectorPlay >= *(u32 *)cdr.SetSectorEnd) {
         #ifdef SHOW_DEBUG
@@ -665,6 +643,7 @@ void cdrPlayInterrupt()
         DEBUG_print(txtbuffer, DBG_CDR4);
         #endif // DISP_DEBUG
 		StopCdda();
+		SetPlaySeekRead(cdr.StatP, 0);
 		cdr.TrackChanged = TRUE;
 	}
 	//else {
@@ -727,7 +706,7 @@ void cdrInterrupt() {
 	int error = 0;
 	int delay;
 	unsigned int seekTime = 0;
-	u8 set_loc[3];
+	u8 set_loc[4];
 	int i;
 
 	// Reschedule IRQ
@@ -796,18 +775,23 @@ void cdrInterrupt() {
 			}
 			else
 			{
-				for (i = 0; i < 3; i++)
+				/*for (i = 0; i < 3; i++)
 				{
 					set_loc[i] = btoi(cdr.Param[i]);
-				}
+				}*/
+				set_loc[0] = btoi(cdr.Param[0]);
+				set_loc[1] = btoi(cdr.Param[1]);
+				set_loc[2] = btoi(cdr.Param[2]);
+				set_loc[3] = 0;
 
 				i = msf2sec(cdr.SetSectorPlay);
 				i = abs(i - msf2sec(set_loc));
 				if (i > 16)
 					cdr.Seeked = SEEK_PENDING;
 
-				memcpy(cdr.SetSector, set_loc, 3);
-				cdr.SetSector[3] = 0;
+				//memcpy(cdr.SetSector, set_loc, 3);
+				//cdr.SetSector[3] = 0;
+				*(u32*)cdr.SetSector = *(u32*)set_loc;
 				cdr.SetlocPending = 1;
 			}
 			break;
@@ -1026,6 +1010,26 @@ void cdrInterrupt() {
 
 		case CdlGetlocP:
 			SetResultSize(8);
+			Find_CurTrack(cdr.SetSectorPlay);
+			struct SubQ *subq;
+			subq = (struct SubQ *)CDR_getBufferSub();
+            if (subq != NULL && cdr.CurTrack == 1) {
+                u16 crc;
+                crc = calcCrc((u8 *)subq + 12, 10);
+                if (crc == (((u16)subq->CRC[0] << 8) | subq->CRC[1])) {
+                    cdr.subq.Track = subq->TrackNumber;
+                    cdr.subq.Index = subq->IndexNumber;
+                    memcpy(cdr.subq.Relative, subq->TrackRelativeAddress, 3);
+                    memcpy(cdr.subq.Absolute, subq->AbsoluteAddress, 3);
+                }
+                else {
+                    CDR_LOG_I("subq bad crc @%02x:%02x:%02x\n",
+                        tmp[0], tmp[1], tmp[2]);
+                }
+            }
+            else {
+                generate_subq(cdr.SetSectorPlay);
+            }
 			//memcpy(&cdr.Result, &cdr.subq, 8);
 			*(long long int *)(&cdr.Result) = *(long long int *)(&cdr.subq);
 			if (!cdr.Play && !cdr.Reading)
@@ -1202,10 +1206,10 @@ void cdrInterrupt() {
 				cdr.SetlocPending = 0;
 				cdr.m_locationChanged = TRUE;
 			}
-			Find_CurTrack(cdr.SetSectorPlay);
+			//Find_CurTrack(cdr.SetSectorPlay);
 
         	#ifdef SHOW_DEBUG
-            sprintf(txtbuffer, "READ_ACK Mode %d Track %d seekTime %ld\n", cdr.Mode & MODE_CDDA, cdr.CurTrack, seekTime);
+            sprintf(txtbuffer, "READ_ACK Mode %d Track %d SetlocPending %ld\n", cdr.Mode & MODE_CDDA, cdr.CurTrack, cdr.SetlocPending);
             DEBUG_print(txtbuffer, DBG_PROFILE_GFX);
             writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
@@ -1226,7 +1230,8 @@ void cdrInterrupt() {
 			{
 				u8 *buf = CDR_getBuffer();
 				if (buf != NULL)
-					memcpy(cdr.Transfer, buf, 8);
+					//memcpy(cdr.Transfer, buf, 8);
+					*(long long int *)(cdr.Transfer) = *(long long int *)(buf);
 			}
 
 			/*
@@ -1386,7 +1391,7 @@ void cdrReadInterrupt() {
 	cdr.Result[0] = cdr.StatP;
 	cdr.Seeked = SEEK_DONE;
 
-	ReadTrack(cdr.SetSectorPlay);
+	//ReadTrack(cdr.SetSectorPlay);
 
 	buf = CDR_getBuffer();
 	if (buf == NULL)
@@ -1406,18 +1411,15 @@ void cdrReadInterrupt() {
 		return;
 	}
 
-	memcpy(cdr.Transfer, buf, DATA_SIZE);
+	//memcpy(cdr.Transfer, buf, DATA_SIZE);
 	//CheckPPFCache(cdr.Transfer, cdr.Prev[0], cdr.Prev[1], cdr.Prev[2]);
 
-#ifdef CDR_LOG
-	//fprintf(emuLog, "cdrReadInterrupt() Log: cdr.Transfer %x:%x:%x\n", cdr.Transfer[0], cdr.Transfer[1], cdr.Transfer[2]);
-#endif
-
+	cdr.PlayAdpcm = FALSE;
 	if ((!cdr.Muted) && (cdr.Mode & MODE_STRSND) && (!Config.Xa) && (cdr.FirstSector != -1)) { // CD-XA
 		// Firemen 2: Multi-XA files - briefings, cutscenes
 		if( cdr.FirstSector == 1 && (cdr.Mode & MODE_SF)==0 ) {
-			cdr.File = cdr.Transfer[4 + 0];
-			cdr.Channel = cdr.Transfer[4 + 1];
+			cdr.File = buf[4 + 0];
+			cdr.Channel = buf[4 + 1];
 		}
 
 		/* Gameblabla
@@ -1425,15 +1427,15 @@ void cdrReadInterrupt() {
 		 * Fixes missing audio in Blue's Clues : Blue's Big Musical. (Should also fix Taxi 2)
 		 * TODO : Check if this is the proper behaviour.
 		 * */
-		if((cdr.Transfer[4 + 2] & 0x4) &&
-			 (cdr.Transfer[4 + 1] == cdr.Channel) &&
-			 (cdr.Transfer[4 + 0] == cdr.File) && cdr.Channel != 255) {
+		if((buf[4 + 2] & 0x4) &&
+			 (buf[4 + 1] == cdr.Channel) &&
+			 (buf[4 + 0] == cdr.File) && cdr.Channel != 255) {
 
             cdr.PlayAdpcm = TRUE;
             //LWP_CreateThread(&threadPlayAdpcm, playAdpcmThread, NULL, NULL, 0, 80);
             //return;
 
-			int ret = xa_decode_sector(&cdr.Xa, cdr.Transfer+4, cdr.FirstSector);
+			int ret = xa_decode_sector(&cdr.Xa, buf+4, cdr.FirstSector);
 			#ifdef SHOW_DEBUG
             sprintf(txtbuffer, "playADPCMchannel ret %d\n", ret);
             DEBUG_print(txtbuffer, DBG_CDR4);
@@ -1480,15 +1482,12 @@ void cdrReadInterrupt() {
 		cdr.m_locationChanged = FALSE;
 	} else {
 	    CDREAD_INT(delay);
-	    /*if (cdr.PlayAdpcm)
-        {
-            CDREAD_INT((cdr.Mode & 0x80) ? (playAdpcmTime / 2) : playAdpcmTime);
-		}
-		else
-		{
-		    CDREAD_INT(delay);
-		}*/
 	}
+
+	if (cdr.PlayAdpcm == FALSE)
+    {
+        memcpy(cdr.Transfer, buf, DATA_SIZE);
+    }
 
 	/*
 	Croc 2: $40 - only FORM1 (*)
@@ -1496,7 +1495,7 @@ void cdrReadInterrupt() {
 	Sim Theme Park - no adpcm at all (zero)
 	*/
 
-	if (!(cdr.Mode & MODE_STRSND) || !(cdr.Transfer[4+2] & 0x4)) {
+	if (!(cdr.Mode & MODE_STRSND) || !(buf[4+2] & 0x4)) {
 		cdr.Stat = DataReady;
 		setIrq();
 	}
@@ -1835,8 +1834,8 @@ void cdrReset() {
 	cdr.AttenuatorRightToRight = 0x80;
 	getCdInfo();
 
-	p_cdrPlayCddaData = cdrPlayCddaData;
-	p_cdrAttenuate = cdrAttenuate;
+	//p_cdrPlayCddaData = cdrPlayCddaData;
+	//p_cdrAttenuate = cdrAttenuate;
 }
 
 int cdrFreeze(gzFile f, int Mode) {
