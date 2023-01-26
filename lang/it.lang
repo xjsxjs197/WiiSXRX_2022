@@ -1,6 +1,3 @@
-﻿
-msgid "It"
-msgid "It"):
 
 msgid "Load ISO"
 msgstr "Carica ISO"
@@ -534,7 +531,7 @@ msgid "Error Saving State"
 msgstr "Errore salvataggio Stato"
 
 msgid "OK"
-msgstr "Grazie"
+msgstr "OK"
 
 msgid "Cancel"
 msgstr "Annulla"
@@ -565,6 +562,9 @@ msgstr "Es"
 
 msgid "Pte"
 msgstr "Pt"
+
+msgid "It"
+msgstr "It"
 
 msgid "Select language"
 msgstr "Seleziona lingua"
