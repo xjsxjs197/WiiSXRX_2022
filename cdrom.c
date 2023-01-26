@@ -1181,6 +1181,12 @@ void cdrInterrupt() {
 
 		case CdlReadN:
 		case CdlReadS:
+		    #ifdef SHOW_DEBUG
+            sprintf(txtbuffer, "READ_ACK Mode %d Track %d SetlocPending %ld\n", cdr.Mode & MODE_CDDA, cdr.CurTrack, cdr.SetlocPending);
+            DEBUG_print(txtbuffer, DBG_PROFILE_GFX);
+            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
+
 			if (cdr.SetlocPending) {
 				seekTime = abs(msf2sec(cdr.SetSectorPlay) - msf2sec(cdr.SetSector)) * (cdReadTime / 200);
 				/*
@@ -1208,11 +1214,6 @@ void cdrInterrupt() {
 			}
 			//Find_CurTrack(cdr.SetSectorPlay);
 
-        	#ifdef SHOW_DEBUG
-            sprintf(txtbuffer, "READ_ACK Mode %d Track %d SetlocPending %ld\n", cdr.Mode & MODE_CDDA, cdr.CurTrack, cdr.SetlocPending);
-            DEBUG_print(txtbuffer, DBG_PROFILE_GFX);
-            writeLogFile(txtbuffer);
-            #endif // DISP_DEBUG
 			if ((cdr.Mode & MODE_CDDA) && cdr.CurTrack > 1)
 				// Read* acts as play for cdda tracks in cdda mode
 				goto do_CdlPlay;
@@ -1223,7 +1224,6 @@ void cdrInterrupt() {
 			// Fighting Force 2 - update subq time immediately
 			// - fixes new game
 			ReadTrack(cdr.SetSectorPlay);
-
 
 			// Crusaders of Might and Magic - update getlocl now
 			// - fixes cutscene speech
