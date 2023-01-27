@@ -31,10 +31,12 @@ volatile int    iReadPos = 0, iWritePos = 0;
 
 static void SOUND_FillAudio(void *unused, Uint8 *stream, int len) {
     short *p = (short *)stream;
+    int tmpWritePos = iWritePos;
 
     len >>= 1;
 
-    while (iReadPos != iWritePos && len > 0) {
+    while (iReadPos != tmpWritePos && len > 0)
+    {
         *p++ = pSndBuffer[iReadPos++];
         if (iReadPos >= BUFFER_SIZE) iReadPos = 0;
         --len;
@@ -126,20 +128,20 @@ static int sdl_busy(void) {
 
 static int sdl_feed(void *pSound, int lBytes) {
 
-    if (pSndBuffer == NULL || iWritePos == iReadPos)
-    {
-        return;
-    }
-    short *p = (short *)pSound;
+    if (pSndBuffer == NULL) return;
 
-    /*while (lBytes > 0) {
+    short *p = (short *)pSound;
+    int tmpReadPos = iReadPos;
+    lBytes = lBytes >> 1;
+
+    while (lBytes-- > 0) {
         ++iWritePos;
         if (iWritePos >= BUFFER_SIZE) iWritePos = 0;
 
-        if (iWritePos == iReadPos)
+        if (iWritePos == tmpReadPos)
         {
             #ifdef SHOW_DEBUG
-            DEBUG_print("sdl_feed === error", DBG_SPU1);
+            DEBUG_print("sdlFeed buffer not enough", DBG_SPU1);
             #endif // DISP_DEBUG
             iWritePos--;
             if (iWritePos < 0)
@@ -150,26 +152,9 @@ static int sdl_feed(void *pSound, int lBytes) {
         }
 
         pSndBuffer[iWritePos] = *p++;
-
-        lBytes -= sizeof(short);
-    }*/
-    if (iWritePos < iReadPos)
-    {
-        int bufSize = (iReadPos - iWritePos) << 1;
-        if (bufSize > lBytes)
-        {
-            bufSize = lBytes;
-        }
-        memcpy(pSndBuffer, pSound, bufSize);
-        iWritePos = iReadPos;
-        lBytes = 0;
-    }
-    else
-    {
-
     }
 
-    return lBytes;
+    return (lBytes << 1);
 }
 
 void out_register_sdl(struct out_driver *drv)
