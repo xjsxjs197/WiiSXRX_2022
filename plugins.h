@@ -137,7 +137,7 @@ struct SubQ {
 	unsigned char CRC[2];
 	char res1[72];
 };
-typedef long (CALLBACK* CDRreadCDDA)(unsigned char, unsigned char, unsigned char, unsigned char *);
+typedef long (CALLBACK* CDRreadCDDA)(unsigned char *, unsigned char *);
 
 //cd rom function pointers
 CDRinit               CDR_init;

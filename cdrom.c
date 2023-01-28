@@ -562,7 +562,7 @@ static void cdrPlayInterrupt_Autopause(s16* cddaBuf)
         #ifdef SHOW_DEBUG
         //DEBUG_print("Autopause CDR_readCDDA ===", DBG_CDR1);
         #endif // DISP_DEBUG
-		//CDR_readCDDA(cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2], (u8 *)cddaBuf);
+		//CDR_readCDDA(cdr.SetSectorPlay, (u8 *)cddaBuf);
 		cdr.Result[0] = cdr.StatP;
 		cdr.Result[1] = cdr.subq.Track;
 		cdr.Result[2] = cdr.subq.Index;
@@ -647,7 +647,7 @@ void cdrPlayInterrupt()
 		cdr.TrackChanged = TRUE;
 	}
 	//else {
-	//	CDR_readCDDA(cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2], (u8 *)read_buf);
+	//	CDR_readCDDA(cdr.SetSectorPlay, (u8 *)read_buf);
 	//}
 
 	if (!cdr.Irq && !cdr.Stat && (cdr.Mode & (MODE_AUTOPAUSE|MODE_REPORT)))
@@ -663,8 +663,7 @@ void cdrPlayInterrupt()
         sprintf(txtbuffer, "CDR_readCDDA time %d %d %d", cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2]);
         DEBUG_print(txtbuffer, DBG_CDR2);
         #endif // DISP_DEBUG
-		//CDR_readCDDA(cdr.SetSectorPlay[0], cdr.SetSectorPlay[1],
-		//	cdr.SetSectorPlay[2], cdr.Transfer);
+		//CDR_readCDDA(cdr.SetSectorPlay, cdr.Transfer);
 
 		//cdrAttenuate((s16 *)cdr.Transfer, CD_FRAMESIZE_RAW / 4, 1);
 		//if (SPU_playCDDAchannel)
