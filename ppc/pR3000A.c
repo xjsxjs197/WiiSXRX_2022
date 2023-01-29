@@ -3281,12 +3281,47 @@ static void recCTC2() {
     }
 }
 
+static void recSWC2() {
+    //psxMemWrite32((psxRegs.GPR.r[_Rs_] + _Imm_), MFC2(_Rt_));
+    ReserveArgs(2);
+    ADDI(PutHWRegSpecial(ARG1), GetHWReg32(_Rs_), _Imm_);
+    switch(_Rt_) {
+        case 29:
+//            gteORGB = (gteIR1 >> 7) & 0x1f) | ((gteIR2 >> 2) & 0x3e0) | ((gteIR3 << 3) & 0x7c00);
+//            psxRegs.GPR.r[_Rt_] = gteORGB;
+            iFlushRegs(0);
+            LWZ(0, OFFSET(&psxRegs, &(gteIR1)), GetHWRegSpecial(PSXREGS));
+            SRWI(0, 0, 7);
+            ORI(0, 0, 0x1f);
+            MR(PutHWRegSpecial(ARG2), 0);
+
+            LWZ(0, OFFSET(&psxRegs, &(gteIR2)), GetHWRegSpecial(PSXREGS));
+            SRWI(0, 0, 2);
+            ORI(0, 0, 0x3e0);
+            OR(PutHWRegSpecial(ARG2), 0, GetHWRegSpecial(ARG2));
+
+            LWZ(0, OFFSET(&psxRegs, &(gteIR3)), GetHWRegSpecial(PSXREGS));
+            SLWI(0, 0, 3);
+            ORI(0, 0, 0x7c00);
+            OR(PutHWRegSpecial(ARG2), 0, GetHWRegSpecial(ARG2));
+
+            STW(GetHWRegSpecial(ARG2), OFFSET(&psxRegs, &(gteORGB)), GetHWRegSpecial(PSXREGS));
+            break;
+
+        default:
+            //psxRegs.GPR.r[_Rt_] = psxRegs.CP2D.r[_Rt_];
+            LWZ(PutHWRegSpecial(ARG2), OFFSET(&psxRegs, &psxRegs.CP2D.r[_Rt_]), GetHWRegSpecial(PSXREGS));
+            break;
+    }
+    InvalidateCPURegs();
+    CALLFunc((u32)psxMemWrite32);
+}
 //CP2_FUNC(MFC2);
 CP2_FUNC(MTC2);
 //CP2_FUNC(CFC2);
 //CP2_FUNC(CTC2);
 CP2_FUNC(LWC2);
-CP2_FUNC(SWC2);
+//CP2_FUNC(SWC2);
 
 CP2_FUNCNC(RTPS);
 CP2_FUNC(OP);
