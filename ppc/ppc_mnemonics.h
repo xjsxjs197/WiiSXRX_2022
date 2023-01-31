@@ -175,7 +175,7 @@
 
 #define SUBCO_(REG_DST, REG1, REG2) \
 	{SUBFCO_(REG_DST, REG2, REG1)}
-/* Duplicate 
+/* Duplicate
 #define SRAWI(REG_DST, REG_SRC, SHIFT) \
 	{int _src = (REG_SRC); int _dst=(REG_DST); \
         INSTR = (0x7C000670 | (_src << 21) | (_dst << 16) | (SHIFT << 11));}
@@ -437,6 +437,9 @@
 	{int _src = (REG_SRC); int _dst=(REG_DST); \
         INSTR = (0x7C000734 | (_src << 21) | (_dst << 16));}
 
+#define CNTLZW(REG_DST, REG_SRC) \
+	{int _src = (REG_SRC); int _dst=(REG_DST); \
+        INSTR = (0x7C000034 | (_src << 21) | (_dst << 16));}
 
 /* floating point ops */
 #define FDIVS(FPR_DST, FPR1, FPR2) \
