@@ -3374,30 +3374,24 @@ static void recCTC2() {
 
 static void recLWC2() {
     //MTC2(psxMemRead32(_oB_), _Rt_);
-    int rs, rt;
-    rt = 3;
+    int rs, reg;
+    reg = _Rt_;
     ReserveArgs(1);
-    if (_Rs_ != rt) {
-        DisposeHWReg(iRegs[rt].reg);
-    }
     rs = GetHWReg32(_Rs_);
     if (rs != 3 || _Imm_ != 0) {
         ADDI(PutHWRegSpecial(ARG1), rs, _Imm_);
     }
-    if (_Rs_ == rt) {
-        DisposeHWReg(iRegs[rt].reg);
-    }
     InvalidateCPURegs();
     CALLFunc((u32)psxMemRead32);
     SetDstCPUReg(3);
-    PutHWReg32(rt);
+    PutHWRegSpecial(ARG1);
 
     u32 *bEnd;
-    switch(_Rt_) {
+    switch(reg) {
         case 8: case 9: case 10: case 11:
-            //psxRegs.CP2D.r[_Rt_] = (short)value;
-            EXTSH(PutHWReg32(rt), GetHWReg32(rt));
-            STW(GetHWReg32(rt), OFFSET(&psxRegs, &psxRegs.CP2D.r[_Rt_]), GetHWRegSpecial(PSXREGS));
+            //psxRegs.CP2D.r[reg] = (short)value;
+            EXTSH(PutHWRegSpecial(ARG1), GetHWRegSpecial(ARG1));
+            STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.CP2D.r[reg]), GetHWRegSpecial(PSXREGS));
             break;
 
         case 15:
@@ -3410,13 +3404,13 @@ static void recLWC2() {
             STW(0, OFFSET(&psxRegs, &(gteSXY0)), GetHWRegSpecial(PSXREGS));
             LWZ(0, OFFSET(&psxRegs, &(gteSXY2)), GetHWRegSpecial(PSXREGS));
             STW(0, OFFSET(&psxRegs, &(gteSXY1)), GetHWRegSpecial(PSXREGS));
-            STW(GetHWReg32(rt), OFFSET(&psxRegs, &(gteSXY2)), GetHWRegSpecial(PSXREGS));
-            STW(GetHWReg32(rt), OFFSET(&psxRegs, &(gteSXYP)), GetHWRegSpecial(PSXREGS));
+            STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &(gteSXY2)), GetHWRegSpecial(PSXREGS));
+            STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &(gteSXYP)), GetHWRegSpecial(PSXREGS));
             break;
 
         case 16: case 17: case 18: case 19:
-            //psxRegs.CP2D.r[_Rt_] = (value & 0xffff);
-            STH(GetHWReg32(rt), OFFSET(&psxRegs, &psxRegs.CP2D.r[_Rt_]), GetHWRegSpecial(PSXREGS));
+            //psxRegs.CP2D.r[reg] = (value & 0xffff);
+            STH(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.CP2D.r[reg]), GetHWRegSpecial(PSXREGS));
             break;
 
         case 28:
@@ -3424,24 +3418,24 @@ static void recLWC2() {
 //            gteIR1 = ((value      ) & 0x1f) << 7;
 //            gteIR2 = ((value >>  5) & 0x1f) << 7 = ((value      ) & 0x3e0) << 2;
 //            gteIR3 = ((value >> 10) & 0x1f) << 7 = ((value      ) & 0x7c00) >> 3;
-            STW(GetHWReg32(rt), OFFSET(&psxRegs, &psxRegs.CP2D.r[28]), GetHWRegSpecial(PSXREGS));
+            STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.CP2D.r[28]), GetHWRegSpecial(PSXREGS));
             iFlushRegs(0);
-            ORI(0, GetHWReg32(rt), 0x1f);
+            ORI(0, GetHWRegSpecial(ARG1), 0x1f);
             SLWI(0, 0, 7);
             STW(0, OFFSET(&psxRegs, &(gteIR1)), GetHWRegSpecial(PSXREGS));
 
-            ORI(0, GetHWReg32(rt), 0x3e0);
+            ORI(0, GetHWRegSpecial(ARG1), 0x3e0);
             SLWI(0, 0, 2);
             STW(0, OFFSET(&psxRegs, &(gteIR2)), GetHWRegSpecial(PSXREGS));
 
-            ORI(0, GetHWReg32(rt), 0x7c00);
+            ORI(0, GetHWRegSpecial(ARG1), 0x7c00);
             SRWI(0, 0, 3);
             STW(0, OFFSET(&psxRegs, &(gteIR3)), GetHWRegSpecial(PSXREGS));
             break;
 
         case 30:
             //psxRegs.CP2D.r[30] = value;
-            STW(GetHWReg32(rt), OFFSET(&psxRegs, &psxRegs.CP2D.r[30]), GetHWRegSpecial(PSXREGS));
+            STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.CP2D.r[30]), GetHWRegSpecial(PSXREGS));
 
 //            a = psxRegs.CP2D.r[30];
 //            if (a > 0) {
@@ -3457,19 +3451,19 @@ static void recLWC2() {
 //                psxRegs.CP2D.r[31] = 32;
 //            }
             iFlushRegs(0);
-            MR(0, GetHWReg32(rt));
+            MR(0, GetHWRegSpecial(ARG1));
             CMPWI(0, 0);
             BGE_L(bEnd);
             LIW(0, 0xffffffff);
-            XOR(0, 0, GetHWReg32(rt));
+            XOR(0, 0, GetHWRegSpecial(ARG1));
             B_DST(bEnd);
             CNTLZW(0, 0);
             STW(0, OFFSET(&psxRegs, &psxRegs.CP2D.r[31]), GetHWRegSpecial(PSXREGS));
             break;
 
         default:
-            //psxRegs.CP2D.r[_Rt_] = value;
-            STW(GetHWReg32(rt), OFFSET(&psxRegs, &psxRegs.CP2D.r[_Rt_]), GetHWRegSpecial(PSXREGS));
+            //psxRegs.CP2D.r[reg] = value;
+            STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.CP2D.r[reg]), GetHWRegSpecial(PSXREGS));
     }
 }
 
