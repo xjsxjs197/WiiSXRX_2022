@@ -3333,8 +3333,9 @@ static void recMTC2() {
     switch(_Rd_) {
         case 8: case 9: case 10: case 11:
             //psxRegs.CP2D.r[_Rd_] = (short)value;
-            EXTSH(PutHWReg32(_Rt_), GetHWReg32(_Rt_));
-            STW(GetHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2D.r[_Rd_]), GetHWRegSpecial(PSXREGS));
+            iFlushRegs(0);
+            EXTSH(0, GetHWReg32(_Rt_));
+            STW(0, OFFSET(&psxRegs, &psxRegs.CP2D.r[_Rd_]), GetHWRegSpecial(PSXREGS));
             break;
 
         case 15:
@@ -3380,20 +3381,6 @@ static void recMTC2() {
         case 30:
             //psxRegs.CP2D.r[30] = value;
             STW(GetHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2D.r[30]), GetHWRegSpecial(PSXREGS));
-
-//            a = psxRegs.CP2D.r[30];
-//            if (a > 0) {
-//                int i;
-//                for (i=31; (a & (1 << i)) == 0 && i >= 0; i--);
-//                psxRegs.CP2D.r[31] = 31 - i;
-//            } else if (a < 0) {
-//                int i;
-//                a^= 0xffffffff;
-//                for (i=31; (a & (1 << i)) == 0 && i >= 0; i--);
-//                psxRegs.CP2D.r[31] = 31 - i;
-//            } else {
-//                psxRegs.CP2D.r[31] = 32;
-//            }
             iFlushRegs(0);
             MR(0, GetHWReg32(_Rt_));
             CMPWI(0, 0);
@@ -3404,6 +3391,9 @@ static void recMTC2() {
             CNTLZW(0, 0);
             STW(0, OFFSET(&psxRegs, &psxRegs.CP2D.r[31]), GetHWRegSpecial(PSXREGS));
             break;
+
+        case 31:
+            return;
 
         default:
             //psxRegs.CP2D.r[_Rd_] = value;
