@@ -2364,6 +2364,91 @@ static void recLW() {
     }
 }
 
+#define LWLR_COMN() \
+    ReserveArgs(3); \
+    ADDI(PutHWRegSpecial(ARG1), GetHWReg32(_Rs_), _Imm_); \
+    MR(PutHWRegSpecial(ARG2), GetHWRegSpecial(ARG1)); \
+    MR(PutHWRegSpecial(ARG3), GetHWReg32(_Rt_)); \
+    ANDI_(PutHWRegSpecial(ARG2), GetHWRegSpecial(ARG2), 3); /* shift */ \
+    iFlushRegs(0); \
+    LIW(0, 0xfffffffc); /* ~3 */ \
+    AND(PutHWRegSpecial(ARG1), GetHWRegSpecial(ARG1), 0); /* addr & ~3 */ \
+    InvalidateCPURegs(); \
+    CALLFunc((u32)psxMemRead32); \
+    if (!_Rt_) return; \
+     \
+    SetDstCPUReg(3); \
+    PutHWRegSpecial(ARG1); \
+    u32 *bIdx1, *bIdx2, *bIdx3, *bEnd; \
+     \
+    CMPWI(GetHWRegSpecial(ARG2), 1); \
+    BEQ_L(bIdx1); \
+    CMPWI(GetHWRegSpecial(ARG2), 2); \
+    BEQ_L(bIdx2); \
+    CMPWI(GetHWRegSpecial(ARG2), 3); \
+    BEQ_L(bIdx3); \
+
+static void recLWL2() {
+    LWLR_COMN();
+
+    SLWI(PutHWRegSpecial(ARG1), GetHWRegSpecial(ARG1), 24);
+    iFlushRegs(0);
+    ADDIS(0, 0, 0xff);
+    ORI(0, 0, 0xffff);
+    AND(PutHWRegSpecial(ARG3), GetHWRegSpecial(ARG3), 0);
+    OR(PutHWReg32(_Rt_), GetHWRegSpecial(ARG1), GetHWRegSpecial(ARG3)); // (mem << 24) | (reg & 0x00ffffff)
+    B_L(bEnd);
+
+    B_DST(bIdx1);
+    SLWI(PutHWRegSpecial(ARG1), GetHWRegSpecial(ARG1), 16);
+    ANDI_(PutHWRegSpecial(ARG3), GetHWRegSpecial(ARG3), 0xffff);
+    OR(PutHWReg32(_Rt_), GetHWRegSpecial(ARG1), GetHWRegSpecial(ARG3)); // (mem << 16) | (reg & 0x0000ffff)
+    B_L(bEnd);
+
+    B_DST(bIdx2);
+    SLWI(PutHWRegSpecial(ARG1), GetHWRegSpecial(ARG1), 8);
+    ANDI_(PutHWRegSpecial(ARG3), GetHWRegSpecial(ARG3), 0xff);
+    OR(PutHWReg32(_Rt_), GetHWRegSpecial(ARG1), GetHWRegSpecial(ARG3)); // (mem <<  8) | (reg & 0x000000ff)
+    B_L(bEnd);
+
+    B_DST(bIdx3);
+    MR(PutHWReg32(_Rt_), GetHWRegSpecial(ARG1)); // (mem      ) | (reg & 0x00000000)
+
+    B_DST(bEnd);
+}
+
+static void recLWR2() {
+    LWLR_COMN();
+
+    MR(PutHWReg32(_Rt_), GetHWRegSpecial(ARG1)); // (mem      ) | (reg & 0x00000000)
+    B_L(bEnd);
+
+    B_DST(bIdx1);
+    SRWI(PutHWRegSpecial(ARG1), GetHWRegSpecial(ARG1), 8);
+    iFlushRegs(0);
+    LIW(0, 0xff000000);
+    AND(PutHWRegSpecial(ARG3), GetHWRegSpecial(ARG3), 0);
+    OR(PutHWReg32(_Rt_), GetHWRegSpecial(ARG1), GetHWRegSpecial(ARG3)); // (mem >>  8) | (reg & 0xff000000)
+    B_L(bEnd);
+
+    B_DST(bIdx2);
+    SRWI(PutHWRegSpecial(ARG1), GetHWRegSpecial(ARG1), 16);
+    iFlushRegs(0);
+    LIW(0, 0xffff0000);
+    AND(PutHWRegSpecial(ARG3), GetHWRegSpecial(ARG3), 0);
+    OR(PutHWReg32(_Rt_), GetHWRegSpecial(ARG1), GetHWRegSpecial(ARG3)); // (mem >> 16) | (reg & 0xffff0000)
+    B_L(bEnd);
+
+    B_DST(bIdx3);
+    SRWI(PutHWRegSpecial(ARG1), GetHWRegSpecial(ARG1), 24);
+    iFlushRegs(0);
+    LIW(0, 0xffffff00);
+    AND(PutHWRegSpecial(ARG3), GetHWRegSpecial(ARG3), 0);
+    OR(PutHWReg32(_Rt_), GetHWRegSpecial(ARG1), GetHWRegSpecial(ARG3)); // (mem >> 24) | (reg & 0xffffff00)
+
+    B_DST(bEnd);
+}
+
 REC_FUNC(LWL);
 REC_FUNC(LWR);
 REC_FUNC(SWL);
@@ -3268,7 +3353,8 @@ static void recMTC2() {
 
         case 16: case 17: case 18: case 19:
             //psxRegs.CP2D.r[_Rd_] = (value & 0xffff);
-            STH(GetHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2D.r[_Rd_]), GetHWRegSpecial(PSXREGS));
+            ANDI_(PutHWReg32(_Rt_), GetHWReg32(_Rt_), 0xffff);
+            STW(GetHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2D.r[_Rd_]), GetHWRegSpecial(PSXREGS));
             break;
 
         case 28:
@@ -3313,7 +3399,7 @@ static void recMTC2() {
             CMPWI(0, 0);
             BGE_L(bEnd);
             LIW(0, 0xffffffff);
-            XOR(0, 0, GetHWReg32(_Rt_));
+            XOR(0, GetHWReg32(_Rt_), 0);
             B_DST(bEnd);
             CNTLZW(0, 0);
             STW(0, OFFSET(&psxRegs, &psxRegs.CP2D.r[31]), GetHWRegSpecial(PSXREGS));
@@ -3410,7 +3496,8 @@ static void recLWC2() {
 
         case 16: case 17: case 18: case 19:
             //psxRegs.CP2D.r[reg] = (value & 0xffff);
-            STH(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.CP2D.r[reg]), GetHWRegSpecial(PSXREGS));
+            ANDI_(PutHWRegSpecial(ARG1), GetHWRegSpecial(ARG1), 0xffff);
+            STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.CP2D.r[reg]), GetHWRegSpecial(PSXREGS));
             break;
 
         case 28:
@@ -3455,7 +3542,7 @@ static void recLWC2() {
             CMPWI(0, 0);
             BGE_L(bEnd);
             LIW(0, 0xffffffff);
-            XOR(0, 0, GetHWRegSpecial(ARG1));
+            XOR(0, GetHWRegSpecial(ARG1), 0);
             B_DST(bEnd);
             CNTLZW(0, 0);
             STW(0, OFFSET(&psxRegs, &psxRegs.CP2D.r[31]), GetHWRegSpecial(PSXREGS));
