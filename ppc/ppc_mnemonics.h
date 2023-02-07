@@ -106,7 +106,7 @@
 
 #define MR(REG_DST, REG_SRC) \
 	{int __src = (REG_SRC); int __dst=(REG_DST); \
-        if (__src != __dst) {ADDI(__dst, __src, 0)}}
+        if (__src != __dst) {OR(__dst, __src, __src)}}
 
 #define ADD(REG_DST, REG1, REG2) \
 	{int _reg1 = (REG1), _reg2 = (REG2); int _dst=(REG_DST); \
@@ -411,7 +411,15 @@
 	{int _src = (REG_SRC); int _dst=(REG_DST); \
         INSTR = (0x70000000 | (_src << 21) | (_dst << 16) | ((IMM) & 0xffff));}
 
+#define ANDIS(REG_DST, REG_SRC, IMM) \
+	{int _src = (REG_SRC); int _dst=(REG_DST); \
+        INSTR = (0x74000000 | (_src << 21) | (_dst << 16) | ((IMM) & 0xffff));}
+
 #define AND(REG_DST, REG1, REG2) \
+	{int _reg1 = (REG1), _reg2 = (REG2); int _dst=(REG_DST); \
+        INSTR = (0x7C000038 | (_reg1 << 21) | (_dst << 16) | (_reg2 << 11));}
+
+#define ANDC(REG_DST, REG1, REG2) \
 	{int _reg1 = (REG1), _reg2 = (REG2); int _dst=(REG_DST); \
         INSTR = (0x7C000038 | (_reg1 << 21) | (_dst << 16) | (_reg2 << 11));}
 
