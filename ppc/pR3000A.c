@@ -2370,30 +2370,36 @@ static void recLW() {
 #define    r30    30
 
 #define LWLR_COMN() \
+    if (!_Rt_) return; \
+     \
+    u32 *bAddrNull, *bChkDt, *bIdx1, *bIdx2, *bIdx3, *bEnd; \
+     \
     STWU(r1, -0x10, r1); \
     STW(r28, 4, r1); \
     STW(r29, 8, r1); \
-    ReserveArgs(1); \
     rs = GetHWReg32(_Rs_); \
     if (rs != 3 || _Imm_ != 0) { \
         ADDI(PutHWRegSpecial(ARG1), rs, _Imm_); \
     } \
-    MR(r28, GetHWReg32(_Rt_)); \
     ANDI_(r29, GetHWRegSpecial(ARG1), 3); /* shift */ \
     iFlushRegs(0); \
     ADDI(0, 0, 3); /* ~3 */ \
     ANDC(PutHWRegSpecial(ARG1), GetHWRegSpecial(ARG1), 0); /* addr & ~3 */ \
-    InvalidateCPURegs(); \
-    CALLFunc((u32)psxMemRead32); \
-    if (!_Rt_) return; \
+    LIW(0, (u32)(&psxMemRLUT)); \
+    SRWI(r28, GetHWRegSpecial(ARG1), 16); \
+    ADD(r28, 0, r28); \
+    LWZ(r28, 0, r28); \
+    CMPWI(r28, 0); \
+    BEQ_L(bAddrNull); \
+    ANDI_(PutHWRegSpecial(ARG1), GetHWRegSpecial(ARG1), 0xffff); \
+    LWBRX(PutHWRegSpecial(ARG1), r28, GetHWRegSpecial(ARG1)); \
+    B_L(bChkDt); \
      \
-    /*SetDstCPUReg(3);*/ \
-    MR(PutHWRegSpecial(ARG1), GetHWRegSpecial(RETVAL)); \
+    B_DST(bAddrNull); \
+    ADDI(PutHWRegSpecial(ARG1), 0, 0); \
      \
-    u32 *bIdx1, *bIdx2, *bIdx3, *bEnd; \
+    B_DST(bChkDt); \
      \
-    iFlushRegs(0); \
-    MR(PutHWReg32(_Rt_), r28); \
     CMPWI(r29, 1); \
     BEQ_L(bIdx1); \
     CMPWI(r29, 2); \
@@ -2401,26 +2407,7 @@ static void recLW() {
     CMPWI(r29, 3); \
     BEQ_L(bIdx3); \
 
-#define _oB_ (psxRegs.GPR.r[_Rs_] + _Imm_)
-
-void psxLWL();
 static void recLWL() {
-    u32 addr = _oB_;
-    u32 shift = addr & 3;
-    if (shift > 0)
-    {
-        #ifdef SHOW_DEBUG
-        sprintf(txtbuffer, "psxLWL %ld", shift);
-        DEBUG_print(txtbuffer, DBG_CORE2);
-        #endif // SHOW_DEBUG
-        iFlushRegs(0);
-        LIW(PutHWRegSpecial(ARG1), (u32)psxRegs.code);
-        STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.code), GetHWRegSpecial(PSXREGS));
-        LIW(PutHWRegSpecial(PSXPC), (u32)pc);
-        FlushAllHWReg();
-        CALLFunc((u32)psxLWL);
-        return;
-    }
     int rs;
     LWLR_COMN();
 

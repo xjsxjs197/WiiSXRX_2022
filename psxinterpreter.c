@@ -25,6 +25,7 @@
 #include "r3000a.h"
 #include "gte.h"
 #include "psxhle.h"
+#include "Gamecube/DEBUG.h"
 
 int branch = 0;
 int branch2 = 0;
@@ -711,6 +712,10 @@ void psxLWL() {
 	u32 addr = _oB_;
 	u32 shift = addr & 3;
 	u32 mem = psxMemRead32(addr & ~3);
+	#ifdef SHOW_DEBUG
+	sprintf(txtbuffer, "psxLWL addr %08x st %d", addr, shift);
+	DEBUG_print(txtbuffer, DBG_CORE2);
+	#endif // DISP_DEBUG
 
 	if (!_Rt_) return;
 	_u32(_rRt_) =	( _u32(_rRt_) & LWL_MASK[shift]) |
