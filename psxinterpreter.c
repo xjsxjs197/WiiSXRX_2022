@@ -713,7 +713,7 @@ void psxLWL() {
 	u32 shift = addr & 3;
 	u32 mem = psxMemRead32(addr & ~3);
 	#ifdef SHOW_DEBUG
-	sprintf(txtbuffer, "psxLWL addr %08x st %d", addr, shift);
+	sprintf(txtbuffer, "psxLWL %08x %04x %d %08x", addr, (addr & ~3) >> 16, shift, mem);
 	DEBUG_print(txtbuffer, DBG_CORE2);
 	#endif // DISP_DEBUG
 
