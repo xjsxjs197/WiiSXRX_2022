@@ -712,14 +712,14 @@ void psxLWL() {
 	u32 addr = _oB_;
 	u32 shift = addr & 3;
 	u32 mem = psxMemRead32(addr & ~3);
-	#ifdef SHOW_DEBUG
-	sprintf(txtbuffer, "psxLWL %08x %04x %d %08x", addr, (addr & ~3) >> 16, shift, mem);
-	DEBUG_print(txtbuffer, DBG_CORE2);
-	#endif // DISP_DEBUG
 
 	if (!_Rt_) return;
 	_u32(_rRt_) =	( _u32(_rRt_) & LWL_MASK[shift]) |
 					( mem << LWL_SHIFT[shift]);
+	#ifdef SHOW_DEBUG
+	sprintf(txtbuffer, "psxLWL %08x %d %08x %08x", addr, shift, _u32(_rRt_), _u32(_rRt_));
+	DEBUG_print(txtbuffer, DBG_CORE2);
+	#endif // DISP_DEBUG
 
 	/*
 	Mem = 1234.  Reg = abcd
@@ -742,6 +742,10 @@ void psxLWR() {
 	if (!_Rt_) return;
 	_u32(_rRt_) =	( _u32(_rRt_) & LWR_MASK[shift]) |
 					( mem >> LWR_SHIFT[shift]);
+    #ifdef SHOW_DEBUG
+	sprintf(txtbuffer, "psxLWR %08x %d %08x", addr, shift, _u32(_rRt_));
+	DEBUG_print(txtbuffer, DBG_CORE2);
+	#endif // DISP_DEBUG
 
 	/*
 	Mem = 1234.  Reg = abcd
