@@ -2384,7 +2384,7 @@ static void recLW() {
      \
     int rs, r3Put, r3Get; \
     r3Put = PutHWRegSpecial(ARG1); \
-    u32 *bAddrNull, *bChkDt, *bIdx1, *bIdx2, *bIdx3, *bEnd1, *bEnd2, *bEnd3, *bEndWriteDt; \
+    u32 *bAddrNull, *bChkDt, *bIdx1, *bIdx2, *bIdx3, *bEnd1, *bEnd2, *bEnd3, *bEndWriteDt, *bWriteAddrNull, *bWriteChkDt; \
      \
     STWU(r1, -0x20, r1); \
     STW(r28, 4, r1); \
@@ -2506,11 +2506,14 @@ static void recLWR() {
     LIW(r28, (u32)(&psxMemWLUT)); \
     LWZX(r28, r28, r26); \
     CMPWI(r28, 0); \
-    BEQ_L(bEndWriteDt); \
+    BEQ_L(bWriteAddrNull); \
     STWBRX(regIdx, r28, r27); \
     if (regIdx == 0) { \
         FlushAllHWReg(); \
     } \
+    B_L(bEndWriteDt); \
+    B_DST(bWriteAddrNull); \
+    debugSWLR(regIdx); \
     B_DST(bEndWriteDt);
 
 #define debugSWLR(reg) \
@@ -2565,6 +2568,44 @@ static void recSWL() {
 
     LW_LR_END(true);
 }
+
+static void recSWR2() {
+    LW_SW_LR_COMN(true);
+
+    LW_LR_CMP();
+
+    SW_LR_WRITEMEM(GetHWReg32(_Rt_));
+     // (reg      ) | (mem & 0x00000000)
+    //debugSWLR(GetHWReg32(_Rt_));
+    B_L(bEnd1);
+
+    B_DST(bIdx1);
+    SLWI(0, GetHWReg32(_Rt_), 8);
+    ANDI_(r3Put, r3Get, 0xff);
+    OR(0, 0, r3Get);
+    SW_LR_WRITEMEM(0); // (reg <<  8) | (mem & 0x000000ff)
+    //debugSWLR(0);
+    B_L(bEnd2);
+
+    B_DST(bIdx2);
+    SLWI(0, GetHWReg32(_Rt_), 16);
+    ANDI_(r3Put, r3Get, 0xffff);
+    OR(0, 0, r3Get);
+    SW_LR_WRITEMEM(0);  // (reg << 16) | (mem & 0x0000ffff)
+    //debugSWLR(0);
+    B_L(bEnd3);
+
+    B_DST(bIdx3);
+    SLWI(r29, GetHWReg32(_Rt_), 24);
+    LIW(0, 0xffffff);
+    AND(0, r3Get, 0);
+    OR(0, r29, 0);
+    SW_LR_WRITEMEM(0); // (reg << 24) | (mem & 0x00ffffff)
+    //debugSWLR(0);
+
+    LW_LR_END(true);
+}
+
 //REC_FUNC(LWL);
 //REC_FUNC(LWR);
 //REC_FUNC(SWL);
