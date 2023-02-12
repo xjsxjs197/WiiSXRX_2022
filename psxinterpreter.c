@@ -772,7 +772,8 @@ void psxSWL() {
 	psxMemWrite32(addr & ~3,  (_u32(_rRt_) >> SWL_SHIFT[shift]) |
 			     (  mem & SWL_MASK[shift]) );
 	#ifdef SHOW_DEBUG
-	sprintf(txtbuffer, "psxSWL %08x %d %08x", addr, shift, _u32(_rRt_));
+	sprintf(txtbuffer, "psxSWL %08x %d %08x", addr, shift, (_u32(_rRt_) >> SWL_SHIFT[shift]) |
+			     (  mem & SWL_MASK[shift]));
 	DEBUG_print(txtbuffer, DBG_CORE2);
 	#endif // DISP_DEBUG
 	/*
@@ -796,8 +797,8 @@ void psxSWR() {
 	psxMemWrite32(addr & ~3,  (_u32(_rRt_) << SWR_SHIFT[shift]) |
 			     (  mem & SWR_MASK[shift]) );
     #ifdef SHOW_DEBUG
-	sprintf(txtbuffer, "psxSWR %08x %d %08x", addr, shift, _u32(_rRt_));
-	DEBUG_print(txtbuffer, DBG_CORE2);
+	//sprintf(txtbuffer, "psxSWR %08x %d %08x", addr, shift, _u32(_rRt_));
+	//DEBUG_print(txtbuffer, DBG_CORE2);
 	#endif // DISP_DEBUG
 
 	/*
