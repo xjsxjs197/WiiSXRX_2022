@@ -2447,19 +2447,19 @@ static void recLWL() {
 
     SLWI(r3Put, r3Get, 24);
     LIW(0, 0x00ffffff);
-    AND(PutHWReg32(_Rt_), GetHWReg32(_Rt_), 0);
-    OR(PutHWReg32(_Rt_), r3Get, GetHWReg32(_Rt_)); // (mem << 24) | (reg & 0x00ffffff)
+    AND(0, GetHWReg32(_Rt_), 0);
+    OR(PutHWReg32(_Rt_), r3Get, 0); // (mem << 24) | (reg & 0x00ffffff)
     B_L(bEnd1);
 
     B_DST(bIdx1);
     SLWI(r3Put, r3Get, 16);
-    ANDI_(PutHWReg32(_Rt_), GetHWReg32(_Rt_), 0xffff);
-    OR(PutHWReg32(_Rt_), r3Get, GetHWReg32(_Rt_)); // (mem << 16) | (reg & 0x0000ffff)
+    ANDI_(0, GetHWReg32(_Rt_), 0xffff);
+    OR(PutHWReg32(_Rt_), r3Get, 0); // (mem << 16) | (reg & 0x0000ffff)
     B_L(bEnd2);
 
     B_DST(bIdx2);
     SLWI(r3Put, r3Get, 8);
-    ANDI_(0, 0, 0xff);
+    ANDI_(0, GetHWReg32(_Rt_), 0xff);
     OR(PutHWReg32(_Rt_), r3Get, 0); // (mem <<  8) | (reg & 0x000000ff)
     B_L(bEnd3);
 
