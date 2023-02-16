@@ -2394,6 +2394,7 @@ static void recLW() {
         STW(r7, 0x14, r1); \
         STW(r8, 0x18, r1); \
     } \
+    FlushAllHWReg(); \
     ADDI(r3, GetHWReg32(_Rs_), _Imm_); \
     MR(r6, GetHWReg32(_Rt_)); /* backup rt */ \
     LIW(r4, (u32)(&psxMemRLUT)); \
