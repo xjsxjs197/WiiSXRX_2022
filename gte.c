@@ -22,6 +22,7 @@
 */
 
 #include "gte.h"
+#include "gte_divider_int.c"
 #include <ogc/lwp_watchdog.h>
 
 #ifdef GTE_DUMP

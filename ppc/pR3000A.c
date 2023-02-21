@@ -76,8 +76,8 @@ static void (*recBSC[64])();
 static void (*recSPC[64])();
 static void (*recREG[32])();
 static void (*recCP0[32])();
-static void (*recCP2[64])();
-static void (*recCP2BSC[32])();
+static void (*recCP2[64])(struct psxCP2Regs *regs);
+static void (*recCP2BSC[32])(struct psxCP2Regs *regs);
 
 static HWRegister HWRegisters[NUM_HW_REGISTERS];
 // added xjsxjs197 start
@@ -1003,7 +1003,7 @@ static void rec##f() { \
 }
 
 #define CP2_FUNC(f) \
-void gte##f(); \
+void gte##f##_R(); \
 static void rec##f() { \
 	if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2); \
 	iFlushRegs(0); \
@@ -1013,14 +1013,14 @@ static void rec##f() { \
 	/*ADDI(0, GetHWRegSpecial(ARG1), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2));*/ \
 	/*STW(0, OFFSET(&psxRegs, &psxRegs.gteCycle), GetHWRegSpecial(PSXREGS));*/ \
 	/*ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2));*/ \
-	/*LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D);*/ \
+	LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D); \
 	FlushAllHWReg(); \
-	CALLFunc ((u32)gte##f); \
+	CALLFunc ((u32)gte##f##_R); \
 	cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)]<<2); \
 }
 
 #define CP2_FUNCNC(f) \
-void gte##f(); \
+void gte##f##_R(); \
 static void rec##f() { \
 	if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2); \
 	iFlushRegs(0); \
@@ -1028,10 +1028,72 @@ static void rec##f() { \
 	/*ADDI(0, GetHWRegSpecial(ARG1), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2));*/ \
 	/*STW(0, OFFSET(&psxRegs, &psxRegs.gteCycle), GetHWRegSpecial(PSXREGS));*/ \
 	/*ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2));*/ \
-	/*LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D);*/ \
-	CALLFunc ((u32)gte##f); \
+	LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D); \
+	CALLFunc ((u32)gte##f##_R); \
 /*	branch = 2; */\
 	cop2readypc = pc + psxCP2time[_fFunct_(psxRegs.code)]; \
+}
+
+#define gteop (psxRegs.code & 0x1ffffff)
+#define GTE_SF(op) ((op >> 19) & 1)
+#define GTE_MX(op) ((op >> 17) & 3)
+#define GTE_V(op) ((op >> 15) & 3)
+#define GTE_CV(op) ((op >> 13) & 3)
+#define GTE_LM(op) ((op >> 10) & 1)
+
+void gteMVMVA_R1(psxCP2Regs *regs, s32 op);
+void gteMVMVA_R2(psxCP2Regs *regs, s32 op);
+void gteMVMVA_R3(psxCP2Regs *regs, s32 op);
+void gteMVMVA_R4(psxCP2Regs *regs, s32 op);
+void gteMVMVA_R5(psxCP2Regs *regs, s32 op);
+void gteMVMVA_R6(psxCP2Regs *regs, s32 op);
+void gteMVMVA_R7(psxCP2Regs *regs);
+
+static void recMVMVA() {
+    if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2);
+    LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D);
+    LIW(PutHWRegSpecial(ARG2), gteop);
+    FlushAllHWReg();
+    int shift = 12 * GTE_SF(gteop);
+    int mx = GTE_MX(gteop);
+    int v = GTE_V(gteop);
+    int cv = GTE_CV(gteop);
+
+    if (cv < 3) {
+        if (mx < 3) {
+            if (v < 3) {
+                CALLFunc ((u32)gteMVMVA_R1);
+            }
+            else {
+                CALLFunc ((u32)gteMVMVA_R2);
+            }
+        }
+        else {
+            if (shift == 12)
+            {
+                CALLFunc ((u32)gteMVMVA_R3);
+            }
+            else
+            {
+                CALLFunc ((u32)gteMVMVA_R4);
+            }
+        }
+    }
+    else {
+        if (mx < 3) {
+            if (v < 3) {
+                CALLFunc ((u32)gteMVMVA_R5);
+            }
+            else {
+                CALLFunc ((u32)gteMVMVA_R6);
+            }
+        }
+        else {
+            CALLFunc ((u32)gteMVMVA_R7);
+        }
+    }
+
+    cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)]<<2);
 }
 
 static int allocMem() {
@@ -1160,14 +1222,14 @@ static void recCOP2() {
     #ifdef SHOW_DEBUG
     printFunctionLog();
     #endif // SHOW_DEBUG
-	recCP2[_Funct_]();
+	recCP2[_Funct_]((struct psxCP2Regs *)&psxRegs.CP2D);
 }
 
-static void recBASIC() {
+static void recBASIC(struct psxCP2Regs *regs) {
     #ifdef SHOW_DEBUG
     printFunctionLog();
     #endif // SHOW_DEBUG
-	recCP2BSC[_Rs_]();
+	recCP2BSC[_Rs_](regs);
 }
 
 //end of Tables opcodes...
@@ -3200,9 +3262,9 @@ CP2_FUNC(SWC2);
 CP2_FUNCNC(RTPS);
 CP2_FUNC(OP);
 CP2_FUNCNC(NCLIP);
-CP2_FUNCNC(DPCS);
-CP2_FUNCNC(INTPL);
-CP2_FUNC(MVMVA);
+CP2_FUNC(DPCS);
+CP2_FUNC(INTPL);
+//CP2_FUNC(MVMVA);
 CP2_FUNCNC(NCDS);
 CP2_FUNCNC(NCDT);
 CP2_FUNCNC(CDP);
@@ -3211,7 +3273,7 @@ CP2_FUNCNC(CC);
 CP2_FUNCNC(NCS);
 CP2_FUNCNC(NCT);
 CP2_FUNC(SQR);
-CP2_FUNCNC(DCPL);
+CP2_FUNC(DCPL);
 CP2_FUNCNC(DPCT);
 CP2_FUNCNC(AVSZ3);
 CP2_FUNCNC(AVSZ4);
@@ -3287,7 +3349,7 @@ static void (*recCP0[32])() = {
 	recNULL, recNULL, recNULL, recNULL, recNULL, recNULL, recNULL, recNULL
 };
 
-static void (*recCP2[64])() = {
+static void (*recCP2[64])(struct psxCP2Regs *regs) = {
 	recBASIC, recRTPS , recNULL , recNULL, recNULL, recNULL , recNCLIP, recNULL, // 00
 	recNULL , recNULL , recNULL , recNULL, recOP  , recNULL , recNULL , recNULL, // 08
 	recDPCS , recINTPL, recMVMVA, recNCDS, recCDP , recNULL , recNCDT , recNULL, // 10
@@ -3298,7 +3360,7 @@ static void (*recCP2[64])() = {
 	recNULL , recNULL , recNULL , recNULL, recNULL, recGPF  , recGPL  , recNCCT  // 38
 };
 
-static void (*recCP2BSC[32])() = {
+static void (*recCP2BSC[32])(struct psxCP2Regs *regs) = {
 	recMFC2, recNULL, recCFC2, recNULL, recMTC2, recNULL, recCTC2, recNULL,
 	recNULL, recNULL, recNULL, recNULL, recNULL, recNULL, recNULL, recNULL,
 	recNULL, recNULL, recNULL, recNULL, recNULL, recNULL, recNULL, recNULL,

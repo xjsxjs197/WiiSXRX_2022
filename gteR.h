@@ -31,35 +31,28 @@ extern "C" {
 
 struct psxCP2Regs;
 
-void gteMFC2_R();
-void gteCFC2_R();
-void gteMTC2_R();
-void gteCTC2_R();
-void gteLWC2_R();
-void gteSWC2_R();
-
-void gteRTPS_R();
-void gteOP_R();
-void gteNCLIP_R();
-void gteDPCS_R();
-void gteINTPL_R();
-void gteMVMVA_R();
-void gteNCDS_R();
-void gteNCDT_R();
-void gteCDP_R();
-void gteNCCS_R();
-void gteCC_R();
-void gteNCS_R();
-void gteNCT_R();
-void gteSQR_R();
-void gteDCPL_R();
-void gteDPCT_R();
-void gteAVSZ3_R();
-void gteAVSZ4_R();
-void gteRTPT_R();
-void gteGPF_R();
-void gteGPL_R();
-void gteNCCT_R();
+void gteRTPS_R(struct psxCP2Regs *regs);
+void gteOP_R(struct psxCP2Regs *regs);
+void gteNCLIP_R(struct psxCP2Regs *regs);
+void gteDPCS_R(struct psxCP2Regs *regs);
+void gteINTPL_R(struct psxCP2Regs *regs);
+void gteMVMVA_R(struct psxCP2Regs *regs);
+void gteNCDS_R(struct psxCP2Regs *regs);
+void gteNCDT_R(struct psxCP2Regs *regs);
+void gteCDP_R(struct psxCP2Regs *regs);
+void gteNCCS_R(struct psxCP2Regs *regs);
+void gteCC_R(struct psxCP2Regs *regs);
+void gteNCS_R(struct psxCP2Regs *regs);
+void gteNCT_R(struct psxCP2Regs *regs);
+void gteSQR_R(struct psxCP2Regs *regs);
+void gteDCPL_R(struct psxCP2Regs *regs);
+void gteDPCT_R(struct psxCP2Regs *regs);
+void gteAVSZ3_R(struct psxCP2Regs *regs);
+void gteAVSZ4_R(struct psxCP2Regs *regs);
+void gteRTPT_R(struct psxCP2Regs *regs);
+void gteGPF_R(struct psxCP2Regs *regs);
+void gteGPL_R(struct psxCP2Regs *regs);
+void gteNCCT_R(struct psxCP2Regs *regs);
 
 #ifdef __cplusplus
 }

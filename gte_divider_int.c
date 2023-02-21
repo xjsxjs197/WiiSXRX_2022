@@ -4114,7 +4114,7 @@ static const u32 table16[] =
     65536
 };
 
-u32 DIVIDE_INT(u16 numerator, u16 denominator)
+static inline u32 DIVIDE_INT(u16 numerator, u16 denominator)
 {
     if (numerator >= denominator * 2) {
 		return 0xffffffff;
