@@ -592,7 +592,7 @@ void gteMVMVA_R1(psxCP2Regs *regs, s32 op) {
     s32 vx = VX(v);
     s32 vy = VY(v);
     s32 vz = VZ(v);
-    if (GTE_SF(gteop)) {
+    if (GTE_SF(op)) {
         gteMAC1 = A1((((s64)CV1(cv) << 12) + (MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> 12);
         gteMAC2 = A2((((s64)CV2(cv) << 12) + (MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> 12);
         gteMAC3 = A3((((s64)CV3(cv) << 12) + (MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> 12);
@@ -615,7 +615,7 @@ void gteMVMVA_R2(psxCP2Regs *regs, s32 op) {
     s32 vx = VX_MVMVA(3);
     s32 vy = VY_MVMVA(3);
     s32 vz = VZ_MVMVA(3);
-    if (GTE_SF(gteop)) {
+    if (GTE_SF(op)) {
         gteMAC1 = A1((((s64)CV1(cv) << 12) + (MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> 12);
         gteMAC2 = A2((((s64)CV2(cv) << 12) + (MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> 12);
         gteMAC3 = A3((((s64)CV3(cv) << 12) + (MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> 12);
@@ -662,7 +662,7 @@ void gteMVMVA_R5(psxCP2Regs *regs, s32 op) {
     s32 vx = VX(v);
     s32 vy = VY(v);
     s32 vz = VZ(v);
-    if (GTE_SF(gteop)) {
+    if (GTE_SF(op)) {
         gteMAC1 = ((MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> 12;
         gteMAC2 = ((MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> 12;
         gteMAC3 = ((MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> 12;
@@ -684,7 +684,7 @@ void gteMVMVA_R6(psxCP2Regs *regs, s32 op) {
     s32 vx = VX_MVMVA(3);
     s32 vy = VY_MVMVA(3);
     s32 vz = VZ_MVMVA(3);
-    if (GTE_SF(gteop)) {
+    if (GTE_SF(op)) {
         gteMAC1 = ((MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> 12;
         gteMAC2 = ((MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> 12;
         gteMAC3 = ((MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> 12;
