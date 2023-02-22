@@ -156,7 +156,7 @@ typedef struct {
 			psxCP2Ctrl CP2C; 	/* Cop2 control registers */
 		};
 		psxCP2Regs CP2;
-	};
+	} __attribute__((aligned(32)));
     u32 pc;				/* Program counter */
     u32 code;			/* The instruction */
 	u32 cycle;
