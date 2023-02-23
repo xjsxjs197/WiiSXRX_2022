@@ -309,7 +309,7 @@ static void setIrq(void)
 {
 	if (cdr.Stat & cdr.Reg2) {
 		psxHu32ref(0x1070) |= SWAP32((u32)0x4);
-		psxRegs.interrupt|= 0x80000000;
+		//psxRegs.interrupt|= 0x80000000;
 	}
 }
 

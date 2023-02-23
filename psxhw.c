@@ -445,8 +445,8 @@ void psxHwWrite16(u32 add, u16 value) {
 #ifdef PSXHW_LOG
 			PSXHW_LOG("IREG 16bit write %x\n", value);
 #endif
-			if (Config.Sio) { psxHu16ref(0x1070) |= SWAPu16(0x80); psxRegs.interrupt |= 0x80000000; }
-			if (Config.SpuIrq) { psxHu16ref(0x1070) |= SWAPu16(0x200); psxRegs.interrupt |= 0x80000000; }
+			if (Config.Sio) psxHu16ref(0x1070) |= SWAPu16(0x80);
+			if (Config.SpuIrq) psxHu16ref(0x1070) |= SWAPu16(0x200);
 			// upd xjsxjs197 start
 			//psxHu16ref(0x1070) &= SWAPu16(value);
             STORE_SWAP16p(tmpAddr16, (value));
@@ -581,8 +581,8 @@ void psxHwWrite32(u32 add, u32 value) {
 #ifdef PSXHW_LOG
 			PSXHW_LOG("IREG 32bit write %lx\n", value);
 #endif
-			if (Config.Sio) { psxHu32ref(0x1070) |= SWAPu32(0x80); psxRegs.interrupt |= 0x80000000; }
-			if (Config.SpuIrq) { psxHu32ref(0x1070) |= SWAPu32(0x200); psxRegs.interrupt |= 0x80000000; }
+			if (Config.Sio) psxHu32ref(0x1070) |= SWAPu32(0x80);
+			if (Config.SpuIrq) psxHu32ref(0x1070) |= SWAPu32(0x200);
 			// upd xjsxjs197 start
 			//psxHu32ref(0x1070) &= SWAPu32(value);
             STORE_SWAP32p(tmpAddr, (value));
@@ -736,7 +736,7 @@ void psxHwWrite32(u32 add, u32 value) {
 			    || tmp & HW_DMA_ICR_BUS_ERROR) {
 				if (!(tmpVal & HW_DMA_ICR_IRQ_SENT)) {
 					psxHu32ref(0x1070) |= SWAP32(8);
-					psxRegs.interrupt |= 0x80000000;
+					//psxRegs.interrupt |= 0x80000000;
 				}
 				tmp |= HW_DMA_ICR_IRQ_SENT;
 			}

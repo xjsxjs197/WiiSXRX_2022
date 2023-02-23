@@ -325,7 +325,7 @@ void sioInterrupt() {
     if (!(StatReg & IRQ)) {
 	    StatReg|= IRQ;
 	    psxHu32ref(0x1070)|= SWAPu32(0x80);
-	    psxRegs.interrupt|= 0x80000000;
+	    //psxRegs.interrupt|= 0x80000000;
     }
 }
 
