@@ -90,6 +90,7 @@ void setIrq( u32 irq )
 {
     //psxHu32ref(0x1070) |= SWAPu32(irq);
     psxHu32ref(0x1070) |= irq;
+    psxRegs.interrupt |= 0x80000000;
 }
 
 //static
@@ -273,7 +274,7 @@ void psxRcntSet()
         }
     }
 
-    psxRegs.interrupt |= (1 << PSXINT_RCNT);
+    //psxRegs.interrupt |= (1 << PSXINT_RCNT);
     //new_dyna_set_event(PSXINT_RCNT, psxNextCounter);
 }
 
