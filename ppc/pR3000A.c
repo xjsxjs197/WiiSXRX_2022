@@ -1035,62 +1035,134 @@ static void rec##f() { \
 }
 
 #define gteop (psxRegs.code & 0x1ffffff)
-#define GTE_SF(op) ((op >> 19) & 1)
-#define GTE_MX(op) ((op >> 17) & 3)
-#define GTE_V(op) ((op >> 15) & 3)
-#define GTE_CV(op) ((op >> 13) & 3)
-#define GTE_LM(op) ((op >> 10) & 1)
 
-void gteMVMVA_R1(psxCP2Regs *regs, s32 op);
-void gteMVMVA_R2(psxCP2Regs *regs, s32 op);
-void gteMVMVA_R3(psxCP2Regs *regs, s32 op);
-void gteMVMVA_R4(psxCP2Regs *regs, s32 op);
-void gteMVMVA_R5(psxCP2Regs *regs, s32 op);
-void gteMVMVA_R6(psxCP2Regs *regs, s32 op);
-void gteMVMVA_R7(psxCP2Regs *regs);
+#define _MVMVA_CHECK(P1, P2) { \
+    switch (checkCode & 0x6) { \
+        case 0x0: /* Add TR */ \
+            if (checkCode & 0x80) { \
+                if (psxRegs.code & 0x400) { \
+                    void gteMVMVA##P1##P2##_TR_SF1_LM1(psxCP2Regs *regs); \
+                    CALLFunc ((u32)gteMVMVA##P1##P2##_TR_SF1_LM1); \
+                } \
+                else { \
+                    void gteMVMVA##P1##P2##_TR_SF1_LM0(psxCP2Regs *regs); \
+                    CALLFunc ((u32)gteMVMVA##P1##P2##_TR_SF1_LM0); \
+                } \
+            } \
+            else { \
+                if (psxRegs.code & 0x400) { \
+                    void gteMVMVA##P1##P2##_TR_SF0_LM1(psxCP2Regs *regs); \
+                    CALLFunc ((u32)gteMVMVA##P1##P2##_TR_SF0_LM1); \
+                } \
+                else { \
+                    void gteMVMVA##P1##P2##_TR_SF0_LM0(psxCP2Regs *regs); \
+                    CALLFunc ((u32)gteMVMVA##P1##P2##_TR_SF0_LM0); \
+                } \
+            } \
+            break; \
+        case 0x2: /* Add BK */ \
+            if (checkCode & 0x80) { \
+                if (psxRegs.code & 0x400) { \
+                    void gteMVMVA##P1##P2##_BK_SF1_LM1(psxCP2Regs *regs); \
+                    CALLFunc ((u32)gteMVMVA##P1##P2##_BK_SF1_LM1); \
+                } \
+                else { \
+                    void gteMVMVA##P1##P2##_BK_SF1_LM0(psxCP2Regs *regs); \
+                    CALLFunc ((u32)gteMVMVA##P1##P2##_BK_SF1_LM0); \
+                } \
+            } \
+            else { \
+                if (psxRegs.code & 0x400) { \
+                    void gteMVMVA##P1##P2##_BK_SF0_LM1(psxCP2Regs *regs); \
+                    CALLFunc ((u32)gteMVMVA##P1##P2##_BK_SF0_LM1); \
+                } \
+                else { \
+                    void gteMVMVA##P1##P2##_BK_SF0_LM0(psxCP2Regs *regs); \
+                    CALLFunc ((u32)gteMVMVA##P1##P2##_BK_SF0_LM0); \
+                } \
+            } \
+            break; \
+        case 0x4: /* Add FC */ \
+            if (checkCode & 0x80) { \
+                if (psxRegs.code & 0x400) { \
+                    void gteMVMVA##P1##P2##_FC_SF1_LM1(psxCP2Regs *regs); \
+                    CALLFunc ((u32)gteMVMVA##P1##P2##_FC_SF1_LM1); \
+                } \
+                else { \
+                    void gteMVMVA##P1##P2##_FC_SF1_LM0(psxCP2Regs *regs); \
+                    CALLFunc ((u32)gteMVMVA##P1##P2##_FC_SF1_LM0); \
+                } \
+            } \
+            else { \
+                if (psxRegs.code & 0x400) { \
+                    void gteMVMVA##P1##P2##_FC_SF0_LM1(psxCP2Regs *regs); \
+                    CALLFunc ((u32)gteMVMVA##P1##P2##_FC_SF0_LM1); \
+                } \
+                else { \
+                    void gteMVMVA##P1##P2##_FC_SF0_LM0(psxCP2Regs *regs); \
+                    CALLFunc ((u32)gteMVMVA##P1##P2##_FC_SF0_LM0); \
+                } \
+            } \
+            break; \
+        default: \
+            if (checkCode & 0x80) { \
+                if (psxRegs.code & 0x400) { \
+                    void gteMVMVA##P1##P2##_SF1_LM1(psxCP2Regs *regs); \
+                    CALLFunc ((u32)gteMVMVA##P1##P2##_SF1_LM1); \
+                } \
+                else { \
+                    void gteMVMVA##P1##P2##_SF1_LM0(psxCP2Regs *regs); \
+                    CALLFunc ((u32)gteMVMVA##P1##P2##_SF1_LM0); \
+                } \
+            } \
+            else { \
+                if (psxRegs.code & 0x400) { \
+                    void gteMVMVA##P1##P2##_SF0_LM1(psxCP2Regs *regs); \
+                    CALLFunc ((u32)gteMVMVA##P1##P2##_SF0_LM1); \
+                } \
+                else { \
+                    void gteMVMVA##P1##P2##_SF0_LM0(psxCP2Regs *regs); \
+                    CALLFunc ((u32)gteMVMVA##P1##P2##_SF0_LM0); \
+                } \
+            } \
+            break; \
+    } \
+}
 
 static void recMVMVA() {
     if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2);
     LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D);
-    LIW(PutHWRegSpecial(ARG2), gteop);
     FlushAllHWReg();
-    int shift = 12 * GTE_SF(gteop);
-    int mx = GTE_MX(gteop);
-    int v = GTE_V(gteop);
-    int cv = GTE_CV(gteop);
 
-    if (cv < 3) {
-        if (mx < 3) {
-            if (v < 3) {
-                CALLFunc ((u32)gteMVMVA_R1);
-            }
-            else {
-                CALLFunc ((u32)gteMVMVA_R2);
-            }
-        }
-        else {
-            if (shift == 12)
-            {
-                CALLFunc ((u32)gteMVMVA_R3);
-            }
-            else
-            {
-                CALLFunc ((u32)gteMVMVA_R4);
-            }
-        }
-    }
-    else {
-        if (mx < 3) {
-            if (v < 3) {
-                CALLFunc ((u32)gteMVMVA_R5);
-            }
-            else {
-                CALLFunc ((u32)gteMVMVA_R6);
-            }
-        }
-        else {
-            CALLFunc ((u32)gteMVMVA_R7);
-        }
+    s32 checkCode = psxRegs.code >> 12;
+
+    switch (checkCode & 0x78) {
+        case 0x00: // V0 * R
+            _MVMVA_CHECK(_V0, _R); break;
+        case 0x08: // V1 * R
+            _MVMVA_CHECK(_V1, _R); break;
+        case 0x10: // V2 * R
+            _MVMVA_CHECK(_V2, _R); break;
+        case 0x18: // IR * R
+            _MVMVA_CHECK(_IR, _R); break;
+        case 0x20: // V0 * L
+            _MVMVA_CHECK(_V0, _L); break;
+        case 0x28: // V1 * L
+            _MVMVA_CHECK(_V1, _L); break;
+        case 0x30: // V2 * L
+            _MVMVA_CHECK(_V2, _L); break;
+        case 0x38: // IR * L
+            _MVMVA_CHECK(_IR, _L); break;
+        case 0x40: // V0 * C
+            _MVMVA_CHECK(_V0, _C); break;
+        case 0x48: // V1 * C
+            _MVMVA_CHECK(_V1, _C); break;
+        case 0x50: // V2 * C
+            _MVMVA_CHECK(_V2, _C); break;
+        case 0x58: // IR * C
+            _MVMVA_CHECK(_IR, _C); break;
+        default:
+            _MVMVA_CHECK(, ); break;
     }
 
     cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)]<<2);
