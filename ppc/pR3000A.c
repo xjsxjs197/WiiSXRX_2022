@@ -1005,36 +1005,47 @@ static void rec##f() { \
 #define CP2_FUNC(f) \
 void gte##f##_R(); \
 static void rec##f() { \
-	if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2); \
+	/*if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2);*/ \
 	iFlushRegs(0); \
 	LIW(0, (u32)psxRegs.code); \
 	STW(0, OFFSET(&psxRegs, &psxRegs.code), GetHWRegSpecial(PSXREGS)); \
 	/*LWZ(PutHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.gteCycle), GetHWRegSpecial(PSXREGS));*/ \
 	/*ADDI(0, GetHWRegSpecial(ARG1), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2));*/ \
 	/*STW(0, OFFSET(&psxRegs, &psxRegs.gteCycle), GetHWRegSpecial(PSXREGS));*/ \
-	/*ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2));*/ \
 	LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D); \
 	FlushAllHWReg(); \
 	CALLFunc ((u32)gte##f##_R); \
-	cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)]<<2); \
+	ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)])); \
+	/*cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)]<<2);*/ \
 }
 
 #define CP2_FUNCNC(f) \
 void gte##f##_R(); \
 static void rec##f() { \
-	if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2); \
+	/*if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2);*/ \
 	iFlushRegs(0); \
 	/*LWZ(PutHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.gteCycle), GetHWRegSpecial(PSXREGS));*/ \
 	/*ADDI(0, GetHWRegSpecial(ARG1), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2));*/ \
 	/*STW(0, OFFSET(&psxRegs, &psxRegs.gteCycle), GetHWRegSpecial(PSXREGS));*/ \
-	/*ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2));*/ \
 	LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D); \
 	CALLFunc ((u32)gte##f##_R); \
+	ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)])); \
 /*	branch = 2; */\
-	cop2readypc = pc + psxCP2time[_fFunct_(psxRegs.code)]; \
+	/*cop2readypc = pc + psxCP2time[_fFunct_(psxRegs.code)];*/ \
 }
 
-#define gteop (psxRegs.code & 0x1ffffff)
+#define REC_CP2_FUNC(f) \
+void psx##f(); \
+static void rec##f() { \
+	iFlushRegs(0); \
+	LIW(PutHWRegSpecial(ARG1), (u32)psxRegs.code); \
+	STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.code), GetHWRegSpecial(PSXREGS)); \
+	LIW(PutHWRegSpecial(PSXPC), (u32)pc); \
+	FlushAllHWReg(); \
+	CALLFunc((u32)psx##f); \
+	ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), 1); \
+/*	branch = 2; */\
+}
 
 #define _MVMVA_CHECK(P1, P2) { \
     switch (checkCode & 0x6) { \
@@ -1165,6 +1176,7 @@ static void recMVMVA() {
             _MVMVA_CHECK(, ); break;
     }
 
+    ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)]));
     cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)]<<2);
 }
 
@@ -2491,10 +2503,10 @@ static void recLW() {
 	}
 }
 
-REC_FUNC(LWL);
-REC_FUNC(LWR);
-REC_FUNC(SWL);
-REC_FUNC(SWR);
+REC_CP2_FUNC(LWL);
+REC_CP2_FUNC(LWR);
+REC_CP2_FUNC(SWL);
+REC_CP2_FUNC(SWR);
 
 //REC_FUNC(SB);
 static void recSB() {

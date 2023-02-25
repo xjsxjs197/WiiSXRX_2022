@@ -274,7 +274,7 @@ void psxRcntSet()
         }
     }
 
-    psxRegs.interrupt |= (1 << PSXINT_RCNT);
+    //psxRegs.interrupt |= (1 << PSXINT_RCNT);
     //new_dyna_set_event(PSXINT_RCNT, psxNextCounter);
 }
 
