@@ -3588,10 +3588,37 @@ static void recCTC0() {
 #define gteSXYP    ((s32*)psxRegs.CP2D.r)[15]
 #define gteORGB    psxRegs.CP2D.r[29]
 
-static void recMFC21() {
+static void recMFC2() {
     if (!_Rt_) return;
 
     switch(_Rd_) {
+        case 1:
+        case 3:
+        case 5:
+        case 8:
+        case 9:
+        case 10:
+        case 11:
+            //psxRegs.CP2D.r[reg] = (s32)psxRegs.CP2D.p[reg].sw.l;
+            LHA(PutHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2D.p[_Rd_].sw.l), GetHWRegSpecial(PSXREGS));
+            break;
+
+        case 7:
+        case 16:
+        case 17:
+        case 18:
+        case 19:
+            //psxRegs.CP2D.r[reg] = (u32)psxRegs.CP2D.p[reg].w.l;
+            LHZ(PutHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2D.p[_Rd_].w.l), GetHWRegSpecial(PSXREGS));
+            break;
+
+        case 15:
+            //psxRegs.CP2D.r[reg] = gteSXY2;
+            LWZ(PutHWReg32(_Rt_), OFFSET(&psxRegs, &(gteSXY2)), GetHWRegSpecial(PSXREGS));
+            STW(GetHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2D.r[_Rd_]), GetHWRegSpecial(PSXREGS));
+            break;
+
+        case 28:
         case 29:
 //            gteORGB = (((gteIR1 >> 7) & 0x1f)) |
 //                      (((gteIR2 >> 7) & 0x1f)<<5) |
@@ -3618,16 +3645,18 @@ static void recMFC21() {
             break;
 
         default:
-            //psxRegs.GPR.r[_Rt_] = psxRegs.CP2D.r[_Rd_];
             LWZ(PutHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2D.r[_Rd_]), GetHWRegSpecial(PSXREGS));
             break;
     }
 }
 
-static void recMTC21() {
+static void recMTC2() {
     //MTC2(psxRegs.GPR.r[_Rt_], _Rd_);
     u32 *bEnd;
     switch(_Rd_) {
+        case 1:
+        case 3:
+        case 5:
         case 8: case 9: case 10: case 11:
             //psxRegs.CP2D.r[_Rd_] = (short)value;
             iFlushRegs(0);
@@ -3649,6 +3678,7 @@ static void recMTC21() {
             STW(GetHWReg32(_Rt_), OFFSET(&psxRegs, &(gteSXYP)), GetHWRegSpecial(PSXREGS));
             break;
 
+        case 7:
         case 16: case 17: case 18: case 19:
             //psxRegs.CP2D.r[_Rd_] = (value & 0xffff);
             ANDI_(PutHWReg32(_Rt_), GetHWReg32(_Rt_), 0xffff);
@@ -3698,13 +3728,13 @@ static void recMTC21() {
     }
 }
 
-static void recCFC21() {
+static void recCFC2() {
     if (!_Rt_) return;
     //psxRegs.GPR.r[_Rt_] = psxRegs.CP2C.r[_Rd_];
     LWZ(PutHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2C.r[_Rd_]), GetHWRegSpecial(PSXREGS));
 }
 
-static void recCTC21() {
+static void recCTC2() {
     int reg = _Rd_;
     u32 *bEnd;
     switch (reg) {
@@ -3745,7 +3775,7 @@ static void recCTC21() {
     }
 }
 
-static void recLWC21() {
+static void recLWC2() {
     //MTC2(psxMemRead32(_oB_), _Rt_);
     int rs, reg;
     reg = _Rt_;
@@ -3761,6 +3791,9 @@ static void recLWC21() {
 
     u32 *bEnd;
     switch(reg) {
+        case 1:
+        case 3:
+        case 5:
         case 8: case 9: case 10: case 11:
             //psxRegs.CP2D.r[reg] = (short)value;
             EXTSH(PutHWRegSpecial(ARG1), GetHWRegSpecial(ARG1));
@@ -3781,6 +3814,7 @@ static void recLWC21() {
             STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &(gteSXYP)), GetHWRegSpecial(PSXREGS));
             break;
 
+        case 7:
         case 16: case 17: case 18: case 19:
             //psxRegs.CP2D.r[reg] = (value & 0xffff);
             ANDI_(PutHWRegSpecial(ARG1), GetHWRegSpecial(ARG1), 0xffff);
@@ -3835,17 +3869,47 @@ static void recLWC21() {
             STW(0, OFFSET(&psxRegs, &psxRegs.CP2D.r[31]), GetHWRegSpecial(PSXREGS));
             break;
 
+        case 31:
+            return;
+
         default:
             //psxRegs.CP2D.r[reg] = value;
             STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.CP2D.r[reg]), GetHWRegSpecial(PSXREGS));
     }
 }
 
-static void recSWC21() {
+static void recSWC2() {
     //psxMemWrite32((psxRegs.GPR.r[_Rs_] + _Imm_), MFC2(_Rt_));
     ReserveArgs(2);
     ADDI(PutHWRegSpecial(ARG1), GetHWReg32(_Rs_), _Imm_);
     switch(_Rt_) {
+        case 1:
+        case 3:
+        case 5:
+        case 8:
+        case 9:
+        case 10:
+        case 11:
+            //psxRegs.CP2D.r[reg] = (s32)psxRegs.CP2D.p[reg].sw.l;
+            LHA(PutHWRegSpecial(ARG2), OFFSET(&psxRegs, &psxRegs.CP2D.p[_Rt_].sw.l), GetHWRegSpecial(PSXREGS));
+            break;
+
+        case 7:
+        case 16:
+        case 17:
+        case 18:
+        case 19:
+            //psxRegs.CP2D.r[reg] = (u32)psxRegs.CP2D.p[reg].w.l;
+            LHZ(PutHWRegSpecial(ARG2), OFFSET(&psxRegs, &psxRegs.CP2D.p[_Rt_].w.l), GetHWRegSpecial(PSXREGS));
+            break;
+
+        case 15:
+            //psxRegs.CP2D.r[reg] = gteSXY2;
+            LWZ(PutHWRegSpecial(ARG2), OFFSET(&psxRegs, &(gteSXY2)), GetHWRegSpecial(PSXREGS));
+            STW(GetHWRegSpecial(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2D.r[_Rt_]), GetHWRegSpecial(PSXREGS));
+            break;
+
+        case 28:
         case 29:
 //            gteORGB = (gteIR1 >> 7) & 0x1f) | ((gteIR2 >> 2) & 0x3e0) | ((gteIR3 << 3) & 0x7c00);
 //            psxRegs.GPR.r[_Rt_] = gteORGB;
@@ -3877,12 +3941,12 @@ static void recSWC21() {
     CALLFunc((u32)psxMemWrite32);
 }
 
-CP2_FUNC(MFC2);
-CP2_FUNC(MTC2);
-CP2_FUNC(CFC2);
-CP2_FUNC(CTC2);
-CP2_FUNC(LWC2);
-CP2_FUNC(SWC2);
+//CP2_FUNC(MFC2);
+//CP2_FUNC(MTC2);
+//CP2_FUNC(CFC2);
+//CP2_FUNC(CTC2);
+//CP2_FUNC(LWC2);
+//CP2_FUNC(SWC2);
 
 CP2_FUNCNC(RTPS);
 CP2_FUNC(OP);
