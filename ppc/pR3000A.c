@@ -41,6 +41,14 @@
 //}
 #define printFunctionLog()
 
+static void printLWLInfo(u32 addr, u32 val, u32 oldVal)
+{
+    #ifdef SHOW_DEBUG
+    sprintf(txtbuffer, "recLWL %08x %d %08x %08x", addr, addr & 3, val, oldVal);
+    DEBUG_print(txtbuffer, DBG_CORE3);
+    #endif // DISP_DEBUG
+}
+
 /* variable declarations */
 static u32 psxRecLUT[0x010000];
 //static char recMem[RECMEM_SIZE] __attribute__((aligned(32)));	/* the recompiled blocks will be here */
@@ -1703,12 +1711,19 @@ static void recSLTU() {
 
 int DoShift(u32 k)
 {
-	u32 i;
-	for (i=0; i<30; i++) {
-		if (k == (1ul << i))
-			return i;
-	}
-	return -1;
+    u32 i;
+    for (i=0; i<30; i++) {
+        if (k == (1ul << i))
+        {
+            #ifdef SHOW_DEBUG
+            sprintf(txtbuffer, "DoShift %ld %d", (s32)k, i);
+            DEBUG_print(txtbuffer, DBG_CORE2);
+            #endif // SHOW_DEBUG
+            return i;
+        }
+
+    }
+    return -1;
 }
 
 //REC_FUNC(MULT);
@@ -2503,10 +2518,238 @@ static void recLW() {
 	}
 }
 
-REC_CP2_FUNC(LWL);
-REC_CP2_FUNC(LWR);
-REC_CP2_FUNC(SWL);
-REC_CP2_FUNC(SWR);
+#define    r1     1
+#define    r3     3
+#define    r4     4
+#define    r5     5
+#define    r6     6
+#define    r7     7
+#define    r8     8
+
+#define LW_SW_LR_COMN(swLR) \
+    if (!_Rt_) return; \
+     \
+    u32 *bAddrNull, *bChkDt, *bIdx1, *bIdx2, *bIdx3, *bEnd1, *bEnd2, *bEnd3, *bEndWriteDt; \
+     \
+    STWU(r1, -0x20, r1); \
+    STW(r3, 0x4, r1); \
+    STW(r4, 0x8, r1); \
+    STW(r5, 0xc, r1); \
+    STW(r6, 0x10, r1); \
+    if (swLR) { \
+        STW(r7, 0x14, r1); \
+        STW(r8, 0x18, r1); \
+    } \
+    FlushAllHWReg(); \
+    ADDI(r3, GetHWReg32(_Rs_), _Imm_); \
+    MR(r6, GetHWReg32(_Rt_)); /* backup rt */ \
+    LIW(r4, (u32)(&psxMemRLUT)); \
+    SRWI(r5, r3, 16); \
+    SLWI(r5, r5, 2); \
+    if (swLR) { \
+        MR(r7, r5); \
+    } \
+    LWZX(r4, r4, r5); \
+    ANDI_(r5, r3, 3); /* shift */ \
+    CMPWI(r4, 0); \
+    BEQ_L(bAddrNull); \
+    ANDI_(r3, r3, 0xfffc); \
+    if (swLR) { \
+        MR(r8, r3); \
+    } \
+    LWBRX(r3, r4, r3); \
+    B_L(bChkDt); \
+    B_DST(bAddrNull); \
+    ADDI(r3, 0, 0); \
+    B_DST(bChkDt); \
+    \
+    CMPWI(r5, 1); \
+    BEQ_L(bIdx1); \
+    CMPWI(r5, 2); \
+    BEQ_L(bIdx2); \
+    CMPWI(r5, 3); \
+    BEQ_L(bIdx3);
+
+#define COMMON_END() \
+    B_DST(bEnd1); \
+    B_DST(bEnd2); \
+    B_DST(bEnd3);
+
+#define RESTORE_REG(reg, offset) \
+    if (reg != GetHWReg32(_Rt_)) { \
+        LWZ(reg, offset, r1); \
+    }
+
+#define LW_LR_END() \
+    COMMON_END(); \
+    \
+    RESTORE_REG(r3, 0x4); \
+    RESTORE_REG(r4, 0x8); \
+    RESTORE_REG(r5, 0xc); \
+    RESTORE_REG(r6, 0x10); \
+    ADDI(r1, r1, 0x20);
+
+#define SW_LR_END() \
+    COMMON_END(); \
+    \
+    LWZ(r3, 0x4, r1); \
+    LWZ(r4, 0x8, r1); \
+    LWZ(r5, 0xc, r1); \
+    LWZ(r6, 0x10, r1); \
+    LWZ(r7, 0x14, r1); \
+    LWZ(r8, 0x18, r1); \
+    ADDI(r1, r1, 0x20);
+
+static void recLWL() {
+    LW_SW_LR_COMN(false);
+
+    SLWI(r3, r3, 24);
+    //LIW(r4, 0x00ffffff);
+    //AND(r4, r6, r4);
+    SLWI(r6, r6, 8);
+    SRWI(r4, r6, 8);
+    OR(PutHWReg32(_Rt_), r3, r4); // (mem << 24) | (reg & 0x00ffffff)
+    B_L(bEnd1);
+
+    B_DST(bIdx1);
+    SLWI(r3, r3, 16);
+    ANDI_(r4, r6, 0xffff);
+    OR(PutHWReg32(_Rt_), r3, r4); // (mem << 16) | (reg & 0x0000ffff)
+    B_L(bEnd2);
+
+    B_DST(bIdx2);
+    SLWI(r3, r3, 8);
+    ANDI_(r4, r6, 0xff);
+    OR(PutHWReg32(_Rt_), r3, r4); // (mem <<  8) | (reg & 0x000000ff)
+    B_L(bEnd3);
+
+    B_DST(bIdx3);
+    MR(PutHWReg32(_Rt_), r3); // (mem      ) | (reg & 0x00000000)
+
+    LW_LR_END();
+}
+
+static void recLWR() {
+    LW_SW_LR_COMN(false);
+
+    MR(PutHWReg32(_Rt_), r3); // (mem      ) | (reg & 0x00000000)
+    B_L(bEnd1);
+
+    B_DST(bIdx1);
+    SRWI(r3, r3, 8);
+    ANDIS(r4, r6, 0xff00);
+    OR(PutHWReg32(_Rt_), r3, r4); // (mem >>  8) | (reg & 0xff000000)
+    B_L(bEnd2);
+
+    B_DST(bIdx2);
+    SRWI(r3, r3, 16);
+    ANDIS(r4, r6, 0xffff);
+    OR(PutHWReg32(_Rt_), r3, r4); // (mem >> 16) | (reg & 0xffff0000)
+    B_L(bEnd3);
+
+    B_DST(bIdx3);
+    SRWI(r3, r3, 24);
+    //LIW(r4, 0xffffff00);
+    //AND(r4, r6, r4);
+    SRWI(r6, r6, 8);
+    SLWI(r4, r6, 8);
+    OR(PutHWReg32(_Rt_), r3, r4); // (mem >> 24) | (reg & 0xffffff00)
+
+    LW_LR_END();
+}
+
+#define SW_LR_WRITEMEM(regIdx) \
+    LIW(r4, (u32)(&psxMemWLUT)); \
+    LWZX(r4, r4, r7); \
+    CMPWI(r4, 0); \
+    BEQ_L(bEndWriteDt); \
+    STWBRX(regIdx, r4, r8); \
+    B_DST(bEndWriteDt);
+
+//#define debugSWLR(reg) \
+//    SRWI(r26, r26, 2); \
+//    SLWI(r26, r26, 16); \
+//    ADD(r26, r26, r27); \
+//    MR(r3Put, r26); \
+//    MR(PutHWRegSpecial(ARG2), reg); \
+//    ADDI(PutHWRegSpecial(ARG3), 0, r3Get); \
+//    CALLFunc((u32)printLWLInfo); \
+//    \
+//    iFlushRegs(0); \
+//    LIW(0, (u32)psxRegs.code); \
+//    STW(0, OFFSET(&psxRegs, &psxRegs.code), GetHWRegSpecial(PSXREGS)); \
+//    LIW(PutHWRegSpecial(PSXPC), (u32)pc); \
+//    FlushAllHWReg(); \
+//    CALLFunc((u32)psxSWL);
+
+static void recSWL() {
+    LW_SW_LR_COMN(true);
+
+    SRWI(r6, r6, 24);
+    //LIW(r5, 0xffffff00);
+    //AND(r5, r3, r5);
+    SRWI(r3, r3, 8);
+    SLWI(r5, r3, 8);
+    OR(r5, r6, r5);
+    SW_LR_WRITEMEM(r5); // (reg >> 24) | (mem & 0xffffff00)
+    B_L(bEnd1);
+
+    B_DST(bIdx1);
+    SRWI(r6, r6, 16);
+    ANDIS(r5, r3, 0xffff);
+    OR(r5, r6, r5);
+    SW_LR_WRITEMEM(r5); // (reg >> 16) | (mem & 0xffff0000)
+    B_L(bEnd2);
+
+    B_DST(bIdx2);
+    SRWI(r6, r6, 8);
+    ANDIS(r5, r3, 0xff00);
+    OR(r5, r6, r5);
+    SW_LR_WRITEMEM(r5);  // (reg >>  8) | (mem & 0xff000000)
+    B_L(bEnd3);
+
+    B_DST(bIdx3);
+    SW_LR_WRITEMEM(r6); // (reg      ) | (mem & 0x00000000)
+
+    SW_LR_END();
+}
+
+static void recSWR() {
+    LW_SW_LR_COMN(true);
+
+    SW_LR_WRITEMEM(r6); // (reg      ) | (mem & 0x00000000)
+    B_L(bEnd1);
+
+    B_DST(bIdx1);
+    SLWI(r6, r6, 8);
+    ANDI_(r5, r3, 0xff);
+    OR(r5, r6, r5);
+    SW_LR_WRITEMEM(r5); // (reg <<  8) | (mem & 0x000000ff)
+    B_L(bEnd2);
+
+    B_DST(bIdx2);
+    SLWI(r6, r6, 16);
+    ANDI_(r5, r3, 0xffff);
+    OR(r5, r6, r5);
+    SW_LR_WRITEMEM(r5);  // (reg << 16) | (mem & 0x0000ffff)
+    B_L(bEnd3);
+
+    B_DST(bIdx3);
+    SLWI(r6, r6, 24);
+    //LIW(r5, 0xffffff);
+    //AND(r5, r3, r5);
+    SLWI(r3, r3, 8);
+    SRWI(r5, r3, 8);
+    OR(r5, r6, r5);
+    SW_LR_WRITEMEM(r5); // (reg << 24) | (mem & 0x00ffffff)
+
+    SW_LR_END();
+}
+
+//REC_FUNC(LWL);
+//REC_FUNC(LWR);
+//REC_FUNC(SWL);
+//REC_FUNC(SWR);
 
 //REC_FUNC(SB);
 static void recSB() {
@@ -3336,6 +3579,304 @@ static void recCTC0() {
 }
 
 // GTE function callers
+#define gteIR1     ((s32*)psxRegs.CP2D.r)[9]
+#define gteIR2     ((s32*)psxRegs.CP2D.r)[10]
+#define gteIR3     ((s32*)psxRegs.CP2D.r)[11]
+#define gteSXY0    ((s32*)psxRegs.CP2D.r)[12]
+#define gteSXY1    ((s32*)psxRegs.CP2D.r)[13]
+#define gteSXY2    ((s32*)psxRegs.CP2D.r)[14]
+#define gteSXYP    ((s32*)psxRegs.CP2D.r)[15]
+#define gteORGB    psxRegs.CP2D.r[29]
+
+static void recMFC21() {
+    if (!_Rt_) return;
+
+    switch(_Rd_) {
+        case 29:
+//            gteORGB = (((gteIR1 >> 7) & 0x1f)) |
+//                      (((gteIR2 >> 7) & 0x1f)<<5) |
+//                      (((gteIR3 >> 7) & 0x1f)<<10);
+//            // = ((gteIR1 >> 7) & 0x1f) | ((gteIR2 >> 2) & 0x3e0) | ((gteIR3 << 3) & 0x7c00);
+//            psxRegs.GPR.r[_Rt_] = gteORGB;
+            iFlushRegs(0);
+            LWZ(0, OFFSET(&psxRegs, &(gteIR1)), GetHWRegSpecial(PSXREGS));
+            SRWI(0, 0, 7);
+            ORI(0, 0, 0x1f);
+            MR(PutHWReg32(_Rt_), 0);
+
+            LWZ(0, OFFSET(&psxRegs, &(gteIR2)), GetHWRegSpecial(PSXREGS));
+            SRWI(0, 0, 2);
+            ORI(0, 0, 0x3e0);
+            OR(PutHWReg32(_Rt_), 0, GetHWReg32(_Rt_));
+
+            LWZ(0, OFFSET(&psxRegs, &(gteIR3)), GetHWRegSpecial(PSXREGS));
+            SLWI(0, 0, 3);
+            ORI(0, 0, 0x7c00);
+            OR(PutHWReg32(_Rt_), 0, GetHWReg32(_Rt_));
+
+            STW(GetHWReg32(_Rt_), OFFSET(&psxRegs, &(gteORGB)), GetHWRegSpecial(PSXREGS));
+            break;
+
+        default:
+            //psxRegs.GPR.r[_Rt_] = psxRegs.CP2D.r[_Rd_];
+            LWZ(PutHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2D.r[_Rd_]), GetHWRegSpecial(PSXREGS));
+            break;
+    }
+}
+
+static void recMTC21() {
+    //MTC2(psxRegs.GPR.r[_Rt_], _Rd_);
+    u32 *bEnd;
+    switch(_Rd_) {
+        case 8: case 9: case 10: case 11:
+            //psxRegs.CP2D.r[_Rd_] = (short)value;
+            iFlushRegs(0);
+            EXTSH(0, GetHWReg32(_Rt_));
+            STW(0, OFFSET(&psxRegs, &psxRegs.CP2D.r[_Rd_]), GetHWRegSpecial(PSXREGS));
+            break;
+
+        case 15:
+//            gteSXY0 = gteSXY1;
+//            gteSXY1 = gteSXY2;
+//            gteSXY2 = value;
+//            gteSXYP = value;
+            iFlushRegs(0);
+            LWZ(0, OFFSET(&psxRegs, &(gteSXY1)), GetHWRegSpecial(PSXREGS));
+            STW(0, OFFSET(&psxRegs, &(gteSXY0)), GetHWRegSpecial(PSXREGS));
+            LWZ(0, OFFSET(&psxRegs, &(gteSXY2)), GetHWRegSpecial(PSXREGS));
+            STW(0, OFFSET(&psxRegs, &(gteSXY1)), GetHWRegSpecial(PSXREGS));
+            STW(GetHWReg32(_Rt_), OFFSET(&psxRegs, &(gteSXY2)), GetHWRegSpecial(PSXREGS));
+            STW(GetHWReg32(_Rt_), OFFSET(&psxRegs, &(gteSXYP)), GetHWRegSpecial(PSXREGS));
+            break;
+
+        case 16: case 17: case 18: case 19:
+            //psxRegs.CP2D.r[_Rd_] = (value & 0xffff);
+            ANDI_(PutHWReg32(_Rt_), GetHWReg32(_Rt_), 0xffff);
+            STW(GetHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2D.r[_Rd_]), GetHWRegSpecial(PSXREGS));
+            break;
+
+        case 28:
+//            psxRegs.CP2D.r[28] = value;
+//            gteIR1 = ((value      ) & 0x1f) << 7;
+//            gteIR2 = ((value >>  5) & 0x1f) << 7 = ((value      ) & 0x3e0) << 2;
+//            gteIR3 = ((value >> 10) & 0x1f) << 7 = ((value      ) & 0x7c00) >> 3;
+            STW(GetHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2D.r[28]), GetHWRegSpecial(PSXREGS));
+            iFlushRegs(0);
+            ORI(0, GetHWReg32(_Rt_), 0x1f);
+            SLWI(0, 0, 7);
+            STW(0, OFFSET(&psxRegs, &(gteIR1)), GetHWRegSpecial(PSXREGS));
+
+            ORI(0, GetHWReg32(_Rt_), 0x3e0);
+            SLWI(0, 0, 2);
+            STW(0, OFFSET(&psxRegs, &(gteIR2)), GetHWRegSpecial(PSXREGS));
+
+            ORI(0, GetHWReg32(_Rt_), 0x7c00);
+            SRWI(0, 0, 3);
+            STW(0, OFFSET(&psxRegs, &(gteIR3)), GetHWRegSpecial(PSXREGS));
+            break;
+
+        case 30:
+            //psxRegs.CP2D.r[30] = value;
+            STW(GetHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2D.r[30]), GetHWRegSpecial(PSXREGS));
+            iFlushRegs(0);
+            MR(0, GetHWReg32(_Rt_));
+            CMPWI(0, 0);
+            BGE_L(bEnd);
+            LIW(0, 0xffffffff);
+            XOR(0, GetHWReg32(_Rt_), 0);
+            B_DST(bEnd);
+            CNTLZW(0, 0);
+            STW(0, OFFSET(&psxRegs, &psxRegs.CP2D.r[31]), GetHWRegSpecial(PSXREGS));
+            break;
+
+        case 31:
+            return;
+
+        default:
+            //psxRegs.CP2D.r[_Rd_] = value;
+            STW(GetHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2D.r[_Rd_]), GetHWRegSpecial(PSXREGS));
+    }
+}
+
+static void recCFC21() {
+    if (!_Rt_) return;
+    //psxRegs.GPR.r[_Rt_] = psxRegs.CP2C.r[_Rd_];
+    LWZ(PutHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2C.r[_Rd_]), GetHWRegSpecial(PSXREGS));
+}
+
+static void recCTC21() {
+    int reg = _Rd_;
+    u32 *bEnd;
+    switch (reg) {
+        case 4:
+        case 12:
+        case 20:
+        case 26:
+        case 27:
+        case 29:
+        case 30:
+            //psxRegs.CP2C.r[reg] = (s32)(s16)psxRegs.GPR.r[_Rt_];
+            EXTSH(PutHWReg32(_Rt_), GetHWReg32(_Rt_));
+            STW(GetHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2C.r[reg]), GetHWRegSpecial(PSXREGS));
+            break;
+
+        case 31:
+            //value = psxRegs.GPR.r[_Rt_] & 0x7ffff000;
+            //if (value & 0x7f87e000) value |= 0x80000000;
+            //psxRegs.CP2C.r[reg] = value;
+            iFlushRegs(0);
+            LIW(0, 0x7ffff000);
+            AND(0, 0, GetHWReg32(_Rt_));
+            MR(PutHWReg32(_Rt_), 0);
+            LIW(0, 0x7f87e000);
+            AND(0, 0, GetHWReg32(_Rt_));
+
+            CMPWI(0, 0);
+            BEQ_L(bEnd);
+            ORIS(PutHWReg32(_Rt_), GetHWReg32(_Rt_), 0x8000);
+            B_DST(bEnd);
+            STW(GetHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2C.r[reg]), GetHWRegSpecial(PSXREGS));
+            break;
+
+        default:
+            //psxRegs.CP2C.r[reg] = psxRegs.GPR.r[_Rt_];
+            STW(GetHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2C.r[reg]), GetHWRegSpecial(PSXREGS));
+            break;
+    }
+}
+
+static void recLWC21() {
+    //MTC2(psxMemRead32(_oB_), _Rt_);
+    int rs, reg;
+    reg = _Rt_;
+    ReserveArgs(1);
+    rs = GetHWReg32(_Rs_);
+    if (rs != 3 || _Imm_ != 0) {
+        ADDI(PutHWRegSpecial(ARG1), rs, _Imm_);
+    }
+    InvalidateCPURegs();
+    CALLFunc((u32)psxMemRead32);
+    SetDstCPUReg(3);
+    PutHWRegSpecial(ARG1);
+
+    u32 *bEnd;
+    switch(reg) {
+        case 8: case 9: case 10: case 11:
+            //psxRegs.CP2D.r[reg] = (short)value;
+            EXTSH(PutHWRegSpecial(ARG1), GetHWRegSpecial(ARG1));
+            STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.CP2D.r[reg]), GetHWRegSpecial(PSXREGS));
+            break;
+
+        case 15:
+//            gteSXY0 = gteSXY1;
+//            gteSXY1 = gteSXY2;
+//            gteSXY2 = value;
+//            gteSXYP = value;
+            iFlushRegs(0);
+            LWZ(0, OFFSET(&psxRegs, &(gteSXY1)), GetHWRegSpecial(PSXREGS));
+            STW(0, OFFSET(&psxRegs, &(gteSXY0)), GetHWRegSpecial(PSXREGS));
+            LWZ(0, OFFSET(&psxRegs, &(gteSXY2)), GetHWRegSpecial(PSXREGS));
+            STW(0, OFFSET(&psxRegs, &(gteSXY1)), GetHWRegSpecial(PSXREGS));
+            STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &(gteSXY2)), GetHWRegSpecial(PSXREGS));
+            STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &(gteSXYP)), GetHWRegSpecial(PSXREGS));
+            break;
+
+        case 16: case 17: case 18: case 19:
+            //psxRegs.CP2D.r[reg] = (value & 0xffff);
+            ANDI_(PutHWRegSpecial(ARG1), GetHWRegSpecial(ARG1), 0xffff);
+            STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.CP2D.r[reg]), GetHWRegSpecial(PSXREGS));
+            break;
+
+        case 28:
+//            psxRegs.CP2D.r[28] = value;
+//            gteIR1 = ((value      ) & 0x1f) << 7;
+//            gteIR2 = ((value >>  5) & 0x1f) << 7 = ((value      ) & 0x3e0) << 2;
+//            gteIR3 = ((value >> 10) & 0x1f) << 7 = ((value      ) & 0x7c00) >> 3;
+            STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.CP2D.r[28]), GetHWRegSpecial(PSXREGS));
+            iFlushRegs(0);
+            ORI(0, GetHWRegSpecial(ARG1), 0x1f);
+            SLWI(0, 0, 7);
+            STW(0, OFFSET(&psxRegs, &(gteIR1)), GetHWRegSpecial(PSXREGS));
+
+            ORI(0, GetHWRegSpecial(ARG1), 0x3e0);
+            SLWI(0, 0, 2);
+            STW(0, OFFSET(&psxRegs, &(gteIR2)), GetHWRegSpecial(PSXREGS));
+
+            ORI(0, GetHWRegSpecial(ARG1), 0x7c00);
+            SRWI(0, 0, 3);
+            STW(0, OFFSET(&psxRegs, &(gteIR3)), GetHWRegSpecial(PSXREGS));
+            break;
+
+        case 30:
+            //psxRegs.CP2D.r[30] = value;
+            STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.CP2D.r[30]), GetHWRegSpecial(PSXREGS));
+
+//            a = psxRegs.CP2D.r[30];
+//            if (a > 0) {
+//                int i;
+//                for (i=31; (a & (1 << i)) == 0 && i >= 0; i--);
+//                psxRegs.CP2D.r[31] = 31 - i;
+//            } else if (a < 0) {
+//                int i;
+//                a^= 0xffffffff;
+//                for (i=31; (a & (1 << i)) == 0 && i >= 0; i--);
+//                psxRegs.CP2D.r[31] = 31 - i;
+//            } else {
+//                psxRegs.CP2D.r[31] = 32;
+//            }
+            iFlushRegs(0);
+            MR(0, GetHWRegSpecial(ARG1));
+            CMPWI(0, 0);
+            BGE_L(bEnd);
+            LIW(0, 0xffffffff);
+            XOR(0, GetHWRegSpecial(ARG1), 0);
+            B_DST(bEnd);
+            CNTLZW(0, 0);
+            STW(0, OFFSET(&psxRegs, &psxRegs.CP2D.r[31]), GetHWRegSpecial(PSXREGS));
+            break;
+
+        default:
+            //psxRegs.CP2D.r[reg] = value;
+            STW(GetHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.CP2D.r[reg]), GetHWRegSpecial(PSXREGS));
+    }
+}
+
+static void recSWC21() {
+    //psxMemWrite32((psxRegs.GPR.r[_Rs_] + _Imm_), MFC2(_Rt_));
+    ReserveArgs(2);
+    ADDI(PutHWRegSpecial(ARG1), GetHWReg32(_Rs_), _Imm_);
+    switch(_Rt_) {
+        case 29:
+//            gteORGB = (gteIR1 >> 7) & 0x1f) | ((gteIR2 >> 2) & 0x3e0) | ((gteIR3 << 3) & 0x7c00);
+//            psxRegs.GPR.r[_Rt_] = gteORGB;
+            iFlushRegs(0);
+            LWZ(0, OFFSET(&psxRegs, &(gteIR1)), GetHWRegSpecial(PSXREGS));
+            SRWI(0, 0, 7);
+            ORI(0, 0, 0x1f);
+            MR(PutHWRegSpecial(ARG2), 0);
+
+            LWZ(0, OFFSET(&psxRegs, &(gteIR2)), GetHWRegSpecial(PSXREGS));
+            SRWI(0, 0, 2);
+            ORI(0, 0, 0x3e0);
+            OR(PutHWRegSpecial(ARG2), 0, GetHWRegSpecial(ARG2));
+
+            LWZ(0, OFFSET(&psxRegs, &(gteIR3)), GetHWRegSpecial(PSXREGS));
+            SLWI(0, 0, 3);
+            ORI(0, 0, 0x7c00);
+            OR(PutHWRegSpecial(ARG2), 0, GetHWRegSpecial(ARG2));
+
+            STW(GetHWRegSpecial(ARG2), OFFSET(&psxRegs, &(gteORGB)), GetHWRegSpecial(PSXREGS));
+            break;
+
+        default:
+            //psxRegs.GPR.r[_Rt_] = psxRegs.CP2D.r[_Rt_];
+            LWZ(PutHWRegSpecial(ARG2), OFFSET(&psxRegs, &psxRegs.CP2D.r[_Rt_]), GetHWRegSpecial(PSXREGS));
+            break;
+    }
+    InvalidateCPURegs();
+    CALLFunc((u32)psxMemWrite32);
+}
+
 CP2_FUNC(MFC2);
 CP2_FUNC(MTC2);
 CP2_FUNC(CFC2);
