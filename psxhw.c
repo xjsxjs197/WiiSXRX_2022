@@ -363,6 +363,12 @@ u32 psxHwRead32(u32 add) {
 			return hard;
 
 		default:
+			if (add>=0x1f801c00 && add<0x1f801e00) {
+            	#ifdef SHOW_DEBUG
+				 sprintf(txtbuffer, "psxHwRead32 spu %08x", add);
+				 DEBUG_print(txtbuffer, DBG_GPU3);
+				 #endif // DISP_DEBUG
+			}
             // upd xjsxjs197 start
 			//hard = psxHu32(add);
 			hard = LOAD_SWAP32p(psxHAddr(add));
@@ -814,6 +820,10 @@ void psxHwWrite32(u32 add, u32 value) {
 		default:
 		    // Dukes of Hazard 2 - car engine noise
 			if (add>=0x1f801c00 && add<0x1f801e00) {
+				#ifdef SHOW_DEBUG
+				 sprintf(txtbuffer, "HwWrite32 spu %08x %08x", add, value);
+				 DEBUG_print(txtbuffer, DBG_GPU3);
+				 #endif // DISP_DEBUG
 				SPU_writeRegister(add, value&0xffff, psxRegs.cycle);
 				SPU_writeRegister(add + 2, value>>16, psxRegs.cycle);
 				return;

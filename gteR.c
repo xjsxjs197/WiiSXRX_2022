@@ -762,7 +762,7 @@ void gteNCDS_R(psxCP2Regs *regs) {
     gteRGB1 = gteRGB2;
     gteCODE2 = gteCODE;
     gteR2 = limC1(tmpMAC1 >> 4);
-    gteG2 = limC2(gteMAC2 >> 4);
+    gteG2 = limC2(tmpMAC2 >> 4);
     gteB2 = limC3(tmpMAC3 >> 4);
 
     RESET_MAC();
@@ -805,7 +805,7 @@ void gteNCDT_R(psxCP2Regs *regs) {
         gteG2 = limC2(tmpMAC2 >> 4);
         gteB2 = limC3(tmpMAC3 >> 4);
     }
-    gteIR1 = limB1(gteMAC1, 1);
+    gteIR1 = limB1(tmpMAC1, 1);
     gteIR2 = limB2(tmpMAC2, 1);
     gteIR3 = limB3(tmpMAC3, 1);
 
