@@ -59,6 +59,62 @@ static inline u16 hwRead16Default(u32 add) {
     }
 }
 
+static inline u16 hwRead16_1040(u32 add) {
+    return (u16)(sioRead8()) | (u16)(sioRead8() << 8);
+}
+
+static inline u16 hwRead16_1044(u32 add) {
+    return StatReg;
+}
+
+static inline u16 hwRead16_1048(u32 add) {
+    return ModeReg;
+}
+
+static inline u16 hwRead16_104a(u32 add) {
+    return CtrlReg;
+}
+
+static inline u16 hwRead16_104e(u32 add) {
+    return BaudReg;
+}
+
+static inline u16 hwRead16_1100(u32 add) {
+    return psxRcntRcount(0);
+}
+
+static inline u16 hwRead16_1104(u32 add) {
+    return psxRcntRmode(0);
+}
+
+static inline u16 hwRead16_1108(u32 add) {
+    return psxRcntRtarget(0);
+}
+
+static inline u16 hwRead16_1110(u32 add) {
+    return psxRcntRcount(1);
+}
+
+static inline u16 hwRead16_1114(u32 add) {
+    return psxRcntRmode(1);
+}
+
+static inline u16 hwRead16_1118(u32 add) {
+    return psxRcntRtarget(1);
+}
+
+static inline u16 hwRead16_1120(u32 add) {
+    return psxRcntRcount(2);
+}
+
+static inline u16 hwRead16_1124(u32 add) {
+    return psxRcntRmode(2);
+}
+
+static inline u16 hwRead16_1128(u32 add) {
+    return psxRcntRtarget(2);
+}
+
 static inline u32 hwRead32Default(u32 add) {
     return LOAD_SWAP32p(psxHAddr(add));
 }
@@ -67,6 +123,7 @@ static void hwFuncInit() {
     int i;
     for (i = 0; i < 0x10000; i++) {
         hwRead8[i] = &hwRead8Default;
+        hwRead16[i] = &hwRead16Default;
     }
 
     hwRead8[0x1040] = &sioRead8;
@@ -74,6 +131,21 @@ static void hwFuncInit() {
     hwRead8[0x1801] = &cdrRead1;
     hwRead8[0x1802] = &cdrRead2;
     hwRead8[0x1803] = &cdrRead3;
+
+    hwRead8[0x1040] = &hwRead16_1040;
+    hwRead8[0x1044] = &hwRead16_1044;
+    hwRead8[0x1048] = &hwRead16_1048;
+    hwRead8[0x104a] = &hwRead16_104a;
+    hwRead8[0x104e] = &hwRead16_104e;
+    hwRead8[0x1100] = &hwRead16_1100;
+    hwRead8[0x1104] = &hwRead16_1104;
+    hwRead8[0x1108] = &hwRead16_1108;
+    hwRead8[0x1110] = &hwRead16_1110;
+    hwRead8[0x1114] = &hwRead16_1114;
+    hwRead8[0x1118] = &hwRead16_1118;
+    hwRead8[0x1120] = &hwRead16_1120;
+    hwRead8[0x1124] = &hwRead16_1124;
+    hwRead8[0x1128] = &hwRead16_1128;
 }
 
 void psxHwReset() {
@@ -117,134 +189,135 @@ u8 psxHwRead8(u32 add) {
 }
 
 u16 psxHwRead16(u32 add) {
-    unsigned short hard;
-
-    switch (add & 0xffff) {
-#ifdef PSXHW_LOG
-        case 0x1070: PSXHW_LOG("IREG 16bit read %x\n", psxHu16(0x1070));
-            return psxHu16(0x1070);
-#endif
-#ifdef PSXHW_LOG
-        case 0x1074: PSXHW_LOG("IMASK 16bit read %x\n", psxHu16(0x1074));
-            return psxHu16(0x1074);
-#endif
-
-        case 0x1040:
-            hard = sioRead8();
-            hard|= sioRead8() << 8;
-#ifdef PAD_LOG
-            PAD_LOG("sio read16 %lx; ret = %x\n", add&0xf, hard);
-#endif
-            return hard;
-        case 0x1044:
-            hard = StatReg;
-#ifdef PAD_LOG
-            PAD_LOG("sio read16 %lx; ret = %x\n", add&0xf, hard);
-#endif
-            return hard;
-        case 0x1048:
-            hard = ModeReg;
-#ifdef PAD_LOG
-            PAD_LOG("sio read16 %lx; ret = %x\n", add&0xf, hard);
-#endif
-            return hard;
-        case 0x104a:
-            hard = CtrlReg;
-#ifdef PAD_LOG
-            PAD_LOG("sio read16 %lx; ret = %x\n", add&0xf, hard);
-#endif
-            return hard;
-        case 0x104e:
-            hard = BaudReg;
-#ifdef PAD_LOG
-            PAD_LOG("sio read16 %lx; ret = %x\n", add&0xf, hard);
-#endif
-            return hard;
-
-        //Serial port stuff not support now ;P
-     // case 0x1050: hard = serial_read16(); break;
-     //    case 0x1054: hard = serial_status_read(); break;
-     //    case 0x105a: hard = serial_control_read(); break;
-     //    case 0x105e: hard = serial_baud_read(); break;
-
-        case 0x1100:
-            hard = psxRcntRcount(0);
-#ifdef PSXHW_LOG
-            PSXHW_LOG("T0 count read16: %x\n", hard);
-#endif
-            return hard;
-        case 0x1104:
-            hard = psxRcntRmode(0);
-#ifdef PSXHW_LOG
-            PSXHW_LOG("T0 mode read16: %x\n", hard);
-#endif
-            return hard;
-        case 0x1108:
-            hard = psxRcntRtarget(0);
-#ifdef PSXHW_LOG
-            PSXHW_LOG("T0 target read16: %x\n", hard);
-#endif
-            return hard;
-        case 0x1110:
-            hard = psxRcntRcount(1);
-#ifdef PSXHW_LOG
-            PSXHW_LOG("T1 count read16: %x\n", hard);
-#endif
-            return hard;
-        case 0x1114:
-            hard = psxRcntRmode(1);
-#ifdef PSXHW_LOG
-            PSXHW_LOG("T1 mode read16: %x\n", hard);
-#endif
-            return hard;
-        case 0x1118:
-            hard = psxRcntRtarget(1);
-#ifdef PSXHW_LOG
-            PSXHW_LOG("T1 target read16: %x\n", hard);
-#endif
-            return hard;
-        case 0x1120:
-            hard = psxRcntRcount(2);
-#ifdef PSXHW_LOG
-            PSXHW_LOG("T2 count read16: %x\n", hard);
-#endif
-            return hard;
-        case 0x1124:
-            hard = psxRcntRmode(2);
-#ifdef PSXHW_LOG
-            PSXHW_LOG("T2 mode read16: %x\n", hard);
-#endif
-            return hard;
-        case 0x1128:
-            hard = psxRcntRtarget(2);
-#ifdef PSXHW_LOG
-            PSXHW_LOG("T2 target read16: %x\n", hard);
-#endif
-            return hard;
-
-        //case 0x2030: hard =   //int_2000????
-        //case 0x2040: hard =//dip switches...??
-
-        default:
-            if (add>=0x1c00 && add<0x1e00) {
-                hard = SPU_readRegister(add);
-            } else {
-                // upd xjsxjs197 start
-                //hard = psxHu16(add);
-                hard = LOAD_SWAP16p(psxHAddr(add));
-                // upd xjsxjs197 end
-#ifdef PSXHW_LOG
-                PSXHW_LOG("*Unkwnown 16bit read at address %lx\n", add);
-#endif
-                //PRINT_LOG1("*psxHwRead16 err:  0x%-08x\n", add);
-            }
-            return hard;
-    }
-
-#ifdef PSXHW_LOG
-    PSXHW_LOG("*Known 16bit read at address %lx value %x\n", add, hard);
-#endif
-    return hard;
+    return hwRead16[add & 0xffff](add);
+//    unsigned short hard;
+//
+//    switch (add & 0xffff) {
+//#ifdef PSXHW_LOG
+//        case 0x1070: PSXHW_LOG("IREG 16bit read %x\n", psxHu16(0x1070));
+//            return psxHu16(0x1070);
+//#endif
+//#ifdef PSXHW_LOG
+//        case 0x1074: PSXHW_LOG("IMASK 16bit read %x\n", psxHu16(0x1074));
+//            return psxHu16(0x1074);
+//#endif
+//
+//        case 0x1040:
+//            hard = sioRead8();
+//            hard|= sioRead8() << 8;
+//#ifdef PAD_LOG
+//            PAD_LOG("sio read16 %lx; ret = %x\n", add&0xf, hard);
+//#endif
+//            return hard;
+//        case 0x1044:
+//            hard = StatReg;
+//#ifdef PAD_LOG
+//            PAD_LOG("sio read16 %lx; ret = %x\n", add&0xf, hard);
+//#endif
+//            return hard;
+//        case 0x1048:
+//            hard = ModeReg;
+//#ifdef PAD_LOG
+//            PAD_LOG("sio read16 %lx; ret = %x\n", add&0xf, hard);
+//#endif
+//            return hard;
+//        case 0x104a:
+//            hard = CtrlReg;
+//#ifdef PAD_LOG
+//            PAD_LOG("sio read16 %lx; ret = %x\n", add&0xf, hard);
+//#endif
+//            return hard;
+//        case 0x104e:
+//            hard = BaudReg;
+//#ifdef PAD_LOG
+//            PAD_LOG("sio read16 %lx; ret = %x\n", add&0xf, hard);
+//#endif
+//            return hard;
+//
+//        //Serial port stuff not support now ;P
+//     // case 0x1050: hard = serial_read16(); break;
+//     //    case 0x1054: hard = serial_status_read(); break;
+//     //    case 0x105a: hard = serial_control_read(); break;
+//     //    case 0x105e: hard = serial_baud_read(); break;
+//
+//        case 0x1100:
+//            hard = psxRcntRcount(0);
+//#ifdef PSXHW_LOG
+//            PSXHW_LOG("T0 count read16: %x\n", hard);
+//#endif
+//            return hard;
+//        case 0x1104:
+//            hard = psxRcntRmode(0);
+//#ifdef PSXHW_LOG
+//            PSXHW_LOG("T0 mode read16: %x\n", hard);
+//#endif
+//            return hard;
+//        case 0x1108:
+//            hard = psxRcntRtarget(0);
+//#ifdef PSXHW_LOG
+//            PSXHW_LOG("T0 target read16: %x\n", hard);
+//#endif
+//            return hard;
+//        case 0x1110:
+//            hard = psxRcntRcount(1);
+//#ifdef PSXHW_LOG
+//            PSXHW_LOG("T1 count read16: %x\n", hard);
+//#endif
+//            return hard;
+//        case 0x1114:
+//            hard = psxRcntRmode(1);
+//#ifdef PSXHW_LOG
+//            PSXHW_LOG("T1 mode read16: %x\n", hard);
+//#endif
+//            return hard;
+//        case 0x1118:
+//            hard = psxRcntRtarget(1);
+//#ifdef PSXHW_LOG
+//            PSXHW_LOG("T1 target read16: %x\n", hard);
+//#endif
+//            return hard;
+//        case 0x1120:
+//            hard = psxRcntRcount(2);
+//#ifdef PSXHW_LOG
+//            PSXHW_LOG("T2 count read16: %x\n", hard);
+//#endif
+//            return hard;
+//        case 0x1124:
+//            hard = psxRcntRmode(2);
+//#ifdef PSXHW_LOG
+//            PSXHW_LOG("T2 mode read16: %x\n", hard);
+//#endif
+//            return hard;
+//        case 0x1128:
+//            hard = psxRcntRtarget(2);
+//#ifdef PSXHW_LOG
+//            PSXHW_LOG("T2 target read16: %x\n", hard);
+//#endif
+//            return hard;
+//
+//        //case 0x2030: hard =   //int_2000????
+//        //case 0x2040: hard =//dip switches...??
+//
+//        default:
+//            if (add>=0x1c00 && add<0x1e00) {
+//                hard = SPU_readRegister(add);
+//            } else {
+//                // upd xjsxjs197 start
+//                //hard = psxHu16(add);
+//                hard = LOAD_SWAP16p(psxHAddr(add));
+//                // upd xjsxjs197 end
+//#ifdef PSXHW_LOG
+//                PSXHW_LOG("*Unkwnown 16bit read at address %lx\n", add);
+//#endif
+//                //PRINT_LOG1("*psxHwRead16 err:  0x%-08x\n", add);
+//            }
+//            return hard;
+//    }
+//
+//#ifdef PSXHW_LOG
+//    PSXHW_LOG("*Known 16bit read at address %lx value %x\n", add, hard);
+//#endif
+//    return hard;
 }
 
 // hack for emulating "gpu busy" in some games
