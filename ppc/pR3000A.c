@@ -3637,7 +3637,7 @@ static void recCTC0() {
 #define gteSXYP    ((s32*)psxRegs.CP2D.r)[15]
 #define gteORGB    psxRegs.CP2D.r[29]
 
-static void recMFC2() {
+static void recMFC22() {
     if (!_Rt_) return;
 
     switch(_Rd_) {
@@ -3932,7 +3932,7 @@ static void recLWC2() {
     ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), 4);
 }
 
-static void recSWC2() {
+static void recSWC22() {
     //psxMemWrite32((psxRegs.GPR.r[_Rs_] + _Imm_), MFC2(_Rt_));
     ReserveArgs(2);
     ADDI(PutHWRegSpecial(ARG1), GetHWReg32(_Rs_), _Imm_);
@@ -3996,14 +3996,14 @@ static void recSWC2() {
     ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), 4);
 }
 
-//CP2_FUNC(MFC2);
+CP2_FUNC(MFC2);
 //CP2_FUNC(MTC2);
 //CP2_FUNC(CFC2);
 //CP2_FUNC(CTC2);
 //CP2_FUNC(LWC2);
-//CP2_FUNC(SWC2);
+CP2_FUNC(SWC2);
 
-CP2_FUNC_SF_LM(RTPS);
+CP2_FUNC(RTPS);
 CP2_FUNC_SF_LM(OP);
 CP2_FUNCNC(NCLIP);
 CP2_FUNC_SF_LM(DPCS);
@@ -4021,7 +4021,7 @@ CP2_FUNC_LM(DCPL);
 CP2_FUNC_SF_LM(DPCT);
 CP2_FUNCNC(AVSZ3);
 CP2_FUNCNC(AVSZ4);
-CP2_FUNC_SF_LM(RTPT);
+CP2_FUNC(RTPT);
 CP2_FUNC_SF(GPF);
 CP2_FUNC_SF(GPL);
 CP2_FUNCNC(NCCT);

@@ -52,7 +52,8 @@ static inline u8 hwRead8Default(u32 add) {
 }
 
 static inline u16 hwRead16Default(u32 add) {
-    if (add >= 0x1c00 && add < 0x1e00) {
+    u32 chkAddr = add & 0xffff;
+    if (chkAddr >= 0x1c00 && chkAddr < 0x1e00) {
         return SPU_readRegister(add);
     } else {
         return LOAD_SWAP16p(psxHAddr(add));
@@ -132,20 +133,20 @@ static void hwFuncInit() {
     hwRead8[0x1802] = &cdrRead2;
     hwRead8[0x1803] = &cdrRead3;
 
-    hwRead8[0x1040] = &hwRead16_1040;
-    hwRead8[0x1044] = &hwRead16_1044;
-    hwRead8[0x1048] = &hwRead16_1048;
-    hwRead8[0x104a] = &hwRead16_104a;
-    hwRead8[0x104e] = &hwRead16_104e;
-    hwRead8[0x1100] = &hwRead16_1100;
-    hwRead8[0x1104] = &hwRead16_1104;
-    hwRead8[0x1108] = &hwRead16_1108;
-    hwRead8[0x1110] = &hwRead16_1110;
-    hwRead8[0x1114] = &hwRead16_1114;
-    hwRead8[0x1118] = &hwRead16_1118;
-    hwRead8[0x1120] = &hwRead16_1120;
-    hwRead8[0x1124] = &hwRead16_1124;
-    hwRead8[0x1128] = &hwRead16_1128;
+    hwRead16[0x1040] = &hwRead16_1040;
+    hwRead16[0x1044] = &hwRead16_1044;
+    hwRead16[0x1048] = &hwRead16_1048;
+    hwRead16[0x104a] = &hwRead16_104a;
+    hwRead16[0x104e] = &hwRead16_104e;
+    hwRead16[0x1100] = &hwRead16_1100;
+    hwRead16[0x1104] = &hwRead16_1104;
+    hwRead16[0x1108] = &hwRead16_1108;
+    hwRead16[0x1110] = &hwRead16_1110;
+    hwRead16[0x1114] = &hwRead16_1114;
+    hwRead16[0x1118] = &hwRead16_1118;
+    hwRead16[0x1120] = &hwRead16_1120;
+    hwRead16[0x1124] = &hwRead16_1124;
+    hwRead16[0x1128] = &hwRead16_1128;
 }
 
 void psxHwReset() {
@@ -191,8 +192,9 @@ u8 psxHwRead8(u32 add) {
 u16 psxHwRead16(u32 add) {
     return hwRead16[add & 0xffff](add);
 //    unsigned short hard;
+//    u32 chkAddr = add & 0xffff;
 //
-//    switch (add & 0xffff) {
+//    switch (chkAddr) {
 //#ifdef PSXHW_LOG
 //        case 0x1070: PSXHW_LOG("IREG 16bit read %x\n", psxHu16(0x1070));
 //            return psxHu16(0x1070);
@@ -299,7 +301,8 @@ u16 psxHwRead16(u32 add) {
 //        //case 0x2040: hard =//dip switches...??
 //
 //        default:
-//            if (add>=0x1c00 && add<0x1e00) {
+//            chkAddr = add & 0xffff;
+//            if (chkAddr >= 0x1c00 && chkAddr < 0x1e00) {
 //                hard = SPU_readRegister(add);
 //            } else {
 //                // upd xjsxjs197 start
@@ -325,8 +328,9 @@ extern unsigned long dwEmuFixes;
 
 u32 psxHwRead32(u32 add) {
     u32 hard;
+    u32 chkAddr = add & 0xffff;
 
-    switch (add & 0xffff) {
+    switch (chkAddr) {
         case 0x1040:
             hard = sioRead8();
             hard|= sioRead8() << 8;
@@ -478,7 +482,7 @@ u32 psxHwRead32(u32 add) {
             return hard;
 
         default:
-            if (add>=0x1c00 && add<0x1e00) {
+            if (chkAddr >= 0x1c00 && chkAddr < 0x1e00) {
                 #ifdef SHOW_DEBUG
                  sprintf(txtbuffer, "psxHwRead32 spu %08x", add);
                  DEBUG_print(txtbuffer, DBG_GPU3);
@@ -524,7 +528,8 @@ void psxHwWrite8(u32 add, u8 value) {
 }
 
 void psxHwWrite16(u32 add, u16 value) {
-    switch (add & 0xffff) {
+    u32 chkAddr = add & 0xffff;
+    switch (chkAddr) {
         case 0x1040:
             sioWrite8((unsigned char)value);
             sioWrite8((unsigned char)(value>>8));
@@ -635,7 +640,7 @@ void psxHwWrite16(u32 add, u16 value) {
             psxRcntWtarget(2, value); return;
 
         default:
-            if (add>=0x1c00 && add<0x1e00) {
+            if (chkAddr >= 0x1c00 && chkAddr < 0x1e00) {
                 SPU_writeRegister(add, value, psxRegs.cycle);
                 return;
             }
@@ -680,7 +685,8 @@ void psxHwWrite16(u32 add, u16 value) {
 // upd xjsxjs197 end
 
 void psxHwWrite32(u32 add, u32 value) {
-    switch (add & 0xffff) {
+    u32 chkAddr = add & 0xffff;
+    switch (chkAddr) {
         case 0x1040:
             sioWrite8((unsigned char)value);
             sioWrite8((unsigned char)((value&0xff) >>  8));
@@ -934,7 +940,7 @@ void psxHwWrite32(u32 add, u32 value) {
 
         default:
             // Dukes of Hazard 2 - car engine noise
-            if (add>=0x1c00 && add<0x1e00) {
+            if (chkAddr >= 0x1c00 && chkAddr < 0x1e00) {
                 #ifdef SHOW_DEBUG
                  sprintf(txtbuffer, "HwWrite32 spu %08x %08x", add, value);
                  DEBUG_print(txtbuffer, DBG_GPU3);

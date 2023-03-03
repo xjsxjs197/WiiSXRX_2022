@@ -545,7 +545,7 @@ void gteRTPT_R(psxCP2Regs *regs) {
 
     gteFLAG = 0;
 
-    //gteSZ0 = gteSZ3;
+    gteSZ0 = gteSZ3;
     for (v = 0; v < 3; v++) {
         vx = VX(v);
         vy = VY(v);
@@ -556,11 +556,8 @@ void gteRTPT_R(psxCP2Regs *regs) {
         gteIR1 = limB1(gteMAC1, 0);
         gteIR2 = limB2(gteMAC2, 0);
         gteIR3 = limB3(gteMAC3, 0);
-        gteSZ0 = gteSZ1;
-        gteSZ1 = gteSZ2;
-        gteSZ2 = gteSZ3;
-        fSZ(2) = limD(gteMAC3);
-        quotient = limE(DIVIDE_INT(gteH, fSZ(2)));
+        fSZ(v) = limD(gteMAC3);
+        quotient = limE(DIVIDE_INT(gteH, fSZ(v)));
         fSX(v) = limG1(F((s64)gteOFX + ((s64)gteIR1 * quotient)) >> 16);
         fSY(v) = limG2(F((s64)gteOFY + ((s64)gteIR2 * quotient)) >> 16);
     }
