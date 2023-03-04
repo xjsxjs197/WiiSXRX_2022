@@ -2655,7 +2655,7 @@ static void recLW() {
     LWZ(r8, 0x18, r1); \
     ADDI(r1, r1, 0x20);
 
-static void recLWL1() {
+static void recLWL() {
     LW_SW_LR_COMN(false);
 
     SLWI(r3, r3, 24);
@@ -2684,7 +2684,7 @@ static void recLWL1() {
     LW_LR_END();
 }
 
-static void recLWR1() {
+static void recLWR() {
     LW_SW_LR_COMN(false);
 
     MR(PutHWReg32(_Rt_), r3); // (mem      ) | (reg & 0x00000000)
@@ -2737,7 +2737,7 @@ static void recLWR1() {
 //    FlushAllHWReg(); \
 //    CALLFunc((u32)psxSWL);
 
-static void recSWL1() {
+static void recSWL() {
     LW_SW_LR_COMN(true);
 
     SRWI(r6, r6, 24);
@@ -2769,7 +2769,7 @@ static void recSWL1() {
     SW_LR_END();
 }
 
-static void recSWR1() {
+static void recSWR() {
     LW_SW_LR_COMN(true);
 
     SW_LR_WRITEMEM(r6); // (reg      ) | (mem & 0x00000000)
@@ -2801,10 +2801,10 @@ static void recSWR1() {
     SW_LR_END();
 }
 
-REC_FUNC(LWL);
-REC_FUNC(LWR);
-REC_FUNC(SWL);
-REC_FUNC(SWR);
+//REC_FUNC(LWL);
+//REC_FUNC(LWR);
+//REC_FUNC(SWL);
+//REC_FUNC(SWR);
 
 //REC_FUNC(SB);
 static void recSB() {
@@ -4009,7 +4009,7 @@ CP2_FUNC(CTC2);
 CP2_FUNC(LWC2);
 CP2_FUNC(SWC2);
 
-CP2_FUNC(RTPS);
+CP2_FUNC_SF_LM(RTPS);
 CP2_FUNC_SF_LM(OP);
 CP2_FUNCNC(NCLIP);
 CP2_FUNC_SF(DPCS);
@@ -4027,7 +4027,7 @@ CP2_FUNC_LM(DCPL);
 CP2_FUNCNC(DPCT);
 CP2_FUNCNC(AVSZ3);
 CP2_FUNCNC(AVSZ4);
-CP2_FUNC(RTPT);
+CP2_FUNC_SF_LM(RTPT);
 CP2_FUNC_SF(GPF);
 CP2_FUNC_SF(GPL);
 CP2_FUNCNC(NCCT);
