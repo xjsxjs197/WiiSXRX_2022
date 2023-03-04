@@ -1013,7 +1013,7 @@ static void rec##f() { \
 #define CP2_FUNC(f) \
 void gte##f##_R(); \
 static void rec##f() { \
-	/*if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2);*/ \
+	if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2); \
 	iFlushRegs(0); \
 	LIW(0, (u32)psxRegs.code); \
 	STW(0, OFFSET(&psxRegs, &psxRegs.code), GetHWRegSpecial(PSXREGS)); \
@@ -1023,23 +1023,23 @@ static void rec##f() { \
 	LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D); \
 	FlushAllHWReg(); \
 	CALLFunc ((u32)gte##f##_R); \
-	ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)] << 1)); \
-	/*cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)]<<2);*/ \
+	/*ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)] << 0));*/ \
+	cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)]<<2); \
 }
 
 #define CP2_FUNCNC(f) \
 void gte##f##_R(); \
 static void rec##f() { \
-	/*if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2);*/ \
+	if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2); \
 	iFlushRegs(0); \
 	/*LWZ(PutHWRegSpecial(ARG1), OFFSET(&psxRegs, &psxRegs.gteCycle), GetHWRegSpecial(PSXREGS));*/ \
 	/*ADDI(0, GetHWRegSpecial(ARG1), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2));*/ \
 	/*STW(0, OFFSET(&psxRegs, &psxRegs.gteCycle), GetHWRegSpecial(PSXREGS));*/ \
 	LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D); \
 	CALLFunc ((u32)gte##f##_R); \
-	ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)] << 1)); \
+	/*ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)] << 0));*/ \
 /*	branch = 2; */\
-	/*cop2readypc = pc + psxCP2time[_fFunct_(psxRegs.code)];*/ \
+	cop2readypc = pc + psxCP2time[_fFunct_(psxRegs.code)]; \
 }
 
 #define GTE_SF(op) ((op >> 19) & 1)
@@ -1049,6 +1049,7 @@ static void rec##f() { \
 
 #define CP2_FUNC_SF_LM(f) \
 static void rec##f() { \
+    if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2); \
     LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D); \
     FlushAllHWReg(); \
     if (GTE_SF(gteop)) { \
@@ -1071,11 +1072,13 @@ static void rec##f() { \
             CALLFunc ((u32)gte##f##_R##_SF0_LM0); \
         } \
     } \
-    ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)] << 1)); \
+    /*ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)] << 1));*/ \
+    cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)]<<2); \
 }
 
 #define CP2_FUNC_SF(f) \
 static void rec##f() { \
+    if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2); \
     LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D); \
     FlushAllHWReg(); \
     if (GTE_SF(gteop)) { \
@@ -1086,11 +1089,13 @@ static void rec##f() { \
         void gte##f##_R##_SF0(psxCP2Regs *regs); \
         CALLFunc ((u32)gte##f##_R##_SF0); \
     } \
-    ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)] << 1)); \
+    /*ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)] << 1));*/ \
+    cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)]<<2); \
 }
 
 #define CP2_FUNC_LM(f) \
 static void rec##f() { \
+    if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2); \
     LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D); \
     FlushAllHWReg(); \
     if (GTE_LM(gteop)) { \
@@ -1101,7 +1106,8 @@ static void rec##f() { \
         void gte##f##_R##_LM0(psxCP2Regs *regs); \
         CALLFunc ((u32)gte##f##_R##_LM0); \
     } \
-    ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)] << 1)); \
+    /*ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)] << 1));*/ \
+    cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)]<<2); \
 }
 
 #define _MVMVA_CHECK(P1, P2) { \
@@ -1198,7 +1204,7 @@ static void rec##f() { \
 }
 
 static void recMVMVA() {
-    //if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2);
+    if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2);
     LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D);
     FlushAllHWReg();
 
@@ -1233,8 +1239,8 @@ static void recMVMVA() {
             _MVMVA_CHECK(, ); break;
     }
 
-    ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)] << 1));
-    //cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)]<<2);
+    //ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)] << 0));
+    cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)] << 2);
 }
 
 static int allocMem() {
@@ -2649,7 +2655,7 @@ static void recLW() {
     LWZ(r8, 0x18, r1); \
     ADDI(r1, r1, 0x20);
 
-static void recLWL() {
+static void recLWL1() {
     LW_SW_LR_COMN(false);
 
     SLWI(r3, r3, 24);
@@ -2678,7 +2684,7 @@ static void recLWL() {
     LW_LR_END();
 }
 
-static void recLWR() {
+static void recLWR1() {
     LW_SW_LR_COMN(false);
 
     MR(PutHWReg32(_Rt_), r3); // (mem      ) | (reg & 0x00000000)
@@ -2731,7 +2737,7 @@ static void recLWR() {
 //    FlushAllHWReg(); \
 //    CALLFunc((u32)psxSWL);
 
-static void recSWL() {
+static void recSWL1() {
     LW_SW_LR_COMN(true);
 
     SRWI(r6, r6, 24);
@@ -2763,7 +2769,7 @@ static void recSWL() {
     SW_LR_END();
 }
 
-static void recSWR() {
+static void recSWR1() {
     LW_SW_LR_COMN(true);
 
     SW_LR_WRITEMEM(r6); // (reg      ) | (mem & 0x00000000)
@@ -2795,10 +2801,10 @@ static void recSWR() {
     SW_LR_END();
 }
 
-//REC_FUNC(LWL);
-//REC_FUNC(LWR);
-//REC_FUNC(SWL);
-//REC_FUNC(SWR);
+REC_FUNC(LWL);
+REC_FUNC(LWR);
+REC_FUNC(SWL);
+REC_FUNC(SWR);
 
 //REC_FUNC(SB);
 static void recSB() {
@@ -3700,7 +3706,7 @@ static void recMFC22() {
     ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), 2);
 }
 
-static void recMTC2() {
+static void recMTC22() {
     //MTC2(psxRegs.GPR.r[_Rt_], _Rd_);
     u32 *bEnd;
     switch(_Rd_) {
@@ -3779,14 +3785,14 @@ static void recMTC2() {
     ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), 2);
 }
 
-static void recCFC2() {
+static void recCFC22() {
     if (!_Rt_) return;
     //psxRegs.GPR.r[_Rt_] = psxRegs.CP2C.r[_Rd_];
     LWZ(PutHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP2C.r[_Rd_]), GetHWRegSpecial(PSXREGS));
     ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), 2);
 }
 
-static void recCTC2() {
+static void recCTC22() {
     int reg = _Rd_;
     u32 *bEnd;
     switch (reg) {
@@ -3828,7 +3834,7 @@ static void recCTC2() {
     ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), 2);
 }
 
-static void recLWC2() {
+static void recLWC22() {
     //MTC2(psxMemRead32(_oB_), _Rt_);
     int rs, reg;
     reg = _Rt_;
@@ -3997,16 +4003,16 @@ static void recSWC22() {
 }
 
 CP2_FUNC(MFC2);
-//CP2_FUNC(MTC2);
-//CP2_FUNC(CFC2);
-//CP2_FUNC(CTC2);
-//CP2_FUNC(LWC2);
+CP2_FUNC(MTC2);
+CP2_FUNC(CFC2);
+CP2_FUNC(CTC2);
+CP2_FUNC(LWC2);
 CP2_FUNC(SWC2);
 
 CP2_FUNC(RTPS);
 CP2_FUNC_SF_LM(OP);
 CP2_FUNCNC(NCLIP);
-CP2_FUNC_SF_LM(DPCS);
+CP2_FUNC_SF(DPCS);
 CP2_FUNC_SF_LM(INTPL);
 //CP2_FUNC(MVMVA);
 CP2_FUNCNC(NCDS);
@@ -4018,7 +4024,7 @@ CP2_FUNCNC(NCS);
 CP2_FUNCNC(NCT);
 CP2_FUNC_SF_LM(SQR);
 CP2_FUNC_LM(DCPL);
-CP2_FUNC_SF_LM(DPCT);
+CP2_FUNCNC(DPCT);
 CP2_FUNCNC(AVSZ3);
 CP2_FUNCNC(AVSZ4);
 CP2_FUNC(RTPT);
