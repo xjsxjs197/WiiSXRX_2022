@@ -1049,7 +1049,7 @@ void gteMVMVA_R5(psxCP2Regs *regs, s32 op);
 void gteMVMVA_R6(psxCP2Regs *regs, s32 op);
 void gteMVMVA_R7(psxCP2Regs *regs);
 
-static void recMVMVA() {
+static void recMVMVA2() {
     if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2);
     LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D);
     LIW(PutHWRegSpecial(ARG2), gteop);
@@ -3264,7 +3264,7 @@ CP2_FUNC(OP);
 CP2_FUNCNC(NCLIP);
 CP2_FUNC(DPCS);
 CP2_FUNC(INTPL);
-//CP2_FUNC(MVMVA);
+CP2_FUNC(MVMVA);
 CP2_FUNCNC(NCDS);
 CP2_FUNCNC(NCDT);
 CP2_FUNCNC(CDP);
@@ -3277,7 +3277,7 @@ CP2_FUNC(DCPL);
 CP2_FUNCNC(DPCT);
 CP2_FUNCNC(AVSZ3);
 CP2_FUNCNC(AVSZ4);
-CP2_FUNCNC(RTPT);
+CP2_FUNC(RTPT);
 CP2_FUNC(GPF);
 CP2_FUNC(GPL);
 CP2_FUNCNC(NCCT);

@@ -24,18 +24,16 @@
 
 #if defined(HW_RVL) || defined(HW_DOL) || defined(BIG_ENDIAN)
 
-//#define _SWAP16(b) ((((unsigned char*)&(b))[0]&0xff) | (((unsigned char*)&(b))[1]&0xff)<<8)
-//#define _SWAP32(b) ((((unsigned char*)&(b))[0]&0xff) | ((((unsigned char*)&(b))[1]&0xff)<<8) | ((((unsigned char*)&(b))[2]&0xff)<<16) | (((unsigned char*)&(b))[3]<<24))
-
-#define SWAP16(v) ((((v)&0xff00)>>8) | (((v)&0xff)<<8))
-#define SWAP32(v) ((((v)&0xff000000ul)>>24) | (((v)&0xff0000ul)>>8) | (((v)&0xff00ul)<<8) | (((v)&0xfful)<<24))
+#define SWAP16(v) __builtin_bswap16(v)
+#define SWAP32(v) __builtin_bswap32(v)
 #define SWAPu32(v) SWAP32((u32)(v))
-//#define SWAPs32(v) SWAP32((s32)(v))
+#define SWAPs32(v) SWAP32((s32)(v))
+
 #define SWAPu16(v) SWAP16((u16)(v))
-//#define SWAPs16(v) SWAP16((s16)(v))
+#define SWAPs16(v) SWAP16((s16)(v))
 
 // add xjsxjs197 start
-#define psxHAddr(mem) (psxH + (((mem) << 16) >> 16))
+#define psxHAddr(mem) (psxH + ((mem) & 0xffff))
 // add xjsxjs197 end
 
 #define SWAP16p(ptr) ({u16 __ret, *__ptr=(ptr); __asm__ ("lhbrx %0, 0, %1" : "=r" (__ret) : "r" (__ptr)); __ret;})
@@ -53,7 +51,8 @@
 #endif
 
 // upd xjsxjs197 start
-extern s8 psxM[0x00220000] __attribute__((aligned(32)));
+//extern s8 psxM[0x00220000] __attribute__((aligned(32)));
+extern s8 *psxM;
 //#define psxMs8(mem)		psxM[(mem) & 0x1fffff]
 //#define psxMs16(mem)	(SWAP16(*(s16*)&psxM[(mem) & 0x1fffff]))
 //#define psxMs32(mem)	(SWAP32(*(s32*)&psxM[(mem) & 0x1fffff]))
@@ -85,7 +84,9 @@ s8 *psxP;
 //#define psxPu16ref(mem)	(*(u16*)&psxP[((mem) << 16) >> 16])
 //#define psxPu32ref(mem)	(*(u32*)&psxP[((mem) << 16) >> 16])
 
-extern s8 psxR[0x00080000] __attribute__((aligned(32)));
+//extern s8 psxR[0x00080000] __attribute__((aligned(32)));
+extern s8 *psxR;
+
 #define psxRs8(mem)		psxR[(mem) & 0x7ffff]
 //#define psxRs16(mem)	(SWAP16(*(s16*)&psxR[(mem) & 0x7ffff]))
 #define psxRs16(mem)	(LOAD_SWAP16p(psxR + (((mem) << 13) >> 13)))

@@ -90,7 +90,8 @@ extern "C" {
 	if (icr & (1 << (16 + n))) { \
         icr |= 1 << (24 + n); \
         if (icr & HW_DMA_ICR_GLOBAL_ENABLE && !(icr & HW_DMA_ICR_IRQ_SENT)) { \
-		    psxHu32ref(0x1070) |= SWAP32(8);                \
+		    psxHu32ref(0x1070) |= SWAP32(8); \
+		    /*psxRegs.interrupt |= 0x80000000;*/ \
 		    icr |= HW_DMA_ICR_IRQ_SENT; \
 		} \
 		STORE_SWAP32p(psxHAddr(0x10f4), icr); \

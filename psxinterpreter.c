@@ -814,7 +814,7 @@ __inline void MTC0(int reg, u32 val) {
 		case 12: // psxRegs.CP0.r[12] = psxRegs.CP0.n.Status
 			psxRegs.CP0.r[12] = val;
 			psxTestSWInts();
-			psxRegs.interrupt|= 0x80000000;
+			//psxRegs.interrupt|= 0x80000000;
 			break;
 
 		case 13: // psxRegs.CP0.r[13] = psxRegs.CP0.n.Cause

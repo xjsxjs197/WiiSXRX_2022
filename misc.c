@@ -243,6 +243,7 @@ int LoadCdrom() {
 	tmpHead.t_addr = SWAP32(tmpHead.t_addr);
 
 	psxCpu->Clear(tmpHead.t_addr, tmpHead.t_size / 4);
+	psxCpu->Reset();
 
 	// Read the rest of the main executable
 	while (tmpHead.t_size & ~2047) {
@@ -290,6 +291,7 @@ int LoadCdromFile(char *filename, EXE_HEADER *head) {
 	addr = head->t_addr;
 
 	psxCpu->Clear(addr, size / 4);
+	psxCpu->Reset();
 
 	psxRegs.ICache_valid = FALSE;
 
@@ -512,6 +514,9 @@ void savestates_select_slot(unsigned int s)
    savestates_slot = s;
 }
 
+void lightrec_plugin_sync_regs_to_pcsx(void);
+void lightrec_plugin_sync_regs_from_pcsx(void);
+
 int SaveState() {
 
   gzFile f;
@@ -537,6 +542,11 @@ int SaveState() {
   if(!f) {
   	return 0;
 	}
+
+  new_dyna_before_save();
+
+	if (!Config.Cpu)
+		lightrec_plugin_sync_regs_to_pcsx();
 
   LoadingBar_showBar(0.0f, SAVE_STATE_MSG);
   pauseRemovalThread();
@@ -588,8 +598,12 @@ int SaveState() {
 	psxHwFreeze(f, 1);
 	psxRcntFreeze(f, 1);
 	mdecFreeze(f, 1);
+	//new_dyna_freeze(f, 1);
+
   LoadingBar_showBar(0.99f, SAVE_STATE_MSG);
 	gzclose(f);
+
+	new_dyna_after_save();
 
 	continueRemovalThread();
   LoadingBar_showBar(1.0f, SAVE_STATE_MSG);
@@ -639,6 +653,10 @@ int LoadState() {
 	gzread(f, psxH, 0x00010000);
 	gzread(f, (void*)&psxRegs, sizeof(psxRegs));
   LoadingBar_showBar(0.70f, LOAD_STATE_MSG);
+
+	if (!Config.Cpu)
+		lightrec_plugin_sync_regs_from_pcsx();
+
 	if (Config.HLE)
 		psxBiosFreeze(0);
 
@@ -668,6 +686,7 @@ int LoadState() {
 	psxHwFreeze(f, 0);
 	psxRcntFreeze(f, 0);
 	mdecFreeze(f, 0);
+	//new_dyna_freeze(f, 0);
 
 	gzclose(f);
   continueRemovalThread();
@@ -738,7 +757,7 @@ int RecvPcsxInfo() {
 #ifdef PSXREC
 		if (Config.Cpu)
 			 psxCpu = &psxInt;
-		else psxCpu = &psxRec;
+		else psxCpu = &psxLightrec;
 #else
 		psxCpu = &psxInt;
 #endif

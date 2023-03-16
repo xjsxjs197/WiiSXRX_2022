@@ -26,38 +26,21 @@
 #include "gteR.h"
 #include "psxmem.h"
 
-#define VX(n) (regs->CP2D.p[n << 1].sw.l)
-#define VY(n) (regs->CP2D.p[n << 1].sw.h)
-#define VZ(n) (regs->CP2D.p[(n << 1) + 1].sw.l)
-
-#define VX_MVMVA(n) (regs->CP2D.p[9].sw.l)
-#define VY_MVMVA(n) (regs->CP2D.p[10].sw.l)
-#define VZ_MVMVA(n) (regs->CP2D.p[11].sw.l)
-
-//#define MX11(n) (n < 3 ? regs->CP2C.p[(n << 3)].sw.l : 0)
-//#define MX12(n) (n < 3 ? regs->CP2C.p[(n << 3)].sw.h : 0)
-//#define MX13(n) (n < 3 ? regs->CP2C.p[(n << 3) + 1].sw.l : 0)
-//#define MX21(n) (n < 3 ? regs->CP2C.p[(n << 3) + 1].sw.h : 0)
-//#define MX22(n) (n < 3 ? regs->CP2C.p[(n << 3) + 2].sw.l : 0)
-//#define MX23(n) (n < 3 ? regs->CP2C.p[(n << 3) + 2].sw.h : 0)
-//#define MX31(n) (n < 3 ? regs->CP2C.p[(n << 3) + 3].sw.l : 0)
-//#define MX32(n) (n < 3 ? regs->CP2C.p[(n << 3) + 3].sw.h : 0)
-//#define MX33(n) (n < 3 ? regs->CP2C.p[(n << 3) + 4].sw.l : 0)
-//#define CV1(n) (n < 3 ? (s32)regs->CP2C.r[(n << 3) + 5] : 0)
-//#define CV2(n) (n < 3 ? (s32)regs->CP2C.r[(n << 3) + 6] : 0)
-//#define CV3(n) (n < 3 ? (s32)regs->CP2C.r[(n << 3) + 7] : 0)
-#define MX11(n) (regs->CP2C.p[(n << 3)].sw.l)
-#define MX12(n) (regs->CP2C.p[(n << 3)].sw.h)
-#define MX13(n) (regs->CP2C.p[(n << 3) + 1].sw.l)
-#define MX21(n) (regs->CP2C.p[(n << 3) + 1].sw.h)
-#define MX22(n) (regs->CP2C.p[(n << 3) + 2].sw.l)
-#define MX23(n) (regs->CP2C.p[(n << 3) + 2].sw.h)
-#define MX31(n) (regs->CP2C.p[(n << 3) + 3].sw.l)
-#define MX32(n) (regs->CP2C.p[(n << 3) + 3].sw.h)
-#define MX33(n) (regs->CP2C.p[(n << 3) + 4].sw.l)
-#define CV1(n) ((s32)regs->CP2C.r[(n << 3) + 5])
-#define CV2(n) ((s32)regs->CP2C.r[(n << 3) + 6])
-#define CV3(n) ((s32)regs->CP2C.r[(n << 3) + 7])
+#define VX(n) (n < 3 ? regs->CP2D.p[n << 1].sw.l : regs->CP2D.p[9].sw.l)
+#define VY(n) (n < 3 ? regs->CP2D.p[n << 1].sw.h : regs->CP2D.p[10].sw.l)
+#define VZ(n) (n < 3 ? regs->CP2D.p[(n << 1) + 1].sw.l : regs->CP2D.p[11].sw.l)
+#define MX11(n) (n < 3 ? regs->CP2C.p[(n << 3)].sw.l : 0)
+#define MX12(n) (n < 3 ? regs->CP2C.p[(n << 3)].sw.h : 0)
+#define MX13(n) (n < 3 ? regs->CP2C.p[(n << 3) + 1].sw.l : 0)
+#define MX21(n) (n < 3 ? regs->CP2C.p[(n << 3) + 1].sw.h : 0)
+#define MX22(n) (n < 3 ? regs->CP2C.p[(n << 3) + 2].sw.l : 0)
+#define MX23(n) (n < 3 ? regs->CP2C.p[(n << 3) + 2].sw.h : 0)
+#define MX31(n) (n < 3 ? regs->CP2C.p[(n << 3) + 3].sw.l : 0)
+#define MX32(n) (n < 3 ? regs->CP2C.p[(n << 3) + 3].sw.h : 0)
+#define MX33(n) (n < 3 ? regs->CP2C.p[(n << 3) + 4].sw.l : 0)
+#define CV1(n) (n < 3 ? (s32)regs->CP2C.r[(n << 3) + 5] : 0)
+#define CV2(n) (n < 3 ? (s32)regs->CP2C.r[(n << 3) + 6] : 0)
+#define CV3(n) (n < 3 ? (s32)regs->CP2C.r[(n << 3) + 7] : 0)
 
 #define fSX(n) ((regs->CP2D.p)[((n) + 12)].sw.l)
 #define fSY(n) ((regs->CP2D.p)[((n) + 12)].sw.h)
@@ -270,7 +253,7 @@ INLINE u32 DIVIDE_INT(u16 n, u16 d) {
     return 0xffffffff;
 }
 #else
-#include "gte_divider_int.c"
+#include "gte_divider.h"
 #endif // GTE_USE_NATIVE_DIVIDE
 
 #ifndef FLAGLESS
@@ -478,196 +461,22 @@ void gteMVMVA_R(psxCP2Regs *regs) {
     int v = GTE_V(gteop);
     int cv = GTE_CV(gteop);
     int lm = GTE_LM(gteop);
+	s32 vx = VX(v);
+	s32 vy = VY(v);
+	s32 vz = VZ(v);
 
-    gteFLAG = 0;
-    if (cv < 3) {
-        if (mx < 3) {
-            if (v < 3) {
-                s32 vx = VX(v);
-                s32 vy = VY(v);
-                s32 vz = VZ(v);
-                gteMAC1 = A1((((s64)CV1(cv) << 12) + (MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> shift);
-                gteMAC2 = A2((((s64)CV2(cv) << 12) + (MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> shift);
-                gteMAC3 = A3((((s64)CV3(cv) << 12) + (MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> shift);
-            }
-            else {
-                s32 vx = VX_MVMVA(v);
-                s32 vy = VY_MVMVA(v);
-                s32 vz = VZ_MVMVA(v);
-                gteMAC1 = A1((((s64)CV1(cv) << 12) + (MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> shift);
-                gteMAC2 = A2((((s64)CV2(cv) << 12) + (MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> shift);
-                gteMAC3 = A3((((s64)CV3(cv) << 12) + (MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> shift);
-            }
-        }
-        else {
-            if (shift == 12)
-            {
-                gteMAC1 = CV1(cv);
-                gteMAC2 = CV2(cv);
-                gteMAC3 = CV3(cv);
-            }
-            else
-            {
-                gteMAC1 = A1((((s64)CV1(cv) << 12)));
-                gteMAC2 = A2((((s64)CV2(cv) << 12)));
-                gteMAC3 = A3((((s64)CV3(cv) << 12)));
-            }
-        }
-    }
-    else {
-        if (mx < 3) {
-            if (v < 3) {
-                s32 vx = VX(v);
-                s32 vy = VY(v);
-                s32 vz = VZ(v);
-                gteMAC1 = ((MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> shift;
-                gteMAC2 = ((MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> shift;
-                gteMAC3 = ((MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> shift;
-            }
-            else {
-                s32 vx = VX_MVMVA(v);
-                s32 vy = VY_MVMVA(v);
-                s32 vz = VZ_MVMVA(v);
-                gteMAC1 = ((MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> shift;
-                gteMAC2 = ((MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> shift;
-                gteMAC3 = ((MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> shift;
-            }
-        }
-        else {
-            gteMAC1 = 0;
-            gteMAC2 = 0;
-            gteMAC3 = 0;
-        }
-    }
+#ifdef GTE_LOG
+	GTE_LOG("GTE MVMVA\n");
+#endif
+	gteFLAG = 0;
+
+	gteMAC1 = A1((((s64)CV1(cv) << 12) + (MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> shift);
+	gteMAC2 = A2((((s64)CV2(cv) << 12) + (MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> shift);
+	gteMAC3 = A3((((s64)CV3(cv) << 12) + (MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> shift);
 
     gteIR1 = limB1(gteMAC1, lm);
     gteIR2 = limB2(gteMAC2, lm);
     gteIR3 = limB3(gteMAC3, lm);
-}
-
-void gteMVMVA_R1(psxCP2Regs *regs, s32 op) {
-    int shift = 12 * GTE_SF(op);
-    int mx = GTE_MX(op);
-    int v = GTE_V(op);
-    int cv = GTE_CV(op);
-    int lm = GTE_LM(op);
-
-    gteFLAG = 0;
-    // cv < 3 mx < 3 v < 3
-    s32 vx = VX(v);
-    s32 vy = VY(v);
-    s32 vz = VZ(v);
-    gteMAC1 = A1((((s64)CV1(cv) << 12) + (MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> shift);
-    gteMAC2 = A2((((s64)CV2(cv) << 12) + (MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> shift);
-    gteMAC3 = A3((((s64)CV3(cv) << 12) + (MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> shift);
-
-    gteIR1 = limB1(gteMAC1, lm);
-    gteIR2 = limB2(gteMAC2, lm);
-    gteIR3 = limB3(gteMAC3, lm);
-}
-
-void gteMVMVA_R2(psxCP2Regs *regs, s32 op) {
-    int shift = 12 * GTE_SF(op);
-    int mx = GTE_MX(op);
-    int v = GTE_V(op);
-    int cv = GTE_CV(op);
-    int lm = GTE_LM(op);
-
-    gteFLAG = 0;
-    // cv < 3 mx < 3 v >= 3
-    s32 vx = VX_MVMVA(v);
-    s32 vy = VY_MVMVA(v);
-    s32 vz = VZ_MVMVA(v);
-    gteMAC1 = A1((((s64)CV1(cv) << 12) + (MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> shift);
-    gteMAC2 = A2((((s64)CV2(cv) << 12) + (MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> shift);
-    gteMAC3 = A3((((s64)CV3(cv) << 12) + (MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> shift);
-
-    gteIR1 = limB1(gteMAC1, lm);
-    gteIR2 = limB2(gteMAC2, lm);
-    gteIR3 = limB3(gteMAC3, lm);
-}
-
-void gteMVMVA_R3(psxCP2Regs *regs, s32 op) {
-    int cv = GTE_CV(op);
-    int lm = GTE_LM(op);
-
-    gteFLAG = 0;
-    // cv < 3 mx >= 3 shift == 12
-    gteMAC1 = CV1(cv);
-    gteMAC2 = CV2(cv);
-    gteMAC3 = CV3(cv);
-
-    gteIR1 = limB1(gteMAC1, lm);
-    gteIR2 = limB2(gteMAC2, lm);
-    gteIR3 = limB3(gteMAC3, lm);
-}
-
-void gteMVMVA_R4(psxCP2Regs *regs, s32 op) {
-    int v = GTE_V(op);
-    int cv = GTE_CV(op);
-    int lm = GTE_LM(op);
-
-    gteFLAG = 0;
-    // cv < 3 mx >= 3 shift == 0
-    gteMAC1 = A1((((s64)CV1(cv) << 12)));
-    gteMAC2 = A2((((s64)CV2(cv) << 12)));
-    gteMAC3 = A3((((s64)CV3(cv) << 12)));
-
-    gteIR1 = limB1(gteMAC1, lm);
-    gteIR2 = limB2(gteMAC2, lm);
-    gteIR3 = limB3(gteMAC3, lm);
-}
-
-void gteMVMVA_R5(psxCP2Regs *regs, s32 op) {
-    int shift = 12 * GTE_SF(op);
-    int mx = GTE_MX(op);
-    int v = GTE_V(op);
-    int lm = GTE_LM(op);
-
-    gteFLAG = 0;
-    // cv >= 3 mx < 3 v < 3
-    s32 vx = VX(v);
-    s32 vy = VY(v);
-    s32 vz = VZ(v);
-    gteMAC1 = ((MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> shift;
-    gteMAC2 = ((MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> shift;
-    gteMAC3 = ((MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> shift;
-
-    gteIR1 = limB1(gteMAC1, lm);
-    gteIR2 = limB2(gteMAC2, lm);
-    gteIR3 = limB3(gteMAC3, lm);
-}
-
-void gteMVMVA_R6(psxCP2Regs *regs, s32 op) {
-    int shift = 12 * GTE_SF(op);
-    int mx = GTE_MX(op);
-    int v = GTE_V(op);
-    int lm = GTE_LM(op);
-
-    gteFLAG = 0;
-    // cv >= 3 mx < 3 v >= 3
-    s32 vx = VX_MVMVA(v);
-    s32 vy = VY_MVMVA(v);
-    s32 vz = VZ_MVMVA(v);
-    gteMAC1 = ((MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> shift;
-    gteMAC2 = ((MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> shift;
-    gteMAC3 = ((MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> shift;
-
-    gteIR1 = limB1(gteMAC1, lm);
-    gteIR2 = limB2(gteMAC2, lm);
-    gteIR3 = limB3(gteMAC3, lm);
-}
-
-void gteMVMVA_R7(psxCP2Regs *regs) {
-    gteFLAG = 0;
-    // cv >= 3 mx >= 3
-    gteMAC1 = 0;
-    gteMAC2 = 0;
-    gteMAC3 = 0;
-
-    gteIR1 = 0;
-    gteIR2 = 0;
-    gteIR3 = 0;
 }
 
 void gteNCLIP_R(psxCP2Regs *regs) {

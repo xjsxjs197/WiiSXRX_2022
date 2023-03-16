@@ -56,6 +56,7 @@ extern "C" {
 #include "fileBrowser/fileBrowser-CARD.h"
 #include "fileBrowser/fileBrowser-SMB.h"
 #include "gc_input/controller.h"
+#include "vm/vm.h"
 }
 
 #include "libgui/gui2/gettext.h"
@@ -480,7 +481,10 @@ int main(int argc, char *argv[])
 		memset(AutobootPath, 0, sizeof(AutobootPath));
 		memset(AutobootROM, 0, sizeof(AutobootROM));
 	}
-        L2Enhance();
+
+		VM_Init(1024*1024, 256*1024); // whatever for now, we're not really using this for anything other than mmap on Wii.
+
+		L2Enhance();
 
         u32 ios = IOS_GetVersion();
 

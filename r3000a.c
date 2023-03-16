@@ -36,11 +36,12 @@ int psxInit() {
 		else 	psxCpu = &psxInt;
 	}
 #if defined(__x86_64__) || defined(__i386__) || defined(__sh__) || defined(__ppc__) || defined(HW_RVL) || defined(HW_DOL)
-	if (!Config.Cpu) psxCpu = &psxRec;
+	if (!Config.Cpu) psxCpu = &psxLightrec;
 #endif
 	Log=0;
 
-	if (psxMemInit() == -1) return -1;
+	int memInitResult = psxMemInit();
+	if (memInitResult != 0) return memInitResult;
 
 	return psxCpu->Init();
 }
@@ -70,29 +71,22 @@ void psxReset() {
 }
 
 void psxShutdown() {
-	psxMemShutdown();
 	psxBiosShutdown();
 
-    if (psxCpu && psxCpu->Shutdown)
-    {
-        psxCpu->Shutdown();
-    }
+	psxCpu->Shutdown();
+
+	psxMemShutdown();
 }
 
 void psxException(u32 code, u32 bd) {
 	// Set the Cause
-	// upd xjsxjs197 start
-	//psxRegs.CP0.n.Cause = code;
 	psxRegs.CP0.n.Cause = (psxRegs.CP0.n.Cause & 0x300) | code;
-	// upd xjsxjs197 end
 
 	// Set the EPC & PC
 	if (bd) {
 #ifdef PSXCPU_LOG
 		PSXCPU_LOG("bd set!!!\n");
 #endif
-        //SysPrintf("bd set!!!\n");
-		//PRINT_LOG("=====bd set!!!");
 		psxRegs.CP0.n.Cause |= 0x80000000;
 		psxRegs.CP0.n.EPC = (psxRegs.pc - 4);
 	} else
@@ -107,13 +101,6 @@ void psxException(u32 code, u32 bd) {
 	psxRegs.CP0.n.Status = (psxRegs.CP0.n.Status &~0x3f) |
 						  ((psxRegs.CP0.n.Status & 0xf) << 2);
 
-	// upd xjsxjs197 start
-	/*if (!Config.HLE && (((SWAP32(*(u32*)PSXM(psxRegs.CP0.n.EPC)) >> 24) & 0xfe) == 0x4a)) {
-	    // "hokuto no ken" / "Crash Bandicot 2" ... fix
-	    PSXMu32ref(psxRegs.CP0.n.EPC)&= SWAP32(~0x02000000);
-
-      if (Config.HLE) psxBiosException();
-    }*/
     if (Config.HLE)
     {
         psxBiosException();
@@ -136,22 +123,24 @@ void psxException(u32 code, u32 bd) {
 			extern void (*psxCP2[64])(struct psxCP2Regs *regs);
 		    psxCP2[psxRegs.code & 0x3f](&psxRegs.CP2D);
 		}
-		#ifdef DISP_DEBUG
-		else if (tmp == NULL )
-        {
-            tmp = PSXMu32(psxRegs.CP0.n.EPC + 4);
-            if (tmp == NULL)
-            {
-                //PRINT_LOG("===psxException NULL Pointer, [EPC + 4] also NULL");
-            }
-            else
-            {
-                //PRINT_LOG1("===psxException NULL Pointer, [EPC + 4]: %x", tmp);
-            }
-        }
-        #endif
 	}
-	// upd xjsxjs197 end
+}
+
+static inline void psxTestHWInts() {
+	if (*((u32*)psxHAddr(0x1070)) & *((u32*)psxHAddr(0x1074))) {
+		if ((psxRegs.CP0.n.Status & 0x401) == 0x401) {
+            u32 opcode;
+
+			// Crash Bandicoot 2: Don't run exceptions when GTE in pipeline
+			opcode = SWAP32(*Read_ICache(psxRegs.pc, TRUE));
+			if( ((opcode >> 24) & 0xfe) != 0x4a ) {
+			    psxException(0x400, 0);
+			}
+#ifdef PSXCPU_LOG
+			PSXCPU_LOG("Interrupt: %x %x\n", psxHu32(0x1070), psxHu32(0x1074));
+#endif
+		}
+	}
 }
 
 extern u32 psxNextCounter, psxNextsCounter;
@@ -239,35 +228,14 @@ void psxBranchTest() {
 			}
 		}
 
-		//if (psxRegs.interrupt & 0x80000000) {
-		//	psxRegs.interrupt&=~0x80000000;
-			psxTestHWInts();
-		//}
+//		if (psxRegs.interrupt & 0x80000000) {
+//			psxRegs.interrupt&=~0x80000000;
+//			psxTestHWInts();
+//		}
 	}
+
+	psxTestHWInts();
 //	if (psxRegs.cycle > 0xd29c6500) Log=1;
-}
-
-inline void psxTestHWInts() {
-    // upd xjsxjs197 start
-	//if (psxHu32(0x1070) & psxHu32(0x1074)) {
-	//if (LOAD_SWAP32p(psxHAddr(0x1070)) & LOAD_SWAP32p(psxHAddr(0x1074))) {
-	if (*((u32*)psxHAddr(0x1070)) & *((u32*)psxHAddr(0x1074))) {
-    // upd xjsxjs197 end
-		if ((psxRegs.CP0.n.Status & 0x401) == 0x401) {
-            u32 opcode;
-
-			// Crash Bandicoot 2: Don't run exceptions when GTE in pipeline
-			opcode = SWAP32(*Read_ICache(psxRegs.pc, TRUE));
-			if( ((opcode >> 24) & 0xfe) != 0x4a ) {
-			    psxException(0x400, 0);
-			}
-#ifdef PSXCPU_LOG
-			PSXCPU_LOG("Interrupt: %x %x\n", psxHu32(0x1070), psxHu32(0x1074));
-#endif
-//			SysPrintf("Interrupt (%x): %x %x\n", psxRegs.cycle, psxHu32(0x1070), psxHu32(0x1074));
-			//psxException(0x400, 0);
-		}
-	}
 }
 
 void psxJumpTest() {
