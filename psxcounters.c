@@ -53,7 +53,7 @@ enum
     RcUnknown15       = 0x8000, // 15   ? (always zero)
 };
 
-#define CounterQuantity           ( 4 )
+#define CounterQuantity           ( 5 )
 //static const u32 CounterQuantity  = 4;
 
 static const u32 CountToOverflow  = 0;
@@ -385,18 +385,6 @@ void psxRcntUpdate()
         // VSync irq.
         if( hSyncCount == VBlankStart[Config.PsxType] )
         {
-//            u32 curGteTicks;
-//            curGteTicks = (u32)(((u64)1000000 * psxRegs.gteCycle) / (PSXCLK * FrameRate[Config.PsxType]));
-//
-//            if (curGteTicks > dwFrameRateTicks)
-//            {
-//                newDwFrameRateTicks = 0;
-//            }
-//            else
-//            {
-//                newDwFrameRateTicks = dwFrameRateTicks - curGteTicks;
-//            }
-//
             #ifdef SHOW_DEBUG
             //sprintf(txtbuffer, "VBlankStart gteCycle %ld gteTicks %d\n", psxRegs.gteCycle, curGteTicks);
             sprintf(txtbuffer, "DispHeight %d rcnt0 rate %f dwEmuFixes %d \n", dispHeight, rcnts[0].rateF, dwEmuFixes);
@@ -413,7 +401,7 @@ void psxRcntUpdate()
 
 //            if( SPU_async )
 //            {
-                SPU_async( cycle, 1 , Config.PsxType);
+//                SPU_async( cycle, 1 , Config.PsxType);
 //            }
             //psxRegs.gteCycle = 0;
         }
