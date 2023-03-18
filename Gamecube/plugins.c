@@ -20,6 +20,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+static signed long long cdOpenCaseTime = 0;
+
 #define EXT
 #include "../psxcommon.h"
 #include "GamecubePlugins.h"
@@ -118,7 +120,14 @@ int LoadGPUplugin(char *GPUdll) {
 void *hCDRDriver;
 long CALLBACK CDR__play(unsigned char *sector);
 long CALLBACK CDR__stop(void);
-long CALLBACK CDR__getStatus(struct CdrStat *stat);
+long CALLBACK CDR__getStatus(struct CdrStat *stat) {
+	if (cdOpenCaseTime < 0 || cdOpenCaseTime > (s64)time(NULL))
+		stat->Status = 0x10;
+	else
+		stat->Status = 0;
+
+	return 0;
+}
 char* CALLBACK CDR__getDriveLetter(void) { return NULL; }
 //unsigned char* CALLBACK CDR__getBufferSub(void) { return NULL; }
 long CALLBACK CDR__configure(void) { return 0; }
@@ -527,4 +536,8 @@ void ReleasePlugins() {
 	if (Config.UseNet && hNETDriver != NULL) {
 		SysCloseLibrary(hNETDriver); hNETDriver = NULL;
 	}
+}
+
+void SetCdOpenCaseTime(signed long long time) {
+	cdOpenCaseTime = time;
 }
