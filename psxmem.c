@@ -102,17 +102,14 @@ int psxMemInit() {
 	    || lightrec_mmap(psxM, 0x200000, 0x200000)
 	    || lightrec_mmap(psxM, 0x400000, 0x200000)
 	    || lightrec_mmap(psxM, 0x600000, 0x200000)) {
-		//SysMessage(_("Error mapping RAM"));
-		return 1;
+		SysMessage(_("Error mapping RAM"));
 	}
 
 	if (lightrec_mmap(psxR, 0x1fc00000, 0x80000))
-		//SysMessage(_("Error mapping BIOS"));
-		return 2;
+		SysMessage(_("Error mapping BIOS"));
 
 	if (lightrec_mmap(psxM + 0x210000, 0x1f800000, 0x3000))
-		//SysMessage(_("Error mapping scratch/IO"));
-		return 3;
+		SysMessage(_("Error mapping scratch/IO"));
 
 // MemR
 	for (i=0; i<0x80; i++) psxMemRLUT[i + 0x0000] = (u8*)&psxM[(i & 0x1f) << 16];
