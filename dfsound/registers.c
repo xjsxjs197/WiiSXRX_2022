@@ -58,7 +58,7 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
  if (val == 0 && (r & 0xff8) == 0xd88)
   return;
 
- //do_samples_if_needed(cycles, 0);
+ do_samples_if_needed(cycles, 0);
 
  if(r>=0x0c00 && r<0x0d80)                             // some channel info?
   {
@@ -208,12 +208,12 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
       break;
     //-------------------------------------------------//
     case H_CDLeft:
-      spu.iLeftXAVol=val  & 0x7fff;
-      if(spu.cddavCallback) spu.cddavCallback(0,val);
+      spu.iLeftXAVol=(int16_t)val;
+      if(spu.cddavCallback) spu.cddavCallback(0,(int16_t)val);
       break;
     case H_CDRight:
-      spu.iRightXAVol=val & 0x7fff;
-      if(spu.cddavCallback) spu.cddavCallback(1,val);
+      spu.iRightXAVol=(int16_t)val;
+      if(spu.cddavCallback) spu.cddavCallback(1,(int16_t)val);
       break;
     //-------------------------------------------------//
     case H_FMod1:
@@ -499,10 +499,8 @@ static void SetPitch(int ch,unsigned short val)               // SET PITCH
  spu.s_chan[ch].sinc_inv=0;
  //if (spu_config.iUseInterpolation == 1)
   spu.SB[ch * SB_SIZE + 32] = 1; // -> freq change in simple interpolation mode: set flag
- if (val)
-  spu.dwChannelsAudible |= 1u << ch;
- else
-  spu.dwChannelsAudible &= ~(1u << ch);
+
+ // don't mess spu.dwChannelsAudible as adsr runs independently
 }
 
 ////////////////////////////////////////////////////////////////////////

@@ -39,6 +39,7 @@ extern R3000Acpu psxInt;
 extern R3000Acpu psxIntDbg;
 #if defined(__x86_64__) || defined(__i386__) || defined(__sh__) || defined(__ppc__) || defined(HW_RVL) || defined(HW_DOL)
 extern R3000Acpu psxRec;
+extern R3000Acpu psxLightrec;
 #define PSXREC
 #endif
 
@@ -156,7 +157,7 @@ typedef struct {
 			psxCP2Ctrl CP2C; 	/* Cop2 control registers */
 		};
 		psxCP2Regs CP2;
-	};
+	} __attribute__((aligned(32)));
     u32 pc;				/* Program counter */
     u32 code;			/* The instruction */
 	u32 cycle;
@@ -167,6 +168,7 @@ typedef struct {
 	u8 ICache_Addr[0x1000];
 	u8 ICache_Code[0x1000];
 	bool ICache_valid;
+	u32 io_cycle_counter;
 } psxRegisters;
 
 extern psxRegisters psxRegs;
@@ -264,6 +266,28 @@ enum {
 	PSXINT_COUNT
 };
 
+/* new_dynarec stuff */
+extern u32 event_cycles[PSXINT_COUNT];
+extern u32 next_interupt;
+
+void new_dyna_before_save(void);
+void new_dyna_after_save(void);
+void new_dyna_freeze(void *f, int mode);
+
+#define new_dyna_set_event_abs(e, abs) { \
+	u32 abs_ = abs; \
+	s32 di_ = next_interupt - abs_; \
+	event_cycles[e] = abs_; \
+	if (di_ > 0) { \
+		/*printf("%u: next_interupt %u -> %u\n", psxRegs.cycle, next_interupt, abs_);*/ \
+		next_interupt = abs_; \
+	} \
+}
+
+#define new_dyna_set_event(e, c) \
+	new_dyna_set_event_abs(e, psxRegs.cycle + (c))
+
+
 #if defined(HW_RVL) || defined(HW_DOL) || defined(BIG_ENDIAN)
 
 #define _i32(x) *(s32 *)&x
@@ -343,7 +367,6 @@ void psxExecuteBios();
 int  psxTestLoadDelay(int reg, u32 tmp);
 void psxDelayTest(int reg, u32 bpc);
 void psxTestSWInts();
-void psxTestHWInts();
 void psxJumpTest();
 
 #endif /* __R3000A_H__ */

@@ -180,11 +180,11 @@ int msf2SectS[] = {
 // 1x = 75 sectors per second
 // PSXCLK = 1 sec in the ps
 // so (PSXCLK / 75) = cdr read time (linuzappz)
-#define cdReadTime         (PSXCLK / 75 / 2)  // OK
-#define WaitTime1st        (0x800 >> 1)
-#define WaitTime1stInit    (0x13cce >> 1)
+#define cdReadTime         (PSXCLK / 75)  // OK
+#define WaitTime1st        (0x800)
+#define WaitTime1stInit    (0x13cce)
 #define WaitTime1stRead    cdReadTime   // OK
-#define WaitTime2ndGetID   (0x4a00 >> 1)  // OK
+#define WaitTime2ndGetID   (0x4a00)  // OK
 #define WaitTime2ndPause   (cdReadTime * 3) // OK
 
 #define SeekTime           50000
@@ -257,13 +257,19 @@ static void sec2msf(unsigned int s, u8 *msf) {
 	psxRegs.interrupt |= (1 << PSXINT_CDR); \
 	psxRegs.intCycle[PSXINT_CDR].cycle = eCycle; \
 	psxRegs.intCycle[PSXINT_CDR].sCycle = psxRegs.cycle; \
+	new_dyna_set_event(PSXINT_CDR, eCycle); \
 }
 
 // cdrReadInterrupt
-#define CDREAD_INT(eCycle) { \
+#define CDREAD_INT(eCycle, isFirst) { \
+	u32 e_ = eCycle; \
 	psxRegs.interrupt |= (1 << PSXINT_CDREAD); \
-	psxRegs.intCycle[PSXINT_CDREAD].cycle = eCycle; \
-	psxRegs.intCycle[PSXINT_CDREAD].sCycle = psxRegs.cycle; \
+	if (isFirst) \
+		psxRegs.intCycle[PSXINT_CDREAD].sCycle = psxRegs.cycle; \
+	else \
+		psxRegs.intCycle[PSXINT_CDREAD].sCycle += psxRegs.intCycle[PSXINT_CDREAD].cycle; \
+	psxRegs.intCycle[PSXINT_CDREAD].cycle = e_; \
+	new_dyna_set_event_abs(PSXINT_CDREAD, psxRegs.intCycle[PSXINT_CDREAD].sCycle + e_); \
 }
 
 // cdrLidSeekInterrupt
@@ -271,13 +277,19 @@ static void sec2msf(unsigned int s, u8 *msf) {
 	psxRegs.interrupt |= (1 << PSXINT_CDRLID); \
 	psxRegs.intCycle[PSXINT_CDRLID].cycle = eCycle; \
 	psxRegs.intCycle[PSXINT_CDRLID].sCycle = psxRegs.cycle; \
+	new_dyna_set_event(PSXINT_CDRLID, eCycle); \
 }
 
 // cdrPlayInterrupt
-#define CDRMISC_INT(eCycle) { \
+#define CDRMISC_INT(eCycle, isFirst) { \
+	u32 e_ = eCycle; \
 	psxRegs.interrupt |= (1 << PSXINT_CDRPLAY); \
-	psxRegs.intCycle[PSXINT_CDRPLAY].cycle = eCycle; \
-	psxRegs.intCycle[PSXINT_CDRPLAY].sCycle = psxRegs.cycle; \
+	if (isFirst) \
+		psxRegs.intCycle[PSXINT_CDRPLAY].sCycle = psxRegs.cycle; \
+	else \
+		psxRegs.intCycle[PSXINT_CDRPLAY].sCycle += psxRegs.intCycle[PSXINT_CDRPLAY].cycle; \
+	psxRegs.intCycle[PSXINT_CDRPLAY].cycle = e_; \
+	new_dyna_set_event_abs(PSXINT_CDRPLAY, psxRegs.intCycle[PSXINT_CDRPLAY].sCycle + e_); \
 }
 
 #define StopReading() { \
@@ -309,7 +321,7 @@ static void setIrq(void)
 {
 	if (cdr.Stat & cdr.Reg2) {
 		psxHu32ref(0x1070) |= SWAP32((u32)0x4);
-		psxRegs.interrupt|= 0x80000000;
+		//psxRegs.interrupt|= 0x80000000;
 	}
 }
 
@@ -629,7 +641,7 @@ void cdrPlayInterrupt()
 	if (cdr.Seeked == SEEK_PENDING) {
 		if (cdr.Stat) {
 			CDR_LOG_I("cdrom: seek stat hack\n");
-			CDRMISC_INT(0x1000);
+			CDRMISC_INT(0x1000, 0);
 			return;
 		}
 		SetResultSize(1);
@@ -675,24 +687,15 @@ void cdrPlayInterrupt()
 		cdrPlayInterrupt_Autopause(read_buf);
 
 	if (!cdr.Play) return;
-	//#ifdef DISP_DEBUG
-    //PRINT_LOG2("Bef CDR_readCDDA==Muted Mode %d %d", cdr.Muted, cdr.Mode);
-    //#endif // DISP_DEBUG
-	/*if (CDR_readCDDA && !cdr.Muted && !Config.Cdda) {
-	//if (CDR_readCDDA && !cdr.Muted) {
+
+	/*if (!cdr.Muted && !Config.Cdda) {
         #ifdef SHOW_DEBUG
         sprintf(txtbuffer, "CDR_readCDDA time %d %d %d", cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2]);
         DEBUG_print(txtbuffer, DBG_CDR2);
         #endif // DISP_DEBUG
-		//CDR_readCDDA(cdr.SetSectorPlay[0], cdr.SetSectorPlay[1],
-		//	cdr.SetSectorPlay[2], cdr.Transfer);
-
-		//cdrAttenuate((s16 *)cdr.Transfer, CD_FRAMESIZE_RAW / 4, 1);
-		//if (SPU_playCDDAchannel)
-		//	SPU_playCDDAchannel((short *)cdr.Transfer, CD_FRAMESIZE_RAW);
-		cdrAttenuate(read_buf, CD_FRAMESIZE_RAW / 4, 1);
-		if (SPU_playCDDAchannel)
-			SPU_playCDDAchannel(read_buf, CD_FRAMESIZE_RAW);
+    	cdrAttenuate(read_buf, CD_FRAMESIZE_RAW / 4, 1);
+		SPU_playCDDAchannel(read_buf, CD_FRAMESIZE_RAW);
+		cdr.FirstSector = 0;
 	}*/
 
 	cdr.SetSectorPlay[2]++;
@@ -707,13 +710,12 @@ void cdrPlayInterrupt()
 
 	if (cdr.m_locationChanged)
 	{
-		CDRMISC_INT(cdReadTime * 30);
+		CDRMISC_INT(cdReadTime * 30, 0);
 		cdr.m_locationChanged = FALSE;
 	}
 	else
 	{
-		//CDRMISC_INT(cdReadTime);
-		CDRMISC_INT((cdr.Mode & MODE_SPEED) ? (cdReadTime / 2) : cdReadTime);
+		CDRMISC_INT((cdr.Mode & MODE_SPEED) ? (cdReadTime / 2) : cdReadTime, 0);
 	}
 
 	// update for CdlGetlocP/autopause
@@ -880,7 +882,7 @@ void cdrInterrupt() {
 			// BIOS player - set flag again
 			cdr.Play = TRUE;
 
-			CDRMISC_INT( cdReadTime );
+			CDRMISC_INT( cdReadTime , 1);
 			start_rotating = 1;
 			break;
 
@@ -1095,7 +1097,7 @@ void cdrInterrupt() {
             DEBUG_print(txtbuffer, DBG_PROFILE_IDLE);
             writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
-			CDRMISC_INT(cdr.Seeked == SEEK_DONE ? 0x800 : SeekTime);
+			CDRMISC_INT(cdr.Seeked == SEEK_DONE ? 0x800 : SeekTime, 1);
 			cdr.Seeked = SEEK_PENDING;
 			start_rotating = 1;
 			break;
@@ -1254,7 +1256,7 @@ void cdrInterrupt() {
 			*/
 			cdr.StatP |= STATUS_READ;
 			cdr.StatP &= ~STATUS_SEEK;
-			CDREAD_INT(((cdr.Mode & 0x80) ? (WaitTime1stRead) : WaitTime1stRead * 2) + (seekTime >> 1));
+			CDREAD_INT(((cdr.Mode & 0x80) ? (WaitTime1stRead) : WaitTime1stRead * 2) + (seekTime >> 1), 1);
 
 			cdr.Result[0] = cdr.StatP;
 			start_rotating = 1;
@@ -1366,7 +1368,7 @@ void cdrReadInterrupt() {
     #endif // DISP_DEBUG
 	if (cdr.Irq || cdr.Stat) {
 		CDR_LOG_I("cdrom: read stat hack %02x %x\n", cdr.Irq, cdr.Stat);
-		CDREAD_INT(0x100);
+		CDREAD_INT(0x100, 0);
 		return;
 	}
 
@@ -1374,7 +1376,7 @@ void cdrReadInterrupt() {
 		// HACK: with BIAS 2, emulated CPU is often slower than real thing,
 		// game may be unfinished with prev data read, so reschedule
 		// (Brave Fencer Musashi)
-		CDREAD_INT(cdReadTime / 2);
+		CDREAD_INT(cdReadTime / 2, 0);
 		cdr.ReadRescheduled = 1;
 		return;
 	}
@@ -1402,7 +1404,7 @@ void cdrReadInterrupt() {
 		memset(cdr.Transfer, 0, DATA_SIZE);
 		cdr.Stat = DiskError;
 		cdr.Result[0] |= STATUS_ERROR;
-		CDREAD_INT((cdr.Mode & 0x80) ? (cdReadTime / 2) : cdReadTime);
+		CDREAD_INT((cdr.Mode & 0x80) ? (cdReadTime / 2) : cdReadTime, 0);
 		return;
 	}
 
@@ -1476,18 +1478,10 @@ void cdrReadInterrupt() {
 
 	uint32_t delay = (cdr.Mode & MODE_SPEED) ? (cdReadTime / 2) : cdReadTime;
 	if (cdr.m_locationChanged) {
-		CDREAD_INT(delay * 30);
+		CDREAD_INT(delay * 30, 0);
 		cdr.m_locationChanged = FALSE;
 	} else {
-	    CDREAD_INT(delay);
-	    /*if (cdr.PlayAdpcm)
-        {
-            CDREAD_INT((cdr.Mode & 0x80) ? (playAdpcmTime / 2) : playAdpcmTime);
-		}
-		else
-		{
-		    CDREAD_INT(delay);
-		}*/
+	    CDREAD_INT(delay, 0);
 	}
 
 	/*
@@ -1605,7 +1599,7 @@ void cdrWrite1(unsigned char rt) {
             DEBUG_print(txtbuffer, DBG_CORE3);
             writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
-            CDRMISC_INT((cdr.Mode & MODE_SPEED) ? cdReadTime / 2 : cdReadTime);
+            CDRMISC_INT((cdr.Mode & MODE_SPEED) ? cdReadTime / 2 : cdReadTime, 0);
         }
 		StopReading();
 		break;
@@ -1896,6 +1890,8 @@ int cdrFreeze(gzFile f, int Mode) {
 }
 
 void LidInterrupt() {
+	SetCdOpenCaseTime(time(NULL) + 2);
+
 	getCdInfo();
 	StopCdda();
 

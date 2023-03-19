@@ -66,6 +66,7 @@ char Mcd1Data[MCD_SIZE], Mcd2Data[MCD_SIZE];
 		psxRegs.interrupt |= (1 << PSXINT_SIO); \
 		psxRegs.intCycle[PSXINT_SIO].cycle = SIO_CYCLES; \
 		psxRegs.intCycle[PSXINT_SIO].sCycle = psxRegs.cycle; \
+		new_dyna_set_event(PSXINT_SIO, SIO_CYCLES); \
 	} \
 }
 
@@ -325,7 +326,7 @@ void sioInterrupt() {
     if (!(StatReg & IRQ)) {
 	    StatReg|= IRQ;
 	    psxHu32ref(0x1070)|= SWAPu32(0x80);
-	    psxRegs.interrupt|= 0x80000000;
+	    //psxRegs.interrupt|= 0x80000000;
     }
 }
 

@@ -114,18 +114,18 @@ static inline u32 getCntValue(u32 val, u32 intRate, u32 cntIdx)
 {
     if (intRate > 1 && cntIdx == 0)
     {
-        return (u32)((f32)val * rcnts[cntIdx].rateF) >> 1;
+        return (u32)((f32)val * rcnts[cntIdx].rateF);
     }
-    return val * intRate >> 1;
+    return val * intRate;
 }
 
 static inline u32 getCntValueSub(u32 val, u32 intRate, u32 cntIdx)
 {
     if (intRate > 1 && cntIdx == 0)
     {
-        return (u32)(((f32)val - 1) * rcnts[cntIdx].rateF) >> 1;
+        return (u32)(((f32)val - 1) * rcnts[cntIdx].rateF);
     }
-    return (val - 1) * intRate >> 1;
+    return (val - 1) * intRate;
 }
 
 /******************************************************************************/
@@ -182,7 +182,7 @@ u32 _psxRcntRcount( u32 index )
         //verboseLog( 1, "[RCNT %i] rcount > 0xffff: %x\n", index, count );
     //}
     //count &= 0xffff;
-    count = (count << 1) & 0xffff;
+    count = (count) & 0xffff;
 
     return count;
 }
@@ -274,7 +274,7 @@ void psxRcntSet()
     }
 
     psxRegs.interrupt |= (1 << PSXINT_RCNT);
-    //new_dyna_set_event(PSXINT_RCNT, psxNextCounter);
+    new_dyna_set_event(PSXINT_RCNT, psxNextCounter);
 }
 
 /******************************************************************************/
@@ -360,14 +360,14 @@ static void scheduleRcntBase(void)
     if (hSyncCount + hsync_steps == HSyncTotal[Config.PsxType])
     {
         //rcnts[3].cycle = Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
-        rcnts[3].cycle = FrameCycles[Config.PsxType] >> 1;
+        rcnts[3].cycle = FrameCycles[Config.PsxType];
     }
     else
     {
         // clk / 50 / 314 ~= 2157.25
         // clk / 60 / 263 ~= 2146.31
         //u32 mult = Config.PsxType ? 8836089 : 8791293;
-        rcnts[3].cycle = (hsync_steps * HSyncLineCycles[Config.PsxType] >> 12) >> 1;
+        rcnts[3].cycle = (hsync_steps * HSyncLineCycles[Config.PsxType] >> 12);
     }
 }
 
@@ -385,18 +385,6 @@ void psxRcntUpdate()
         // VSync irq.
         if( hSyncCount == VBlankStart[Config.PsxType] )
         {
-//            u32 curGteTicks;
-//            curGteTicks = (u32)(((u64)1000000 * psxRegs.gteCycle) / (PSXCLK * FrameRate[Config.PsxType]));
-//
-//            if (curGteTicks > dwFrameRateTicks)
-//            {
-//                newDwFrameRateTicks = 0;
-//            }
-//            else
-//            {
-//                newDwFrameRateTicks = dwFrameRateTicks - curGteTicks;
-//            }
-//
             #ifdef SHOW_DEBUG
             //sprintf(txtbuffer, "VBlankStart gteCycle %ld gteTicks %d\n", psxRegs.gteCycle, curGteTicks);
             sprintf(txtbuffer, "DispHeight %d rcnt0 rate %f dwEmuFixes %d \n", dispHeight, rcnts[0].rateF, dwEmuFixes);
@@ -421,8 +409,8 @@ void psxRcntUpdate()
         // Update lace. (with InuYasha fix)
         else if( hSyncCount >= (Config.VSyncWA ? HSyncTotal[Config.PsxType] / BIAS : HSyncTotal[Config.PsxType]) )
         {
-            //rcnts[3].cycleStart += Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
-            rcnts[3].cycleStart = cycle;
+            rcnts[3].cycleStart += Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
+            //rcnts[3].cycleStart = cycle;
             hSyncCount = 0;
             frame_counter++;
 

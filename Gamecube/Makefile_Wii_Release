@@ -24,8 +24,8 @@ GPU = Soft
 TARGET		:=	WiiSXRX_Release
 BUILD		:=	build_release
 SOURCES		:=	../lang ../fonts \
-                . ./gc_input/ ./libgui/ ./menu/ ./fileBrowser/ .. ../ppc/ ../Peops$(GPU)GPU/ \
-				./libgui/gui2 ../dfsound/
+                . ./gc_input/ ./libgui/ ./menu/ ./fileBrowser/ .. ../Peops$(GPU)GPU/ \
+				./libgui/gui2 ../dfsound/ ./vm
 
 DATA		:=	data
 
@@ -35,7 +35,7 @@ INCLUDES	:=
 # options for code generation
 #---------------------------------------------------------------------------------
 
-CFLAGS	= -flto -Ofast -w $(MACHDEP) $(INCLUDE) -D__GAMECUBE__ -DWII -DHW_RVL -D__ppc__ \
+CFLAGS	= -flto -Ofast -w -fpermissive $(MACHDEP) $(INCLUDE) -D__GAMECUBE__ -DWII -DHW_RVL -D__ppc__ \
 		  -D__GX__ \
 		  -DTHREADED_AUDIO -D_GNU_SOURCE #-DRELEASE
 
@@ -48,7 +48,7 @@ LDFLAGS	=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map,-wrap,wiiuse_register
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS	:=	-laesnd -ldi -liso9660 -lm -lfat -ldb -lwiiuse -lwupc -lwiidrc -lbte -logc -lz -ltinysmb -lSDL -lwiikeyboard
+LIBS	:=	-ldi -liso9660 -lm -lSDL -lfat -ldb -lwiiuse -lwupc -lwiidrc -lbte -logc -lz -ltinysmb -lwiikeyboard -llightrecNoLog -llightning
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
@@ -103,7 +103,7 @@ export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 					$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
 					-I$(CURDIR)/$(BUILD) \
 					-I$(LIBOGC_INC) \
-					-I$(DEVKITPRO)/libogc/include, -I$(DEVKITPRO)/libfat/libogc/include
+					-I$(DEVKITPRO)/libogc/include, -I$(DEVKITPRO)/libogc/ogc, -I$(DEVKITPRO)/libogc/ogc/machine, -I$(DEVKITPRO)/libfat/libogc/include
 
 #---------------------------------------------------------------------------------
 # build a list of library paths

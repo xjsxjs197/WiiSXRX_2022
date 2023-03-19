@@ -20,6 +20,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+static signed long long cdOpenCaseTime = 0;
+
 #define EXT
 #include "../psxcommon.h"
 #include "GamecubePlugins.h"
@@ -118,7 +120,48 @@ int LoadGPUplugin(char *GPUdll) {
 void *hCDRDriver;
 long CALLBACK CDR__play(unsigned char *sector);
 long CALLBACK CDR__stop(void);
-long CALLBACK CDR__getStatus(struct CdrStat *stat);
+
+// reads cdr status
+// type:
+// 0x00 - unknown
+// 0x01 - data
+// 0x02 - audio
+// 0xff - no cdrom
+// status:
+// 0x00 - unknown
+// 0x02 - error
+// 0x08 - seek error
+// 0x10 - shell open
+// 0x20 - reading
+// 0x40 - seeking
+// 0x80 - playing
+// time:
+// byte 0 - minute
+// byte 1 - second
+// byte 2 - frame
+long CALLBACK CDR__getStatus(struct CdrStat *stat) {
+	/*if (cdOpenCaseTime < 0 || cdOpenCaseTime > (s64)time(NULL))
+		stat->Status = 0x10;
+	else
+		stat->Status = 0;*/
+
+	stat->Status = 0;       // Ok so far
+
+//  if(isCDDAPlaying) {
+//    stat->Type = 0x02;    // Audio
+//    stat->Status|=0x80;   // Playing flag
+//    // Time will need to be updated in a thread.
+//    stat->Time[0] = 0;  // current play time
+//    stat->Time[1] = 0;
+//    stat->Time[2] = 0;
+//  }
+//  else {
+//    stat->Type = 0x01;    // Data
+//  }
+    stat->Type = 0x01;    // Data
+
+	return 0;
+}
 char* CALLBACK CDR__getDriveLetter(void) { return NULL; }
 //unsigned char* CALLBACK CDR__getBufferSub(void) { return NULL; }
 long CALLBACK CDR__configure(void) { return 0; }
@@ -527,4 +570,8 @@ void ReleasePlugins() {
 	if (Config.UseNet && hNETDriver != NULL) {
 		SysCloseLibrary(hNETDriver); hNETDriver = NULL;
 	}
+}
+
+void SetCdOpenCaseTime(signed long long time) {
+	cdOpenCaseTime = time;
 }

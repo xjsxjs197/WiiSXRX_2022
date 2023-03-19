@@ -51,6 +51,8 @@ void DF_SPUreadDMAMem(unsigned short *pusPSXMem, int iSize,
  int i;
  unsigned short crc=0;
 
+  do_samples_if_needed(cycles, 1);
+  
  #ifdef SHOW_DEBUG
  sprintf(txtbuffer, "SPUreadDMA spuAddr %08x size %x crc %x", spu.spuAddr, iSize, crc);
  DEBUG_print(txtbuffer, DBG_SPU1);
@@ -117,7 +119,7 @@ void DF_SPUwriteDMAMem(unsigned short *pusPSXMem, int iSize,
 {
  int i;
 
- //do_samples_if_needed(cycles, 1);
+ do_samples_if_needed(cycles, 1);
  spu.bMemDirty = 1;
 
  if(spu.spuAddr + iSize*2 < 0x80000)
