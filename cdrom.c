@@ -1890,6 +1890,8 @@ int cdrFreeze(gzFile f, int Mode) {
 }
 
 void LidInterrupt() {
+	SetCdOpenCaseTime(time(NULL) + 2);
+
 	getCdInfo();
 	StopCdda();
 
