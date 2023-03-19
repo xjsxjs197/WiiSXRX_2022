@@ -25,7 +25,7 @@
 #	define unlikely(x)     (x)
 #endif
 
-//static s8 code_buffer [0x400000] __attribute__((aligned(32))); // 4 MiB code buffer for Lightrec
+static s8 code_buffer [0x400000] __attribute__((aligned(32))); // 4 MiB code buffer for Lightrec
 static struct lightrec_state *lightrec_state;
 
 static char *name = "sd:/WiiStation/WiiStation.elf";
@@ -119,7 +119,7 @@ static bool has_interrupt(void)
 
 static void lightrec_restore_state(struct lightrec_state *state)
 {
-	//lightrec_reset_cycle_count(state, psxRegs.cycle);
+	lightrec_reset_cycle_count(state, psxRegs.cycle);
 
 	if (booting || has_interrupt())
 		lightrec_set_exit_flags(state, LIGHTREC_EXIT_CHECK_INTERRUPT);
@@ -277,7 +277,7 @@ static struct lightrec_mem_map lightrec_map[] = {
 		.mirror_of = &lightrec_map[PSX_MAP_KERNEL_USER_RAM],
 	},
 	[PSX_MAP_CODE_BUFFER] = {
-		.length = RECMEM2_SIZE, // sizeof(code_buffer),
+		.length = sizeof(code_buffer), // RECMEM2_SIZE,
 	},
 };
 
@@ -404,7 +404,7 @@ static int lightrec_plugin_init(void)
 	lightrec_map[PSX_MAP_BIOS].address = (void *)0x1fc00000;
 	lightrec_map[PSX_MAP_SCRATCH_PAD].address = (void *)0x1f800000;
 	lightrec_map[PSX_MAP_HW_REGISTERS].address = (void *)0x1f801000;
-	lightrec_map[PSX_MAP_CODE_BUFFER].address = RECMEM2_LO; // code_buffer;
+	lightrec_map[PSX_MAP_CODE_BUFFER].address = code_buffer; // RECMEM2_LO;
 #endif
 
 	lightrec_state = lightrec_init(name,
@@ -508,13 +508,15 @@ void gen_interupt()
 	schedule_timeslice();
 }
 
-static void lightrec_plugin_execute_block(void)
+static void lightrec_plugin_execute_internal(bool block_only)
 {
 	u32 flags;
 
 	gen_interupt();
 
-	if (booting)
+	// step during early boot so that 0x80030000 fastboot hack works
+	booting = block_only;
+	if (block_only)
 		next_interupt = psxRegs.cycle;
 
 	lightrec_reset_cycle_count(lightrec_state, psxRegs.cycle);
@@ -553,8 +555,8 @@ static void lightrec_plugin_execute_block(void)
 	if (flags & LIGHTREC_EXIT_SYSCALL)
 		psxException(0x20, 0);
 
-	if (booting && (psxRegs.pc & 0xff800000) == 0x80000000)
-		booting = false;
+	//if (booting && (psxRegs.pc & 0xff800000) == 0x80000000)
+	//	booting = false;
 
 	if ((psxRegs.CP0.n.Cause & psxRegs.CP0.n.Status & 0x300) &&
 			(psxRegs.CP0.n.Status & 0x1)) {
@@ -568,15 +570,25 @@ static void lightrec_plugin_execute(void)
 {
 	extern int stop;
 
+	if (!booting)
+		lightrec_plugin_sync_regs_from_pcsx();
+
 	while (!stop)
-		lightrec_plugin_execute_block();
+		lightrec_plugin_execute_internal(false);
+
+	lightrec_plugin_sync_regs_to_pcsx();
+}
+
+static void lightrec_plugin_execute_block(void)
+{
+	lightrec_plugin_execute_internal(true);
 }
 
 static void lightrec_plugin_clear(u32 addr, u32 size)
 {
-	if (addr == 0 && size == UINT32_MAX)
-		lightrec_invalidate_all(lightrec_state);
-	else
+	//if (addr == 0 && size == UINT32_MAX)
+	//	lightrec_invalidate_all(lightrec_state);
+	//else
 		/* size * 4: PCSX uses DMA units */
 		lightrec_invalidate(lightrec_state, addr, size * 4);
 }
@@ -602,7 +614,7 @@ static void lightrec_plugin_reset(void)
 	regs->cp0[12] = 0x10900000; // COP0 enabled | BEV = 1 | TS = 1
 	regs->cp0[15] = 0x00000002; // PRevID = Revision ID, same as R3000A
 
-	booting = true;
+	//booting = true;
 }
 
 void lightrec_plugin_sync_regs_from_pcsx(void)
