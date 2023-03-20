@@ -2,12 +2,13 @@
  <app version="2">
    <name>WiiStation</name>
    <coder>xjsxjs197</coder>
-   <version>1.0</version>
-   <release_date>20221105</release_date>
+   <version>2.0 bete</version>
+   <release_date>2023MMDD</release_date>
    <short_description>PSX Emulator for Wii</short_description>
    <long_description>
 WiiStation - A Sony PlayStation 1 emulator for Wii / Wii U, forked from WiiSXRX by NiuuS.
 Featuring:
+- New Dynamic compilation Lightrec.
 - CDDA (Compact Disc Digital Audio) tracks support.
 - Multiple languages support.
 - Gamecube controller support.
@@ -25,6 +26,7 @@ matguitarist
 Daxtsu
 Mystro256
 FIX94
+saulfabregwiivc
 NiuuS
 xjsxjs197
    </long_description>
