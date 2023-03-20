@@ -167,19 +167,19 @@ void Func_Credits()
 {
 	char CreditsInfo[512] = "";
 #ifdef HW_RVL
-	sprintf(CreditsInfo,"WiiStation Beta 1.0\n");
+	sprintf(CreditsInfo,"WiiStation Beta 2.0\n");
 #else
-	sprintf(CreditsInfo,"CubeStation Beta 1.0\n");
+	sprintf(CreditsInfo,"CubeStation Beta 2.0\n");
 #endif
 	strcat(CreditsInfo,"www.github.com/xjsxjs197/WiiSXRX_2022\n");
 	strcat(CreditsInfo,"WiiStation: xjsxjs197 - Icon: Dakangel\n");
-	strcat(CreditsInfo,"\n");
-	strcat(CreditsInfo,"Original WiiSX team:\n");
+	strcat(CreditsInfo,"- Original WiiSX team: -\n");
 	strcat(CreditsInfo,"emu_kidid - general coding\n");
 	strcat(CreditsInfo,"sepp256 - graphics & menu\n");
 	strcat(CreditsInfo,"tehpola - audio\n");
 	strcat(CreditsInfo,"PCSX/-df/-R/-Revolution/-ReARMed\n");
 	strcat(CreditsInfo,"teams\n");
+	strcat(CreditsInfo,"pcercuei - Lightrec\n");
 
 	char wiiDetails[30];
 	char wiiInfo[20];
