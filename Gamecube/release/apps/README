@@ -1,5 +1,5 @@
 README : WiiStation
-Ver 2.0 bete
+Ver 2.0 Beta
 
 LICENSE:
     This software is licensed under the GNU General Public License v2
@@ -99,19 +99,19 @@ CREDITS:
  * FranSPU
  * CDRMooby
  * SSSPSX
+ * Lightrec: pcercuei - https://github.com/pcercuei/lightrec
+ * GNU Lightning - http://git.savannah.gnu.org/cgit/lightning.git
  * Compiled using devKitPro
      ( http://sourceforge.net/projects/devkitpro )
  * www.emulatemii.com and https://code.google.com/archive/p/pcsxgc/downloads
- * Lightrec - https://github.com/pcercuei/lightrec
- * Lighting - http://git.savannah.gnu.org/cgit/lightning.git
 
 WiiStation CHANGE LOG:
-Ver 2.0 bete:
-* Use a new dynamic compilation method lightrec, Super cool way .
+Ver 2.0 Beta:
+* Use a new dynamic compilation (dynarec) method Lightrec, a super cool way.
   Many games can now run at full speed.
-* Add Wii Message Board support for write playlog(Thanks saulfabregwiivc).
-* Import the gte code of PCSX-ReARMed.
-* Fix issues that Batman Beyond can't play.
+* Add Wii Message Board support for write playlog (Thanks SuperrSonic and saulfabregwiivc).
+* Import the GTE code of PCSX-ReARMed.
+* Fix issues that Batman Beyond: Return of the Joker can't be played.
 
 Ver 1.0:
 * Incorporating the CDROM and CDRISO codes of PCSX-ReARMed.
