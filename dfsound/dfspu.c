@@ -250,8 +250,7 @@ static void StartSoundMain(int ch)
 
  spu.dwNewChannel&=~(1<<ch);                           // clear new channel bit
  spu.dwChannelDead&=~(1<<ch);
- if (s_chan->iRawPitch)
-  spu.dwChannelsAudible|=1<<ch;
+ spu.dwChannelsAudible|=1<<ch;
 }
 
 static void StartSound(int ch)
@@ -778,10 +777,10 @@ static void do_channels(int ns_to)
 
    if (s_chan->bNoise)
     d = do_samples_noise(ch, ns_to);
-   /*else if (s_chan->bFMod == 2
+   else if (s_chan->bFMod == 2
          || (s_chan->bFMod == 0 && spu_config.iUseInterpolation == 0))
     d = do_samples_noint(decode_block, NULL, ch, ns_to,
-          SB, sinc, &s_chan->spos, &s_chan->iSBPos);*/
+          SB, sinc, &s_chan->spos, &s_chan->iSBPos);
    else if (s_chan->bFMod == 0 && spu_config.iUseInterpolation == 1)
     d = do_samples_simple(decode_block, NULL, ch, ns_to,
           SB, sinc, &s_chan->spos, &s_chan->iSBPos);
@@ -804,7 +803,7 @@ static void do_channels(int ns_to)
     }
 
    if (s_chan->bFMod == 2)                         // fmod freq channel
-    cacheable_kernel_memcpy(iFMod, &ChanBuf, ns_to * sizeof(iFMod[0]));
+    memcpy(iFMod, &ChanBuf, ns_to * sizeof(iFMod[0]));
    if (s_chan->bRVBActive && do_rvb)
     mix_chan_rvb(spu.SSumLR, ns_to, s_chan->iLeftVolume, s_chan->iRightVolume, RVB);
    else
@@ -955,6 +954,7 @@ static void queue_channel_work(int ns_to, unsigned int silentch)
    d = SkipADSR(&s_chan->ADSRX, d);
    if (d < ns_to) {
     spu.dwChannelsAudible &= ~(1 << ch);
+    s_chan->ADSRX.State = ADSR_RELEASE;
     s_chan->ADSRX.EnvelopeVol = 0;
    }
   }
@@ -1519,7 +1519,7 @@ long DF_SPUinit(void)
   spu_config.iXAPitch = 0;
   spu_config.iVolume = 768;
   spu_config.iTempo = 0;
-  spu_config.iUseThread = 1; // no effect if only 1 core is detected
+  spu_config.iUseThread = 0; // no effect if only 1 core is detected
 
   //spu.spuMemC = calloc(1, 512 * 1024);
   spu.spuMemC = spuMemC;

@@ -139,8 +139,8 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
     case H_SPUctrl:
       if (!(spu.spuCtrl & CTRL_IRQ)) {
         spu.spuStat&=~STAT_IRQ;
-        //if (val & CTRL_IRQ)
-        // schedule_next_irq();
+        if (val & CTRL_IRQ)
+         schedule_next_irq();
       }
       spu.spuCtrl=val;
       break;
@@ -276,8 +276,8 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
  return;
 
 upd_irq:
- //if (spu.spuCtrl & CTRL_IRQ)
- // schedule_next_irq();
+ if (spu.spuCtrl & CTRL_IRQ)
+  schedule_next_irq();
  return;
 
 rvbd:
@@ -495,7 +495,7 @@ static void SetPitch(int ch,unsigned short val)               // SET PITCH
 
  spu.s_chan[ch].iRawPitch=NP;
  //spu.s_chan[ch].sinc=(NP<<4)|8;
- spu.s_chan[ch].sinc = (44100 * NP / SPU_FREQ) << 4 | 8;
+ spu.s_chan[ch].sinc = (44100 * NP / SPU_FREQ) << 4;
  spu.s_chan[ch].sinc_inv=0;
  //if (spu_config.iUseInterpolation == 1)
   spu.SB[ch * SB_SIZE + 32] = 1; // -> freq change in simple interpolation mode: set flag
