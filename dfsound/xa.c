@@ -18,6 +18,7 @@
 #include "stdafx.h"
 #define _IN_XA
 #include <stdint.h>
+#include "../psxcommon.h"
 
 // will be included from spu.c
 #ifdef _IN_SPU
@@ -404,8 +405,7 @@ INLINE void FeedXA(xa_decode_t *xap)
   }
 }
 
-#define PS_SPU_FREQ	48000
-#define SINC (((u32)1 << 16) * 44100 / (PS_SPU_FREQ))
+#define SINC (((u32)1 << 16) * PS_SPU_FREQ / (WII_SPU_FREQ))
 ////////////////////////////////////////////////////////////////////////
 // FEED CDDA
 ////////////////////////////////////////////////////////////////////////
@@ -441,7 +441,7 @@ INLINE int FeedCDDA(unsigned char *pcm, int nBytes)
     /*int spos = 0x10000L;
     uint32_t *pS = (uint32_t *)pcm;
     uint32_t l = 0;
-    int iSize = (PS_SPU_FREQ * (nBytes >> 2)) / 44100;
+    int iSize = (WII_SPU_FREQ * (nBytes >> 2)) / PS_SPU_FREQ;
     int i;
     for (i = 0; i < iSize; i++)
     {

@@ -20,7 +20,7 @@
 
 char audioEnabled;
 
-static const u32 freq = 44100;
+static const u32 freq = PS_SPU_FREQ;
 unsigned int    iVolume = 3;
 static AESNDPB* voice = NULL;
 int	iDisStereo=0;

@@ -19,6 +19,7 @@
 #define __P_SOUND_EXTERNALS_H__
 
 #include <stdint.h>
+#include "../psxcommon.h"
 
 /////////////////////////////////////////////////////////
 // generic defines
@@ -54,10 +55,8 @@
 // num of channels
 #define MAXCHAN     24
 
-#define SPU_FREQ	48000
-
 // note: must be even due to the way reverb works now
-#define NSSIZE ((SPU_FREQ / 50 + 16) & ~1)
+#define NSSIZE ((WII_SPU_FREQ / 50 + 16) & ~1)
 
 #define CDDA_BUFFER_UNIT  16384   //16384
 #define CDDA_BUFFER_SIZE (CDDA_BUFFER_UNIT * sizeof(uint32_t)) // must be power of 2
@@ -207,8 +206,8 @@ typedef struct
  unsigned int    dwChannelsAudible;    // not silent channels
  unsigned int    dwChannelDead;        // silent+not useful channels
 
- unsigned char   spuBuffer[NUM_SPU_BUFFERS][32768] __attribute__((aligned(32)));
- unsigned int    whichBuffer;
+ //unsigned char   spuBuffer[NUM_SPU_BUFFERS][32768] __attribute__((aligned(32)));
+ //unsigned int    whichBuffer;
 
  unsigned char * pSpuBuffer;
  short         * pS;

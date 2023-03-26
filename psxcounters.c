@@ -557,7 +557,7 @@ void psxRcntInit()
     rcnts[3].target = (PSXCLK / (FrameRate[Config.PsxType] * HSyncTotal[Config.PsxType]));
 
     // spu timer
-    rcnts[4].rate = 768 * 64;
+    rcnts[4].rate = 768 * FrameRate[Config.PsxType];
     rcnts[4].rateF   = 1.0;
     rcnts[4].target = 1;
     rcnts[4].mode = 0x58;

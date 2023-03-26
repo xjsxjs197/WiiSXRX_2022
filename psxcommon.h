@@ -135,6 +135,9 @@ extern int NetOpened;
 //#define BIAS	2
 #define PSXCLK	33868800	/* 33.8688 Mhz */
 
+#define PS_SPU_FREQ     44100
+#define WII_SPU_FREQ    48000
+
 enum {
 	BIOS_USER_DEFINED,
 	BIOS_HLE

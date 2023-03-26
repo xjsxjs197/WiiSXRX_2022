@@ -55,10 +55,10 @@ static unsigned char cdbuffer[CD_FRAMESIZE_RAW];
 static unsigned char subbuffer[SUB_FRAMESIZE];
 
 #define CDDA_FRAME_COUNT 4
-#define PS_SPU_FREQ	48000
-#define SINC (((u32)1 << 16) * 44100 / (PS_SPU_FREQ))
+
+#define SINC (((u32)1 << 16) * PS_SPU_FREQ / (WII_SPU_FREQ))
 static unsigned char sndbuffer[CD_FRAMESIZE_RAW * CDDA_FRAME_COUNT];
-static unsigned long sndbufferPitch[PS_SPU_FREQ * (sizeof(sndbuffer) >> 2) / 44100 + 4];
+static unsigned long sndbufferPitch[WII_SPU_FREQ * (sizeof(sndbuffer) >> 2) / PS_SPU_FREQ + 4];
 
 #define CDDA_FRAMETIME			(1000 * CDDA_FRAME_COUNT / 75)
 
@@ -267,7 +267,7 @@ static void *playthread(void *param)
             uint32_t *pS = (uint32_t *)newBufPos;
             uint32_t *psPitch = (uint32_t *)sndbufferPitch;
             uint32_t l = 0;
-            int iSize = (PS_SPU_FREQ * (s >> 2)) / 44100;
+            int iSize = (WII_SPU_FREQ * (s >> 2)) / PS_SPU_FREQ;
             int i;
             for (i = 0; i < iSize; i++)
             {

@@ -22,6 +22,7 @@
 */
 
 #include "decode_xa.h"
+#include "psxcommon.h"
 
 #define _FIXED
 
@@ -31,8 +32,6 @@
 #define SH	4
 #define SHC	10
 
-#define PS_SPU_FREQ	48000
-//#define PS_SPU_FREQ	44100
 
 //============================================
 //===  ADPCM DECODING ROUTINES
@@ -328,11 +327,11 @@ static int parse_xa_audio_sector( xa_decode_t *xdp,
 
 		xdp->nsamples = 18 * 28 * 8;
 		if (xdp->freq == 37800) {
-            xdp->newSize = ((PS_SPU_FREQ * 18 * 28 * 8) / 37800);
-            xdp->sinc = ((u32)1 << 16) * 37800 / (PS_SPU_FREQ);
+            xdp->newSize = ((WII_SPU_FREQ * 18 * 28 * 8) / 37800);
+            xdp->sinc = ((u32)1 << 16) * 37800 / (WII_SPU_FREQ);
 		} else {
-		    xdp->newSize = ((PS_SPU_FREQ * 18 * 28 * 8) / 18900);
-		    xdp->sinc = ((u32)1 << 16) * 18900 / (PS_SPU_FREQ);
+		    xdp->newSize = ((WII_SPU_FREQ * 18 * 28 * 8) / 18900);
+		    xdp->sinc = ((u32)1 << 16) * 18900 / (WII_SPU_FREQ);
 		}
 		if (xdp->stereo == 1)
 		{

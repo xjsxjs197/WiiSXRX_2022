@@ -29,10 +29,10 @@ char s_chan[(MAXCHAN + 1) * sizeof(spu.s_chan[0])] __attribute__((aligned(32)));
 char rvb[sizeof(REVERBInfo)] __attribute__((aligned(32)));
 char SB[MAXCHAN * sizeof(spu.SB[0]) * SB_SIZE] __attribute__((aligned(32)));
 
-char pSpuBuffer[48000] __attribute__((aligned(32)));
+char pSpuBuffer[WII_SPU_FREQ] __attribute__((aligned(32)));
 char SSumLR[NSSIZE * 2 * sizeof(spu.SSumLR[0])] __attribute__((aligned(32)));
 
-char XABuf[SPU_FREQ * sizeof(uint32_t) * 2] __attribute__((aligned(32)));
+char XABuf[WII_SPU_FREQ * sizeof(uint32_t) * 2] __attribute__((aligned(32)));
 char CDDABuf[CDDA_BUFFER_SIZE] __attribute__((aligned(32)));
 
 
