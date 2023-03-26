@@ -263,7 +263,7 @@ void schedule_next_irq(void);
 
 #define do_samples_if_needed(c, sync) \
  do { \
-  if (sync || (int)((c) - spu.cycles_played) >= 16 * 768) \
+  if (sync || (int)((c) - spu.cycles_played) >= 16 * (PS_SPU_FREQ * 768 / WII_SPU_FREQ)) \
    do_samples(c, sync); \
  } while (0)
 

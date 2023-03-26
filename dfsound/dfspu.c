@@ -844,13 +844,13 @@ int do_samples(unsigned int cycles_to, int do_direct)
 
  do_direct |= (silentch == 0xffffff);
 
- if (cycle_diff < 2 * 768)
+ if (cycle_diff < 2 * (PS_SPU_FREQ * 768 / WII_SPU_FREQ))
  {
      //spu.cycles_played = cycles_to;
      return 0;
  }
 
- ns_to = (cycle_diff / 768 + 1) & ~1;
+ ns_to = (cycle_diff / (PS_SPU_FREQ * 768 / WII_SPU_FREQ) + 1) & ~1;
  if (ns_to > NSSIZE) {
   // should never happen
   //xprintf("ns_to oflow %d %d\n", ns_to, NSSIZE);
@@ -902,7 +902,7 @@ int do_samples(unsigned int cycles_to, int do_direct)
   if (spu.spuCtrl & CTRL_IRQ)
    do_silent_chans(ns_to, silentch);
 
-  spu.cycles_played += ns_to * 768;
+  spu.cycles_played += ns_to * (PS_SPU_FREQ * 768 / WII_SPU_FREQ);
   spu.decode_pos = (spu.decode_pos + ns_to) & 0x1ff;
 
   return ns_to;
@@ -991,7 +991,7 @@ void schedule_next_irq(void)
  }
 
  if (upd_samples < WII_SPU_FREQ / 50)
-  spu.scheduleCallback(upd_samples * 768);
+  spu.scheduleCallback(upd_samples * (PS_SPU_FREQ * 768 / WII_SPU_FREQ));
 }
 
 // SPU ASYNC... even newer epsxe func
@@ -1004,21 +1004,21 @@ void CALLBACK DF_SPUasync(unsigned int cycle, unsigned int flags, unsigned int p
     int lastBytes;
     int nsTo = do_samples(cycle, spu_config.iUseFixedUpdates);
 
-  //if (spu.spuCtrl & CTRL_IRQ)
-  //  schedule_next_irq();
+  if (spu.spuCtrl & CTRL_IRQ)
+    schedule_next_irq();
 
  if (flags & 1) {
   lastBytes = out_current->feed(spu.pSpuBuffer, (unsigned char *)spu.pS - spu.pSpuBuffer);
   spu.pS = (short *)spu.pSpuBuffer;
 
   //if (spu_config.iTempo) {
-   if (!out_current->busy() && nsTo > 0) {
+   if (!out_current->busy()) {
     // cause more samples to be generated
     // (and break some games because of bad sync)
     if (psxType) {
-        spu.cycles_played -= WII_SPU_FREQ / 50 / 2 * 768;  // Config.PsxType = 1, PAL 50Fps/1s
+        spu.cycles_played -= WII_SPU_FREQ / 50 / 2 * (PS_SPU_FREQ * 768 / WII_SPU_FREQ);  // Config.PsxType = 1, PAL 50Fps/1s
     } else {
-        spu.cycles_played -= WII_SPU_FREQ / 60 / 2 * 768;  // Config.PsxType = 0, PAL 60Fps/1s
+        spu.cycles_played -= WII_SPU_FREQ / 60 / 2 * (PS_SPU_FREQ * 768 / WII_SPU_FREQ);  // Config.PsxType = 0, PAL 60Fps/1s
     }
    }
  }
