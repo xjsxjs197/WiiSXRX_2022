@@ -64,13 +64,7 @@ static const u32 FrameRate[]      = { 60, 50 };
 static const u32 FrameCycles[]    = { PSXCLK / 60, PSXCLK / 50 };
 static const u32 HSyncLineCycles[]= { 8791293, 8836089 };
 static const u32 HSyncTotal[]     = { 263, 314 }; // actually one more on odd lines for PAL
-static const u32 VBlankStart[]    = { 240, 286 };
-
-static const f32 Rc0Rate[2][5]    = { {6.31232, 5.05282, 4.41992, 3.15616, 2.52345},
-                                      {6.31697, 5.04171, 4.41928, 3.15385, 2.52382}
-                                    };
-static const f32 Rc1Rate[]        = { 2152.5000, 2147.7693 };
-//#define VBlankStart 240
+#define VBlankStart 240
 
 #define VERBOSE_LEVEL 0
 
@@ -111,24 +105,6 @@ void setIrq( u32 irq )
 //#endif
 //}
 
-static inline u32 getCntValue(u32 val, u32 intRate, u32 cntIdx)
-{
-    if (intRate > 1 && cntIdx == 0)
-    {
-        return (u32)((f32)val * rcnts[cntIdx].rateF);
-    }
-    return val * intRate;
-}
-
-static inline u32 getCntValueSub(u32 val, u32 intRate, u32 cntIdx)
-{
-    if (intRate > 1 && cntIdx == 0)
-    {
-        return (u32)(((f32)val - 1) * rcnts[cntIdx].rateF);
-    }
-    return (val - 1) * intRate;
-}
-
 /******************************************************************************/
 
 static inline
@@ -141,20 +117,17 @@ void _psxRcntWcount( u32 index, u32 value )
     }
 
     rcnts[index].cycleStart  = psxRegs.cycle;
-    //rcnts[index].cycleStart -= value * rcnts[index].rate;
-    rcnts[index].cycleStart -= getCntValue(value, rcnts[index].rate, index);
+    rcnts[index].cycleStart -= value * rcnts[index].rate;
 
     // TODO: <=.
     if( value < rcnts[index].target )
     {
-        //rcnts[index].cycle = rcnts[index].target * rcnts[index].rate;
-        rcnts[index].cycle = getCntValue(rcnts[index].target, rcnts[index].rate, index);
+        rcnts[index].cycle = rcnts[index].target * rcnts[index].rate;
         rcnts[index].counterState = CountToTarget;
     }
     else
     {
-        //rcnts[index].cycle = 0x10000 * rcnts[index].rate;
-        rcnts[index].cycle = getCntValueSub(0x10000, rcnts[index].rate, index);
+        rcnts[index].cycle = 0x10000 * rcnts[index].rate;
         rcnts[index].counterState = CountToOverflow;
     }
 }
@@ -168,30 +141,17 @@ u32 _psxRcntRcount( u32 index )
     count -= rcnts[index].cycleStart;
     if (rcnts[index].rate > 1)
     {
-        //count /= rcnts[index].rate;
-        if (index == 0)
-        {
-            count = (u32)((f32)count / rcnts[index].rateF);
-        }
-        else
-        {
-            count /= rcnts[index].rate;
-        }
+        count /= rcnts[index].rate;
     }
     //if( count > 0x10000 )
     //{
         //verboseLog( 1, "[RCNT %i] rcount > 0xffff: %x\n", index, count );
     //}
-    //count &= 0xffff;
-    count = (count) & 0xffff;
+    count &= 0xffff;
 
     return count;
 }
 
-extern int rc0Index;
-extern int dispHeight;
-extern unsigned long dwFrameRateTicks;
-extern unsigned long newDwFrameRateTicks;
 // hack for emulating "gpu busy" in some games
 extern unsigned long dwEmuFixes;
 
@@ -206,36 +166,30 @@ void _psxRcntWmode( u32 index, u32 value )
             if( value & Rc0PixelClock )
             {
                 rcnts[index].rate = 5;
-                rcnts[index].rateF = Rc0Rate[Config.PsxType][rc0Index];
             }
             else
             {
                 rcnts[index].rate = 1;
-                rcnts[index].rateF = 1.0;
             }
         break;
         case 1:
             if( value & Rc1HSyncClock )
             {
                 rcnts[index].rate = (PSXCLK / (FrameRate[Config.PsxType] * HSyncTotal[Config.PsxType]));
-                rcnts[index].rateF = Rc1Rate[Config.PsxType];
             }
             else
             {
                 rcnts[index].rate = 1;
-                rcnts[index].rateF = 1.0;
             }
         break;
         case 2:
             if( value & Rc2OneEighthClock )
             {
                 rcnts[index].rate = 8;
-                rcnts[index].rateF = 8.0;
             }
             else
             {
                 rcnts[index].rate = 1;
-                rcnts[index].rateF = 1.0;
             }
 
             // TODO: wcount must work.
@@ -292,14 +246,12 @@ void psxRcntReset( u32 index )
         rcycles = psxRegs.cycle - rcnts[index].cycleStart;
         if( rcnts[index].mode & RcCountToTarget )
         {
-            //rcycles -= rcnts[index].target * rcnts[index].rate;
-            rcycles -= getCntValue(rcnts[index].target, rcnts[index].rate, index);
+            rcycles -= rcnts[index].target * rcnts[index].rate;
             rcnts[index].cycleStart = psxRegs.cycle - rcycles;
         }
         else
         {
-            //rcnts[index].cycle = 0x10000 * rcnts[index].rate;
-            rcnts[index].cycle = getCntValueSub(0x10000, rcnts[index].rate, index);
+            rcnts[index].cycle = 0x10000 * rcnts[index].rate;
             rcnts[index].counterState = CountToOverflow;
         }
 
@@ -315,24 +267,20 @@ void psxRcntReset( u32 index )
 
         rcnts[index].mode |= RcCountEqTarget;
 
-        //if( rcycles < 0x10000 * rcnts[index].rate )
-        if( rcycles < getCntValueSub(0x10000, rcnts[index].rate, index) )
+        if( rcycles < 0x10000 * rcnts[index].rate )
             return;
     }
 
     if( rcnts[index].counterState == CountToOverflow )
     {
         rcycles = psxRegs.cycle - rcnts[index].cycleStart;
-        //rcycles -= 0x10000 * rcnts[index].rate;
-        rcycles -= getCntValueSub(0x10000, rcnts[index].rate, index);
+        rcycles -= 0x10000 * rcnts[index].rate;
 
         rcnts[index].cycleStart = psxRegs.cycle - rcycles;
 
-        //if( rcycles < rcnts[index].target * rcnts[index].rate )
-        if( rcycles < getCntValue(rcnts[index].target, rcnts[index].rate, index) )
+        if( rcycles < rcnts[index].target * rcnts[index].rate )
         {
-            //rcnts[index].cycle = rcnts[index].target * rcnts[index].rate;
-            rcnts[index].cycle = getCntValue(rcnts[index].target, rcnts[index].rate, index);
+            rcnts[index].cycle = rcnts[index].target * rcnts[index].rate;
             rcnts[index].counterState = CountToTarget;
         }
 
@@ -353,15 +301,15 @@ void psxRcntReset( u32 index )
 static void scheduleRcntBase(void)
 {
     // Schedule next call, in hsyncs
-    if (hSyncCount < VBlankStart[Config.PsxType])
-        hsync_steps = VBlankStart[Config.PsxType] - hSyncCount;
+    if (hSyncCount < VBlankStart)
+        hsync_steps = VBlankStart - hSyncCount;
     else
         hsync_steps = HSyncTotal[Config.PsxType] - hSyncCount;
 
     if (hSyncCount + hsync_steps == HSyncTotal[Config.PsxType])
     {
-        //rcnts[3].cycle = Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
-        rcnts[3].cycle = FrameCycles[Config.PsxType];
+        rcnts[3].cycle = Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
+        //rcnts[3].cycle = FrameCycles[Config.PsxType];
     }
     else
     {
@@ -384,14 +332,13 @@ void psxRcntUpdate()
         hSyncCount += hsync_steps;
 
         // VSync irq.
-        if( hSyncCount == VBlankStart[Config.PsxType] )
+        if( hSyncCount == VBlankStart )
         {
-            #ifdef SHOW_DEBUG
-            //sprintf(txtbuffer, "VBlankStart gteCycle %ld gteTicks %d\n", psxRegs.gteCycle, curGteTicks);
-            sprintf(txtbuffer, "DispHeight %d rcnt0 rate %f dwEmuFixes %d \n", dispHeight, rcnts[0].rateF, dwEmuFixes);
-            DEBUG_print(txtbuffer, DBG_CORE1);
-            writeLogFile(txtbuffer);
-            #endif // DISP_DEBUG
+            //#ifdef SHOW_DEBUG
+            //sprintf(txtbuffer, "DispHeight %d rcnt0 rate %f dwEmuFixes %d \n", dispHeight, rcnts[0].rateF, dwEmuFixes);
+            //DEBUG_print(txtbuffer, DBG_CORE1);
+            //writeLogFile(txtbuffer);
+            //#endif // DISP_DEBUG
 
             HW_GPU_STATUS &= SWAP32(~PSXGPU_LCF);
             //GPU_vBlank( 1, 0 );
@@ -538,28 +485,23 @@ void psxRcntInit()
 
     // rcnt 0.
     rcnts[0].rate   = 1;
-    rcnts[0].rateF   = 1.0;
     rcnts[0].irq    = SWAPu32(0x10);
 
     // rcnt 1.
     rcnts[1].rate   = 1;
-    rcnts[1].rateF   = 1.0;
     rcnts[1].irq    = SWAPu32(0x20);
 
     // rcnt 2.
     rcnts[2].rate   = 1;
-    rcnts[2].rateF   = 1.0;
     rcnts[2].irq    = SWAPu32(0x40);
 
     // rcnt base.
     rcnts[3].rate   = 1;
-    rcnts[3].rateF   = 1.0;
     rcnts[3].mode   = RcCountToTarget;
     rcnts[3].target = (PSXCLK / (FrameRate[Config.PsxType] * HSyncTotal[Config.PsxType]));
 
     // spu timer
     rcnts[4].rate = (PS_SPU_FREQ * 768 / WII_SPU_FREQ) * FrameRate[Config.PsxType];
-    rcnts[4].rateF   = 1.0;
     rcnts[4].target = 1;
     rcnts[4].mode = 0x58;
 
