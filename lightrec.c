@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 
 #include "cdrom.h"
-#include "gteR.h"
+#include "gte.h"
 #include "mdec.h"
 #include "psxdma.h"
 #include "psxhw.h"
@@ -64,29 +64,28 @@ enum my_cp2_opcodes {
 };
 
 static void (*cp2_ops[])(struct psxCP2Regs *) = {
-	[OP_CP2_RTPS] = gteRTPS_R,
-	[OP_CP2_RTPS] = gteRTPS_R,
-	[OP_CP2_NCLIP] = gteNCLIP_R,
-	[OP_CP2_OP] = gteOP_R,
-	[OP_CP2_DPCS] = gteDPCS_R,
-	[OP_CP2_INTPL] = gteINTPL_R,
-	[OP_CP2_MVMVA] = gteMVMVA_R,
-	[OP_CP2_NCDS] = gteNCDS_R,
-	[OP_CP2_CDP] = gteCDP_R,
-	[OP_CP2_NCDT] = gteNCDT_R,
-	[OP_CP2_NCCS] = gteNCCS_R,
-	[OP_CP2_CC] = gteCC_R,
-	[OP_CP2_NCS] = gteNCS_R,
-	[OP_CP2_NCT] = gteNCT_R,
-	[OP_CP2_SQR] = gteSQR_R,
-	[OP_CP2_DCPL] = gteDCPL_R,
-	[OP_CP2_DPCT] = gteDPCT_R,
-	[OP_CP2_AVSZ3] = gteAVSZ3_R,
-	[OP_CP2_AVSZ4] = gteAVSZ4_R,
-	[OP_CP2_RTPT] = gteRTPT_R,
-	[OP_CP2_GPF] = gteGPF_R,
-	[OP_CP2_GPL] = gteGPL_R,
-	[OP_CP2_NCCT] = gteNCCT_R,
+	[OP_CP2_RTPS] = gteRTPS,
+	[OP_CP2_NCLIP] = gteNCLIP,
+	[OP_CP2_OP] = gteOP,
+	[OP_CP2_DPCS] = gteDPCS,
+	[OP_CP2_INTPL] = gteINTPL,
+	[OP_CP2_MVMVA] = gteMVMVA,
+	[OP_CP2_NCDS] = gteNCDS,
+	[OP_CP2_CDP] = gteCDP,
+	[OP_CP2_NCDT] = gteNCDT,
+	[OP_CP2_NCCS] = gteNCCS,
+	[OP_CP2_CC] = gteCC,
+	[OP_CP2_NCS] = gteNCS,
+	[OP_CP2_NCT] = gteNCT,
+	[OP_CP2_SQR] = gteSQR,
+	[OP_CP2_DCPL] = gteDCPL,
+	[OP_CP2_DPCT] = gteDPCT,
+	[OP_CP2_AVSZ3] = gteAVSZ3,
+	[OP_CP2_AVSZ4] = gteAVSZ4,
+	[OP_CP2_RTPT] = gteRTPT,
+	[OP_CP2_GPF] = gteGPF,
+	[OP_CP2_GPL] = gteGPL,
+	[OP_CP2_NCCT] = gteNCCT,
 };
 
 static char cache_buf[64 * 1024];
