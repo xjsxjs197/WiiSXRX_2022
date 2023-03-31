@@ -74,8 +74,6 @@ void refresh_stat();
 #define STATS_FCOUNTER		2	//FRAME counter
 #define STATS_THREE			3
 
-extern bool canWriteLog;
-
 extern char txtbuffer[1024];
 // Amount of time each string will be held onto
 #define DEBUG_STRING_LIFE 5

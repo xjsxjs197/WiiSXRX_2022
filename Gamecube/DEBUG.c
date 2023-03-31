@@ -58,13 +58,13 @@ int amountwritten = 0;
 char *dump_filename = "/PSXISOS/debug.txt";
 FILE* fdebug = NULL;
 
-FILE* fdebugLog = NULL;
-char *debugLogFile = "sd:/wiisxrx/debugLog.txt";
-bool canWriteLog = false;
+static FILE* fdebugLog = NULL;
+static char *debugLogFile = "sd:/wiisxrx/debugLog.txt";
+static bool canWriteLog = true;
 
 void openLogFile() {
     if (!fdebugLog) {
-        fdebugLog = fopen(debugLogFile, "w");
+        fdebugLog = fopen(debugLogFile, "a+");
     }
 }
 
@@ -76,14 +76,20 @@ void closeLogFile() {
 }
 
 void writeLogFile(char* string) {
-    if (fdebugLog && canWriteLog) {
+    closeLogFile();
+
+    openLogFile();
+
+    if (canWriteLog) {
         fprintf(fdebugLog, string);
     }
+
+    closeLogFile();
 }
 
 void printFunctionName() {
     DEBUG_print(txtbuffer, DBG_CORE2);
-    writeLogFile(txtbuffer);
+    //writeLogFile(txtbuffer);
 }
 
 void DEBUG_print(char* string,int pos){
