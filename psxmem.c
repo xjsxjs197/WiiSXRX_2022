@@ -73,7 +73,9 @@ static s8 psxR_buf[0x80000] __attribute__((aligned(4096)));
 
 s8 *psxM = psxM_buf; // Kernel & User Memory (2 Meg)
 s8 *psxR = psxR_buf; // BIOS ROM (512K)
-//s8 *psxP = NULL; // Parallel Port (64K)
+s8 *psxP = NULL; // Parallel Port (64K)
+s8 *psxH = NULL; // Scratch Pad (1K) & Hardware Registers (8K)
+
 //s8 *psxH = NULL; // Scratch Pad (1K) & Hardware Registers (8K)
 
 //s8 psxM[0x00220000] __attribute__((aligned(32)));
@@ -84,18 +86,8 @@ u8* psxMemRLUT[0x10000] __attribute__((aligned(32)));
 int psxMemInit() {
 	int i;
 
-	//psxMemRLUT = (u8**)memalign(32,0x10000 * sizeof(void*));
-	//psxMemWLUT = (u8**)memalign(32,0x10000 * sizeof(void*));
-	memset(psxMemRLUT, 0, 0x10000 * sizeof(void*));
-	memset(psxMemWLUT, 0, 0x10000 * sizeof(void*));
-	//psxM = memalign(32,0x00220000);
 	psxP = &psxM[0x200000];
 	psxH = &psxM[0x210000];
-	//psxR = (s8*)memalign(32,0x00080000);
-	/*if (psxMemRLUT == NULL || psxMemWLUT == NULL ||
-		psxM == NULL || psxP == NULL || psxH == NULL) {
-		SysMessage(_("Error allocating memory!")); return -1;
-	}*/
 
     /* Memory-map the allocated buffers */
 	if (lightrec_mmap(psxM, 0x0, 0x200000)
@@ -110,6 +102,9 @@ int psxMemInit() {
 
 	if (lightrec_mmap(psxM + 0x210000, 0x1f800000, 0x3000))
 		SysMessage(_("Error mapping scratch/IO"));
+
+	memset(psxMemRLUT, 0, 0x10000 * sizeof(void*));
+	memset(psxMemWLUT, 0, 0x10000 * sizeof(void*));
 
 // MemR
 	for (i=0; i<0x80; i++) psxMemRLUT[i + 0x0000] = (u8*)&psxM[(i & 0x1f) << 16];
