@@ -47,6 +47,7 @@
 cdrStruct cdr;
 static unsigned char *pTransfer;
 static s16 read_buf[CD_FRAMESIZE_RAW/2];
+bool swapIso;
 
 /* CD-ROM magic numbers */
 #define CdlSync        0 /* nocash documentation : "Uh, actually, returns error code 40h = Invalid Command...?" */
@@ -744,7 +745,7 @@ void cdrInterrupt() {
             sprintf(txtbuffer, "cdrInterrupt1 (%s) cdr.Stat %x\n", CmdName[cdr.Irq], cdr.Stat);
         }
         DEBUG_print(txtbuffer, DBG_CDR2);
-        writeLogFile(txtbuffer);
+        //writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
 		CDR_INT(WaitTime1st);
 		return;
@@ -775,7 +776,7 @@ void cdrInterrupt() {
     }
 
 	DEBUG_print(txtbuffer, DBG_CDR2);
-	writeLogFile(txtbuffer);
+	//writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 	cdr.Irq = 0;
 
@@ -1095,7 +1096,7 @@ void cdrInterrupt() {
 			#ifdef SHOW_DEBUG
 			sprintf(txtbuffer, "%s SeekedType %d \n", CmdName[Irq], cdr.Seeked);
             DEBUG_print(txtbuffer, DBG_PROFILE_IDLE);
-            writeLogFile(txtbuffer);
+            //writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
 			CDRMISC_INT(cdr.Seeked == SEEK_DONE ? 0x800 : SeekTime, 1);
 			cdr.Seeked = SEEK_PENDING;
@@ -1209,7 +1210,7 @@ void cdrInterrupt() {
         	#ifdef SHOW_DEBUG
             sprintf(txtbuffer, "READ_ACK Mode %d Track %d seekTime %ld\n", cdr.Mode & MODE_CDDA, cdr.CurTrack, seekTime);
             DEBUG_print(txtbuffer, DBG_PROFILE_GFX);
-            writeLogFile(txtbuffer);
+            //writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
 			if ((cdr.Mode & MODE_CDDA) && cdr.CurTrack > 1)
 				// Read* acts as play for cdda tracks in cdda mode
@@ -1364,7 +1365,7 @@ void cdrReadInterrupt() {
 	#ifdef SHOW_DEBUG
 	sprintf(txtbuffer, "ReadInterrupt (%s) %x cdr.NoErr %d Channel %d \n", CmdName[cdr.Irq], cdr.Stat, cdr.NoErr, cdr.Channel);
 	DEBUG_print(txtbuffer, DBG_CDR3);
-	writeLogFile(txtbuffer);
+	//writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 	if (cdr.Irq || cdr.Stat) {
 		CDR_LOG_I("cdrom: read stat hack %02x %x\n", cdr.Irq, cdr.Stat);
@@ -1398,7 +1399,7 @@ void cdrReadInterrupt() {
         #ifdef SHOW_DEBUG
         sprintf(txtbuffer, "ReadInterrupt cdr.RErr \n");
         DEBUG_print(txtbuffer, DBG_CDR4);
-        writeLogFile(txtbuffer);
+        //writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
 		CDR_LOG_I("cdrReadInterrupt() Log: err\n");
 		memset(cdr.Transfer, 0, DATA_SIZE);
@@ -1439,7 +1440,7 @@ void cdrReadInterrupt() {
 			#ifdef SHOW_DEBUG
             sprintf(txtbuffer, "playADPCMchannel ret %d\n", ret);
             DEBUG_print(txtbuffer, DBG_CDR4);
-            writeLogFile(txtbuffer);
+            //writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
 			if (!ret) {
 				cdrAttenuate(cdr.Xa.pcm, cdr.Xa.nsamples, cdr.Xa.stereo);
@@ -1597,7 +1598,7 @@ void cdrWrite1(unsigned char rt) {
             #ifdef SHOW_DEBUG
             sprintf(txtbuffer, "CDROM Pause command while seeking\n");
             DEBUG_print(txtbuffer, DBG_CORE3);
-            writeLogFile(txtbuffer);
+            //writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
             CDRMISC_INT((cdr.Mode & MODE_SPEED) ? cdReadTime / 2 : cdReadTime, 0);
         }
@@ -1828,9 +1829,6 @@ void cdrReset() {
 	cdr.AttenuatorRightToLeft = 0x00;
 	cdr.AttenuatorRightToRight = 0x80;
 	getCdInfo();
-
-	p_cdrPlayCddaData = cdrPlayCddaData;
-	p_cdrAttenuate = cdrAttenuate;
 }
 
 int cdrFreeze(gzFile f, int Mode) {

@@ -76,34 +76,34 @@ typedef long (CALLBACK* GPUfreeze)(uint32_t, GPUFreeze_t *);
 typedef long (CALLBACK* GPUgetScreenPic)(unsigned char *);
 typedef long (CALLBACK* GPUshowScreenPic)(unsigned char *);
 typedef void (CALLBACK* GPUclearDynarec)(void (CALLBACK *callback)(void));
+typedef void (CALLBACK* GPUvBlank)(int, int);
 
-//plugin stuff From Shadow
-// *** walking in the valley of your darking soul i realize that i was alone
-//Gpu function pointers
-GPUupdateLace    GPU_updateLace;
-GPUinit          GPU_init;
-GPUshutdown      GPU_shutdown;
-GPUconfigure     GPU_configure;
-GPUtest          GPU_test;
-GPUabout         GPU_about;
-GPUopen          GPU_open;
-GPUclose         GPU_close;
-GPUreadStatus    GPU_readStatus;
-GPUreadData      GPU_readData;
-GPUreadDataMem   GPU_readDataMem;
-GPUwriteStatus   GPU_writeStatus;
-GPUwriteData     GPU_writeData;
-GPUwriteDataMem  GPU_writeDataMem;
-GPUdmaChain      GPU_dmaChain;
-GPUkeypressed    GPU_keypressed;
-GPUdisplayText   GPU_displayText;
-GPUmakeSnapshot  GPU_makeSnapshot;
-GPUfreeze        GPU_freeze;
-GPUgetScreenPic  GPU_getScreenPic;
-GPUshowScreenPic GPU_showScreenPic;
-GPUclearDynarec  GPU_clearDynarec;
+// GPU function pointers
+extern GPUupdateLace    GPU_updateLace;
+extern GPUinit          GPU_init;
+extern GPUshutdown      GPU_shutdown; 
+extern GPUconfigure     GPU_configure;
+extern GPUtest          GPU_test;
+extern GPUabout         GPU_about;
+extern GPUopen          GPU_open;
+extern GPUclose         GPU_close;
+extern GPUreadStatus    GPU_readStatus;
+extern GPUreadData      GPU_readData;
+extern GPUreadDataMem   GPU_readDataMem;
+extern GPUwriteStatus   GPU_writeStatus; 
+extern GPUwriteData     GPU_writeData;
+extern GPUwriteDataMem  GPU_writeDataMem;
+extern GPUdmaChain      GPU_dmaChain;
+extern GPUkeypressed    GPU_keypressed;
+extern GPUdisplayText   GPU_displayText;
+extern GPUmakeSnapshot  GPU_makeSnapshot;
+extern GPUfreeze        GPU_freeze;
+extern GPUgetScreenPic  GPU_getScreenPic;
+extern GPUshowScreenPic GPU_showScreenPic;
+extern GPUclearDynarec  GPU_clearDynarec;
+extern GPUvBlank        GPU_vBlank;
 
-//cd rom plugin ;)
+// CD-ROM Functions
 typedef long (CALLBACK* CDRinit)(void);
 typedef long (CALLBACK* CDRshutdown)(void);
 typedef long (CALLBACK* CDRopen)(void);
@@ -138,28 +138,30 @@ struct SubQ {
 	char res1[72];
 };
 typedef long (CALLBACK* CDRreadCDDA)(unsigned char, unsigned char, unsigned char, unsigned char *);
+typedef long (CALLBACK* CDRgetTE)(unsigned char, unsigned char *, unsigned char *, unsigned char *);
 
-//cd rom function pointers
-CDRinit               CDR_init;
-CDRshutdown           CDR_shutdown;
-CDRopen               CDR_open;
-CDRclose              CDR_close;
-CDRtest               CDR_test;
-CDRgetTN              CDR_getTN;
-CDRgetTD              CDR_getTD;
-CDRreadTrack          CDR_readTrack;
-CDRgetBuffer          CDR_getBuffer;
-CDRgetBufferSub       CDR_getBufferSub;
-CDRplay               CDR_play;
-CDRstop               CDR_stop;
-CDRgetStatus          CDR_getStatus;
-CDRgetDriveLetter     CDR_getDriveLetter;
-CDRconfigure          CDR_configure;
-CDRabout              CDR_about;
-CDRsetfilename        CDR_setfilename;
-CDRreadCDDA           CDR_readCDDA;
+// CD-ROM function pointers
+extern CDRinit               CDR_init;
+extern CDRshutdown           CDR_shutdown;
+extern CDRopen               CDR_open;
+extern CDRclose              CDR_close; 
+extern CDRtest               CDR_test;
+extern CDRgetTN              CDR_getTN;
+extern CDRgetTD              CDR_getTD;
+extern CDRreadTrack          CDR_readTrack;
+extern CDRgetBuffer          CDR_getBuffer;
+extern CDRgetBufferSub       CDR_getBufferSub;
+extern CDRplay               CDR_play;
+extern CDRstop               CDR_stop;
+extern CDRgetStatus          CDR_getStatus;
+extern CDRgetDriveLetter     CDR_getDriveLetter;
+extern CDRconfigure          CDR_configure;
+extern CDRabout              CDR_about;
+extern CDRsetfilename        CDR_setfilename;
+extern CDRreadCDDA           CDR_readCDDA;
+extern CDRgetTE              CDR_getTE;
 
-// spu plugin
+// SPU Functions
 typedef long (CALLBACK* SPUinit)(void);
 typedef long (CALLBACK* SPUshutdown)(void);
 typedef long (CALLBACK* SPUclose)(void);
@@ -182,10 +184,7 @@ typedef unsigned short (CALLBACK* SPUreadDMA)(void);
 typedef void (CALLBACK* SPUwriteDMAMem)(unsigned short *, int, unsigned int);
 typedef void (CALLBACK* SPUreadDMAMem)(unsigned short *, int, unsigned int);
 typedef void (CALLBACK* SPUplayADPCMchannel)(xa_decode_t *);
-// add xjsxjs197 start
-// CDDA AUDIO
 typedef int (CALLBACK* SPUplayCDDAchannel)(short *pcm, int nbytes);
-// add xjsxjs197 end
 typedef void (CALLBACK* SPUregisterCallback)(void (CALLBACK *callback)(void));
 typedef void (CALLBACK* SPUregisterScheduleCb)(void (CALLBACK *callback)(unsigned int));
 typedef void (CALLBACK* SPUregisterCDDAVolume)(void (*CDDAVcallback)(unsigned short,unsigned short));
@@ -204,44 +203,29 @@ typedef struct
 typedef long (CALLBACK* SPUfreeze)(uint32_t, SPUFreeze_t *, uint32_t);
 typedef void (CALLBACK* SPUasync)(uint32_t, uint32_t, uint32_t);
 
-//SPU POINTERS
-SPUconfigure        SPU_configure;
-SPUabout            SPU_about;
-SPUinit             SPU_init;
-SPUshutdown         SPU_shutdown;
-SPUtest             SPU_test;
-SPUopen             SPU_open;
-SPUclose            SPU_close;
-SPUplaySample       SPU_playSample;
-SPUstartChannels1   SPU_startChannels1;
-SPUstartChannels2   SPU_startChannels2;
-SPUstopChannels1    SPU_stopChannels1;
-SPUstopChannels2    SPU_stopChannels2;
-SPUputOne           SPU_putOne;
-SPUgetOne           SPU_getOne;
-SPUsetAddr          SPU_setAddr;
-SPUsetPitch         SPU_setPitch;
-SPUsetVolumeL       SPU_setVolumeL;
-SPUsetVolumeR       SPU_setVolumeR;
-SPUwriteRegister    SPU_writeRegister;
-SPUreadRegister     SPU_readRegister;
-SPUwriteDMA         SPU_writeDMA;
-SPUreadDMA          SPU_readDMA;
-SPUwriteDMAMem      SPU_writeDMAMem;
-SPUreadDMAMem       SPU_readDMAMem;
-SPUplayADPCMchannel SPU_playADPCMchannel;
-// add xjsxjs197 start
-// CDDA AUDIO
-SPUplayCDDAchannel  SPU_playCDDAchannel;
-// add xjsxjs197 end
-SPUfreeze           SPU_freeze;
-SPUregisterCallback SPU_registerCallback;
-SPUregisterScheduleCb SPU_registerScheduleCb;
-SPUregisterCDDAVolume SPU_registerCDDAVolume;
-SPUasync            SPU_async;
+// SPU function pointers
+extern SPUconfigure        SPU_configure;
+extern SPUabout            SPU_about;
+extern SPUinit             SPU_init;
+extern SPUshutdown         SPU_shutdown;
+extern SPUtest             SPU_test;
+extern SPUopen             SPU_open;
+extern SPUclose            SPU_close;
+extern SPUplaySample       SPU_playSample;
+extern SPUwriteRegister    SPU_writeRegister;
+extern SPUreadRegister     SPU_readRegister;
+extern SPUwriteDMA         SPU_writeDMA;
+extern SPUreadDMA          SPU_readDMA;
+extern SPUwriteDMAMem      SPU_writeDMAMem;
+extern SPUreadDMAMem       SPU_readDMAMem;
+extern SPUplayADPCMchannel SPU_playADPCMchannel;
+extern SPUfreeze           SPU_freeze;
+extern SPUregisterCallback SPU_registerCallback;
+extern SPUregisterScheduleCb SPU_registerScheduleCb;
+extern SPUasync            SPU_async;
+extern SPUplayCDDAchannel  SPU_playCDDAchannel;
 
 // PAD Functions
-
 typedef long (CALLBACK* PADconfigure)(void);
 typedef void (CALLBACK* PADabout)(void);
 typedef long (CALLBACK* PADinit)(long);
@@ -256,37 +240,36 @@ typedef unsigned char (CALLBACK* PADstartPoll)(int);
 typedef unsigned char (CALLBACK* PADpoll)(unsigned char);
 typedef void (CALLBACK* PADsetSensitive)(int);
 
-//PAD POINTERS
-PADconfigure        PAD1_configure;
-PADabout            PAD1_about;
-PADinit             PAD1_init;
-PADshutdown         PAD1_shutdown;
-PADtest             PAD1_test;
-PADopen             PAD1_open;
-PADclose            PAD1_close;
-PADquery			PAD1_query;
-PADreadPort1		PAD1_readPort1;
-PADkeypressed		PAD1_keypressed;
-PADstartPoll        PAD1_startPoll;
-PADpoll             PAD1_poll;
-PADsetSensitive     PAD1_setSensitive;
+// PAD function pointers
+extern PADconfigure        PAD1_configure;
+extern PADabout            PAD1_about;
+extern PADinit             PAD1_init;
+extern PADshutdown         PAD1_shutdown;
+extern PADtest             PAD1_test;
+extern PADopen             PAD1_open;
+extern PADclose            PAD1_close;
+extern PADquery            PAD1_query;
+extern PADreadPort1        PAD1_readPort1;
+extern PADkeypressed       PAD1_keypressed;
+extern PADstartPoll        PAD1_startPoll;
+extern PADpoll             PAD1_poll;
+extern PADsetSensitive     PAD1_setSensitive;
 
-PADconfigure        PAD2_configure;
-PADabout            PAD2_about;
-PADinit             PAD2_init;
-PADshutdown         PAD2_shutdown;
-PADtest             PAD2_test;
-PADopen             PAD2_open;
-PADclose            PAD2_close;
-PADquery            PAD2_query;
-PADreadPort2		PAD2_readPort2;
-PADkeypressed		PAD2_keypressed;
-PADstartPoll        PAD2_startPoll;
-PADpoll             PAD2_poll;
-PADsetSensitive     PAD2_setSensitive;
+extern PADconfigure        PAD2_configure;
+extern PADabout            PAD2_about;
+extern PADinit             PAD2_init;
+extern PADshutdown         PAD2_shutdown;
+extern PADtest             PAD2_test;
+extern PADopen             PAD2_open;
+extern PADclose            PAD2_close;
+extern PADquery            PAD2_query;
+extern PADreadPort2        PAD2_readPort2;
+extern PADkeypressed       PAD2_keypressed;
+extern PADstartPoll        PAD2_startPoll;
+extern PADpoll             PAD2_poll;
+extern PADsetSensitive     PAD2_setSensitive;
 
-// NET plugin
-
+// NET Functions
 typedef long (CALLBACK* NETinit)(void);
 typedef long (CALLBACK* NETshutdown)(void);
 typedef long (CALLBACK* NETclose)(void);
@@ -319,27 +302,26 @@ typedef struct {
 } netInfo;
 
 typedef long (CALLBACK* NETsetInfo)(netInfo *);
-typedef long (CALLBACK* NETkeypressed)(int)
-;
+typedef long (CALLBACK* NETkeypressed)(int);
 
 
-// NET function pointers
-NETinit               NET_init;
-NETshutdown           NET_shutdown;
-NETopen               NET_open;
-NETclose              NET_close;
-NETtest               NET_test;
-NETconfigure          NET_configure;
-NETabout              NET_about;
-NETpause              NET_pause;
-NETresume             NET_resume;
-NETqueryPlayer        NET_queryPlayer;
-NETsendData           NET_sendData;
-NETrecvData           NET_recvData;
-NETsendPadData        NET_sendPadData;
-NETrecvPadData        NET_recvPadData;
-NETsetInfo            NET_setInfo;
-NETkeypressed         NET_keypressed;
+// NET function pointers 
+extern NETinit               NET_init;
+extern NETshutdown           NET_shutdown;
+extern NETopen               NET_open;
+extern NETclose              NET_close; 
+extern NETtest               NET_test;
+extern NETconfigure          NET_configure;
+extern NETabout              NET_about;
+extern NETpause              NET_pause;
+extern NETresume             NET_resume;
+extern NETqueryPlayer        NET_queryPlayer;
+extern NETsendData           NET_sendData;
+extern NETrecvData           NET_recvData;
+extern NETsendPadData        NET_sendPadData;
+extern NETrecvPadData        NET_recvPadData;
+extern NETsetInfo            NET_setInfo;
+extern NETkeypressed         NET_keypressed;
 
 int LoadCDRplugin(char *CDRdll);
 int LoadGPUplugin(char *GPUdll);
@@ -351,3 +333,4 @@ int LoadNETplugin(char *NETdll);
 void CALLBACK clearDynarec(void);
 
 #endif /* __PLUGINS_H__ */
+

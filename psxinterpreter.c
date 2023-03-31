@@ -40,7 +40,7 @@ extern int stop;
 #define debugI()
 #endif
 
-inline void execI();
+static void execI();
 
 // Subsets
 void (*psxBSC[64])();
@@ -289,7 +289,7 @@ void psxDelayTest(int reg, u32 bpc) {
 	psxBranchTest();
 }
 
-__inline u32 psxBranchNoDelay(void) {
+static u32 psxBranchNoDelay(void) {
 	u32 *code;
 	u32 temp;
 
@@ -942,6 +942,20 @@ static void intReset() {
 	psxRegs.ICache_valid = FALSE;
 }
 
+// interpreter execution
+static void execI() {
+	u32 *code = Read_ICache(psxRegs.pc, FALSE);
+	psxRegs.code = ((code == NULL) ? 0 : SWAP32(*code));
+
+	debugI();
+
+	psxRegs.pc += 4;
+	psxRegs.cycle += BIAS;
+
+	psxBSC[psxRegs.code >> 26]();
+
+}
+
 static void intExecute() {
 	while(!stop)
 		execI();
@@ -966,20 +980,6 @@ static void intClear(u32 Addr, u32 Size) {
 }
 
 static void intShutdown() {
-}
-
-// interpreter execution
-inline void execI() {
-	u32 *code = Read_ICache(psxRegs.pc, FALSE);
-	psxRegs.code = ((code == NULL) ? 0 : SWAP32(*code));
-
-	debugI();
-
-	psxRegs.pc += 4;
-	psxRegs.cycle += BIAS;
-
-	psxBSC[psxRegs.code >> 26]();
-
 }
 
 /* debugger version */

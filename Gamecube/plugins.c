@@ -1,20 +1,25 @@
-/*  Pcsx - Pc Psx Emulator
- *  Copyright (C) 1999-2003  Pcsx Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
- */
+/***************************************************************************
+ *   Copyright (C) 2007 Ryan Schultz, PCSX-df Team, PCSX team              *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
+ *   51 Franklin Street, Fifth Floor, Boston, MA 02111-1307 USA.           *
+ ***************************************************************************/
+
+/*
+* Plugin library callback/access functions.
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +38,115 @@ static signed long long cdOpenCaseTime = 0;
     dest = (src) SysLoadSym(drv, name); if (checkerr == 1) CheckErr(name); \
     if (checkerr == 2) { err = SysLibError(); if (err != NULL) errval = 1; }
 
+GPUupdateLace         GPU_updateLace;
+GPUinit               GPU_init;
+GPUshutdown           GPU_shutdown; 
+GPUconfigure          GPU_configure;
+GPUtest               GPU_test;
+GPUabout              GPU_about;
+GPUopen               GPU_open;
+GPUclose              GPU_close;
+GPUreadStatus         GPU_readStatus;
+GPUreadData           GPU_readData;
+GPUreadDataMem        GPU_readDataMem;
+GPUwriteStatus        GPU_writeStatus; 
+GPUwriteData          GPU_writeData;
+GPUwriteDataMem       GPU_writeDataMem;
+GPUdmaChain           GPU_dmaChain;
+GPUkeypressed         GPU_keypressed;
+GPUdisplayText        GPU_displayText;
+GPUmakeSnapshot       GPU_makeSnapshot;
+GPUfreeze             GPU_freeze;
+GPUgetScreenPic       GPU_getScreenPic;
+GPUshowScreenPic      GPU_showScreenPic;
+GPUclearDynarec       GPU_clearDynarec;
+GPUvBlank             GPU_vBlank;
+
+CDRinit               CDR_init;
+CDRshutdown           CDR_shutdown;
+CDRopen               CDR_open;
+CDRclose              CDR_close; 
+CDRtest               CDR_test;
+CDRgetTN              CDR_getTN;
+CDRgetTD              CDR_getTD;
+CDRreadTrack          CDR_readTrack;
+CDRgetBuffer          CDR_getBuffer;
+CDRplay               CDR_play;
+CDRstop               CDR_stop;
+CDRgetStatus          CDR_getStatus;
+CDRgetDriveLetter     CDR_getDriveLetter;
+CDRgetBufferSub       CDR_getBufferSub;
+CDRconfigure          CDR_configure;
+CDRabout              CDR_about;
+CDRsetfilename        CDR_setfilename;
+CDRreadCDDA           CDR_readCDDA;
+CDRgetTE              CDR_getTE;
+
+SPUconfigure          SPU_configure;
+SPUabout              SPU_about;
+SPUinit               SPU_init;
+SPUshutdown           SPU_shutdown;
+SPUtest               SPU_test;
+SPUopen               SPU_open;
+SPUclose              SPU_close;
+SPUplaySample         SPU_playSample;
+SPUwriteRegister      SPU_writeRegister;
+SPUreadRegister       SPU_readRegister;
+SPUwriteDMA           SPU_writeDMA;
+SPUreadDMA            SPU_readDMA;
+SPUwriteDMAMem        SPU_writeDMAMem;
+SPUreadDMAMem         SPU_readDMAMem;
+SPUplayADPCMchannel   SPU_playADPCMchannel;
+SPUfreeze             SPU_freeze;
+SPUregisterCallback   SPU_registerCallback;
+SPUregisterScheduleCb SPU_registerScheduleCb;
+SPUasync              SPU_async;
+SPUplayCDDAchannel    SPU_playCDDAchannel;
+
+PADconfigure          PAD1_configure;
+PADabout              PAD1_about;
+PADinit               PAD1_init;
+PADshutdown           PAD1_shutdown;
+PADtest               PAD1_test;
+PADopen               PAD1_open;
+PADclose              PAD1_close;
+PADquery              PAD1_query;
+PADreadPort1          PAD1_readPort1;
+PADkeypressed         PAD1_keypressed;
+PADstartPoll          PAD1_startPoll;
+PADpoll               PAD1_poll;
+PADsetSensitive       PAD1_setSensitive;
+
+PADconfigure          PAD2_configure;
+PADabout              PAD2_about;
+PADinit               PAD2_init;
+PADshutdown           PAD2_shutdown;
+PADtest               PAD2_test;
+PADopen               PAD2_open;
+PADclose              PAD2_close;
+PADquery              PAD2_query;
+PADreadPort2          PAD2_readPort2;
+PADkeypressed         PAD2_keypressed;
+PADstartPoll          PAD2_startPoll;
+PADpoll               PAD2_poll;
+PADsetSensitive       PAD2_setSensitive;
+
+NETinit               NET_init;
+NETshutdown           NET_shutdown;
+NETopen               NET_open;
+NETclose              NET_close; 
+NETtest               NET_test;
+NETconfigure          NET_configure;
+NETabout              NET_about;
+NETpause              NET_pause;
+NETresume             NET_resume;
+NETqueryPlayer        NET_queryPlayer;
+NETsendData           NET_sendData;
+NETrecvData           NET_recvData;
+NETsendPadData        NET_sendPadData;
+NETrecvPadData        NET_recvPadData;
+NETsetInfo            NET_setInfo;
+NETkeypressed         NET_keypressed;
 static const char *err;
 static int errval;
 void *hGPUDriver;
@@ -263,7 +377,7 @@ int LoadSPUplugin(char *SPUdll) {
 	LoadSpuSym1(async, "SPUasync");
 	LoadSpuSym1(registerCallback, "SPUregisterCallback");
 	LoadSpuSym1(registerScheduleCb, "SPUregisterScheduleCb");
-	LoadSpuSym1(registerCDDAVolume, "SPUregisterCDDAVolume");
+	//LoadSpuSym1(registerCDDAVolume, "SPUregisterCDDAVolume");
 	LoadSpuSymN(playCDDAchannel, "SPUplayCDDAchannel");
 
 	return 0;

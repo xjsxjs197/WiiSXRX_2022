@@ -369,7 +369,7 @@ __inline__ void GetShadeTransCol_Dither(unsigned short * pdest,long m1,long m2,l
 
 ////////////////////////////////////////////////////////////////////////
 //__inline__ void GetShadeTransCol(unsigned short * pdest,unsigned short color) __attribute__ ((__pure__));
-__inline__ void GetShadeTransCol(unsigned short * pdest,unsigned short color)
+static __inline__ void GetShadeTransCol(unsigned short * pdest,unsigned short color)
 {
  if(bCheckMask && (*pdest & HOST2LE16(0x8000))) return;
 

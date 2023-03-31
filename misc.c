@@ -34,6 +34,10 @@
 
 int Log = 0;
 
+char CdromId[10];
+char debugInfo[256];
+char CdromLabel[33];
+
 /* PSX Executable types */
 #define PSX_EXE     1
 #define CPE_EXE     2
