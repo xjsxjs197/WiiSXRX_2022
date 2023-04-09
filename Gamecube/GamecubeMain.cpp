@@ -47,6 +47,7 @@ extern char* filenameFromAbsPath(char* absPath);
 extern u32 __di_check_ahbprot(void);
 extern unsigned int cdrIsoMultidiskSelect;
 extern bool swapIso;
+extern bool executedBios;
 
 extern "C" {
 #include "DEBUG.h"
@@ -587,7 +588,7 @@ int loadISO(fileBrowser_file* file)
 
 	memcpy(&isoFile, file, sizeof(fileBrowser_file) );
 
-	if(hasLoadedISO) {
+	if(hasLoadedISO || executedBios) {
 		SysClose();
 		hasLoadedISO = FALSE;
 	}

@@ -896,13 +896,14 @@ void Func_BootBiosNo()
 	LoadCdBios = BOOTTHRUBIOS_NO;
 }
 
+bool executedBios = false;
 void Func_ExecuteBios()
 {
 	if(biosDevice == BIOSDEVICE_HLE) {
 		menu::MessageBox::getInstance().setMessage("You must select a BIOS, not HLE");
 		return;
 	}
-	if(hasLoadedISO) {
+	if(hasLoadedISO || executedBios) {
 		//TODO: Implement yes/no that current game will be reset
 		SysClose();
 	}
@@ -912,6 +913,7 @@ void Func_ExecuteBios()
 		menu::MessageBox::getInstance().setMessage("Failed to initialize system.\nTry loading an ISO.");
 		return;
 	}
+	executedBios = true;
 	CheckCdrom();
 	SysReset();
 	pauseRemovalThread();
