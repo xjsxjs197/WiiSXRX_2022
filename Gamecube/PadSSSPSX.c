@@ -158,13 +158,13 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 	if ((global.padVibF[pad][2] != vib0) )
 	{
 		global.padVibF[pad][2] = vib0;
-		DO_CONTROL(pad, rumble, global.padVibF[pad][0]);
+		if (virtualControllers[pad].control->rumble) DO_CONTROL(pad, rumble, global.padVibF[pad][0]);
 	}
 	/* Big Motor */
 	if ((global.padVibF[pad][3] != vib1) )
 	{
 		global.padVibF[pad][3] = vib1;
-		DO_CONTROL(pad, rumble, global.padVibF[pad][1]);
+		if (virtualControllers[pad].control->rumble) DO_CONTROL(pad, rumble, global.padVibF[pad][1]);
 	}
 }
 
