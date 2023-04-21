@@ -1983,6 +1983,10 @@ static long CALLBACK ISOgetStatus(struct CdrStat *stat) {
 	else {
 		// BIOS - boot ID (CD type)
 		stat->Type = ti[1].type;
+		if (stat->Type == 0)
+		{
+			stat->Type = 1; // Data
+		}
 	}
 
 	// relative -> absolute time

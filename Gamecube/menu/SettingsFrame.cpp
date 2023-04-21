@@ -897,6 +897,7 @@ void Func_BootBiosNo()
 }
 
 bool executedBios = false;
+bool executingBios = false;
 void Func_ExecuteBios()
 {
 	if(biosDevice == BIOSDEVICE_HLE) {
@@ -914,6 +915,7 @@ void Func_ExecuteBios()
 		return;
 	}
 	executedBios = true;
+	executingBios = true;
 	CheckCdrom();
 	SysReset();
 	pauseRemovalThread();

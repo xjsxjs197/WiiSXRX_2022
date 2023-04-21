@@ -280,6 +280,8 @@ void Func_PlayGame()
 	menu::Focus::getInstance().setFreezeAction(false);
 
 	menu::Gui::getInstance().gfx->clearEFB((GXColor){0, 0, 0, 0xFF}, 0x000000);
+	extern bool executingBios;
+	executingBios = false;
 #ifdef HW_RVL
 	pause_netinit_thread();
 	pauseRemovalThread();
