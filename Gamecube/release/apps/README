@@ -106,12 +106,16 @@ CREDITS:
  * www.emulatemii.com and https://code.google.com/archive/p/pcsxgc/downloads
 
 WiiStation CHANGE LOG:
-Ver 2.0 Beta:
+Ver 2.0:
 * Use a new dynamic compilation (dynarec) method Lightrec, a super cool way.
   Many games can now run at full speed.
 * Add Wii Message Board support for write playlog (Thanks SuperrSonic and saulfabregwiivc).
 * Import the GTE code of PCSX-ReARMed.
-* Fix issues that Batman Beyond: Return of the Joker can't be played.
+* Fix issues
+    Batman Beyond: Return of the Joker can't be played.
+    Driver 2 code dump error mission chase the gunman.
+* Modify the code to support higher versions of Devkitppc.
+  ※※※ Note: For issue 81, the latest high version of Libogc must be used.
 
 Ver 1.0:
 * Incorporating the CDROM and CDRISO codes of PCSX-ReARMed.
