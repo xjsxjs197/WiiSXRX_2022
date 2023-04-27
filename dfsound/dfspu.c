@@ -1125,11 +1125,13 @@ static void RemoveStreams(void)
 //    }
 }
 
+extern bool readFromCdData;
 // SPUINIT: this func will be called first by the main emu
 long DF_SPUinit(void)
 {
  int i;
 
+  readFromCdData = false;
   spu_config.iUseReverb = 1;
   spu_config.idiablofix = 0;
   spu_config.iUseInterpolation = 1;
