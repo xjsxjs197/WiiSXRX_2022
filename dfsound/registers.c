@@ -58,7 +58,7 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
  if (val == 0 && (r & 0xff8) == 0xd88)
   return;
 
- do_samples_if_needed(cycles, 0);
+ //do_samples_if_needed(cycles, 0);
 
  if(r>=0x0c00 && r<0x0d80)                             // some channel info?
   {

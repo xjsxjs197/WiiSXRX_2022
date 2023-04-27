@@ -99,13 +99,6 @@ void DF_SPUwriteDMAMem(unsigned short *pusPSXMem, int iSize,
     //do_samples_if_needed(cycles, 1);
     spu.bMemDirty = 1;
 
-// if(spu.spuAddr + iSize*2 < 0x80000)
-//  {
-//   memcpy(spu.spuMemC + spu.spuAddr, pusPSXMem, iSize*2);
-//   spu.spuAddr += iSize*2;
-//   return;
-//  }
-
     for (i = 0; i < iSize; i++)
     {
         if (readFromCdData && spu.rvb->StartAddr > 0 &&  spu.spuAddr >= spu.rvb->StartAddr * 2)
