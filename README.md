@@ -56,9 +56,11 @@ Any help is appreciated.
 
 ## Compilation information
 
-* devkitPPC r29 + libOGC 1.8.16 + SDL + GNU Lightning + Lightrec
+* devkitPPC r29 + libOGC 1.8.16 (with the [IPC fix](https://github.com/devkitPro/libogc/commit/d91c59aaf37e54056af38d1244da0c5e28fabace) for fix issue [#81](https://github.com/xjsxjs197/WiiSXRX_2022/issues/81)) + SDL + GNU Lightning + Lightrec
 
-  You can download everything here: https://wii.leseratte10.de/devkitPro/
+  You can download devkitPPC r29 here: https://wii.leseratte10.de/devkitPro/
+
+  The compiled libOGC 1.8.16 with the IPC fix is here: https://github.com/xjsxjs197/WiiSXRX_2022/raw/main/libogc_1.8.16_ipcfix.zip
 
   The compiled SDL is here: https://github.com/xjsxjs197/WiiSXRX_2022/raw/main/libSDL.a
   
