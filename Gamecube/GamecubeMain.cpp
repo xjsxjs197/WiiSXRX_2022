@@ -42,7 +42,7 @@
 #include "libgui/IPLFont.h"
 #include "libgui/MessageBox.h"
 
-extern char * GetGameBios(char * biosPath, char * fileName);
+extern char * GetGameBios(char * biosPath, char * fileName, int isoFileNameLen);
 extern char* filenameFromAbsPath(char* absPath);
 extern u32 __di_check_ahbprot(void);
 extern unsigned int cdrIsoMultidiskSelect;
@@ -595,14 +595,23 @@ int loadISO(fileBrowser_file* file)
 	if(SysInit() < 0)
 		return -1;
 	hasLoadedISO = TRUE;
-	SysReset();
 
 	char *tempStr = &file->name[0];
 	if((strstr(tempStr,".EXE")!=NULL) || (strstr(tempStr,".exe")!=NULL)) {
+		SysReset();
 		Load(file);
 	}
 	else {
+		long lastPsxType = Config.PsxType;
 		CheckCdrom();
+	    if (Config.PsxType != lastPsxType)
+		{
+			SysClose();
+			SysInit();
+			CheckCdrom();
+		}
+
+		SysReset();
 		LoadCdrom();
 	}
 
@@ -763,14 +772,7 @@ int SysInit() {
  	}
 	biosFile = (fileBrowser_file*)memalign(32,sizeof(fileBrowser_file));
 	memcpy(biosFile,biosFile_dir,sizeof(fileBrowser_file));
-	if (strlen(isoFile.name) > 0)
-    {
-        strcat(biosFile->name, GetGameBios(biosFile->name, filenameFromAbsPath(isoFile.name)));
-    }
-    else
-    {
-        strcat(biosFile->name, "/SCPH1001.BIN");
-    }
+	strcat(biosFile->name, GetGameBios(biosFile->name, filenameFromAbsPath(isoFile.name), strlen(isoFile.name)));
 	biosFile_init(biosFile);  //initialize the bios device (it might not be the same as ISO device)
 	// upd xjsxjs197 end
 

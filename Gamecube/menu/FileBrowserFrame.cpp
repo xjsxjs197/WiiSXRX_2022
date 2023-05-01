@@ -487,6 +487,8 @@ int ChkString(char * str1, char * str2, int len)
 extern unsigned long dwEmuFixes;
 // For special game correction
 extern unsigned long dwActFixes;
+// Display bios name
+extern char biosFileName[16];
 
 static void CheckGameAutoFix(void)
 {
@@ -763,6 +765,8 @@ void fileBrowserFrame_LoadFile(int i)
 			strcat(RomInfo,buffer);
 			sprintf(buffer,"BIOS: %s\n",(Config.HLE==BIOS_USER_DEFINED) ? "PSX":"HLE");
 			strcat(RomInfo,buffer);
+			sprintf(buffer, "BIOS Name: %s\n", biosFileName);
+			strcat(RomInfo, buffer);
 			unsigned char tracks[2];
             ISOgetTN(&tracks[0]);
             sprintf(buffer,"Number of tracks %u\n", tracks[1]);
