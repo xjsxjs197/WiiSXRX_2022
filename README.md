@@ -30,7 +30,7 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 * Other minor corrections, such as disc changing (swap) and automatic fixes (autoFix functions) for some games.
 
   ※※※ Note: It reads a font file in a fixed location, so make sure that [sd:/wiisxrx/fonts/chs.dat] exists ※※※
-  
+
 ## Old changes (before Lightrec)
 
 * ̶M̶o̶d̶i̶f̶i̶c̶a̶t̶i̶o̶n̶ ̶o̶f̶ ̶s̶o̶m̶e̶ ̶d̶y̶n̶a̶m̶i̶c̶ ̶c̶o̶m̶p̶i̶l̶a̶t̶i̶o̶n̶ ̶i̶n̶s̶t̶r̶u̶c̶t̶i̶o̶n̶s̶,̶ ̶s̶u̶c̶h̶ ̶a̶s̶ ̶S̶L̶L̶V̶,̶ ̶S̶R̶L̶V̶,̶ ̶S̶R̶A̶V̶,̶ ̶F̶i̶n̶a̶l̶ ̶F̶a̶n̶t̶a̶s̶y̶ ̶9̶ ̶a̶n̶d̶ ̶B̶i̶o̶h̶a̶z̶a̶r̶d̶ ̶3̶ ̶(̶R̶e̶s̶i̶d̶e̶n̶t̶ ̶E̶v̶i̶l̶ ̶3̶)̶ ̶c̶a̶n̶ ̶b̶e̶ ̶r̶u̶n̶.̶
@@ -56,15 +56,13 @@ Any help is appreciated.
 
 ## Compilation information
 
-* devkitPPC r29 + libOGC 1.8.16 (with the [IPC fix](https://github.com/devkitPro/libogc/commit/d91c59aaf37e54056af38d1244da0c5e28fabace) for fix issue [#81](https://github.com/xjsxjs197/WiiSXRX_2022/issues/81)) + SDL + GNU Lightning + Lightrec
+* latest devkitPPC + latest libOGC2 (https://github.com/extremscorner/libogc2) + SDL + GNU Lightning + Lightrec
 
-  You can download devkitPPC r29 here: https://wii.leseratte10.de/devkitPro/
+  You can download devkitPPC here: https://wii.leseratte10.de/devkitPro/
 
-  The compiled libOGC 1.8.16 with the IPC fix is here: https://github.com/xjsxjs197/WiiSXRX_2022/raw/main/libogc_1.8.16_ipcfix.zip
+  The compiled libOGC2, SDL, GNU Lightning and Lightrec libraries are here: https://github.com/xjsxjs197/WiiSXRX_2022/raw/main/lightrec+Libogc2.zip
 
   The compiled SDL is here: https://github.com/xjsxjs197/WiiSXRX_2022/raw/main/libSDL.a
-  
-  The compiled GNU Lightning and Lightrec libraries are here: https://github.com/xjsxjs197/WiiSXRX_2022/raw/main/LightrecByPPC29Libogc1.6.zip
 
 ## WiiStation Credits
 
