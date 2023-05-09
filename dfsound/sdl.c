@@ -177,7 +177,8 @@ static int sdl_feed(void *pSound, int lBytes) {
         if (iWritePos == iReadPos)
         {
             #ifdef SHOW_DEBUG
-            DEBUG_print("sdl_feed === error", DBG_SPU1);
+            sprintf(txtbuffer, "SdlBuffer not enough %d %d %d \n", lBytes, iWritePos, iReadPos);
+            DEBUG_print(txtbuffer, DBG_SPU1);
             #endif // DISP_DEBUG
             iWritePos--;
             if (iWritePos < 0)

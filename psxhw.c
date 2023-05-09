@@ -761,6 +761,12 @@ void psxHwWrite32(u32 add, u32 value) {
 #ifdef PSXHW_LOG
             PSXHW_LOG("GPU STATUS 32bit write %lx\n", value);
 #endif
+            // Fix the PAL game sound issue when NTSC Bios starts
+            // setting display infos
+            if (Config.PsxType == PSX_TYPE_PAL && (value >> 24) == 0x08)
+            {
+                value |= 0x8;
+            }
             GPU_writeStatus(value);
             gpuSyncPluginSR();
             return;
