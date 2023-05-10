@@ -56,11 +56,13 @@ Any help is appreciated.
 
 ## Compilation information
 
-* latest devkitPPC + latest libOGC2 (https://github.com/extremscorner/libogc2) + SDL + GNU Lightning + Lightrec
+* latest devkitPPC + latest libOGC2 + SDL + GNU Lightning + Lightrec
 
-  You can download devkitPPC here: https://wii.leseratte10.de/devkitPro/
+  You can download latest devkitPPC (and older versions) here: https://wii.leseratte10.de/devkitPro/ or by pacman on MSys2
+  
+  You can download latest libOGC2 here: https://github.com/extremscorner/libogc2/actions
 
-  The compiled libOGC2, SDL, GNU Lightning and Lightrec libraries are here: https://github.com/xjsxjs197/WiiSXRX_2022/raw/main/lightrec+Libogc2.zip
+  The compiled SDL, GNU Lightning and Lightrec libraries are here: https://github.com/xjsxjs197/WiiSXRX_2022/raw/main/lightrec+Libogc2.zip
 
   The compiled SDL is here: https://github.com/xjsxjs197/WiiSXRX_2022/raw/main/libSDL.a
 
@@ -79,6 +81,8 @@ PCSX-Revolution - developed by Firnis - https://code.google.com/archive/p/pcsx-r
 WiiSX - developed by emu_kidid, tehpola, sepp256 - https://github.com/emukidid/pcsxgc ; https://code.google.com/archive/p/pcsxgc/downloads
 
 PCSX-ReARMed - developed by notaz - https://github.com/notaz/pcsx_rearmed
+
+libOGC2 - developed by Extrems - https://github.com/extremscorner/libogc2
 
 Lightrec - developed by pcercuei - https://github.com/pcercuei/lightrec
 
