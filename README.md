@@ -56,13 +56,13 @@ Any help is appreciated.
 
 ## Compilation information
 
-* latest devkitPPC + latest libOGC2 + SDL + GNU Lightning + Lightrec
+* devkitPPC r41-2 + latest libOGC2 + SDL + GNU Lightning + Lightrec
 
-  You can download latest devkitPPC (and older versions) here: https://wii.leseratte10.de/devkitPro/ or by pacman on MSys2
+  You can download devkitPPC r41-2 (and older versions) here: https://wii.leseratte10.de/devkitPro/
   
   You can download latest libOGC2 here: https://github.com/extremscorner/libogc2/actions
 
-  The compiled SDL, GNU Lightning and Lightrec libraries are here: https://github.com/xjsxjs197/WiiSXRX_2022/raw/main/lightrec+Libogc2.zip
+  The modified devkitPPC base rules and the compiled SDL, GNU Lightning and Lightrec libraries are here: https://github.com/xjsxjs197/WiiSXRX_2022/raw/main/lightrec+Libogc2.zip
 
   The compiled SDL is here: https://github.com/xjsxjs197/WiiSXRX_2022/raw/main/libSDL.a
 
