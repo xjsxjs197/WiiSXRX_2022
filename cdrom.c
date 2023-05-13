@@ -46,7 +46,7 @@
 
 cdrStruct cdr;
 static unsigned char *pTransfer;
-static s16 read_buf[CD_FRAMESIZE_RAW/2];
+static s16 read_buf[WII_CD_FRAMESIZE_RAW / 2];
 bool swapIso;
 
 /* CD-ROM magic numbers */
@@ -603,39 +603,6 @@ static void cdrPlayInterrupt_Autopause(s16* cddaBuf)
 	}
 }
 
-// called by playthread
-static void cdrPlayCddaData(int timePlus, int isEnd, s16* cddaBuf)
-{
-	if (!cdr.Play) return;
-
-	if (*(u32 *)cdr.SetSectorPlay >= *(u32 *)cdr.SetSectorEnd) {
-        #ifdef SHOW_DEBUG
-        sprintf(txtbuffer, "cdrPlayCddaData End");
-        DEBUG_print(txtbuffer, DBG_CDR4);
-        #endif // DISP_DEBUG
-		StopCdda();
-		cdr.TrackChanged = TRUE;
-	}
-
-	if (!cdr.Irq && !cdr.Stat && (cdr.Mode & (MODE_AUTOPAUSE | MODE_REPORT)))
-		cdrPlayInterrupt_Autopause(cddaBuf);
-
-    if (!cdr.Play) return;
-
-	cdr.SetSectorPlay[2] += timePlus;
-	if (cdr.SetSectorPlay[2] >= 75) {
-		cdr.SetSectorPlay[2] = 0;
-		cdr.SetSectorPlay[1]++;
-		if (cdr.SetSectorPlay[1] == 60) {
-			cdr.SetSectorPlay[1] = 0;
-			cdr.SetSectorPlay[0]++;
-		}
-	}
-
-	// update for CdlGetlocP/autopause
-	generate_subq(cdr.SetSectorPlay);
-}
-
 // also handles seek
 void cdrPlayInterrupt()
 {
@@ -680,24 +647,24 @@ void cdrPlayInterrupt()
 		StopCdda();
 		cdr.TrackChanged = TRUE;
 	}
-	//else {
-	//	CDR_readCDDA(cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2], (u8 *)read_buf);
-	//}
+	else {
+		CDR_readCDDA(cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2], (u8 *)read_buf);
+	}
 
 	if (!cdr.Irq && !cdr.Stat && (cdr.Mode & (MODE_AUTOPAUSE|MODE_REPORT)))
 		cdrPlayInterrupt_Autopause(read_buf);
 
 	if (!cdr.Play) return;
 
-	/*if (!cdr.Muted && !Config.Cdda) {
+	if (!cdr.Muted && !Config.Cdda) {
         #ifdef SHOW_DEBUG
         sprintf(txtbuffer, "CDR_readCDDA time %d %d %d", cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2]);
         DEBUG_print(txtbuffer, DBG_CDR2);
         #endif // DISP_DEBUG
-    	cdrAttenuate(read_buf, CD_FRAMESIZE_RAW / 4, 1);
-		SPU_playCDDAchannel(read_buf, CD_FRAMESIZE_RAW);
+    	cdrAttenuate(read_buf, WII_CD_FRAMESIZE_RAW / 4, 1);
+		SPU_playCDDAchannel(read_buf, WII_CD_FRAMESIZE_RAW);
 		cdr.FirstSector = 0;
-	}*/
+	}
 
 	cdr.SetSectorPlay[2]++;
 	if (cdr.SetSectorPlay[2] == 75) {

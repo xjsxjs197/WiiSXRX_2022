@@ -19,15 +19,10 @@
 #define _IN_XA
 #include <stdint.h>
 #include "../psxcommon.h"
+#include "../Gamecube/DEBUG.h"
 
 // will be included from spu.c
 #ifdef _IN_SPU
-#define DBG_SPU1	7
-#define DBG_SPU2	8
-#define DBG_SPU3	9
-
-#define CTRL_CD_PLAY					0x01
-#define CTRL_CD_REVERB					0x02
 
 ////////////////////////////////////////////////////////////////////////
 // XA GLOBALS
@@ -44,16 +39,6 @@ static int gauss_window[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 ////////////////////////////////////////////////////////////////////////
 // MIX XA & CDDA
 ////////////////////////////////////////////////////////////////////////
-
-static int lastcd_lc, lastcd_rc;
-#define ssat32_to_16(v) { \
-  if (v < -32768) v = -32768; \
-  else if (v > 32767) v = 32767; \
-}
-
-#ifdef SHOW_DEBUG
-extern char txtbuffer[1024];
-#endif // DISP_DEBUG
 
 INLINE void MixXA(int *SSumLR, int ns_to, int decode_pos)
 {
@@ -73,7 +58,7 @@ INLINE void MixXA(int *SSumLR, int ns_to, int decode_pos)
     if(spu.XAPlay == spu.XAEnd) spu.XAPlay=spu.XAStart;
 
     l = ((int)(short)v * spu.iLeftXAVol) >> 15;
-    r = ((int)(short)(v >> 16) * spu.iLeftXAVol) >> 15;
+    r = ((int)(short)(v >> 16) * spu.iRightXAVol) >> 15;
     SSumLR[ns++] += l;
     SSumLR[ns++] += r;
 
@@ -93,7 +78,7 @@ INLINE void MixXA(int *SSumLR, int ns_to, int decode_pos)
     if(spu.CDDAPlay == spu.CDDAEnd) spu.CDDAPlay=spu.CDDAStart;
 
     l = ((int)(short)v * spu.iLeftXAVol) >> 15;
-    r = ((int)(short)(v >> 16) * spu.iLeftXAVol) >> 15;
+    r = ((int)(short)(v >> 16) * spu.iRightXAVol) >> 15;
     SSumLR[ns++] += l;
     SSumLR[ns++] += r;
 
@@ -127,9 +112,6 @@ static unsigned long timeGetTime_spu()
 ////////////////////////////////////////////////////////////////////////
 // FEED XA
 ////////////////////////////////////////////////////////////////////////
-#ifdef DISP_DEBUG
-static int tmpIdx = 0;
-#endif // DISP_DEBUG
 
 INLINE void FeedXA(xa_decode_t *xap)
 {
@@ -153,9 +135,6 @@ INLINE void FeedXA(xa_decode_t *xap)
  else              iPlace=(spu.XAEnd-spu.XAFeed) + (spu.XAPlay-spu.XAStart);
 
  if(iPlace==0) return;                                 // no place at all
- #ifdef DISP_DEBUG
- //PRINT_LOG3("%d SPUplayADPCMchannel %d==%d=",tmpIdx++, iSize, xap->freq);
- #endif // DISP_DEBUG
 
  //----------------------------------------------------//
  /*if(spu_config.iXAPitch)                               // pitch change option?
@@ -194,9 +173,6 @@ INLINE void FeedXA(xa_decode_t *xap)
 
  spos=0x10000L;
  //sinc = (xap->nsamples << 16) / iSize;                 // calc freq by num / size
- #ifdef DISP_DEBUG
- //PRINT_LOG2("SPU FeedXA %d=%d", (xap->nsamples << 16) / iSize, xap->sinc);
- #endif // DISP_DEBUG
  sinc = xap->sinc;                 // calc freq by num / size
 
  if(xap->stereo)
@@ -405,7 +381,6 @@ INLINE void FeedXA(xa_decode_t *xap)
   }
 }
 
-#define SINC (((u32)1 << 16) * PS_SPU_FREQ / (WII_SPU_FREQ))
 ////////////////////////////////////////////////////////////////////////
 // FEED CDDA
 ////////////////////////////////////////////////////////////////////////
@@ -416,10 +391,6 @@ INLINE int FeedCDDA(unsigned char *pcm, int nBytes)
  space=(spu.CDDAPlay-spu.CDDAFeed-1)*4 & (CDDA_BUFFER_SIZE - 1);
  if(space<nBytes)
  {
-     #ifdef SHOW_DEBUG
-     //sprintf(txtbuffer, "FeedCDDA 0x7761 %ld %ld", space, nBytes);
-     //DEBUG_print(txtbuffer, DBG_SPU2);
-     #endif // DISP_DEBUG
      return 0x7761; // rearmed_wait
  }
  spu.CDDARepeat  = 3;
@@ -437,32 +408,6 @@ INLINE int FeedCDDA(unsigned char *pcm, int nBytes)
    nBytes-=space;
    pcm+=space;
   }
-
-    /*int spos = 0x10000L;
-    uint32_t *pS = (uint32_t *)pcm;
-    uint32_t l = 0;
-    int iSize = (WII_SPU_FREQ * (nBytes >> 2)) / PS_SPU_FREQ;
-    int i;
-    for (i = 0; i < iSize; i++)
-    {
-        while (spos >= 0x10000L)
-        {
-            l = *pS++;
-            spos -= 0x10000L;
-        }
-
-        *spu.CDDAFeed++ = l;
-
-        if (spu.CDDAFeed == spu.CDDAEnd) spu.CDDAFeed = spu.CDDAStart;
-
-        while (spu.CDDAFeed == spu.CDDAPlay-1
-               || (spu.CDDAFeed == spu.CDDAEnd - 1 && spu.CDDAPlay == spu.CDDAStart))
-        {
-            usleep(1000);
-        }
-
-        spos += SINC;
-    }*/
 
  return 0x676f; // rearmed_go
 }

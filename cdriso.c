@@ -176,202 +176,6 @@ static long GetTickCount(void) {
 	return (now.tv_sec - initial_time) * 1000L + now.tv_usec / 1000L;
 }
 
-static void *playthread(void *param)
-{
-    usleep(CD_FRAMESIZE_RAW * CDDA_FRAME_COUNT >> 1);
-    //fseek(cddaHandle, cdda_file_offset, SEEK_SET);
-
-	long osleep, d, t, i, s, startPos;
-	unsigned char	tmp;
-	int ret = 0, sector_offs, readSectors;
-
-	t = GetTickCount();
-
-	while (playing) {
-		s = 0;
-		/*for (i = 0; i < CDDA_FRAME_COUNT; i++) {
-			sector_offs = cdda_cur_sector - cdda_first_sector;
-			if (sector_offs <= 0) {
-				d = CD_FRAMESIZE_RAW;
-				memset(sndbuffer + s, 0, d);
-			}
-			else {
-				d = cdimg_read_func(cddaHandle, cdda_file_offset,
-					sndbuffer + s, sector_offs);
-				if (d < CD_FRAMESIZE_RAW)
-                {
-                    s += d;
-                    break;
-                }
-			}
-
-			s += d;
-			cdda_cur_sector++;
-		}*/
-		if (cdda_cur_sector - cdda_first_sector < 0)
-        {
-            sector_offs = 0;
-            readSectors = CDDA_FRAME_COUNT - (cdda_first_sector - cdda_cur_sector);
-            startPos = (cdda_first_sector - cdda_cur_sector) * CD_FRAMESIZE_RAW;
-            if (startPos > 0)
-            {
-                memset(sndbuffer, 0, startPos);
-            }
-        }
-        else
-        {
-            sector_offs = cdda_cur_sector - cdda_first_sector;
-            readSectors = CDDA_FRAME_COUNT;
-            startPos = 0;
-        }
-        fseek(cddaHandle, cdda_file_offset + sector_offs * CD_FRAMESIZE_RAW, SEEK_SET);
-        s = fread(sndbuffer + startPos, 1, readSectors * CD_FRAMESIZE_RAW, cddaHandle);
-        cdda_cur_sector += CDDA_FRAME_COUNT;
-
-        /*if (cdda_cur_sector - cdda_first_sector < 0)
-        {
-            //memset(sndbuffer, 0, CD_FRAMESIZE_RAW);
-            //s = CD_FRAMESIZE_RAW;
-            cdda_cur_sector += CDDA_FRAME_COUNT;
-            continue;
-        }
-        else
-        {
-            //sector_offs = cdda_cur_sector - cdda_first_sector;
-            s = fread(sndbuffer, 1, CD_FRAMESIZE_RAW, cddaHandle);
-            cdda_cur_sector += CDDA_FRAME_COUNT;
-        }*/
-
-		if (s == 0) {
-			playing = FALSE;
-			initial_offset = 0;
-			//p_cdrPlayCddaData(CDDA_FRAME_COUNT, 1, (unsigned short *)sndbuffer);
-			break;
-			//// Hack, when reach the end, start from the beginning
-			//cdda_cur_sector = cdda_first_sector;
-			//continue;
-		}
-
-		if (!cdr.Muted && playing) {
-		    unsigned char * newBufPos = sndbuffer + startPos;
-			if (cddaBigEndian) {
-				for (i = 0; i < s / 2; i++) {
-					tmp = newBufPos[i * 2];
-					newBufPos[i * 2] = newBufPos[i * 2 + 1];
-					newBufPos[i * 2 + 1] = tmp;
-				}
-			}
-
-            // pitch cdda 48000
-            int spos = 0x10000L;
-            uint32_t *pS = (uint32_t *)newBufPos;
-            uint32_t *psPitch = (uint32_t *)sndbufferPitch;
-            uint32_t l = 0;
-            int iSize = (WII_SPU_FREQ * (s >> 2)) / PS_SPU_FREQ;
-            int i;
-            for (i = 0; i < iSize; i++)
-            {
-                while (spos >= 0x10000L)
-                {
-                    l = *pS++;
-                    spos -= 0x10000L;
-                }
-
-                *psPitch++ = l;
-                spos += SINC;
-            }
-
-			// can't do it yet due to readahead..
-			//cdrAttenuate((short *)sndbuffer, s / 4, 1);
-			//p_cdrAttenuate((short *)sndbufferPitch, iSize << 1, 1);
-			do {
-				ret = SPU_playCDDAchannel((short *)sndbufferPitch, iSize << 2);
-				if (ret == 0x7761)
-                {
-					usleep(6 * 1000);
-                }
-			} while (ret == 0x7761 && playing); // rearmed_wait
-		}
-
-		if (ret != 0x676f) { // !rearmed_go
-			// do approx sleep
-			long now;
-
-			// HACK: stop feeding data while emu is paused
-			extern int stop;
-			while (stop && playing)
-         {
-				usleep(10000);
-         }
-
-			now = GetTickCount();
-			osleep = t - now;
-			if (osleep <= 0) {
-				osleep = 1;
-				t = now;
-			}
-			else if (osleep > CDDA_FRAMETIME) {
-				osleep = CDDA_FRAMETIME;
-				t = now;
-			}
-
-			usleep(osleep * 1000);
-			t += CDDA_FRAMETIME;
-		}
-		else
-        {
-            //p_cdrPlayCddaData(CDDA_FRAME_COUNT, 0, (unsigned short *)sndbuffer);
-            usleep(CD_FRAMESIZE_RAW * CDDA_FRAME_COUNT >> 1);
-        }
-
-	}
-
-	//pthread_exit(0);  // TODO
-	LWP_JoinThread(threadid, NULL);
-	return NULL;
-}
-
-// stop the CDDA playback
-static void stopCDDA() {
-	if (!playing) {
-		return;
-	}
-
-    #ifdef DISP_DEBUG
-    DEBUG_print("stopCDDA =====", DBG_CDR2);
-    #endif // DISP_DEBUG
-	playing = FALSE;
-
-	// while emu is paused
-    extern int stop;
-    if (stop)
-    {
-        // wait pthread stop
-	    usleep(5000);
-	    return;
-    }
-
-	//pthread_join(threadid, NULL);
-	LWP_JoinThread(threadid, NULL);
-}
-
-// start the CDDA playback
-static void startCDDA(void) {
-	if (playing) {
-		stopCDDA();
-	}
-
-//    #ifdef SHOW_DEBUG
-//    sprintf(txtbuffer, "startCDDA %ld %ld %ld", cdda_first_sector, cdda_cur_sector, cdda_file_offset);
-//    DEBUG_print(txtbuffer, DBG_CDR2);
-//    #endif // DISP_DEBUG
-
-	playing = TRUE;
-
-	//pthread_create(&threadid, NULL, playthread, NULL);
-	LWP_CreateThread(&threadid, playthread, NULL, NULL, 0, 80);
-}
-
 // this function tries to get the .toc file of the given .bin
 // the necessary data is put into the ti (trackinformation)-array
 static int parsetoc(const char *isofile) {
@@ -1778,8 +1582,8 @@ static long CALLBACK ISOclose(void) {
 		fclose(subHandle);
 		subHandle = NULL;
 	}
-	stopCDDA();
-	//playing = FALSE;
+
+	playing = FALSE;
 	cddaHandle = NULL;
 
 	if (compr_img != NULL) {
@@ -1923,42 +1727,14 @@ static long CALLBACK ISOreadTrack(unsigned char *time) {
 // sector: byte 0 - minute; byte 1 - second; byte 2 - frame
 // does NOT uses bcd format
 static long CALLBACK ISOplay(unsigned char *time) {
-    //playing = TRUE;
-	unsigned int i;
-	#ifdef DISP_DEBUG
-	sprintf(txtbuffer, "CDR_play time %d %d %d", time[0], time[1], time[2]);
-    DEBUG_print(txtbuffer, DBG_CDR1);
-    #endif // DISP_DEBUG
-
-	if (numtracks <= 1)
-		return 0;
-
-	// find the track
-	cdda_cur_sector = msf2sec((char *)time);
-	for (i = numtracks; i > 1; i--) {
-		cdda_first_sector = msf2sec(ti[i].start);
-		if (cdda_first_sector <= cdda_cur_sector + 2 * 75)
-			break;
-	}
-	cdda_file_offset = ti[i].start_offset;
-
-	// find the file that contains this track
-	for (; i > 1; i--)
-		if (ti[i].handle != NULL)
-			break;
-
-	cddaHandle = ti[i].handle;
-
-	if (SPU_playCDDAchannel != NULL)
-		startCDDA();
+    playing = TRUE;
 
 	return 0;
 }
 
 // stops cdda audio
 static long CALLBACK ISOstop(void) {
-	stopCDDA();
-	//playing = FALSE;
+	playing = FALSE;
 	return 0;
 }
 
@@ -2015,7 +1791,7 @@ long CALLBACK ISOreadCDDA(unsigned char m, unsigned char s, unsigned char f, uns
 
 	// data tracks play silent
 	if (ti[track].type != CDDA) {
-		memset(buffer, 0, CD_FRAMESIZE_RAW);
+		memset(buffer, 0, WII_CD_FRAMESIZE_RAW);
 		return 0;
 	}
 
@@ -2027,10 +1803,11 @@ long CALLBACK ISOreadCDDA(unsigned char m, unsigned char s, unsigned char f, uns
 				break;
 	}
 
+	static s8 tmpCdBuf[CD_FRAMESIZE_RAW];
 	ret = cdimg_read_func(ti[file].handle, ti[track].start_offset,
-		buffer, cddaCurPos - track_start);
+		tmpCdBuf, cddaCurPos - track_start);
 	if (ret != CD_FRAMESIZE_RAW) {
-		memset(buffer, 0, CD_FRAMESIZE_RAW);
+		memset(buffer, 0, WII_CD_FRAMESIZE_RAW);
 		return -1;
 	}
 
@@ -2039,10 +1816,29 @@ long CALLBACK ISOreadCDDA(unsigned char m, unsigned char s, unsigned char f, uns
 		unsigned char tmp;
 
 		for (i = 0; i < CD_FRAMESIZE_RAW / 2; i++) {
-			tmp = buffer[i * 2];
-			buffer[i * 2] = buffer[i * 2 + 1];
-			buffer[i * 2 + 1] = tmp;
+			tmp = tmpCdBuf[i * 2];
+			tmpCdBuf[i * 2] = tmpCdBuf[i * 2 + 1];
+			tmpCdBuf[i * 2 + 1] = tmp;
 		}
+	}
+
+	// pitch cdda 48000
+	int spos = 0x10000L;
+	uint32_t *pS = (uint32_t *)tmpCdBuf;
+	uint32_t *psPitch = (uint32_t *)buffer;
+	uint32_t l = 0;
+	int iSize = WII_CD_FRAMESIZE_RAW >> 2;
+	int i;
+	for (i = 0; i < iSize; i++)
+	{
+		while (spos >= 0x10000L)
+		{
+			l = *pS++;
+			spos -= 0x10000L;
+		}
+
+		*psPitch++ = l;
+		spos += SINC;
 	}
 
 	return 0;
