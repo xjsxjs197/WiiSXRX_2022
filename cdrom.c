@@ -627,7 +627,7 @@ static int cdrSeekTime(unsigned char *target)
 	* However, 1000000 is not enough for Worms Pinball to reliably boot.
 	*/
 	//if(seekTime > 3386880 * 2) seekTime = 3386880 * 2;
-	if (seekTime > 500000) seekTime = 500000;
+	if(seekTime > 3386880) seekTime = 3386880;
 
 	return seekTime;
 }
