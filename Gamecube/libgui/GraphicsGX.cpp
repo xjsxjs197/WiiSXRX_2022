@@ -122,11 +122,6 @@ void Graphics::init()
 	GX_SetDispCopySrc(0,0,vmode->fbWidth,vmode->efbHeight);
 	GX_SetDispCopyDst(vmode->fbWidth,xfbHeight);
 	GX_SetCopyFilter(vmode->aa,vmode->sample_pattern,GX_TRUE,vmode->vfilter);
-	u8 sharp[7] = {0,0,21,22,21,0,0};
-	//u8 soft[7] = {8,8,10,12,10,8,8};
-	u8* vfilter = sharp; // sharp soft vmode->vfilter;
-	GX_SetCopyFilter(vmode->aa, vmode->sample_pattern, GX_TRUE, vfilter);
-
 	GX_SetFieldMode(vmode->field_rendering,((vmode->viHeight==2*vmode->xfbHeight)?GX_ENABLE:GX_DISABLE));
 
 	if (vmode->aa)

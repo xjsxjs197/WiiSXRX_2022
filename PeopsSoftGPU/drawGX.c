@@ -358,8 +358,8 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch)
 		oldwidth = width;
 		oldheight = height;
 		memset(GXtexture,0,iResX_Max*iResY_Max*2);
-		GX_InitTexObj(&GXtexobj, GXtexture, width, height, GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_TRUE);
-		GX_InitTexObjFilterMode(&GXtexobj, GX_LINEAR, GX_LINEAR);  // GX_LINEAR 1X filter
+		GX_InitTexObj(&GXtexobj, GXtexture, width, height, GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE);
+		//GX_InitTexObjFilterMode(&GXtexobj, GX_LINEAR, GX_LINEAR);  // GX_LINEAR 1X filter
 	}
 /*
 	for (h = 0; h < height; h += 4)
