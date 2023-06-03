@@ -871,6 +871,8 @@ void cdrInterrupt() {
 
 			// Vib Ribbon: gameplay checks flag
 			SetPlaySeekRead(cdr.StatP, STATUS_SEEK | STATUS_ROTATING);
+			cdr.StatP &= ~STATUS_SEEK;
+			cdr.Result[0] = cdr.StatP;
 
 			// BIOS player - set flag again
 			cdr.Play = TRUE;
@@ -1100,8 +1102,9 @@ void cdrInterrupt() {
 		case CdlSeekL + 0x100:
 		case CdlSeekP + 0x100:
             SetResultSize(1);
-			SetPlaySeekRead(cdr.StatP, 0);
+			SetPlaySeekRead(cdr.StatP, STATUS_ROTATING);
 			cdr.Result[0] = cdr.StatP;
+			cdr.Seeked = SEEK_DONE;
 			cdr.Stat = Complete;
 
 			Find_CurTrack(cdr.SetSectorPlay);
@@ -1187,41 +1190,19 @@ void cdrInterrupt() {
 
 		case CdlReadN:
 		case CdlReadS:
+			Find_CurTrack(cdr.SetlocPending ? cdr.SetSector : cdr.SetSectorPlay);
+
+			if ((cdr.Mode & MODE_CDDA) && cdr.CurTrack > 1)
+				// Read* acts as play for cdda tracks in cdda mode
+				goto do_CdlPlay;
+
 			if (cdr.SetlocPending) {
-				seekTime = abs(msf2sec(cdr.SetSectorPlay) - msf2sec(cdr.SetSector)) * (cdReadTime / 200);
-				/*
-				* Gameblabla :
-				* It was originally set to 1000000 for Driver, however it is not high enough for Worms Pinball
-				* and was unreliable for that game.
-				* I also tested it against Mednafen and Driver's titlescreen music starts 25 frames later, not immediatly.
-				*
-				* Obviously, this isn't perfect but right now, it should be a bit better.
-				* Games to test this against if you change that setting :
-				* - Driver (titlescreen music delay and retry mission)
-				* - Worms Pinball (Will either not boot or crash in the memory card screen)
-				* - Viewpoint (short pauses if the delay in the ingame music is too long)
-				*
-				* It seems that 3386880 * 5 is too much for Driver's titlescreen and it starts skipping.
-				* However, 1000000 is not enough for Worms Pinball to reliably boot.
-				*/
-				//if(seekTime > 3386880 * 2) seekTime = 3386880 * 2;
-				if (seekTime > 500000) seekTime = 500000;
-				//seekTime = SeekTime;
-				//memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
+				seekTime = cdrSeekTime(cdr.SetSector);
 				*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
 				cdr.SetlocPending = 0;
 				cdr.m_locationChanged = TRUE;
 			}
-			Find_CurTrack(cdr.SetSectorPlay);
-
-        	#ifdef SHOW_DEBUG
-            sprintf(txtbuffer, "READ_ACK Mode %d Track %d seekTime %ld\n", cdr.Mode & MODE_CDDA, cdr.CurTrack, seekTime);
-            DEBUG_print(txtbuffer, DBG_PROFILE_GFX);
-            //writeLogFile(txtbuffer);
-            #endif // DISP_DEBUG
-			if ((cdr.Mode & MODE_CDDA) && cdr.CurTrack > 1)
-				// Read* acts as play for cdda tracks in cdda mode
-				goto do_CdlPlay;
+			//Find_CurTrack(cdr.SetSectorPlay);
 
 			cdr.Reading = 1;
 			cdr.FirstSector = 1;
@@ -1229,7 +1210,6 @@ void cdrInterrupt() {
 			// Fighting Force 2 - update subq time immediately
 			// - fixes new game
 			ReadTrack(cdr.SetSectorPlay);
-
 
 			// Crusaders of Might and Magic - update getlocl now
 			// - fixes cutscene speech
@@ -1264,7 +1244,7 @@ void cdrInterrupt() {
 			*/
 			cdr.StatP |= STATUS_READ;
 			cdr.StatP &= ~STATUS_SEEK;
-			CDREAD_INT(((cdr.Mode & 0x80) ? (WaitTime1stRead) : WaitTime1stRead * 2) + (seekTime >> 1), 1);
+			CDREAD_INT(((cdr.Mode & 0x80) ? (WaitTime1stRead) : WaitTime1stRead * 2) + (seekTime), 1);
 
 			cdr.Result[0] = cdr.StatP;
 			start_rotating = 1;
