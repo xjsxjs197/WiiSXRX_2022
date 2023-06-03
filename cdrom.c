@@ -304,12 +304,16 @@ static void sec2msf(unsigned int s, u8 *msf) {
 #define StopCdda() { \
 	if (cdr.Play) { \
 		if (!Config.Cdda) CDR_stop(); \
-		cdr.StatP &= ~STATUS_PLAY; \
-		cdr.Play = FALSE; \
-		cdr.FastForward = 0; \
-		cdr.FastBackward = 0; \
-		/*SPU_registerCallback( SPUirq );*/ \
 	} \
+	cdr.StatP &= ~STATUS_PLAY; \
+	cdr.Play = FALSE; \
+	cdr.FastForward = 0; \
+	cdr.FastBackward = 0; \
+}
+
+#define SetPlaySeekRead(x, f) { \
+	x &= ~(STATUS_PLAY | STATUS_SEEK | STATUS_READ); \
+	x |= f; \
 }
 
 #define SetResultSize(size) { \
@@ -603,6 +607,31 @@ static void cdrPlayInterrupt_Autopause(s16* cddaBuf)
 	}
 }
 
+static int cdrSeekTime(unsigned char *target)
+{
+	int diff = msf2sec(cdr.SetSectorPlay) - msf2sec(target);
+	int seekTime = abs(diff) * (cdReadTime / 200);
+	/*
+	* Gameblabla :
+	* It was originally set to 1000000 for Driver, however it is not high enough for Worms Pinball
+	* and was unreliable for that game.
+	* I also tested it against Mednafen and Driver's titlescreen music starts 25 frames later, not immediatly.
+	*
+	* Obviously, this isn't perfect but right now, it should be a bit better.
+	* Games to test this against if you change that setting :
+	* - Driver (titlescreen music delay and retry mission)
+	* - Worms Pinball (Will either not boot or crash in the memory card screen)
+	* - Viewpoint (short pauses if the delay in the ingame music is too long)
+	*
+	* It seems that 3386880 * 5 is too much for Driver's titlescreen and it starts skipping.
+	* However, 1000000 is not enough for Worms Pinball to reliably boot.
+	*/
+	//if(seekTime > 3386880 * 2) seekTime = 3386880 * 2;
+	if (seekTime > 500000) seekTime = 500000;
+
+	return seekTime;
+}
+
 // also handles seek
 void cdrPlayInterrupt()
 {
@@ -634,6 +663,8 @@ void cdrPlayInterrupt()
 	}
 
 	if (!cdr.Play) return;
+
+	SetPlaySeekRead(cdr.StatP, STATUS_PLAY);
 
 	CDR_LOG( "CDDA - %d:%d:%d\n",
 		cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2] );
@@ -697,7 +728,7 @@ void cdrInterrupt() {
 	int error = 0;
 	int delay;
 	unsigned int seekTime = 0;
-	u8 set_loc[3];
+	u8 set_loc[4];
 	int i;
 
 	// Reschedule IRQ
@@ -785,29 +816,15 @@ void cdrInterrupt() {
 		do_CdlPlay:
 		case CdlPlay:
 			StopCdda();
-			if (cdr.Seeked == SEEK_PENDING) {
-				// XXX: wrong, should seek instead..
-				cdr.Seeked = SEEK_DONE;
-			}
+			StopReading();
 
 			cdr.FastBackward = 0;
 			cdr.FastForward = 0;
 
-			if (cdr.SetlocPending) {
-				//memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
-				*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
-				cdr.SetlocPending = 0;
-				cdr.m_locationChanged = TRUE;
-			}
-
 			// BIOS CD Player
 			// - Pause player, hit Track 01/02/../xx (Setloc issued!!)
 
-			if (cdr.ParamC == 0 || cdr.Param[0] == 0) {
-				CDR_LOG("PLAY Resume @ %d:%d:%d\n",
-					cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2]);
-			}
-			else
+			if (cdr.ParamC != 0 && cdr.Param[0] != 0)
 			{
 				int track = btoi( cdr.Param[0] );
 
@@ -817,11 +834,22 @@ void cdrInterrupt() {
 				CDR_LOG("PLAY track %d\n", cdr.CurTrack);
 
 				if (CDR_getTD((u8)cdr.CurTrack, cdr.ResultTD) != -1) {
-					cdr.SetSectorPlay[0] = cdr.ResultTD[2];
-					cdr.SetSectorPlay[1] = cdr.ResultTD[1];
-					cdr.SetSectorPlay[2] = cdr.ResultTD[0];
+					set_loc[0] = cdr.ResultTD[2];
+				    set_loc[1] = cdr.ResultTD[1];
+					set_loc[2] = cdr.ResultTD[0];
+					set_loc[3] = 0;
+
+					seekTime = cdrSeekTime(set_loc);
+					*((u32*)cdr.SetSectorPlay) = *((u32*)set_loc);
 				}
 			}
+			else if (cdr.SetlocPending) {
+				seekTime = cdrSeekTime(cdr.SetSector);
+				//memcpy(cdr.SetSectorPlay, cdr.SetSector, 4);
+				*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
+				cdr.m_locationChanged = TRUE;
+			}
+			cdr.SetlocPending = 0;
 
 			/*
 			Rayman: detect track changes
@@ -836,21 +864,18 @@ void cdrInterrupt() {
 			Find_CurTrack(cdr.SetSectorPlay);
 			ReadTrack(cdr.SetSectorPlay);
 			cdr.TrackChanged = FALSE;
+			cdr.FirstSector = 1;
 
-			StopReading();
 			if (!Config.Cdda)
 				CDR_play(cdr.SetSectorPlay);
 
 			// Vib Ribbon: gameplay checks flag
-			cdr.StatP &= ~STATUS_SEEK;
-			cdr.Result[0] = cdr.StatP;
-
-			cdr.StatP |= STATUS_PLAY;
+			SetPlaySeekRead(cdr.StatP, STATUS_SEEK | STATUS_ROTATING);
 
 			// BIOS player - set flag again
 			cdr.Play = TRUE;
 
-			CDRMISC_INT( cdReadTime , 1);
+			CDRMISC_INT( cdReadTime + seekTime , 1);
 			start_rotating = 1;
 			break;
 
@@ -1045,8 +1070,10 @@ void cdrInterrupt() {
 		case CdlSeekP:
 			StopCdda();
 			StopReading();
-			cdr.StatP |= STATUS_SEEK;
+			SetPlaySeekRead(cdr.StatP, STATUS_SEEK | STATUS_ROTATING);
+			seekTime = cdrSeekTime(cdr.SetSector);
 
+			*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
 			/*
 			Crusaders of Might and Magic = 0.5x-4x
 			- fix cutscene speech start
@@ -1063,11 +1090,23 @@ void cdrInterrupt() {
 			#ifdef SHOW_DEBUG
 			sprintf(txtbuffer, "%s SeekedType %d \n", CmdName[Irq], cdr.Seeked);
             DEBUG_print(txtbuffer, DBG_PROFILE_IDLE);
-            //writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
-			CDRMISC_INT(cdr.Seeked == SEEK_DONE ? 0x800 : SeekTime, 1);
-			cdr.Seeked = SEEK_PENDING;
+            AddIrqQueue(Irq + 0x100, cdReadTime + seekTime);
+			//CDRMISC_INT(cdr.Seeked == SEEK_DONE ? 0x800 : SeekTime, 1);
+			//cdr.Seeked = SEEK_PENDING;
 			start_rotating = 1;
+			break;
+
+		case CdlSeekL + 0x100:
+		case CdlSeekP + 0x100:
+            SetResultSize(1);
+			SetPlaySeekRead(cdr.StatP, 0);
+			cdr.Result[0] = cdr.StatP;
+			cdr.Stat = Complete;
+
+			Find_CurTrack(cdr.SetSectorPlay);
+			ReadTrack(cdr.SetSectorPlay);
+			cdr.TrackChanged = FALSE;
 			break;
 
 		case CdlTest:
