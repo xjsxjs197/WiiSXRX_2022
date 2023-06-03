@@ -139,8 +139,8 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
     case H_SPUctrl:
       if (!(spu.spuCtrl & CTRL_IRQ)) {
         spu.spuStat&=~STAT_IRQ;
-        if (val & CTRL_IRQ)
-         schedule_next_irq();
+        //if (val & CTRL_IRQ)
+        // schedule_next_irq();
       }
       spu.spuCtrl=val;
       break;
@@ -276,8 +276,8 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
  return;
 
 upd_irq:
- if (spu.spuCtrl & CTRL_IRQ)
-  schedule_next_irq();
+ //if (spu.spuCtrl & CTRL_IRQ)
+ // schedule_next_irq();
  return;
 
 rvbd:
