@@ -604,12 +604,12 @@ int loadISO(fileBrowser_file* file)
 	else {
 		long lastPsxType = Config.PsxType;
 		CheckCdrom();
-	    if (Config.PsxType != lastPsxType)
-		{
-			SysClose();
-			SysInit();
-			CheckCdrom();
-		}
+//	    if (Config.PsxType != lastPsxType)
+//		{
+//			SysClose();
+//			SysInit();
+//			CheckCdrom();
+//		}
 
 		SysReset();
 		LoadCdrom();
