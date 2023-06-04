@@ -485,21 +485,23 @@ static void generate_subq(const u8 *time)
 }
 
 static void ReadTrack(const u8 *time) {
-	unsigned char tmp[3];
+	unsigned char tmp[4];
 	struct SubQ *subq;
 	u16 crc;
 
 	tmp[0] = itob(time[0]);
 	tmp[1] = itob(time[1]);
 	tmp[2] = itob(time[2]);
+	tmp[3] = 0;
 
-	if (memcmp(cdr.Prev, tmp, 3) == 0)
+    if (*((u32*)cdr.Prev) == *((u32*)tmp)) {
 		return;
+    }
 
 	CDR_LOG("ReadTrack *** %02x:%02x:%02x\n", tmp[0], tmp[1], tmp[2]);
 
 	cdr.NoErr = CDR_readTrack(tmp);
-	memcpy(cdr.Prev, tmp, 3);
+	*((u32*)cdr.Prev) = *((u32*)tmp);
 
 	//if (CheckSBI(time))
 	//	return;
@@ -942,6 +944,7 @@ void cdrInterrupt() {
 			break;
 
 		case CdlPause:
+			StopCdda();
 			/*
 			Gundam Battle Assault 2: much slower (*)
 			- Fixes boot, gameplay
@@ -957,17 +960,18 @@ void cdrInterrupt() {
 			 *
 			 * We will need to get around this for Bedlam/Rise 2 later...
 			 * */
-			/*if (cdr.DriveState == DRIVESTATE_STANDBY)
+			if (!(cdr.StatP & (STATUS_PLAY | STATUS_READ)))
 			{
-				delay = 7000;
+				delay = WaitTime1st;
 			}
 			else
 			{
-				delay = (((cdr.Mode & MODE_SPEED) ? 2 : 1) * (1000000));
-				CDRMISC_INT((cdr.Mode & MODE_SPEED) ? cdReadTime / 2 : cdReadTime);
+				//delay = (((cdr.Mode & MODE_SPEED) ? 2 : 1) * (1000000));
+				delay = WaitTime2ndPause;
 			}
-			AddIrqQueue(CdlPause + 0x100, delay);*/
-			AddIrqQueue(CdlPause + 0x100, WaitTime2ndPause);
+			AddIrqQueue(CdlPause + 0x100, delay);
+			StopReading();
+			//AddIrqQueue(CdlPause + 0x100, WaitTime2ndPause);
 			cdr.Ctrl |= 0x80;
 			break;
 
@@ -1349,12 +1353,11 @@ void cdrReadInterrupt() {
         return;
     }
 
-	#ifdef SHOW_DEBUG
-	sprintf(txtbuffer, "ReadInterrupt (%s) %x cdr.NoErr %d Channel %d \n", CmdName[cdr.Irq], cdr.Stat, cdr.NoErr, cdr.Channel);
-	DEBUG_print(txtbuffer, DBG_CDR3);
-	//writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
 	if (cdr.Irq || cdr.Stat) {
+		#ifdef SHOW_DEBUG
+		sprintf(txtbuffer, "ReadInterrupt read stat hack \n");
+		DEBUG_print(txtbuffer, DBG_CDR4);
+		#endif // DISP_DEBUG
 		CDR_LOG_I("cdrom: read stat hack %02x %x\n", cdr.Irq, cdr.Stat);
 		CDREAD_INT(0x100, 0);
 		return;
@@ -1376,7 +1379,7 @@ void cdrReadInterrupt() {
 	cdr.Result[0] = cdr.StatP;
 	cdr.Seeked = SEEK_DONE;
 
-	ReadTrack(cdr.SetSectorPlay);
+	//ReadTrack(cdr.SetSectorPlay);
 
 	buf = CDR_getBuffer();
 	if (buf == NULL)
@@ -1464,13 +1467,11 @@ void cdrReadInterrupt() {
 	cdr.Readed = 0;
 	cdr.ReadRescheduled = 0;
 
-	uint32_t delay = (cdr.Mode & MODE_SPEED) ? (cdReadTime / 2) : cdReadTime;
-	if (cdr.m_locationChanged) {
-		CDREAD_INT(delay * 30, 0);
-		cdr.m_locationChanged = FALSE;
-	} else {
-	    CDREAD_INT(delay, 0);
-	}
+	CDREAD_INT((cdr.Mode & MODE_SPEED) ? (cdReadTime / 2) : cdReadTime, 0);
+	#ifdef SHOW_DEBUG
+	sprintf(txtbuffer, "ReadInterrupt short \n");
+	DEBUG_print(txtbuffer, DBG_CDR3);
+	#endif // DISP_DEBUG
 
 	/*
 	Croc 2: $40 - only FORM1 (*)
@@ -1568,7 +1569,6 @@ void cdrWrite1(unsigned char rt) {
 	cdr.ResultReady = 0;
 	cdr.Ctrl |= 0x80;
 	// cdr.Stat = NoIntr;
-	AddIrqQueue(cdr.Cmd, WaitTime1st);
 
 	switch (cdr.Cmd) {
 	case CdlReadN:
@@ -1578,19 +1578,8 @@ void cdrWrite1(unsigned char rt) {
 		break;
 
 	case CdlPause:
-		StopCdda();
-		if (cdr.StatP & STATUS_SEEK)
-        {
-            // call CompleteSeek
-            #ifdef SHOW_DEBUG
-            sprintf(txtbuffer, "CDROM Pause command while seeking\n");
-            DEBUG_print(txtbuffer, DBG_CORE3);
-            //writeLogFile(txtbuffer);
-            #endif // DISP_DEBUG
-            CDRMISC_INT((cdr.Mode & MODE_SPEED) ? cdReadTime / 2 : cdReadTime, 0);
-        }
-		StopReading();
-		break;
+		AddIrqQueue(cdr.Cmd, 27648);
+		return;
 
 	case CdlInit:
 	case CdlReset:
@@ -1610,6 +1599,7 @@ void cdrWrite1(unsigned char rt) {
 			StopCdda();
         	break;
 	}
+	AddIrqQueue(cdr.Cmd, WaitTime1st);
 }
 
 unsigned char cdrRead2(void) {
@@ -1820,7 +1810,7 @@ void cdrReset() {
 
 int cdrFreeze(gzFile f, int Mode) {
 	u32 tmp;
-	u8 tmpp[3];
+	u8 tmpp[4];
 
 	if (Mode == 0 && !Config.Cdda)
 		CDR_stop();
@@ -1844,6 +1834,7 @@ int cdrFreeze(gzFile f, int Mode) {
 		tmpp[0] = btoi(cdr.Prev[0]);
 		tmpp[1] = btoi(cdr.Prev[1]);
 		tmpp[2] = btoi(cdr.Prev[2]);
+		tmpp[3] = 0;
 		cdr.Prev[0]++;
 		ReadTrack(tmpp);
 
