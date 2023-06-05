@@ -1077,7 +1077,14 @@ void cdrInterrupt() {
 			StopCdda();
 			StopReading();
 			SetPlaySeekRead(cdr.StatP, STATUS_SEEK | STATUS_ROTATING);
-			seekTime = cdrSeekTime(cdr.SetSector);
+			if (Irq == CdlSeekP)
+			{
+				seekTime = cdReadTime + cdrSeekTime(cdr.SetSector);
+			}
+			else
+			{
+				seekTime = WaitTime1st;
+			}
 
 			*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
 			/*
@@ -1097,7 +1104,7 @@ void cdrInterrupt() {
 			sprintf(txtbuffer, "%s SeekedType %d \n", CmdName[Irq], cdr.Seeked);
             DEBUG_print(txtbuffer, DBG_PROFILE_IDLE);
             #endif // DISP_DEBUG
-            AddIrqQueue(Irq + 0x100, cdReadTime + seekTime);
+            AddIrqQueue(Irq + 0x100, seekTime);
 			//CDRMISC_INT(cdr.Seeked == SEEK_DONE ? 0x800 : SeekTime, 1);
 			//cdr.Seeked = SEEK_PENDING;
 			start_rotating = 1;
