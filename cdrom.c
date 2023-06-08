@@ -1083,7 +1083,7 @@ void cdrInterrupt() {
 			}
 			else
 			{
-				seekTime = WaitTime1st;
+				seekTime = cdReadTime / 2;
 			}
 
 			*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
