@@ -47,6 +47,7 @@ int PerGameFix_timing; 		// variable for see if game has timing autoFix
 int PerGameFix_GPUbusy; 	// variable for see if game has GPU 'Fake Busy States' (dwEmuFixes) autoFix
 int PerGameFix_specialCorrect; 	// variable for see if game has special correction (dwActFixes) autoFix
 int PerGameFix_pR3000A; 	// variable for see if game has pR3000A autoFix
+int PerGameFix_reduceLoadTime; 		// variable for see if game has reduce load time autoFix
 
 void Func_PrevPage();
 void Func_NextPage();
@@ -607,6 +608,38 @@ static void CheckGameAutoFix(void)
 	        PerGameFix_specialCorrect = 1;
         }
     }
+
+    // For reduce load time
+    autoFixLen = 17;
+    char autoFixReduceLoadTimeGames[autoFixLen][10] = {
+        // Parasite Eve
+         "SLPS01230" // NTSC-J
+        ,"SLPS01231" // NTSC-J
+        ,"SLPS45203" // NTSC-J
+        ,"SLPS45204" // NTSC-J
+        ,"SLUS00662" // NTSC-U
+        ,"SLUS00668" // NTSC-U
+
+        // LEGO Island 2
+        ,"SLUS01246" // NTSC-U
+        ,"SLES03299" // PAL
+        ,"SLES03300" // PAL
+        ,"SLES03301" // PAL
+        ,"SLES03303" // PAL
+        ,"SLES03304" // PAL
+        ,"SLES03305" // PAL
+        ,"SLES03307" // PAL
+        ,"SLES03308" // PAL
+        ,"SLES03302" // PAL
+        ,"SLES03306" // PAL
+    };
+    PerGameFix_reduceLoadTime = 0;
+    for (i = 0; i < autoFixLen; i++)
+    {
+        if (ChkString(CdromId, autoFixReduceLoadTimeGames[i], strlen(autoFixReduceLoadTimeGames[i]))) {
+            PerGameFix_reduceLoadTime = 1;
+        }
+    }
 }
 
 static void CheckGameR3000AutoFix(void)
@@ -756,6 +789,11 @@ void fileBrowserFrame_LoadFile(int i)
 			if (Config.pR3000Fix)
             {
                 sprintf(buffer, "pR3000 auto fixed\n");
+                strcat(RomInfo,buffer);
+            }
+            if (PerGameFix_reduceLoadTime)
+            {
+                sprintf(buffer, "reduce load time auto fixed\n");
                 strcat(RomInfo,buffer);
             }
 

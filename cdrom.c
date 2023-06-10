@@ -48,6 +48,7 @@ cdrStruct cdr;
 static unsigned char *pTransfer;
 static s16 read_buf[WII_CD_FRAMESIZE_RAW / 2];
 bool swapIso;
+extern int PerGameFix_reduceLoadTime; // variable for see if game has reduce load time autoFix
 
 /* CD-ROM magic numbers */
 #define CdlSync        0 /* nocash documentation : "Uh, actually, returns error code 40h = Invalid Command...?" */
@@ -188,7 +189,7 @@ int msf2SectS[] = {
 #define WaitTime2ndGetID   (0x4a00)  // OK
 #define WaitTime2ndPause   (cdReadTime * 3) // OK
 
-#define SeekTime           50000
+#define MinSeekTime        50000
 
 enum drive_state {
 	DRIVESTATE_STANDBY = 0,
@@ -628,8 +629,14 @@ static int cdrSeekTime(unsigned char *target)
 	* It seems that 3386880 * 5 is too much for Driver's titlescreen and it starts skipping.
 	* However, 1000000 is not enough for Worms Pinball to reliably boot.
 	*/
-	//if(seekTime > 3386880 * 2) seekTime = 3386880 * 2;
-	if(seekTime > 3386880) seekTime = 3386880;
+	if (PerGameFix_reduceLoadTime)
+	{
+		if(seekTime > MinSeekTime) seekTime = MinSeekTime;
+	}
+	else
+	{
+		if(seekTime > 3386880 * 2) seekTime = 3386880 * 2;
+	}
 
 	return seekTime;
 }
@@ -879,6 +886,10 @@ void cdrInterrupt() {
 			// BIOS player - set flag again
 			cdr.Play = TRUE;
 
+			if (PerGameFix_reduceLoadTime)
+			{
+				seekTime = 0;
+			}
 			CDRMISC_INT( cdReadTime + seekTime , 1);
 			start_rotating = 1;
 			break;
@@ -1077,13 +1088,20 @@ void cdrInterrupt() {
 			StopCdda();
 			StopReading();
 			SetPlaySeekRead(cdr.StatP, STATUS_SEEK | STATUS_ROTATING);
-			if (Irq == CdlSeekP)
+			if (PerGameFix_reduceLoadTime)
 			{
-				seekTime = cdReadTime + cdrSeekTime(cdr.SetSector);
+				seekTime = WaitTime1st;
 			}
 			else
 			{
-				seekTime = cdReadTime / 2;
+				if (Irq == CdlSeekP)
+				{
+					seekTime = cdReadTime + cdrSeekTime(cdr.SetSector);
+				}
+				else
+				{
+					seekTime = cdReadTime / 2;
+				}
 			}
 
 			*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
@@ -1255,6 +1273,13 @@ void cdrInterrupt() {
 			*/
 			cdr.StatP |= STATUS_READ;
 			cdr.StatP &= ~STATUS_SEEK;
+			if (PerGameFix_reduceLoadTime)
+			{
+				if (seekTime > MinSeekTime)
+				{
+					seekTime = MinSeekTime;
+				}
+			}
 			CDREAD_INT(((cdr.Mode & 0x80) ? (WaitTime1stRead) : WaitTime1stRead * 2) + (seekTime), 1);
 
 			cdr.Result[0] = cdr.StatP;
@@ -1386,7 +1411,10 @@ void cdrReadInterrupt() {
 	cdr.Result[0] = cdr.StatP;
 	cdr.Seeked = SEEK_DONE;
 
-	//ReadTrack(cdr.SetSectorPlay);
+	if (!PerGameFix_reduceLoadTime)
+	{
+		ReadTrack(cdr.SetSectorPlay);
+	}
 
 	buf = CDR_getBuffer();
 	if (buf == NULL)

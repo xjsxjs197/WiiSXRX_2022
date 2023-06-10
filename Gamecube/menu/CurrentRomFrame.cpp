@@ -46,6 +46,7 @@ extern int PerGameFix_timing; 		// variable for see if game has timing autoFix
 extern int PerGameFix_GPUbusy; 		// variable for see if game has GPU 'Fake Busy States' (dwEmuFixes) autoFix
 extern int PerGameFix_specialCorrect; 	// variable for see if game has special correction (dwActFixes) autoFix
 extern int PerGameFix_pR3000A; 		// variable for see if game has pR3000A autoFix
+extern int PerGameFix_reduceLoadTime; 		// variable for see if game has reduce load time autoFix
 
 void Func_ShowRomInfo();
 void Func_ResetROM();
@@ -178,6 +179,12 @@ void Func_ShowRomInfo()
   	sprintf(buffer, "pR3000 auto fixed\n");
   	strcat(RomInfo,buffer);
   }
+  if (PerGameFix_reduceLoadTime)
+  {
+  	sprintf(buffer, "reduce load time auto fixed\n");
+  	strcat(RomInfo,buffer);
+  }
+
   sprintf(buffer,"ISO Size: %u Mb\n",isoFile.size/1024/1024);
   strcat(RomInfo,buffer);
   sprintf(buffer,"Country: %s\n",(!Config.PsxType) ? "NTSC":"PAL");
