@@ -48,6 +48,7 @@ cdrStruct cdr;
 static unsigned char *pTransfer;
 static s16 read_buf[WII_CD_FRAMESIZE_RAW / 2];
 bool swapIso;
+static bool isShellopen;
 extern int PerGameFix_reduceLoadTime; // variable for see if game has reduce load time autoFix
 
 /* CD-ROM magic numbers */
@@ -338,11 +339,13 @@ void cdrLidSeekInterrupt()
 	switch (cdr.DriveState) {
 	default:
 	    #ifdef DISP_DEBUG
-        PRINT_LOG("cdrLidSeekInterrupt=default ");
+        sprintf(txtbuffer, "cdrLidSeekInterrupt=default ");
+        DEBUG_print(txtbuffer, DBG_CDR4);
         #endif // DISP_DEBUG
 	case DRIVESTATE_STANDBY:
 	    #ifdef DISP_DEBUG
-        PRINT_LOG1("cdrLidSeekInterrupt=DRIVESTATE_STANDBY: %x ", stat.Status);
+        sprintf(txtbuffer, "cdrLidSeekInterrupt=DRIVESTATE_STANDBY: %x ", stat.Status);
+        DEBUG_print(txtbuffer, DBG_CDR4);
         #endif // DISP_DEBUG
 		cdr.StatP &= ~STATUS_SEEK;
 
@@ -350,10 +353,12 @@ void cdrLidSeekInterrupt()
 			return;
 
         #ifdef DISP_DEBUG
-        PRINT_LOG1("cdrLidSeekInterrupt=DRIVESTATE_STANDBY2: %x ", stat.Status);
+        sprintf(txtbuffer, "cdrLidSeekInterrupt=DRIVESTATE_STANDBY2: %x %d ", stat.Status, isShellopen);
+        DEBUG_print(txtbuffer, DBG_CDR4);
         #endif // DISP_DEBUG
-		if (stat.Status & STATUS_SHELLOPEN)
+		if (isShellopen)
 		{
+			isShellopen = false;
 			StopCdda();
 			cdr.DriveState = DRIVESTATE_LID_OPEN;
 			CDRLID_INT(WaitTime1st);
@@ -362,7 +367,8 @@ void cdrLidSeekInterrupt()
 
 	case DRIVESTATE_LID_OPEN:
 	    #ifdef DISP_DEBUG
-        PRINT_LOG1("cdrLidSeekInterrupt=DRIVESTATE_LID_OPEN: %x ", cdr.StatP);
+        sprintf(txtbuffer, "cdrLidSeekInterrupt=DRIVESTATE_LID_OPEN: %x ", cdr.StatP);
+        DEBUG_print(txtbuffer, DBG_CDR4);
         #endif // DISP_DEBUG
 		if (CDR_getStatus(&stat) == -1)
 			stat.Status &= ~STATUS_SHELLOPEN;
@@ -400,7 +406,8 @@ void cdrLidSeekInterrupt()
 
 	case DRIVESTATE_RESCAN_CD:
 	    #ifdef DISP_DEBUG
-        PRINT_LOG1("cdrLidSeekInterrupt=DRIVESTATE_RESCAN_CD: %x ", cdr.StatP);
+        sprintf(txtbuffer, "cdrLidSeekInterrupt=DRIVESTATE_RESCAN_CD: %x ", cdr.StatP);
+        DEBUG_print(txtbuffer, DBG_CDR4);
         #endif // DISP_DEBUG
 		cdr.StatP |= STATUS_ROTATING;
 		cdr.DriveState = DRIVESTATE_PREPARE_CD;
@@ -412,7 +419,8 @@ void cdrLidSeekInterrupt()
 
 	case DRIVESTATE_PREPARE_CD:
 	    #ifdef DISP_DEBUG
-        PRINT_LOG1("cdrLidSeekInterrupt=DRIVESTATE_PREPARE_CD: %x ", cdr.StatP);
+        sprintf(txtbuffer, "cdrLidSeekInterrupt=DRIVESTATE_PREPARE_CD: %x ", cdr.StatP);
+        DEBUG_print(txtbuffer, DBG_CDR4);
         #endif // DISP_DEBUG
 		cdr.StatP |= STATUS_SEEK;
 
@@ -1907,6 +1915,7 @@ void LidInterrupt() {
 	StopCdda();
 
     cdr.StatP |= STATUS_SHELLOPEN;
+    isShellopen = true;
     cdr.DriveState = DRIVESTATE_RESCAN_CD;
 
 	cdrLidSeekInterrupt();
