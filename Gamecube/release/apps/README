@@ -1,5 +1,5 @@
 README : WiiStation
-Ver 2.0
+Ver 2.4
 
 LICENSE:
     This software is licensed under the GNU General Public License v2
@@ -106,6 +106,15 @@ CREDITS:
  * www.emulatemii.com and https://code.google.com/archive/p/pcsxgc/downloads
 
 WiiStation CHANGE LOG:
+Ver 2.4:
+* Use devkitPPC r41-2 + libOGC2 to compile code and solve the problem of some games not running.
+* Use the latest Lightrec to solve the problem of slow of Destruction Derby Raw.
+* Fix the logic of disc swapping, and games such as Metal Gear Solid can be swapped normally.
+* Reduce loading time for special games.
+  Now limited to games Parasite Eve and LEGO Island 2 only, Perhaps it should be an option.
+* Fix the logic of CDDA playback, no longer using multithreading.
+* Fix the issue of Vib Ribbon playing Reverb sound, there are still minor issues.
+
 Ver 2.0:
 * Use a new dynamic compilation (dynarec) method Lightrec, a super cool way.
   Many games can now run at full speed.
