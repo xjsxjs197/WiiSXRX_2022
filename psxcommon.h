@@ -137,6 +137,7 @@ extern int NetOpened;
 
 #define PS_SPU_FREQ     44100
 #define WII_SPU_FREQ    48000
+#define SINC (((u32)1 << 16) * PS_SPU_FREQ / (WII_SPU_FREQ))
 
 enum {
 	BIOS_USER_DEFINED,

@@ -42,7 +42,6 @@ extern "C" {
 #define MSF2SECT(m, s, f)		(msf2SectM[(m)] + msf2SectS[(s)] - 150 + (f))
 
 #define CD_FRAMESIZE_RAW		2352
-#define WII_CD_FRAMESIZE_RAW		(CD_FRAMESIZE_RAW * WII_SPU_FREQ / PS_SPU_FREQ)
 #define DATA_SIZE				(CD_FRAMESIZE_RAW - 12)
 
 #define SUB_FRAMESIZE			96

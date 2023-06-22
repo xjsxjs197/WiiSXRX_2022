@@ -270,8 +270,8 @@ INLINE int FModChangeFrequency(int *SB, int pitch, int ns)
  if(NP>0x3fff) NP=0x3fff;
  if(NP<0x1)    NP=0x1;
 
- //sinc=NP<<4;                                           // calc frequency
- sinc = (PS_SPU_FREQ * NP / WII_SPU_FREQ) << 4;          // calc frequency
+ sinc=NP<<4;                                           // calc frequency
+ //sinc = (PS_SPU_FREQ * NP / WII_SPU_FREQ) << 4;          // calc frequency
  //if(spu_config.iUseInterpolation==1)                   // freq change in simple interpolation mode
   SB[32]=1;
  iFMod[ns]=0;
@@ -844,13 +844,13 @@ int do_samples(unsigned int cycles_to, int do_direct)
 
  do_direct |= (silentch == 0xffffff);
 
- if (cycle_diff < 2 * (PS_SPU_FREQ * 768 / WII_SPU_FREQ))
+ if (cycle_diff < 4 * 768)
  {
      //spu.cycles_played = cycles_to;
      return 0;
  }
 
- ns_to = (cycle_diff / (PS_SPU_FREQ * 768 / WII_SPU_FREQ) + 1) & ~1;
+ ns_to = (cycle_diff / 768 + 1) & ~3;
  if (ns_to > NSSIZE) {
   // should never happen
   //xprintf("ns_to oflow %d %d\n", ns_to, NSSIZE);
@@ -902,7 +902,7 @@ int do_samples(unsigned int cycles_to, int do_direct)
   if (spu.spuCtrl & CTRL_IRQ)
    do_silent_chans(ns_to, silentch);
 
-  spu.cycles_played += ns_to * (PS_SPU_FREQ * 768 / WII_SPU_FREQ);
+  spu.cycles_played += ns_to * 768;
   spu.decode_pos = (spu.decode_pos + ns_to) & 0x1ff;
 
   return ns_to;
@@ -965,7 +965,7 @@ void schedule_next_irq(void)
  if (spu.scheduleCallback == NULL)
   return;
 
- upd_samples = WII_SPU_FREQ / 50;
+ upd_samples = PS_SPU_FREQ / 50;
 
  for (ch = 0; ch < MAXCHAN; ch++)
  {
@@ -990,8 +990,8 @@ void schedule_next_irq(void)
   }
  }
 
- if (upd_samples < WII_SPU_FREQ / 50)
-  spu.scheduleCallback(upd_samples * (PS_SPU_FREQ * 768 / WII_SPU_FREQ));
+ if (upd_samples < PS_SPU_FREQ / 50)
+  spu.scheduleCallback(upd_samples * 768);
 }
 
 // SPU ASYNC... even newer epsxe func
@@ -1016,9 +1016,9 @@ void CALLBACK DF_SPUasync(unsigned int cycle, unsigned int flags, unsigned int p
     // cause more samples to be generated
     // (and break some games because of bad sync)
     if (psxType) {
-        spu.cycles_played -= WII_SPU_FREQ / 50 / 2 * (PS_SPU_FREQ * 768 / WII_SPU_FREQ);  // Config.PsxType = 1, PAL 50Fps/1s
+        spu.cycles_played -= PS_SPU_FREQ / 50 / 2 * 768;  // Config.PsxType = 1, PAL 50Fps/1s
     } else {
-        spu.cycles_played -= WII_SPU_FREQ / 60 / 2 * (PS_SPU_FREQ * 768 / WII_SPU_FREQ);  // Config.PsxType = 0, PAL 60Fps/1s
+        spu.cycles_played -= PS_SPU_FREQ / 60 / 2 * 768;  // Config.PsxType = 0, PAL 60Fps/1s
     }
    }
  }

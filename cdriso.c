@@ -56,7 +56,6 @@ static unsigned char subbuffer[SUB_FRAMESIZE];
 
 #define CDDA_FRAME_COUNT 4
 
-#define SINC (((u32)1 << 16) * PS_SPU_FREQ / (WII_SPU_FREQ))
 static unsigned char sndbuffer[CD_FRAMESIZE_RAW * CDDA_FRAME_COUNT];
 static unsigned long sndbufferPitch[WII_SPU_FREQ * (sizeof(sndbuffer) >> 2) / PS_SPU_FREQ + 4];
 
@@ -1791,7 +1790,7 @@ long CALLBACK ISOreadCDDA(unsigned char m, unsigned char s, unsigned char f, uns
 
 	// data tracks play silent
 	if (ti[track].type != CDDA) {
-		memset(buffer, 0, WII_CD_FRAMESIZE_RAW);
+		memset(buffer, 0, CD_FRAMESIZE_RAW);
 		return 0;
 	}
 
@@ -1803,11 +1802,10 @@ long CALLBACK ISOreadCDDA(unsigned char m, unsigned char s, unsigned char f, uns
 				break;
 	}
 
-	static s8 tmpCdBuf[CD_FRAMESIZE_RAW];
 	ret = cdimg_read_func(ti[file].handle, ti[track].start_offset,
-		tmpCdBuf, cddaCurPos - track_start);
+		buffer, cddaCurPos - track_start);
 	if (ret != CD_FRAMESIZE_RAW) {
-		memset(buffer, 0, WII_CD_FRAMESIZE_RAW);
+		memset(buffer, 0, CD_FRAMESIZE_RAW);
 		return -1;
 	}
 
@@ -1816,29 +1814,10 @@ long CALLBACK ISOreadCDDA(unsigned char m, unsigned char s, unsigned char f, uns
 		unsigned char tmp;
 
 		for (i = 0; i < CD_FRAMESIZE_RAW / 2; i++) {
-			tmp = tmpCdBuf[i * 2];
-			tmpCdBuf[i * 2] = tmpCdBuf[i * 2 + 1];
-			tmpCdBuf[i * 2 + 1] = tmp;
+			tmp = buffer[i * 2];
+			buffer[i * 2] = buffer[i * 2 + 1];
+			buffer[i * 2 + 1] = tmp;
 		}
-	}
-
-	// pitch cdda 48000
-	int spos = 0x10000L;
-	uint32_t *pS = (uint32_t *)tmpCdBuf;
-	uint32_t *psPitch = (uint32_t *)buffer;
-	uint32_t l = 0;
-	int iSize = WII_CD_FRAMESIZE_RAW >> 2;
-	int i;
-	for (i = 0; i < iSize; i++)
-	{
-		while (spos >= 0x10000L)
-		{
-			l = *pS++;
-			spos -= 0x10000L;
-		}
-
-		*psPitch++ = l;
-		spos += SINC;
 	}
 
 	return 0;

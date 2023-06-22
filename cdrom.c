@@ -46,7 +46,7 @@
 
 cdrStruct cdr;
 static unsigned char *pTransfer;
-static s16 read_buf[WII_CD_FRAMESIZE_RAW / 2];
+static s16 read_buf[CD_FRAMESIZE_RAW / 2];
 bool swapIso;
 static bool isShellopen;
 extern int PerGameFix_reduceLoadTime; // variable for see if game has reduce load time autoFix
@@ -709,8 +709,8 @@ void cdrPlayInterrupt()
         sprintf(txtbuffer, "CDR_readCDDA time %d %d %d", cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2]);
         DEBUG_print(txtbuffer, DBG_CDR2);
         #endif // DISP_DEBUG
-    	cdrAttenuate(read_buf, WII_CD_FRAMESIZE_RAW / 4, 1);
-		SPU_playCDDAchannel(read_buf, WII_CD_FRAMESIZE_RAW);
+    	cdrAttenuate(read_buf, CD_FRAMESIZE_RAW / 4, 1);
+		SPU_playCDDAchannel(read_buf, CD_FRAMESIZE_RAW);
 		cdr.FirstSector = 0;
 	}
 

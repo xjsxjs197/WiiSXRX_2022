@@ -56,7 +56,7 @@
 #define MAXCHAN     24
 
 // note: must be even due to the way reverb works now
-#define NSSIZE ((WII_SPU_FREQ / 50 + 16) & ~1)
+#define NSSIZE ((PS_SPU_FREQ / 50 + 16) & ~1)
 
 #define CDDA_BUFFER_UNIT  16384   //16384
 #define CDDA_BUFFER_SIZE (CDDA_BUFFER_UNIT * sizeof(uint32_t)) // must be power of 2
@@ -263,7 +263,7 @@ void schedule_next_irq(void);
 
 #define do_samples_if_needed(c, sync) \
  do { \
-  if (sync || (int)((c) - spu.cycles_played) >= 16 * (PS_SPU_FREQ * 768 / WII_SPU_FREQ)) \
+  if (sync || (int)((c) - spu.cycles_played) >= 16 * 768) \
    do_samples(c, sync); \
  } while (0)
 
