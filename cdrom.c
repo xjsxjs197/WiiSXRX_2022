@@ -515,18 +515,25 @@ static void ReadTrack(const u8 *time) {
 	//if (CheckSBI(time))
 	//	return;
 
-	subq = (struct SubQ *)CDR_getBufferSub();
-	if (subq != NULL && cdr.CurTrack == 1) {
-		crc = calcCrc((u8 *)subq + 12, 10);
-		if (crc == (((u16)subq->CRC[0] << 8) | subq->CRC[1])) {
-			cdr.subq.Track = subq->TrackNumber;
-			cdr.subq.Index = subq->IndexNumber;
-			memcpy(cdr.subq.Relative, subq->TrackRelativeAddress, 3);
-			memcpy(cdr.subq.Absolute, subq->AbsoluteAddress, 3);
+	if (cdr.CurTrack == 1) {
+		subq = (struct SubQ *)CDR_getBufferSub();
+		if (subq != NULL )
+		{
+			crc = calcCrc((u8 *)subq + 12, 10);
+			if (crc == (((u16)subq->CRC[0] << 8) | subq->CRC[1])) {
+				cdr.subq.Track = subq->TrackNumber;
+				cdr.subq.Index = subq->IndexNumber;
+				memcpy(cdr.subq.Relative, subq->TrackRelativeAddress, 3);
+				memcpy(cdr.subq.Absolute, subq->AbsoluteAddress, 3);
+			}
+			else {
+				CDR_LOG_I("subq bad crc @%02x:%02x:%02x\n",
+					tmp[0], tmp[1], tmp[2]);
+			}
 		}
-		else {
-			CDR_LOG_I("subq bad crc @%02x:%02x:%02x\n",
-				tmp[0], tmp[1], tmp[2]);
+		else
+		{
+			generate_subq(time);
 		}
 	}
 	else {

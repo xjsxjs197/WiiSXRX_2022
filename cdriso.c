@@ -61,12 +61,6 @@ static unsigned long sndbufferPitch[WII_SPU_FREQ * (sizeof(sndbuffer) >> 2) / PS
 
 #define CDDA_FRAMETIME			(1000 * CDDA_FRAME_COUNT / 75)
 
-//static pthread_t threadid;
-static lwp_t threadid = LWP_THREAD_NULL;
-static lwpq_t threadBufferQ = LWP_TQUEUE_NULL;
-static lwpq_t threadMsgQ = LWP_TQUEUE_NULL;
-static lwpq_t threadMsgAvilQ = LWP_TQUEUE_NULL;
-
 static unsigned int initial_offset = 0;
 static bool playing = FALSE;
 static bool cddaBigEndian = TRUE;
@@ -160,19 +154,6 @@ static inline void tok2msf(char *time, char *msf) {
 	else {
 		msf[2] = 0;
 	}
-}
-
-static long GetTickCount(void) {
-	static time_t		initial_time = 0;
-	struct timeval		now;
-
-	gettimeofday(&now, NULL);
-
-	if (initial_time == 0) {
-		initial_time = now.tv_sec;
-	}
-
-	return (now.tv_sec - initial_time) * 1000L + now.tv_usec / 1000L;
 }
 
 // this function tries to get the .toc file of the given .bin
@@ -992,230 +973,20 @@ static int opensbifile(const char *isoname) {
 	return LoadSBI(sbiname, s);
 }
 
-//static pthread_t read_thread_id;
-static lwp_t read_thread_id = LWP_THREAD_NULL;
-static int devsleep = 1*1000*1000;
-#define THREAD_SLEEP 100
-
-//static pthread_cond_t read_thread_msg_avail;
-//static pthread_cond_t read_thread_msg_done;
-//static pthread_cond_t sectorbuffer_cond;
-
-static mutex_t read_thread_msg_lock;
-static mutex_t sectorbuffer_lock;
-
-static bool read_thread_running = FALSE;
-static int read_thread_sector_start = -1;
-static int read_thread_sector_end = -1;
-
-typedef struct {
-  int sector;
-  long ret;
-  unsigned char data[CD_FRAMESIZE_RAW];
-} SectorBufferEntry;
-
-#define SECTOR_BUFFER_SIZE 4096
-
-static SectorBufferEntry *sectorbuffer;
-static size_t sectorbuffer_index;
-
-int (*sync_cdimg_read_func)(FILE *f, unsigned int base, void *dest, int sector);
-unsigned char *(*sync_CDR_getBuffer)(void);
-
-static unsigned char * CALLBACK ISOgetBuffer_async(void);
-static int cdread_async(FILE *f, unsigned int base, void *dest, int sector);
-
-static void *readThreadMain(void *param) {
-  int max_sector = -1;
-  int requested_sector_start = -1;
-  int requested_sector_end = -1;
-  int last_read_sector = -1;
-  int index = 0;
-
-  int ra_sector = -1;
-  int max_ra = 128;
-  int initial_ra = 1;
-  int speedmult_ra = 4;
-
-  int ra_count = 0;
-  int how_far_ahead = 0;
-
-  unsigned char tmpdata[CD_FRAMESIZE_RAW];
-  long ret;
-
-  max_sector = msf2sec(ti[numtracks].start) + msf2sec(ti[numtracks].length);
-
-  while(1) {
-    LWP_MutexLock(read_thread_msg_lock);
-
-    // If we don't have readahead and we don't have a sector request, wait for one.
-    // If we still have readahead to go, don't block, just keep going.
-    // And if we ever have a sector request pending, acknowledge and reset it.
-
-    if (!ra_count) {
-      if (read_thread_sector_start == -1 && read_thread_running) {
-        //pthread_cond_wait(&read_thread_msg_avail, &read_thread_msg_lock);
-        LWP_ThreadSleep(threadMsgAvilQ);
-      }
-    }
-
-    if (read_thread_sector_start != -1) {
-      requested_sector_start = read_thread_sector_start;
-      requested_sector_end = read_thread_sector_end;
-      read_thread_sector_start = -1;
-      read_thread_sector_end = -1;
-      //pthread_cond_signal(&read_thread_msg_done);
-      LWP_ThreadSignal(threadMsgQ);
-    }
-
-    LWP_MutexUnlock(read_thread_msg_lock);
-
-    if (!read_thread_running)
-      break;
-
-    // Readahead code, based on the implementation in mednafen psx's cdromif.cpp
-    if (requested_sector_start != -1) {
-      if (last_read_sector != -1 && last_read_sector == (requested_sector_start - 1)) {
-        how_far_ahead = ra_sector - requested_sector_end;
-
-        if(how_far_ahead <= max_ra)
-          ra_count = (max_ra - how_far_ahead + 1 ? max_ra - how_far_ahead + 1 : speedmult_ra);
-        else
-          ra_count++;
-      } else if (requested_sector_end != last_read_sector) {
-        ra_sector = requested_sector_end;
-        ra_count = initial_ra;
-      }
-
-      last_read_sector = requested_sector_end;
-    }
-
-    index = ra_sector % SECTOR_BUFFER_SIZE;
-
-    // check for end of CD
-    if (ra_count && ra_sector >= max_sector) {
-      ra_count = 0;
-      LWP_MutexLock(sectorbuffer_lock);
-      sectorbuffer[index].ret = -1;
-      sectorbuffer[index].sector = ra_sector;
-      //pthread_cond_signal(&sectorbuffer_cond);
-      LWP_MutexUnlock(sectorbuffer_lock);
-      LWP_ThreadSignal(threadBufferQ);
-    }
-
-    if (ra_count) {
-      LWP_MutexLock(sectorbuffer_lock);
-      if (sectorbuffer[index].sector != ra_sector) {
-        LWP_MutexUnlock(sectorbuffer_lock);
-
-        ret = sync_cdimg_read_func(cdHandle, 0, tmpdata, ra_sector);
-
-        LWP_MutexLock(sectorbuffer_lock);
-        sectorbuffer[index].ret = ret;
-        sectorbuffer[index].sector = ra_sector;
-        memcpy(sectorbuffer[index].data, tmpdata, CD_FRAMESIZE_RAW);
-      }
-      //pthread_cond_signal(&sectorbuffer_cond);
-      LWP_MutexUnlock(sectorbuffer_lock);
-      LWP_ThreadSignal(threadBufferQ);
-
-      ra_sector++;
-      ra_count--;
-    }
-  }
-
-  return NULL;
-}
-
-static void readThreadStop() {
-  if (read_thread_running == TRUE) {
-    read_thread_running = FALSE;
-    //pthread_cond_signal(&read_thread_msg_avail);
-    LWP_ThreadSignal(threadMsgAvilQ);
-    LWP_SuspendThread(read_thread_id);
-  }
-
-  /*pthread_cond_destroy(&read_thread_msg_done);
-  pthread_cond_destroy(&read_thread_msg_avail);
-  pthread_cond_destroy(&sectorbuffer_cond);*/
-
-  LWP_MutexDestroy(read_thread_msg_lock);
-  LWP_MutexDestroy(sectorbuffer_lock);
-
-  LWP_CloseQueue(threadBufferQ);
-  LWP_CloseQueue(threadMsgQ);
-  LWP_CloseQueue(threadMsgAvilQ);
-
-  CDR_getBuffer = sync_CDR_getBuffer;
-  cdimg_read_func = sync_cdimg_read_func;
-
-  free(sectorbuffer);
-  sectorbuffer = NULL;
-}
-
-static void readThreadStart() {
-  SysPrintf("Starting async CD thread\n");
-
-  if (read_thread_running == TRUE)
-    return;
-
-  read_thread_running = TRUE;
-  read_thread_sector_start = -1;
-  read_thread_sector_end = -1;
-  sectorbuffer_index = 0;
-
-  sectorbuffer = calloc(SECTOR_BUFFER_SIZE, sizeof(SectorBufferEntry));
-  if(!sectorbuffer)
-    goto error;
-
-  sectorbuffer[0].sector = -1; // Otherwise we might think we've already fetched sector 0!
-
-  sync_CDR_getBuffer = CDR_getBuffer;
-  CDR_getBuffer = ISOgetBuffer_async;
-  sync_cdimg_read_func = cdimg_read_func;
-  cdimg_read_func = cdread_async;
-
-  if (//pthread_cond_init(&read_thread_msg_avail, NULL) ||
-      //pthread_cond_init(&read_thread_msg_done, NULL) ||
-      LWP_MutexInit(read_thread_msg_lock, false) < 0 ||
-      //pthread_cond_init(&sectorbuffer_cond, NULL) ||
-      LWP_MutexInit(sectorbuffer_lock, false) < 0 ||
-      LWP_InitQueue(&threadBufferQ) < 0 ||
-      LWP_InitQueue(&threadMsgQ) < 0 ||
-      LWP_InitQueue(&threadMsgAvilQ) < 0 ||
-      LWP_CreateThread(&read_thread_id, readThreadMain, NULL, NULL, 0, 40) < 0)
-    goto error;
-
-  return;
-
- error:
-  SysPrintf("Error starting async CD thread\n");
-  SysPrintf("Falling back to sync\n");
-
-  readThreadStop();
-}
-
-#ifdef DISP_DEBUG
-static int tmpIdx1 = 0;
-static int tmpIdx2 = 0;
-#endif // DISP_DEBUG
 static int cdread_normal(FILE *f, unsigned int base, void *dest, int sector)
 {
-	fseek(f, base + sector * CD_FRAMESIZE_RAW, SEEK_SET);
-	//return fread(dest, 1, CD_FRAMESIZE_RAW, f);
-	if (fread(dest, CD_FRAMESIZE_RAW, 1, f) == 1) {
-        #ifdef DISP_DEBUG
-        //PRINT_LOG1("cdread_normal1====%d==", tmpIdx1++);
-        #endif // DISP_DEBUG
-        return CD_FRAMESIZE_RAW;
-	}
-	else
-    {
-        #ifdef DISP_DEBUG
-        //PRINT_LOG1("cdread_normal2====%d==", tmpIdx2++);
-        #endif // DISP_DEBUG
-        return fread(dest, 1, CD_FRAMESIZE_RAW, f);
-    }
+	int ret;
+	if (fseek(f, base + sector * CD_FRAMESIZE_RAW, SEEK_SET))
+		goto fail_io;
+	ret = fread(dest, 16, CD_FRAMESIZE_RAW / 16, f);
+	if (ret <= 0)
+		goto fail_io;
+	return ret;
+
+fail_io:
+	// often happens in cdda gaps of a split cue/bin, so not logged
+	//SysPrintf("File IO error %d, base %u, sector %u\n", errno, base, sector);
+	return 0;
 }
 
 static int cdread_sub_mixed(FILE *f, unsigned int base, void *dest, int sector)
@@ -1352,66 +1123,11 @@ static int cdread_2048(FILE *f, unsigned int base, void *dest, int sector)
 	sec2msf(sector + 2 * 75, (char *)&cdbuffer[12]);
 	cdbuffer[12 + 3] = 1;
 
-	return ret;
-}
-
-static int cdread_async(FILE *f, unsigned int base, void *dest, int sector) {
-  bool found = FALSE;
-  int i = sector % SECTOR_BUFFER_SIZE;
-  long ret;
-
-  if (f != cdHandle || base != 0 || dest != cdbuffer) {
-    // Async reads are only supported for cdbuffer, so call the sync
-    // function directly.
-    return sync_cdimg_read_func(f, base, dest, sector);
-  }
-
-  LWP_MutexLock(read_thread_msg_lock);
-
-  // Only wait if we're not trying to read the next sector and
-  // sector_start is set (meaning the last request hasn't been
-  // processed yet)
-  while(read_thread_sector_start != -1 && read_thread_sector_end + 1 != sector) {
-    //pthread_cond_wait(&read_thread_msg_done, &read_thread_msg_lock);
-    LWP_ThreadSleep(threadMsgQ);
-  }
-
-  if (read_thread_sector_start == -1)
-    read_thread_sector_start = sector;
-
-  read_thread_sector_end = sector;
-  //pthread_cond_signal(&read_thread_msg_avail);
-  LWP_MutexUnlock(read_thread_msg_lock);
-  LWP_ThreadSignal(threadMsgAvilQ);
-
-  do {
-    LWP_MutexLock(sectorbuffer_lock);
-    if (sectorbuffer[i].sector == sector) {
-      sectorbuffer_index = i;
-      ret = sectorbuffer[i].ret;
-      found = TRUE;
-    }
-
-    if (!found) {
-      //pthread_cond_wait(&sectorbuffer_cond, &sectorbuffer_lock);
-      LWP_ThreadSleep(threadBufferQ);
-    }
-    LWP_MutexUnlock(sectorbuffer_lock);
-  } while (!found);
-
-  return ret;
+	return 12*2 + ret;
 }
 
 static unsigned char * CALLBACK ISOgetBuffer_compr(void) {
 	return compr_img->buff_raw[compr_img->sector_in_blk] + 12;
-}
-
-static unsigned char * CALLBACK ISOgetBuffer_async(void) {
-  unsigned char *buffer;
-  LWP_MutexLock(sectorbuffer_lock);
-  buffer = sectorbuffer[sectorbuffer_index].data;
-  LWP_MutexUnlock(sectorbuffer_lock);
-  return buffer + 12;
 }
 
 static unsigned char * CALLBACK ISOgetBuffer(void) {
@@ -1564,9 +1280,6 @@ static long CALLBACK ISOopen(void) {
 	cdda_cur_sector = 0;
 	cdda_file_offset = 0;
 
-  if (Config.AsyncCD) {
-    readThreadStart();
-  }
 	return 0;
 }
 
@@ -1603,10 +1316,6 @@ static long CALLBACK ISOclose(void) {
 
 	memset(cdbuffer, 0, sizeof(cdbuffer));
 	CDR_getBuffer = ISOgetBuffer;
-
-	if (Config.AsyncCD) {
-		readThreadStop();
-	}
 
 	return 0;
 }
@@ -1707,7 +1416,7 @@ static long CALLBACK ISOreadTrack(unsigned char *time) {
 	}
 
 	ret = cdimg_read_func(cdHandle, 0, cdbuffer, sector);
-	if (ret < 0)
+	if (ret <= 0)
 		return 0;
 
 	if (subHandle != NULL) {
