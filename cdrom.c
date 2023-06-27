@@ -49,7 +49,7 @@ static unsigned char *pTransfer;
 static s16 read_buf[CD_FRAMESIZE_RAW / 2];
 bool swapIso;
 static bool isShellopen;
-extern int PerGameFix_reduceLoadTime; // variable for see if game has reduce load time autoFix
+extern char fastLoad; // variable for see if game has reduce load time
 
 /* CD-ROM magic numbers */
 #define CdlSync        0 /* nocash documentation : "Uh, actually, returns error code 40h = Invalid Command...?" */
@@ -644,7 +644,7 @@ static int cdrSeekTime(unsigned char *target)
 	* It seems that 3386880 * 5 is too much for Driver's titlescreen and it starts skipping.
 	* However, 1000000 is not enough for Worms Pinball to reliably boot.
 	*/
-	if (PerGameFix_reduceLoadTime)
+	if (fastLoad)
 	{
 		if(seekTime > MinSeekTime) seekTime = MinSeekTime;
 	}
@@ -901,7 +901,7 @@ void cdrInterrupt() {
 			// BIOS player - set flag again
 			cdr.Play = TRUE;
 
-			if (PerGameFix_reduceLoadTime)
+			if (fastLoad)
 			{
 				seekTime = 0;
 			}
@@ -1103,7 +1103,7 @@ void cdrInterrupt() {
 			StopCdda();
 			StopReading();
 			SetPlaySeekRead(cdr.StatP, STATUS_SEEK | STATUS_ROTATING);
-			if (PerGameFix_reduceLoadTime)
+			if (fastLoad)
 			{
 				seekTime = WaitTime1st;
 			}
@@ -1288,7 +1288,7 @@ void cdrInterrupt() {
 			*/
 			cdr.StatP |= STATUS_READ;
 			cdr.StatP &= ~STATUS_SEEK;
-			if (PerGameFix_reduceLoadTime)
+			if (fastLoad)
 			{
 				if (seekTime > MinSeekTime)
 				{
@@ -1426,7 +1426,7 @@ void cdrReadInterrupt() {
 	cdr.Result[0] = cdr.StatP;
 	cdr.Seeked = SEEK_DONE;
 
-	if (!PerGameFix_reduceLoadTime)
+	if (!fastLoad)
 	{
 		ReadTrack(cdr.SetSectorPlay);
 	}

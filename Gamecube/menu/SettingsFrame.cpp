@@ -105,6 +105,9 @@ void Func_AutoSaveNo();
 void Func_SaveStateSD();
 void Func_SaveStateUSB();
 
+void Func_FastloadYes();
+void Func_FastloadNo();
+
 void Func_ReturnFromSettingsFrame();
 
 extern BOOL hasLoadedISO;
@@ -122,11 +125,11 @@ void pauseAudio(void);  void pauseInput(void);
 void resumeAudio(void); void resumeInput(void);
 }
 
-#define NUM_FRAME_BUTTONS 55
+#define NUM_FRAME_BUTTONS 57
 #define NUM_TAB_BUTTONS 5
 #define FRAME_BUTTONS settingsFrameButtons
 #define FRAME_STRINGS settingsFrameStrings
-#define NUM_FRAME_TEXTBOXES 22
+#define NUM_FRAME_TEXTBOXES 23
 #define FRAME_TEXTBOXES settingsFrameTextBoxes
 
 /*
@@ -164,7 +167,7 @@ Auto Save Memcards: Yes; No
 Save States Device: SD; USB
 */
 
-static char FRAME_STRINGS[63][24] =
+static char FRAME_STRINGS[64][24] =
 	{ "General",
 	  "Video",
 	  "Input",
@@ -226,14 +229,16 @@ static char FRAME_STRINGS[63][24] =
 	  "Save States Device",
 	  "CardA",
 	  "CardB",
-      // Strings for display language (starting at FRAME_STRINGS[56]) ..was[60]
+      // Strings for display language (starting at FRAME_STRINGS[56]) ..was[62]
       "Select language",
       "En", // English
       "Chs", // Simplified Chinese
       "Kr", // Korean
       "Es", // SPANISH
       "Pte", // PORTUGUESE
-      "It" // ITALIAN
+      "It", // ITALIAN
+      // Strings for display Fast Load (starting at FRAME_STRINGS[63]) ..was[63]
+      "Fast Load"
       };
 
 
@@ -315,7 +320,10 @@ struct ButtonInfo
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[17],	380.0,	170.0,	 75.0,	56.0,	47,	53,	50,	50,	Func_AutoSaveNo,		Func_ReturnFromSettingsFrame }, // Auto Save Memcards: No
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[13],	295.0,	240.0,	 55.0,	56.0,	50,	 4,	53,	53,	Func_SaveStateSD,		Func_ReturnFromSettingsFrame }, // Save State: SD
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[14],	360.0,	240.0,	 70.0,	56.0,	51,	 4,	52,	52,	Func_SaveStateUSB,		Func_ReturnFromSettingsFrame }, // Save State: USB
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[57],	295.0,	310.0,	 90.0,	56.0,	 11,14,	-1,	-1,	Func_SelectLanguage,	Func_ReturnFromSettingsFrame }, // Select Language: En
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[57],	225.0,	310.0,	 90.0,	56.0,	 11,55,	56,	55,	Func_SelectLanguage,	Func_ReturnFromSettingsFrame }, // Select Language: En
+    //Buttons for Saves Tab (starts at button[55]) ..was[56]
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[16],	490.0,	310.0,	 75.0,	56.0,	12,	15,	54,	56,	Func_FastloadYes,		Func_ReturnFromSettingsFrame }, // Fast load: Yes
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[17],	570.0,	310.0,	 75.0,	56.0,	13,	15,	55,	54,	Func_FastloadNo,		Func_ReturnFromSettingsFrame }, // Fast load: No
 };
 
 struct TextBoxInfo
@@ -350,11 +358,12 @@ struct TextBoxInfo
 	{	NULL,	FRAME_STRINGS[44],	210.0,	198.0,	 1.0,	true }, // Disable XA Audio: Yes/No
 	{	NULL,	FRAME_STRINGS[45],	210.0,	268.0,	 1.0,	true }, // Disable CDDA Audio: Yes/No
 	{	NULL,	FRAME_STRINGS[46],	210.0,	338.0,	 1.0,	true }, // Volume: low/medium/loud/loudest
-	//TextBoxes for Saves Tab (starts at textBox[18]) ..was[21]
+	//TextBoxes for Saves Tab (starts at textBox[18]) ..was[22]
 	{	NULL,	FRAME_STRINGS[51],	150.0,	128.0,	 1.0,	true }, // Memcard Save Device: SD/USB/CardA/CardB
 	{	NULL,	FRAME_STRINGS[52],	150.0,	198.0,	 1.0,	true }, // Auto Save Memcards: Yes/No
 	{	NULL,	FRAME_STRINGS[53],	150.0,	268.0,	 1.0,	true }, // Save State Device: SD/USB
-	{	NULL,	FRAME_STRINGS[56],	155.0,	338.0,	 1.0,	true }, // Select language: En, Chs, ......
+	{	NULL,	FRAME_STRINGS[56],	130.0,	338.0,	 1.0,	true }, // Select language: En, Chs, ......
+	{	NULL,	FRAME_STRINGS[63],	405.0,	338.0,	 1.0,	true }, // Fast load
 };
 
 SettingsFrame::SettingsFrame()
@@ -405,6 +414,8 @@ SettingsFrame::~SettingsFrame()
 	}
 }
 
+extern char fastLoad; // variable for see if game has reduce load time
+
 void SettingsFrame::activateSubmenu(int submenu)
 {
 	activeSubmenu = submenu;
@@ -436,6 +447,7 @@ void SettingsFrame::activateSubmenu(int submenu)
 				FRAME_TEXTBOXES[i].textBox->setVisible(true);
 
             FRAME_TEXTBOXES[21].textBox->setVisible(true);
+            FRAME_TEXTBOXES[22].textBox->setVisible(true);
 			FRAME_BUTTONS[0].button->setSelected(true);
 			if (dynacore == DYNACORE_INTERPRETER)	FRAME_BUTTONS[5].button->setSelected(true);
 			else									FRAME_BUTTONS[6].button->setSelected(true);
@@ -450,6 +462,14 @@ void SettingsFrame::activateSubmenu(int submenu)
 			FRAME_BUTTONS[54].button->setVisible(true);
             FRAME_BUTTONS[54].button->setActive(canChangeFont == 1);
             FRAME_BUTTONS[54].buttonString = FRAME_STRINGS[57 + lang];
+
+            // Fast load
+            FRAME_BUTTONS[55].button->setVisible(true);
+            FRAME_BUTTONS[56].button->setVisible(true);
+            FRAME_BUTTONS[55].button->setActive(true);
+            FRAME_BUTTONS[56].button->setActive(true);
+            FRAME_BUTTONS[55].button->setSelected(fastLoad == 1);
+            FRAME_BUTTONS[56].button->setSelected(fastLoad == 0);
 			break;
 		case SUBMENU_VIDEO:
 			setDefaultFocus(FRAME_BUTTONS[1].button);
@@ -1415,6 +1435,20 @@ void Func_SaveStateUSB()
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[53].button->setSelected(true);
 	saveStateDevice = SAVESTATEDEVICE_USB;
+}
+
+void Func_FastloadYes()
+{
+	fastLoad = 1;
+	FRAME_BUTTONS[55].button->setSelected(true);
+	FRAME_BUTTONS[56].button->setSelected(false);
+}
+
+void Func_FastloadNo()
+{
+    fastLoad = 0;
+	FRAME_BUTTONS[55].button->setSelected(false);
+	FRAME_BUTTONS[56].button->setSelected(true);
 }
 
 void Func_ReturnFromSettingsFrame()

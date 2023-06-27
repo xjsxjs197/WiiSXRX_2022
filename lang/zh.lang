@@ -569,5 +569,8 @@ msgstr "意大利文"
 msgid "Select language"
 msgstr "切换语言"
 
+msgid "Fast Load"
+msgstr "快速加载"
+
 msgid "Because the language has changed, please restart"
 msgstr "因为语言变更了，请重新启动"

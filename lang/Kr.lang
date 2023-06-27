@@ -566,5 +566,8 @@ msgstr "포르투갈어"
 msgid "Select language"
 msgstr "언어 선택"
 
+msgid "Fast Load"
+msgstr "빠른 로드"
+
 msgid "Because the language has changed, please restart"
 msgstr "언어가 변경되었으므로 다시 시작하세요."
