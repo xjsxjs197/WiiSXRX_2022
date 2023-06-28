@@ -1513,7 +1513,7 @@ long CALLBACK ISOreadCDDA(unsigned char m, unsigned char s, unsigned char f, uns
 
 	ret = cdimg_read_func(ti[file].handle, ti[track].start_offset,
 		buffer, cddaCurPos - track_start);
-	if (ret != CD_FRAMESIZE_RAW) {
+	if (ret <= 0) {
 		memset(buffer, 0, CD_FRAMESIZE_RAW);
 		return -1;
 	}
