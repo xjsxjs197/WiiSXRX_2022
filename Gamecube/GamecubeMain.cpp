@@ -134,6 +134,7 @@ char lang = 0;
 char oldLang = 0;
 char canChangeFont = 0;
 char fastLoad = 0;
+char originalMode = 0;
 
 #define CONFIG_STRING_TYPE 0
 #define CONFIG_STRING_SIZE 256
@@ -181,7 +182,8 @@ static struct {
   { "smbsharename", smbShareName, CONFIG_STRING_TYPE, CONFIG_STRING_TYPE },
   { "smbipaddr", smbIpAddr, CONFIG_STRING_TYPE, CONFIG_STRING_TYPE },
   { "lang", &lang, ENGLISH, ITALIAN },
-  { "fastLoad", &fastLoad, 0, 1 }
+  { "fastLoad", &fastLoad, 0, 1 },
+  { "TVMode", &originalMode, ORIGINALMODE_DISABLE, ORIGINALMODE_ENABLE }
 };
 void handleConfigPair(char* kv);
 void readConfig(FILE* f);
@@ -239,6 +241,7 @@ void loadSettings(int argc, char *argv[])
 	LoadCdBios = BOOTTHRUBIOS_NO;
 	lang = 0;
 	fastLoad = 0;
+	originalMode = 0;
 
 	//config stuff
 	int (*configFile_init)(fileBrowser_file*) = fileBrowser_libfat_init;

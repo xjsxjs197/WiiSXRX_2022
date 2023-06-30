@@ -236,11 +236,14 @@ void go(void);
 
 //void control_info_init();
 
+extern long lGPUstatusRet;
 extern char menuActive;
 extern char autoSave;
 extern "C" char mcd1Written;
 extern "C" char mcd2Written;
 extern "C" unsigned int usleep(unsigned int us);
+
+extern "C" void switchToTVMode(unsigned int gpuStatReg);
 
 void Func_PlayGame()
 {
@@ -292,7 +295,8 @@ void Func_PlayGame()
 #ifdef DEBUGON
 	_break();
 #endif
-
+	if (originalMode)
+		switchToTVMode(lGPUstatusRet);
 #ifdef SHOW_DEBUG
 	try {
 #endif // SHOW_DEBUG
@@ -313,6 +317,10 @@ void Func_PlayGame()
 	menuActive = 1;
 	pauseInput();
 	pauseAudio();
+
+	if (originalMode)
+		switchToTVMode(0x80000);	//Dummy register with 480i mode enabled 
+
 
   if(autoSave==AUTOSAVE_ENABLE) {
     if(mcd1Written || mcd2Written) {  //something needs saving

@@ -245,6 +245,13 @@ enum lang
 	FRENCH
 };
 
+extern char originalMode;
+enum originalMode
+{
+	ORIGINALMODE_DISABLE=0,
+	ORIGINALMODE_ENABLE,
+};
+
 extern const unsigned char En_dat[];
 extern const unsigned int  En_dat_size;
 extern char canChangeFont;

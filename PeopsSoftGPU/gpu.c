@@ -168,6 +168,7 @@ signed   long  *psxVsl;
 
 static long       lGPUdataRet;
 long              lGPUstatusRet;
+long              lGPUstatusRetOld;
 char              szDispBuf[64];
 char              szMenuBuf[36];
 char              szDebugText[512];
