@@ -54,6 +54,7 @@ int            iDebugMode=0;
 int            iFVDisplay=0;
 PSXPoint_t     ptCursorPoint[8];
 unsigned short usCursorActive=0;
+bool 		   backFromMenu=0;
 
 //Some GX specific variables
 #define RESX_MAX 1024	//Vmem width
@@ -77,7 +78,7 @@ extern long lGPUstatusRetOld;
 void BlitScreenNS_GX(unsigned char * surf,long x,long y, short dx, short dy);
 void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt);
 
-void switchToTVMode(unsigned int gpuStatReg);
+void switchToTVMode(long gpuStatReg, short dWidth, short dHeight, bool retMenu);
 
 void DoBufferSwap(void)                                // SWAP BUFFERS
 {                                                      // (we don't swap... we blit only)
@@ -138,17 +139,19 @@ void DoBufferSwap(void)                                // SWAP BUFFERS
 		imgPtr+=PreviousPSXDisplay.Range.x0<<1;
 	}
 	
+	
+	GX_Flip(iDX, iDY, imgPtr, iResX_Max*2, PSXDisplay.RGB24 ? GX_TF_RGBA8 : GX_TF_RGB5A3);
+	
 	// Check if TVMode needs to be changed (240 or 480 lines)
 	if (originalMode == ORIGINALMODE_ENABLE)
 	{
-		if((lGPUstatusRet & 0x80000) != (lGPUstatusRetOld & 0x80000))
+		if(((lGPUstatusRet & 0xF0000) != (lGPUstatusRetOld & 0xF0000)) || backFromMenu)
 		{
-			switchToTVMode(lGPUstatusRet);
+			backFromMenu = 0;
+			switchToTVMode(lGPUstatusRet, iDX, iDY, 0);
 			lGPUstatusRetOld = lGPUstatusRet;
 		}
 	}
-	
-	GX_Flip(iDX, iDY, imgPtr, iResX_Max*2, PSXDisplay.RGB24 ? GX_TF_RGBA8 : GX_TF_RGB5A3);
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -279,6 +282,8 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 		memset(GXtexture,0,iResX_Max*iResY_Max*2);
 		GX_InitTexObj(&GXtexobj, GXtexture, width, height, fmt, GX_CLAMP, GX_CLAMP, GX_FALSE);
 	}
+	if (originalMode == ORIGINALMODE_ENABLE)
+		GX_InitTexObjFilterMode(&GXtexobj, GX_NEAR, GX_NEAR);
 
 	if(PSXDisplay.RGB24) {
 		vu8 *wgPipePtr = GX_RedirectWriteGatherPipe(GXtexture);
