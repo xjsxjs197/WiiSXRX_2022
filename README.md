@@ -50,8 +50,6 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
 * Possibility to select other BIOS with some basic buttons.
 
-* 240p support.
-
 Any help is appreciated.
 
 ## Compilation information
@@ -67,6 +65,8 @@ Any help is appreciated.
 ## WiiStation Credits
 
 WiiStation (formely WiiSXRX_2022) - developed by xjsxjs197 - https://github.com/xjsxjs197/WiiSXRX_2022
+
+240p support by Jokkipo - http://github.com/Jokippo
 
 WiiStation icon - made by Dakangel (high quality logo made by saulfabreg)
 
