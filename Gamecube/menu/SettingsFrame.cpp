@@ -72,6 +72,8 @@ void Func_ScreenMode4_3();
 void Func_ScreenMode16_9();
 void Func_ScreenForce16_9();
 void Func_Screen240p();
+void Func_BilinearFilter();
+void Func_TrapFilter();
 void Func_DitheringNone();
 void Func_DitheringDefault();
 void Func_DitheringAlways();
@@ -110,6 +112,8 @@ void Func_FastloadYes();
 void Func_FastloadNo();
 
 void Func_ReturnFromSettingsFrame();
+
+extern "C" void VIDEO_SetTrapFilter(bool enable);
 
 extern BOOL hasLoadedISO;
 extern int stop;
@@ -168,7 +172,7 @@ Auto Save Memcards: Yes; No
 Save States Device: SD; USB
 */
 
-static char FRAME_STRINGS[65][24] =
+static char FRAME_STRINGS[67][24] =
 	{ "General",
 	  "Video",
 	  "Input",
@@ -194,7 +198,7 @@ static char FRAME_STRINGS[65][24] =
 	  "Frame Skip",
 	  "Screen Mode",
 	  "Dithering",
-	  "Scaling",
+	  "Filters",
 	  "On",
 	  "Off",
 	  "Auto",
@@ -240,7 +244,9 @@ static char FRAME_STRINGS[65][24] =
       "It", // ITALIAN
       // Strings for display Fast Load (starting at FRAME_STRINGS[63]) ..was[63]
       "Fast Load",
-	  "240p"
+	  "240p",
+	  "Bilinear Filter",
+	  "Trap Filter" 
       };
 
 
@@ -283,18 +289,18 @@ struct ButtonInfo
 	//Buttons for Video Tab (starts at button[16])
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[24],	325.0,	100.0,	 75.0,	56.0,	 1,	18,	17,	17,	Func_ShowFpsOn,			Func_ReturnFromSettingsFrame }, // Show FPS: On
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	420.0,	100.0,	 75.0,	56.0,	 1,	19,	16,	16,	Func_ShowFpsOff,		Func_ReturnFromSettingsFrame }, // Show FPS: Off
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[26],	325.0,	170.0,	 75.0,	56.0,	16,	20,	19,	19,	Func_FpsLimitAuto,		Func_ReturnFromSettingsFrame }, // FPS Limit: Auto
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	420.0,	170.0,	 75.0,	56.0,	17,	21,	18,	18,	Func_FpsLimitOff,		Func_ReturnFromSettingsFrame }, // FPS Limit: Off
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[24],	325.0,	240.0,	 75.0,	56.0,	18,	23,	21,	21,	Func_FrameSkipOn,		Func_ReturnFromSettingsFrame }, // Frame Skip: On
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	420.0,	240.0,	 75.0,	56.0,	19,	24,	20,	20,	Func_FrameSkipOff,		Func_ReturnFromSettingsFrame }, // Frame Skip: Off
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[27],	190.0,	310.0,	 75.0,	56.0,	20,	25,	57,	23,	Func_ScreenMode4_3,		Func_ReturnFromSettingsFrame }, // ScreenMode: 4:3
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[28],	285.0,	310.0,	 75.0,	56.0,	20,	26,	22,	24,	Func_ScreenMode16_9,	Func_ReturnFromSettingsFrame }, // ScreenMode: 16:9
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[29],	380.0,	310.0,	135.0,	56.0,	21,	27,	23,	57,	Func_ScreenForce16_9,	Func_ReturnFromSettingsFrame }, // ScreenMode: Force 16:9	
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[30],	230.0,	380.0,	 75.0,	56.0,	23,	 1,	27,	26,	Func_DitheringNone,		Func_ReturnFromSettingsFrame }, // Dithering: None
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[32],	325.0,	380.0,	110.0,	56.0,	24,	 1,	25,	27,	Func_DitheringDefault,	Func_ReturnFromSettingsFrame }, // Dithering: Game Dependent
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[33],	455.0,	380.0,	110.0,	56.0,	25,	 1,	26,	25,	Func_DitheringAlways,	Func_ReturnFromSettingsFrame }, // Dithering: Always
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[30],	325.0,	430.0,	 75.0,	56.0,	-1,	-1,	29,	29,	Func_ScalingNone,		Func_ReturnFromSettingsFrame }, // Scaling: None
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[31],	420.0,	430.0,	 75.0,	56.0,	-1,	-1,	28,	28,	Func_Scaling2xSai,		Func_ReturnFromSettingsFrame }, // Scaling: 2xSai
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[26],	325.0,	160.0,	 75.0,	56.0,	16,	20,	19,	19,	Func_FpsLimitAuto,		Func_ReturnFromSettingsFrame }, // FPS Limit: Auto
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	420.0,	160.0,	 75.0,	56.0,	17,	21,	18,	18,	Func_FpsLimitOff,		Func_ReturnFromSettingsFrame }, // FPS Limit: Off
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[24],	325.0,	220.0,	 75.0,	56.0,	18,	23,	21,	21,	Func_FrameSkipOn,		Func_ReturnFromSettingsFrame }, // Frame Skip: On
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	420.0,	220.0,	 75.0,	56.0,	19,	24,	20,	20,	Func_FrameSkipOff,		Func_ReturnFromSettingsFrame }, // Frame Skip: Off
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[27],	190.0,	280.0,	 75.0,	56.0,	20,	25,	57,	23,	Func_ScreenMode4_3,		Func_ReturnFromSettingsFrame }, // ScreenMode: 4:3
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[28],	285.0,	280.0,	 75.0,	56.0,	20,	26,	22,	24,	Func_ScreenMode16_9,	Func_ReturnFromSettingsFrame }, // ScreenMode: 16:9
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[29],	380.0,	280.0,	135.0,	56.0,	21,	27,	23,	57,	Func_ScreenForce16_9,	Func_ReturnFromSettingsFrame }, // ScreenMode: Force 16:9	
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[30],	230.0,	340.0,	 75.0,	56.0,	23,	28,	27,	26,	Func_DitheringNone,		Func_ReturnFromSettingsFrame }, // Dithering: None
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[32],	325.0,	340.0,	110.0,	56.0,	24,	28,	25,	27,	Func_DitheringDefault,	Func_ReturnFromSettingsFrame }, // Dithering: Game Dependent
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[33],	455.0,	340.0,	110.0,	56.0,	25,	29,	26,	25,	Func_DitheringAlways,	Func_ReturnFromSettingsFrame }, // Dithering: Always
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[65],	200.0,	400.0,	175.0,	56.0,	26,	 1,	29,	29,	Func_BilinearFilter,	Func_ReturnFromSettingsFrame }, // Filters: Bilinear Filter
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[66],	390.0,	400.0,	175.0,	56.0,	27,	 1,	28,	28,	Func_TrapFilter,		Func_ReturnFromSettingsFrame }, // Filters: Trap Filter
 	//Buttons for Input Tab (starts at button[30])
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[34],	 90.0,	100.0,	220.0,	56.0,	 2,	32,	31,	31,	Func_ConfigureInput,	Func_ReturnFromSettingsFrame }, // Configure Input Assignment
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[35],	325.0,	100.0,	235.0,	56.0,	 2,	32,	30,	30,	Func_ConfigureButtons,	Func_ReturnFromSettingsFrame }, // Configure Button Mappings
@@ -326,7 +332,7 @@ struct ButtonInfo
     //Buttons for Saves Tab (starts at button[55]) ..was[56]
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[16],	490.0,	310.0,	 75.0,	56.0,	12,	15,	54,	56,	Func_FastloadYes,		Func_ReturnFromSettingsFrame }, // Fast load: Yes
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[17],	570.0,	310.0,	 75.0,	56.0,	13,	15,	55,	54,	Func_FastloadNo,		Func_ReturnFromSettingsFrame }, // Fast load: No
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[64],	535.0,	310.0,	 75.0,	56.0,	21,	27,	24,	22,	Func_Screen240p,		Func_ReturnFromSettingsFrame }  // ScreenMode: 240p
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[64],	535.0,	280.0,	 75.0,	56.0,	21,	27,	24,	22,	Func_Screen240p,		Func_ReturnFromSettingsFrame }  // ScreenMode: 240p
 };
 
 struct TextBoxInfo
@@ -346,11 +352,11 @@ struct TextBoxInfo
 	{	NULL,	FRAME_STRINGS[9],	155.0,	408.0,	 1.0,	true }, // Save settings: SD/USB
 	//TextBoxes for Video Tab (starts at textBox[4])
 	{	NULL,	FRAME_STRINGS[18],	190.0,	128.0,	 1.0,	true }, // Show FPS: On/Off
-	{	NULL,	FRAME_STRINGS[19],	190.0,	198.0,	 1.0,	true }, // Limit FPS: Auto/Off
-	{	NULL,	FRAME_STRINGS[20],	190.0,	268.0,	 1.0,	true }, // Frame Skip: On/Off
-	{	NULL,	FRAME_STRINGS[21],	90.0,	338.0,	 1.0,	true }, // ScreenMode: 4x3/16x9/Force16x9/240p
-	{	NULL,	FRAME_STRINGS[22],	130.0,	408.0,	 1.0,	true }, // Dithering: None/Game Dependent/Always
-	{	NULL,	FRAME_STRINGS[23],	190.0,	478.0,	 1.0,	true }, // Scaling: None/2xSai
+	{	NULL,	FRAME_STRINGS[19],	190.0,	188.0,	 1.0,	true }, // Limit FPS: Auto/Off
+	{	NULL,	FRAME_STRINGS[20],	190.0,	248.0,	 1.0,	true }, // Frame Skip: On/Off
+	{	NULL,	FRAME_STRINGS[21],	90.0,	308.0,	 1.0,	true }, // ScreenMode: 4x3/16x9/Force16x9/240p
+	{	NULL,	FRAME_STRINGS[22],	130.0,	368.0,	 1.0,	true }, // Dithering: None/Game Dependent/Always
+	{	NULL,	FRAME_STRINGS[23],	120.0,	428.0,	 1.0,	true }, // Filters
 	//TextBoxes for Input Tab (starts at textBox[10])
 	{	NULL,	FRAME_STRINGS[36],	145.0,	198.0,	 1.0,	true }, // PSX Controller Type: Analog/Digital/Light Gun
 	{	NULL,	FRAME_STRINGS[37],	145.0,	268.0,	 1.0,	true }, // Disable Rumble: Yes/No
@@ -483,7 +489,7 @@ void SettingsFrame::activateSubmenu(int submenu)
 				FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_UP, FRAME_BUTTONS[26].button);
 				FRAME_BUTTONS[i].button->setActive(true);
 			}
-			for (int i = 4; i < 9; i++)
+			for (int i = 4; i < 10; i++)
 				FRAME_TEXTBOXES[i].textBox->setVisible(true);
 			FRAME_BUTTONS[1].button->setSelected(true);
 			if (showFPSonScreen == FPS_SHOW)	FRAME_BUTTONS[16].button->setSelected(true);
@@ -496,11 +502,13 @@ void SettingsFrame::activateSubmenu(int submenu)
 			else if (screenMode == SCREENMODE_16x9)	FRAME_BUTTONS[23].button->setSelected(true);
 			else									FRAME_BUTTONS[24].button->setSelected(true);
 			if (originalMode == ORIGINALMODE_ENABLE)FRAME_BUTTONS[57].button->setSelected(true);
+			if (bilinearFilter == BILINEARFILTER_ENABLE)FRAME_BUTTONS[28].button->setSelected(true);
+			if (trapFilter == TRAPFILTER_ENABLE)FRAME_BUTTONS[29].button->setSelected(true);
 			FRAME_BUTTONS[57].button->setVisible(true);
 			FRAME_BUTTONS[57].button->setActive(true);
 
 			FRAME_BUTTONS[25+iUseDither].button->setSelected(true);
-			for (int i = 16; i < 28; i++)
+			for (int i = 16; i < 30; i++)
 			{
 				FRAME_BUTTONS[i].button->setVisible(true);
 				FRAME_BUTTONS[i].button->setActive(true);
@@ -1149,14 +1157,34 @@ void Func_DitheringAlways()
 	GPUsetframelimit(0);
 }
 
-void Func_ScalingNone()
+void Func_BilinearFilter()
 {
-	//TODO: Implement 2xSaI scaling and then make it an option.
+	if(bilinearFilter == BILINEARFILTER_ENABLE)
+	{
+		FRAME_BUTTONS[28].button->setSelected(false);
+		bilinearFilter = BILINEARFILTER_DISABLE;
+	}
+	else
+	{
+		FRAME_BUTTONS[28].button->setSelected(true);
+		bilinearFilter = BILINEARFILTER_ENABLE;
+	}
 }
 
-void Func_Scaling2xSai()
+void Func_TrapFilter()
 {
-	//TODO: Implement 2xSaI scaling and then make it an option.
+	if(trapFilter == TRAPFILTER_ENABLE)
+	{
+		FRAME_BUTTONS[29].button->setSelected(false);
+		trapFilter = TRAPFILTER_DISABLE;
+		VIDEO_SetTrapFilter(0);
+	}
+	else
+	{
+		FRAME_BUTTONS[29].button->setSelected(true);
+		trapFilter = TRAPFILTER_ENABLE;
+		VIDEO_SetTrapFilter(1);
+	}
 }
 
 void Func_ConfigureInput()

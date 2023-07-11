@@ -282,8 +282,11 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 		memset(GXtexture,0,iResX_Max*iResY_Max*2);
 		GX_InitTexObj(&GXtexobj, GXtexture, width, height, fmt, GX_CLAMP, GX_CLAMP, GX_FALSE);
 	}
-	if (originalMode == ORIGINALMODE_ENABLE)
+	
+	if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_DISABLE)
 		GX_InitTexObjFilterMode(&GXtexobj, GX_NEAR, GX_NEAR);
+	else
+		GX_InitTexObjFilterMode(&GXtexobj, GX_LINEAR, GX_LINEAR);
 
 	if(PSXDisplay.RGB24) {
 		vu8 *wgPipePtr = GX_RedirectWriteGatherPipe(GXtexture);

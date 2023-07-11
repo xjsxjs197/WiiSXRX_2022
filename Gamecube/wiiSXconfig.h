@@ -252,6 +252,20 @@ enum originalMode
 	ORIGINALMODE_ENABLE,
 };
 
+extern char bilinearFilter;
+enum bilinearFilter
+{
+	BILINEARFILTER_DISABLE=0,
+	BILINEARFILTER_ENABLE,
+};
+
+extern char trapFilter;
+enum trapFilter
+{
+	TRAPFILTER_DISABLE=0,
+	TRAPFILTER_ENABLE,
+};
+
 extern const unsigned char En_dat[];
 extern const unsigned int  En_dat_size;
 extern char canChangeFont;

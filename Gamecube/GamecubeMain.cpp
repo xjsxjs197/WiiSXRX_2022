@@ -135,6 +135,8 @@ char oldLang = 0;
 char canChangeFont = 0;
 char fastLoad = 0;
 char originalMode = 0;
+char bilinearFilter = 1;
+char trapFilter = 1;
 
 #define CONFIG_STRING_TYPE 0
 #define CONFIG_STRING_SIZE 256
@@ -183,7 +185,9 @@ static struct {
   { "smbipaddr", smbIpAddr, CONFIG_STRING_TYPE, CONFIG_STRING_TYPE },
   { "lang", &lang, ENGLISH, ITALIAN },
   { "fastLoad", &fastLoad, 0, 1 },
-  { "TVMode", &originalMode, ORIGINALMODE_DISABLE, ORIGINALMODE_ENABLE }
+  { "TVMode", &originalMode, ORIGINALMODE_DISABLE, ORIGINALMODE_ENABLE },
+  { "BilinearFilter", &bilinearFilter, BILINEARFILTER_DISABLE, BILINEARFILTER_ENABLE },
+  { "TrapFilter", &trapFilter, TRAPFILTER_DISABLE, TRAPFILTER_ENABLE }
 };
 void handleConfigPair(char* kv);
 void readConfig(FILE* f);

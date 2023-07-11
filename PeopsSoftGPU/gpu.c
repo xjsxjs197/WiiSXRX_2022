@@ -799,7 +799,6 @@ void PEOPS_GPUupdateLace(void)
       updateDisplay();                                 // -> update display
     }
   }
-
  bDoVSyncUpdate=FALSE;                                 // vsync done
 }
 
