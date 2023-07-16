@@ -116,6 +116,9 @@ msgstr "화면 모드"
 msgid "Dithering"
 msgstr "디더링"
 
+msgid "Filters"
+msgstr "필터"
+
 msgid "Scaling"
 msgstr "스케일링"
 
@@ -124,6 +127,9 @@ msgstr "자동"
 
 msgid "Force 16:9"
 msgstr "강제 16:9"
+
+msgid "240p"
+msgstr ""
 
 msgid "None"
 msgstr "없음"
@@ -136,6 +142,15 @@ msgstr ""
 
 msgid "Default"
 msgstr "기본값"
+
+msgid "Always"
+msgstr "항상"
+
+msgid "Bilinear Filter"
+msgstr "이중선형 필터"
+
+msgid "Trap Filter"
+msgstr "트랩 플터"
 
 msgid "Always"
 msgstr "항상"
