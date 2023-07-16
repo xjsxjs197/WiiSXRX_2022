@@ -59,10 +59,11 @@ bool 		   backFromMenu=0;
 //Some GX specific variables
 #define RESX_MAX 1024	//Vmem width
 #define RESY_MAX 512	//Vmem height
+#define GXRESX_MAX 1366	//GX Texture width 1024 * 1.33
 //int	iResX_Max=640;	//Max FB Width
 int		iResX_Max=RESX_MAX;
 int		iResY_Max=RESY_MAX;
-static unsigned char	GXtexture[RESX_MAX*RESY_MAX*2] __attribute__((aligned(32)));
+static unsigned char	GXtexture[GXRESX_MAX*RESY_MAX*2] __attribute__((aligned(32)));
 char *	pCaptionText;
 
 extern u32* xfb[2];	/*** Framebuffers ***/
@@ -108,7 +109,7 @@ void DoBufferSwap(void)                                // SWAP BUFFERS
 
 	if(iOldDX!=iDX || iOldDY!=iDY)
 	{
-		memset(GXtexture, 0, RESX_MAX*RESY_MAX*2);
+		memset(GXtexture, 0, GXRESX_MAX*RESY_MAX*2);
 		iOldDX=iDX;iOldDY=iDY;
 	}
 
@@ -220,7 +221,7 @@ unsigned long ulInitDisplay(void)
 		BuildDispMenu(0);
 	}
 
-	memset(GXtexture,0,iResX_Max*iResY_Max*2);
+	memset(GXtexture,0,GXRESX_MAX*iResY_Max*2);
 
 	return (unsigned long)GXtexture;		//This isn't right, but didn't want to return 0..
 }
@@ -279,7 +280,7 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 		oldwidth = width;
 		oldheight = height;
 		oldformat = fmt;
-		memset(GXtexture,0,iResX_Max*iResY_Max*2);
+		memset(GXtexture,0,GXRESX_MAX*iResY_Max*2);
 		GX_InitTexObj(&GXtexobj, GXtexture, width, height, fmt, GX_CLAMP, GX_CLAMP, GX_FALSE);
 	}
 	
