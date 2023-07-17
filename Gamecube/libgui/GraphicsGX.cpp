@@ -84,8 +84,8 @@ extern "C" void switchToTVMode(long gpuStatReg, short dWidth, short dHeight, boo
 	{
 		GX_SetCopyFilter(rmode->aa,rmode->sample_pattern,GX_TRUE,rmode->vfilter);
 		if(!retMenu)
-	{
-		rmode = &gvmode;	
+		{
+			rmode = &gvmode;	
 			rmode->fbWidth = dWidth;
 			rmode->efbHeight = dHeight;
 			rmode->xfbHeight = dHeight;

@@ -205,7 +205,7 @@ static char FRAME_STRINGS[67][24] =
 	  "4:3",
 	  "16:9",
 	  "Force 16:9",
-	  "NoneNone",
+	  "None",
 	  "2xSaI",
 	  "Default",
 	  "Always",

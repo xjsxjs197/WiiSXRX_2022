@@ -59,7 +59,7 @@ bool 		   backFromMenu=0;
 //Some GX specific variables
 #define RESX_MAX 1024	//Vmem width
 #define RESY_MAX 512	//Vmem height
-#define GXRESX_MAX 1366	//GX Texture width 1024 * 1.33
+#define GXRESX_MAX 1366	//1024 * 1.33 for ARGB
 //int	iResX_Max=640;	//Max FB Width
 int		iResX_Max=RESX_MAX;
 int		iResY_Max=RESY_MAX;
