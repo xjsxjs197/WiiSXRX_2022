@@ -61,7 +61,7 @@ extern "C" void VIDEO_SetTrapFilter(bool enable);
 GXRModeObj gvmode;
 GXRModeObj mgvmode;
 
-extern "C" void switchToTVMode(long gpuStatReg, short dWidth, short dHeight, bool retMenu){
+extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
 	GXRModeObj *rmode;
 	f32 yscale;
 	u32 xfbHeight;	
@@ -80,7 +80,7 @@ extern "C" void switchToTVMode(long gpuStatReg, short dWidth, short dHeight, boo
 		dHeight = rmode->viHeight;
 	
 	
-	if ((gpuStatReg & 0x80000))
+	if ((dHeight > 256))
 	{
 		GX_SetCopyFilter(rmode->aa,rmode->sample_pattern,GX_TRUE,rmode->vfilter);
 		if(!retMenu)
