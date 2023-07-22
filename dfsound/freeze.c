@@ -41,6 +41,7 @@ typedef struct
  int            ReleaseTime;
  int            ReleaseStartTime;
  int            ReleaseVol;
+ int            EnvelopeCounter;
  int            lTime;
  int            lVolume;
 } ADSRInfo;
@@ -58,6 +59,7 @@ typedef struct
  int            ReleaseModeExp;
  int            ReleaseRate;
  int            EnvelopeVol;
+ int            EnvelopeCounter;
  int            lVolume;
  int            lDummy1;
  int            lDummy2;
@@ -174,6 +176,7 @@ static void save_channel(SPUCHAN_orig *d, const SPUCHAN *s, int ch)
  d->ADSRX.ReleaseModeExp = s->ADSRX.ReleaseModeExp;
  d->ADSRX.ReleaseRate = s->ADSRX.ReleaseRate;
  d->ADSRX.EnvelopeVol = s->ADSRX.EnvelopeVol;
+ d->ADSRX.EnvelopeCounter = s->ADSRX.EnvelopeCounter;
  d->ADSRX.lVolume = d->bOn; // hmh
 }
 
@@ -209,6 +212,7 @@ static void load_channel(SPUCHAN *d, const SPUCHAN_orig *s, int ch)
  d->ADSRX.ReleaseModeExp = s->ADSRX.ReleaseModeExp;
  d->ADSRX.ReleaseRate = s->ADSRX.ReleaseRate;
  d->ADSRX.EnvelopeVol = s->ADSRX.EnvelopeVol;
+ d->ADSRX.EnvelopeCounter = s->ADSRX.EnvelopeCounter;
  if (s->bOn) spu.dwChannelsAudible |= 1<<ch;
  else d->ADSRX.EnvelopeVol = 0;
 }

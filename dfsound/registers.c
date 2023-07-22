@@ -89,7 +89,12 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
         spu.s_chan[ch].ADSRX.AttackModeExp=(lval&0x8000)?1:0;
         spu.s_chan[ch].ADSRX.AttackRate=(lval>>8) & 0x007f;
         spu.s_chan[ch].ADSRX.DecayRate=(lval>>4) & 0x000f;
-        spu.s_chan[ch].ADSRX.SustainLevel=lval & 0x000f;
+        //spu.s_chan[ch].ADSRX.SustainLevel=lval & 0x000f;
+        spu.s_chan[ch].ADSRX.SustainLevel = ((lval & 0x000f) + 1) * 0x800;
+        if (spu.s_chan[ch].ADSRX.SustainLevel > 32767)
+        {
+            spu.s_chan[ch].ADSRX.SustainLevel = 32767;
+        }
         //---------------------------------------------//
        }
       break;
@@ -302,7 +307,7 @@ unsigned short CALLBACK DF_SPUreadRegister(unsigned long reg)
        if(spu.dwNewChannel&(1<<ch)) return 1;          // we are started, but not processed? return 1
        if((spu.dwChannelsAudible&(1<<ch)) &&                 // same here... we haven't decoded one sample yet, so no envelope yet. return 1 as well
           //!spu.s_chan[ch].ADSRX.EnvelopeVol)
-          spu.s_chan[ch].ADSRX.EnvelopeVol < 1.0)
+          spu.s_chan[ch].ADSRX.EnvelopeVol <= 0)
         return 1;
        //return (unsigned short)(spu.s_chan[ch].ADSRX.EnvelopeVol>>16);
        return (unsigned short)(spu.s_chan[ch].ADSRX.EnvelopeVol);
@@ -379,6 +384,7 @@ static void SoundOff(int start,int end,unsigned short val)
    if(val&1)
     {
      spu.s_chan[ch].ADSRX.State = ADSR_RELEASE;
+     spu.s_chan[ch].ADSRX.EnvelopeCounter = 0;
 
      // Jungle Book - Rhythm 'n Groove
      // - turns off buzzing sound (loop hangs)

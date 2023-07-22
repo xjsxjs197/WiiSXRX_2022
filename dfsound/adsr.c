@@ -26,412 +26,371 @@
 // ADSR func
 ////////////////////////////////////////////////////////////////////////
 
-//static int RateTableAdd[128];
-//static int RateTableSub[128];
-static float RateTableAdd[128];
-static float RateTableSub[128];
+static int RateTableAdd[128];
+static int RateTableSub[128];
+static int EnvelopeTicks[128];
 
 void InitADSR(void)                                    // INIT ADSR
 {
- int lcv, denom;
+    int lcv, denom;
 
- // Optimize table - Dr. Hell ADSR math
- for (lcv = 0; lcv < 48; lcv++)
- {
-  RateTableAdd[lcv] = (float)((7 - (lcv&3)) << (11 - (lcv >> 2)));
-  RateTableSub[lcv] = (float)((-8 + (lcv&3)) << (11 - (lcv >> 2)));
- }
+    // Optimize table - Dr. Hell ADSR math
+    for (lcv = 0; lcv < 48; lcv++)
+    {
+        RateTableAdd[lcv] = (7 - (lcv & 3)) << (11 - (lcv >> 2));
+        RateTableSub[lcv] = (-8 + (lcv & 3)) << (11 - (lcv >> 2));
+        EnvelopeTicks[lcv] = 1;
+    }
 
- for (; lcv < 128; lcv++)
- {
-  denom = 1 << ((lcv>>2) - 11);
-
-  RateTableAdd[lcv] = (float)((7 - (lcv&3))) / (float)denom;
-  RateTableSub[lcv] = (float)((-8 + (lcv&3))) / (float)denom;
-
- }
+    for (; lcv < 128; lcv++)
+    {
+        RateTableAdd[lcv] = (7 - (lcv & 3));
+        RateTableSub[lcv] = (-8 + (lcv & 3));
+        EnvelopeTicks[lcv] = 1 << ((lcv>>2) - 11);
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////
 
 INLINE void StartADSR(int ch)                          // MIX ADSR
 {
- spu.s_chan[ch].ADSRX.State = ADSR_ATTACK;             // and init some adsr vars
- spu.s_chan[ch].ADSRX.EnvelopeVol = 0.0;
+    spu.s_chan[ch].ADSRX.State = ADSR_ATTACK;             // and init some adsr vars
+    spu.s_chan[ch].ADSRX.EnvelopeVol = 0;
+    spu.s_chan[ch].ADSRX.EnvelopeCounter = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////
 
+#define CheckValStepExp() \
+    if (--EnvelopeCounter <= 0) \
+    { \
+        EnvelopeCounter = counter; \
+        EnvelopeVol += ((val * EnvelopeVol) >> 15); \
+    }
+
+#define CheckValStep() \
+    if (--EnvelopeCounter <= 0) \
+    { \
+        EnvelopeCounter = counter; \
+        EnvelopeVol += val; \
+    }
+
+#define SetVal() \
+    /*ChanBuf[ns] = (ChanBuf[ns] * (EnvelopeVol >> 5)) >> 10;*/ \
+    ChanBuf[ns] = (ChanBuf[ns] * EnvelopeVol) >> 15;
+
+#define SetValDecWithBreak() \
+    if (EnvelopeVol <= 0) \
+    { \
+        EnvelopeVol = 0; \
+        EnvelopeCounter = 0; \
+        break; \
+    } \
+    SetVal();
+
+#define SetValDec() \
+    if (EnvelopeVol <= 0) \
+    { \
+        EnvelopeVol = 0; \
+        EnvelopeCounter = 0; \
+    } \
+    SetVal();
+
+#define DoReduceCommon(rate, ModeExp) \
+    val = RateTableSub[rate]; \
+    counter = EnvelopeTicks[rate]; \
+    if (ModeExp) \
+    { \
+        for (; ns < ns_to; ns++) \
+        { \
+            CheckValStepExp(); \
+            SetValDecWithBreak(); \
+        } \
+    } \
+    else \
+    { \
+        for (; ns < ns_to; ns++) \
+        { \
+            CheckValStep(); \
+            SetValDecWithBreak(); \
+        } \
+    }
+
+#define ResetIncCounterVal(rate, modeExp) \
+    val = RateTableAdd[rate]; \
+    counter = EnvelopeTicks[rate]; \
+    if (modeExp && EnvelopeVol >= 0x6000) \
+    { \
+        if (rate < 40) \
+        { \
+            val >>= 2; \
+        } \
+        else if (rate >= 44) \
+        { \
+            counter >>= 2; \
+        } \
+        else \
+        { \
+            val >>= 1; \
+            counter >>= 1; \
+        } \
+    }
+
 static int MixADSR(ADSRInfoEx *adsr, int ns_to)
 {
- float EnvelopeVol = adsr->EnvelopeVol;
- float val, level, sumTmp;
- int ns = 0, rto;
+    int EnvelopeVol = adsr->EnvelopeVol;
+    int EnvelopeCounter = adsr->EnvelopeCounter;
+    int val, level, counter;
+    int ns = 0, rto;
 
- if (adsr->State == ADSR_RELEASE)
- {
-   val = RateTableSub[adsr->ReleaseRate * 4];
+    if (adsr->State == ADSR_RELEASE)
+    {
+        DoReduceCommon(adsr->ReleaseRate * 4, adsr->ReleaseModeExp);
 
-   if (adsr->ReleaseModeExp)
-   {
-     for (; ns < ns_to; ns++)
-     {
-       EnvelopeVol += (val * EnvelopeVol) / 32768.0;
-       if (EnvelopeVol <= 0.0)
-       {
-           EnvelopeVol = 0.0;
-           break;
-       }
+        goto done;
+    }
 
-       //ChanBuf[ns] *= (short)(EnvelopeVol / 32.0);
-       ChanBuf[ns] = (int)((float)ChanBuf[ns] * EnvelopeVol / 32.0);
-       ChanBuf[ns] >>= 10;
-     }
-   }
-   else
-   {
-     for (; ns < ns_to; ns++)
-     {
-       EnvelopeVol += val;
-       if (EnvelopeVol <= 0.0)
-       {
-           EnvelopeVol = 0.0;
-           break;
-       }
+    switch (adsr->State)
+    {
+    case ADSR_ATTACK:                                   // -> attack
+        ResetIncCounterVal(adsr->AttackRate, adsr->AttackModeExp);
 
-       ChanBuf[ns] = (int)((float)ChanBuf[ns] * EnvelopeVol / 32.0);
-       //ChanBuf[ns] *= (short)(EnvelopeVol / 32.0);
-       ChanBuf[ns] >>= 10;
-     }
-   }
+        for (; ns < ns_to; ns++)
+        {
+            CheckValStep();
+            if (EnvelopeVol > 32767) // overflow
+            {
+                EnvelopeVol = 32767;
+                EnvelopeCounter = 0;
+                adsr->State = ADSR_DECAY;
+                ns++; // sample is good already
+                goto decay;
+            }
 
-   goto done;
- }
+            SetVal();
+        }
 
- switch (adsr->State)
- {
-   case ADSR_ATTACK:                                   // -> attack
-     rto = 0;
-     if (adsr->AttackModeExp && EnvelopeVol > 24576.0)
-       rto = 8;
-     val = RateTableAdd[adsr->AttackRate + rto];
+        break;
 
-     for (; ns < ns_to; ns++)
-     {
-       EnvelopeVol += val;
-       if (EnvelopeVol > 32767.0) // overflow
-       {
-         EnvelopeVol = 32767.0;
-         adsr->State = ADSR_DECAY;
-         ns++; // sample is good already
-         goto decay;
-       }
+        //--------------------------------------------------//
+decay:
+    case ADSR_DECAY:                                    // -> decay
+        val = RateTableSub[adsr->DecayRate * 4];
+        counter = EnvelopeTicks[adsr->DecayRate * 4];
+        level = (adsr->SustainLevel);
 
-       ChanBuf[ns] = (int)((float)ChanBuf[ns] * EnvelopeVol / 32.0);
-       //ChanBuf[ns] *= (short)(EnvelopeVol / 32.0);
-       ChanBuf[ns] >>= 10;
-     }
+        for (; ns < ns_to; )
+        {
+            CheckValStepExp();
+            SetValDec();
 
-     break;
+            ns++;
 
-   //--------------------------------------------------//
-   decay:
-   case ADSR_DECAY:                                    // -> decay
-     val = RateTableSub[adsr->DecayRate * 4];
-     level = (adsr->SustainLevel);
+            if (EnvelopeVol < level)
+            //if (((short)(EnvelopeVol >> 11) & 0xf) <= level)
+            {
+                adsr->State = ADSR_SUSTAIN;
+                goto sustain;
+            }
+        }
+        break;
 
-     for (; ns < ns_to; )
-     {
-       EnvelopeVol += ((val * EnvelopeVol) / 32768.0);
-       if (EnvelopeVol < 0.0)
-       {
-           EnvelopeVol = 0.0;
-       }
+        //--------------------------------------------------//
+sustain:
+    case ADSR_SUSTAIN:                                  // -> sustain
+        if (adsr->SustainIncrease)
+        {
+            if (EnvelopeVol >= 32767)
+            {
+                ns = ns_to;
+                break;
+            }
 
-       ChanBuf[ns] = (int)((float)ChanBuf[ns] * EnvelopeVol / 32.0);
-       //ChanBuf[ns] *= (short)(EnvelopeVol / 32.0);
-       ChanBuf[ns] >>= 10;
-       ns++;
+            ResetIncCounterVal(adsr->SustainRate, adsr->SustainModeExp);
 
-       //if (EnvelopeVol < level)
-       if (((short)(EnvelopeVol / 2048.0) & 0xf) <= level)
-       {
-         adsr->State = ADSR_SUSTAIN;
-         goto sustain;
-       }
-     }
-     break;
+            for (; ns < ns_to; ns++)
+            {
+                CheckValStep();
 
-   //--------------------------------------------------//
-   sustain:
-   case ADSR_SUSTAIN:                                  // -> sustain
-     if (adsr->SustainIncrease)
-     {
-       if (EnvelopeVol > 32767.0)
-       {
-         EnvelopeVol = 32767.0;
-         val = 0.0;
-       }
-       else
-       {
-         rto = 0;
-         if (adsr->SustainModeExp && EnvelopeVol > 24576.0)
-           rto = 8;
-         val = RateTableAdd[adsr->SustainRate + rto];
-       }
+                if (EnvelopeVol >= 32767)
+                {
+                    EnvelopeVol = 32767;
+                    EnvelopeCounter = 0;
+                    ns = ns_to;
+                    break;
+                }
 
-       for (; ns < ns_to; ns++)
-       {
-         EnvelopeVol += val;
-         if (EnvelopeVol > 32767.0)
-         {
-           EnvelopeVol = 32767.0;
-         }
-
-         ChanBuf[ns] = (int)((float)ChanBuf[ns] * EnvelopeVol / 32.0);
-         //ChanBuf[ns] *= (short)(EnvelopeVol / 32.0);
-         ChanBuf[ns] >>= 10;
-       }
-     }
-     else
-     {
-       if (EnvelopeVol < 0.0)
-       {
-         EnvelopeVol = 0.0;
-         val = 0.0;
-       }
-       else
-       {
-         val = RateTableSub[adsr->SustainRate];
-       }
-
-       if (adsr->SustainModeExp)
-       {
-         for (; ns < ns_to; ns++)
-         {
-           EnvelopeVol += ((val * EnvelopeVol) / 32768.0);
-           if (EnvelopeVol < 0.0)
-           {
-               EnvelopeVol = 0.0;
-           }
-
-           ChanBuf[ns] = (int)((float)ChanBuf[ns] * EnvelopeVol / 32.0);
-           //ChanBuf[ns] *= (short)(EnvelopeVol / 32.0);
-           ChanBuf[ns] >>= 10;
-         }
-       }
-       else
-       {
-         for (; ns < ns_to; ns++)
-         {
-           EnvelopeVol += val;
-           if (EnvelopeVol < 0.0)
-           {
-               EnvelopeVol = 0.0;
-           }
-
-           ChanBuf[ns] = (int)((float)ChanBuf[ns] * EnvelopeVol / 32.0);
-           //ChanBuf[ns] *= (short)(EnvelopeVol / 32.0);
-           ChanBuf[ns] >>= 10;
-         }
-       }
-     }
-     break;
- }
+                SetVal();
+            }
+        }
+        else
+        {
+            DoReduceCommon(adsr->SustainRate, adsr->SustainModeExp);
+        }
+        break;
+    }
 
 done:
- adsr->EnvelopeVol = EnvelopeVol;
- return ns;
+    adsr->EnvelopeVol = EnvelopeVol;
+    adsr->EnvelopeCounter = EnvelopeCounter;
+    return ns;
 }
 
-//void InitADSR(void)                                    // INIT ADSR
-//{
-// int lcv, denom;
-//
-// // Optimize table - Dr. Hell ADSR math
-// for (lcv = 0; lcv < 48; lcv++)
-// {
-//  RateTableAdd[lcv] = (7 - (lcv&3)) << (11 + 16 - (lcv >> 2));
-//  RateTableSub[lcv] = (-8 + (lcv&3)) << (11 + 16 - (lcv >> 2));
-// }
-//
-// for (; lcv < 128; lcv++)
-// {
-//  denom = 1 << ((lcv>>2) - 11);
-//
-//  RateTableAdd[lcv] = ((7 - (lcv&3)) << 16) / denom;
-//  RateTableSub[lcv] = ((-8 + (lcv&3)) << 16) / denom;
-//
-//  // XXX: this is wrong, we need more bits..
-//  if (RateTableAdd[lcv] == 0)
-//    RateTableAdd[lcv] = 1;
-// }
-//}
-//
-//////////////////////////////////////////////////////////////////////////
-//
-//INLINE void StartADSR(int ch)                          // MIX ADSR
-//{
-// spu.s_chan[ch].ADSRX.State = ADSR_ATTACK;             // and init some adsr vars
-// spu.s_chan[ch].ADSRX.EnvelopeVol = 0;
-//}
-//
-//////////////////////////////////////////////////////////////////////////
-//
+
 //static int MixADSR(ADSRInfoEx *adsr, int ns_to)
 //{
-// int EnvelopeVol = adsr->EnvelopeVol;
-// int ns = 0, val, rto, level;
+//    int EnvelopeVol = adsr->EnvelopeVol;
+//    int ns = 0, val, rto, level;
 //
-// if (adsr->State == ADSR_RELEASE)
-// {
-//   val = RateTableSub[adsr->ReleaseRate * 4];
+//    if (adsr->State == ADSR_RELEASE)
+//    {
+//        val = RateTableSub[adsr->ReleaseRate * 4];
 //
-//   if (adsr->ReleaseModeExp)
-//   {
-//     for (; ns < ns_to; ns++)
-//     {
-//       EnvelopeVol += ((long long)val * EnvelopeVol) >> (15+16);
-//       if (EnvelopeVol <= 0)
-//         break;
+//        if (adsr->ReleaseModeExp)
+//        {
+//            for (; ns < ns_to; ns++)
+//            {
+//                EnvelopeVol += ((long long)val * EnvelopeVol) >> (15+16);
+//                if (EnvelopeVol <= 0)
+//                    break;
 //
-//       ChanBuf[ns] *= EnvelopeVol >> 21;
-//       ChanBuf[ns] >>= 10;
-//     }
-//   }
-//   else
-//   {
-//     for (; ns < ns_to; ns++)
-//     {
-//       EnvelopeVol += val;
-//       if (EnvelopeVol <= 0)
-//         break;
+//                ChanBuf[ns] *= EnvelopeVol >> 21;
+//                ChanBuf[ns] >>= 10;
+//            }
+//        }
+//        else
+//        {
+//            for (; ns < ns_to; ns++)
+//            {
+//                EnvelopeVol += val;
+//                if (EnvelopeVol <= 0)
+//                    break;
 //
-//       ChanBuf[ns] *= EnvelopeVol >> 21;
-//       ChanBuf[ns] >>= 10;
-//     }
-//   }
+//                ChanBuf[ns] *= EnvelopeVol >> 21;
+//                ChanBuf[ns] >>= 10;
+//            }
+//        }
 //
-//   goto done;
-// }
+//        goto done;
+//    }
 //
-// switch (adsr->State)
-// {
-//   case ADSR_ATTACK:                                   // -> attack
-//     rto = 0;
-//     if (adsr->AttackModeExp && EnvelopeVol >= 0x60000000)
-//       rto = 8;
-//     val = RateTableAdd[adsr->AttackRate + rto];
+//    switch (adsr->State)
+//    {
+//    case ADSR_ATTACK:                                   // -> attack
+//        rto = 0;
+//        if (adsr->AttackModeExp && EnvelopeVol >= 0x60000000)
+//            rto = 8;
+//        val = RateTableAdd[adsr->AttackRate + rto];
 //
-//     for (; ns < ns_to; ns++)
-//     {
-//       EnvelopeVol += val;
-//       if (EnvelopeVol < 0)
+//        for (; ns < ns_to; ns++)
+//        {
+//            EnvelopeVol += val;
+//            if (EnvelopeVol < 0)
+//                break;
+//
+//            ChanBuf[ns] *= EnvelopeVol >> 21;
+//            ChanBuf[ns] >>= 10;
+//        }
+//
+//        if (EnvelopeVol < 0) // overflow
+//        {
+//            EnvelopeVol = 0x7fffffff;
+//            adsr->State = ADSR_DECAY;
+//            ns++; // sample is good already
+//            goto decay;
+//        }
 //        break;
 //
-//       ChanBuf[ns] *= EnvelopeVol >> 21;
-//       ChanBuf[ns] >>= 10;
-//     }
+//        //--------------------------------------------------//
+//decay:
+//    case ADSR_DECAY:                                    // -> decay
+//        val = RateTableSub[adsr->DecayRate * 4];
+//        level = adsr->SustainLevel;
 //
-//     if (EnvelopeVol < 0) // overflow
-//     {
-//       EnvelopeVol = 0x7fffffff;
-//       adsr->State = ADSR_DECAY;
-//       ns++; // sample is good already
-//       goto decay;
-//     }
-//     break;
+//        for (; ns < ns_to; )
+//        {
+//            EnvelopeVol += ((long long)val * EnvelopeVol) >> (15+16);
+//            if (EnvelopeVol < 0)
+//                EnvelopeVol = 0;
 //
-//   //--------------------------------------------------//
-//   decay:
-//   case ADSR_DECAY:                                    // -> decay
-//     val = RateTableSub[adsr->DecayRate * 4];
-//     level = adsr->SustainLevel;
+//            ChanBuf[ns] *= EnvelopeVol >> 21;
+//            ChanBuf[ns] >>= 10;
+//            ns++;
 //
-//     for (; ns < ns_to; )
-//     {
-//       EnvelopeVol += ((long long)val * EnvelopeVol) >> (15+16);
-//       if (EnvelopeVol < 0)
-//         EnvelopeVol = 0;
+//            if (((EnvelopeVol >> 27) & 0xf) <= level)
+//            {
+//                adsr->State = ADSR_SUSTAIN;
+//                goto sustain;
+//            }
+//        }
+//        break;
 //
-//       ChanBuf[ns] *= EnvelopeVol >> 21;
-//       ChanBuf[ns] >>= 10;
-//       ns++;
+//        //--------------------------------------------------//
+//sustain:
+//    case ADSR_SUSTAIN:                                  // -> sustain
+//        if (adsr->SustainIncrease)
+//        {
+//            if (EnvelopeVol >= 0x7fff0000)
+//            {
+//                ns = ns_to;
+//                break;
+//            }
 //
-//       if (((EnvelopeVol >> 27) & 0xf) <= level)
-//       {
-//         adsr->State = ADSR_SUSTAIN;
-//         goto sustain;
-//       }
-//     }
-//     break;
+//            rto = 0;
+//            if (adsr->SustainModeExp && EnvelopeVol >= 0x60000000)
+//                rto = 8;
+//            val = RateTableAdd[adsr->SustainRate + rto];
 //
-//   //--------------------------------------------------//
-//   sustain:
-//   case ADSR_SUSTAIN:                                  // -> sustain
-//     if (adsr->SustainIncrease)
-//     {
-//       if (EnvelopeVol >= 0x7fff0000)
-//       {
-//         ns = ns_to;
-//         break;
-//       }
+//            for (; ns < ns_to; ns++)
+//            {
+//                EnvelopeVol += val;
+//                if ((unsigned int)EnvelopeVol >= 0x7fe00000)
+//                {
+//                    EnvelopeVol = 0x7fffffff;
+//                    ns = ns_to;
+//                    break;
+//                }
 //
-//       rto = 0;
-//       if (adsr->SustainModeExp && EnvelopeVol >= 0x60000000)
-//         rto = 8;
-//       val = RateTableAdd[adsr->SustainRate + rto];
+//                ChanBuf[ns] *= EnvelopeVol >> 21;
+//                ChanBuf[ns] >>= 10;
+//            }
+//        }
+//        else
+//        {
+//            val = RateTableSub[adsr->SustainRate];
+//            if (adsr->SustainModeExp)
+//            {
+//                for (; ns < ns_to; ns++)
+//                {
+//                    EnvelopeVol += ((long long)val * EnvelopeVol) >> (15+16);
+//                    if (EnvelopeVol < 0)
+//                        break;
 //
-//       for (; ns < ns_to; ns++)
-//       {
-//         EnvelopeVol += val;
-//         if ((unsigned int)EnvelopeVol >= 0x7fe00000)
-//         {
-//           EnvelopeVol = 0x7fffffff;
-//           ns = ns_to;
-//           break;
-//         }
+//                    ChanBuf[ns] *= EnvelopeVol >> 21;
+//                    ChanBuf[ns] >>= 10;
+//                }
+//            }
+//            else
+//            {
+//                for (; ns < ns_to; ns++)
+//                {
+//                    EnvelopeVol += val;
+//                    if (EnvelopeVol < 0)
+//                        break;
 //
-//         ChanBuf[ns] *= EnvelopeVol >> 21;
-//         ChanBuf[ns] >>= 10;
-//       }
-//     }
-//     else
-//     {
-//       val = RateTableSub[adsr->SustainRate];
-//       if (adsr->SustainModeExp)
-//       {
-//         for (; ns < ns_to; ns++)
-//         {
-//           EnvelopeVol += ((long long)val * EnvelopeVol) >> (15+16);
-//           if (EnvelopeVol < 0)
-//             break;
-//
-//           ChanBuf[ns] *= EnvelopeVol >> 21;
-//           ChanBuf[ns] >>= 10;
-//         }
-//       }
-//       else
-//       {
-//         for (; ns < ns_to; ns++)
-//         {
-//           EnvelopeVol += val;
-//           if (EnvelopeVol < 0)
-//             break;
-//
-//           ChanBuf[ns] *= EnvelopeVol >> 21;
-//           ChanBuf[ns] >>= 10;
-//         }
-//       }
-//     }
-//     break;
-// }
+//                    ChanBuf[ns] *= EnvelopeVol >> 21;
+//                    ChanBuf[ns] >>= 10;
+//                }
+//            }
+//        }
+//        break;
+//    }
 //
 //done:
-// adsr->EnvelopeVol = EnvelopeVol;
-// return ns;
+//    adsr->EnvelopeVol = EnvelopeVol;
+//    return ns;
 //}
-//
+
 //static int SkipADSR(ADSRInfoEx *adsr, int ns_to)
 //{
 // int EnvelopeVol = adsr->EnvelopeVol;

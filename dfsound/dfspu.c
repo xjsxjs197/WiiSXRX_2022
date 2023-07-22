@@ -790,6 +790,7 @@ static void do_channels(int ns_to)
     spu.dwChannelsAudible &= ~(1 << ch);
     s_chan->ADSRX.State = ADSR_RELEASE;
     s_chan->ADSRX.EnvelopeVol = 0;
+    s_chan->ADSRX.EnvelopeCounter = 0;
     memset(&ChanBuf[d], 0, (ns_to - d) * sizeof(ChanBuf[0]));
    }
 
