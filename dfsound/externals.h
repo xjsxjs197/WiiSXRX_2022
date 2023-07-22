@@ -82,11 +82,11 @@ typedef struct
  unsigned char  ReleaseModeExp:1;
  unsigned char  AttackRate;
  unsigned char  DecayRate;
- unsigned char  SustainLevel;
+ int            SustainLevel;
  unsigned char  SustainRate;
  unsigned char  ReleaseRate;
- float          EnvelopeVol;
- //int            EnvelopeVol;
+ int            EnvelopeVol;
+ int            EnvelopeCounter;
 } ADSRInfoEx;
 
 ///////////////////////////////////////////////////////////
