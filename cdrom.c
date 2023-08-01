@@ -652,6 +652,8 @@ static int cdrSeekTime(unsigned char *target)
 	{
 		if(seekTime > 3386880 * 2) seekTime = 3386880 * 2;
 	}
+	
+	if  (diff == 0) seekTime = 3386880 * 2;
 
 	return seekTime;
 }
