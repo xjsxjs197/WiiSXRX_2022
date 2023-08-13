@@ -59,10 +59,11 @@ bool 		   backFromMenu=0;
 //Some GX specific variables
 #define RESX_MAX 1024	//Vmem width
 #define RESY_MAX 512	//Vmem height
+#define GXRESX_MAX 1366	//1024 * 1.33 for ARGB
 //int	iResX_Max=640;	//Max FB Width
 int		iResX_Max=RESX_MAX;
 int		iResY_Max=RESY_MAX;
-static unsigned char	GXtexture[RESX_MAX*RESY_MAX*2] __attribute__((aligned(32)));
+static unsigned char	GXtexture[GXRESX_MAX*RESY_MAX*2] __attribute__((aligned(32)));
 char *	pCaptionText;
 
 extern u32* xfb[2];	/*** Framebuffers ***/
@@ -71,14 +72,13 @@ extern time_t tStart;
 extern char text[DEBUG_TEXT_HEIGHT][DEBUG_TEXT_WIDTH]; /*** DEBUG textbuffer ***/
 extern char menuActive;
 extern char screenMode;
-extern long lGPUstatusRet;
-extern long lGPUstatusRetOld;
+
 
 // prototypes
 void BlitScreenNS_GX(unsigned char * surf,long x,long y, short dx, short dy);
 void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt);
 
-void switchToTVMode(long gpuStatReg, short dWidth, short dHeight, bool retMenu);
+void switchToTVMode(short dWidth, short dHeight, bool retMenu);
 
 void DoBufferSwap(void)                                // SWAP BUFFERS
 {                                                      // (we don't swap... we blit only)
@@ -86,7 +86,7 @@ void DoBufferSwap(void)                                // SWAP BUFFERS
 	static int iOldDY=0;
 	long x = PSXDisplay.DisplayPosition.x;
 	long y = PSXDisplay.DisplayPosition.y;
-	short iDX = PreviousPSXDisplay.Range.x1;
+	short iDX = PreviousPSXDisplay.DisplayMode.x;
 	short iDY = PreviousPSXDisplay.DisplayMode.y;
 
 	if (menuActive) return;
@@ -108,8 +108,9 @@ void DoBufferSwap(void)                                // SWAP BUFFERS
 
 	if(iOldDX!=iDX || iOldDY!=iDY)
 	{
-		memset(GXtexture, 0, RESX_MAX*RESY_MAX*2);
+		memset(GXtexture, 0, GXRESX_MAX*RESY_MAX*2);
 		iOldDX=iDX;iOldDY=iDY;
+		backFromMenu = 1;
 	}
 
 // TODO: Show menu text
@@ -145,11 +146,10 @@ void DoBufferSwap(void)                                // SWAP BUFFERS
 	// Check if TVMode needs to be changed (240 or 480 lines)
 	if (originalMode == ORIGINALMODE_ENABLE)
 	{
-		if(((lGPUstatusRet & 0xF0000) != (lGPUstatusRetOld & 0xF0000)) || backFromMenu)
+		if(backFromMenu)
 		{
 			backFromMenu = 0;
-			switchToTVMode(lGPUstatusRet, iDX, iDY, 0);
-			lGPUstatusRetOld = lGPUstatusRet;
+			switchToTVMode(iDX, iDY, 0);
 		}
 	}
 }
@@ -220,7 +220,7 @@ unsigned long ulInitDisplay(void)
 		BuildDispMenu(0);
 	}
 
-	memset(GXtexture,0,iResX_Max*iResY_Max*2);
+	memset(GXtexture,0,GXRESX_MAX*iResY_Max*2);
 
 	return (unsigned long)GXtexture;		//This isn't right, but didn't want to return 0..
 }
@@ -279,7 +279,7 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 		oldwidth = width;
 		oldheight = height;
 		oldformat = fmt;
-		memset(GXtexture,0,iResX_Max*iResY_Max*2);
+		memset(GXtexture,0,GXRESX_MAX*iResY_Max*2);
 		GX_InitTexObj(&GXtexobj, GXtexture, width, height, fmt, GX_CLAMP, GX_CLAMP, GX_FALSE);
 	}
 	
