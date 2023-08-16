@@ -391,7 +391,7 @@ unsigned short* rl2blk(int *blk,unsigned short *mdec_rl) {
 #define	MULB(a)		((int)((float)1.77200 * (a)))
 #endif
 
-#define	MAKERGB15(r,g,b)	( SWAP16((((r)>>3)<<10)|(((g)>>3)<<5)|((b)>>3)) )
+#define	MAKERGB15(r,g,b,a)	( SWAP16((((r)>>3)<<10)|(((g)>>3)<<5)|((b)>>3) | a) )
 #define	ROUND(c)	roundtbl[((c)+128+256)]//&0x3ff]
 /*#define ROUND(c)	round(c+128)
 int round(int r) {
@@ -401,10 +401,10 @@ int round(int r) {
 }*/
 
 #define RGB15(n, Y) \
-	image[n] = MAKERGB15(ROUND(Y + R),ROUND(Y + G),ROUND(Y + B));
+	image[n] = MAKERGB15(ROUND(Y + R),ROUND(Y + G),ROUND(Y + B), A);
 
 #define RGB15BW(n, Y) \
-	image[n] = MAKERGB15(ROUND(Y),ROUND(Y),ROUND(Y));
+	image[n] = MAKERGB15(ROUND(Y),ROUND(Y),ROUND(Y), A);
 
 #define RGB24(n, Y) \
 	image[n+2] = ROUND(Y + R); \
@@ -432,7 +432,8 @@ void yuv2rgb15(int *blk,unsigned short *image) {
 	int *Yblk = blk+DCTSIZE2*2;
 	int *Cbblk = blk;
 	int *Crblk = blk+DCTSIZE2;
-
+	int A = (mdec.command&0x2000000) ? 0x8000 : 0;
+	
 	if (!Config.Mdec)
 	for (y=0;y<16;y+=2,Crblk+=4,Cbblk+=4,Yblk+=8,image+=24) {
 		if (y==8) Yblk+=DCTSIZE2;
@@ -442,6 +443,7 @@ void yuv2rgb15(int *blk,unsigned short *image) {
 			int R = MULR(Cr);
 			int G = MULG(Cb) + MULG2(Cr);
 			int B = MULB(Cb);
+			
 
 			RGB15(0, Yblk[0]);
 			RGB15(1, Yblk[1]);

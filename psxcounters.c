@@ -78,6 +78,8 @@ static u32 hsync_steps = 0;
 
 u32 psxNextCounter = 0, psxNextsCounter = 0;
 
+extern int gInterlaceLine;
+
 /******************************************************************************/
 
 static inline
@@ -341,6 +343,7 @@ void psxRcntUpdate()
             //#endif // DISP_DEBUG
 
             HW_GPU_STATUS &= SWAP32(~PSXGPU_LCF);
+			gInterlaceLine = !((frame_counter+1) & 0x1);
             //GPU_vBlank( 1, 0 );
             setIrq( SWAPu32((u32)0x01) );
 

@@ -68,9 +68,9 @@ void Func_FpsLimitAuto();
 void Func_FpsLimitOff();
 void Func_FrameSkipOn();
 void Func_FrameSkipOff();
-void Func_ScreenMode4_3();
-void Func_ScreenMode16_9();
-void Func_ScreenForce16_9();
+void Func_ScreenMode();
+void Func_Interlaced();
+void Func_DeflickerFilter();
 void Func_Screen240p();
 void Func_BilinearFilter();
 void Func_TrapFilter();
@@ -172,7 +172,7 @@ Auto Save Memcards: Yes; No
 Save States Device: SD; USB
 */
 
-static char FRAME_STRINGS[67][24] =
+static char FRAME_STRINGS[69][24] =
 	{ "General",
 	  "Video",
 	  "Input",
@@ -204,7 +204,7 @@ static char FRAME_STRINGS[67][24] =
 	  "Auto",
 	  "4:3",
 	  "16:9",
-	  "Force 16:9",
+	  "Force 16:9 ",
 	  "None",
 	  "2xSaI",
 	  "Default",
@@ -245,8 +245,10 @@ static char FRAME_STRINGS[67][24] =
       // Strings for display Fast Load (starting at FRAME_STRINGS[63]) ..was[63]
       "Fast Load",
 	  "240p",
-	  "Bilinear Filter",
-	  "Trap Filter" 
+	  "Bilinear",
+	  "Trap",
+	  "Interlaced ",
+	  "Deflicker "	  
       };
 
 
@@ -292,15 +294,15 @@ struct ButtonInfo
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[26],	325.0,	160.0,	 75.0,	56.0,	16,	20,	19,	19,	Func_FpsLimitAuto,		Func_ReturnFromSettingsFrame }, // FPS Limit: Auto
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	420.0,	160.0,	 75.0,	56.0,	17,	21,	18,	18,	Func_FpsLimitOff,		Func_ReturnFromSettingsFrame }, // FPS Limit: Off
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[24],	325.0,	220.0,	 75.0,	56.0,	18,	23,	21,	21,	Func_FrameSkipOn,		Func_ReturnFromSettingsFrame }, // Frame Skip: On
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	420.0,	220.0,	 75.0,	56.0,	19,	24,	20,	20,	Func_FrameSkipOff,		Func_ReturnFromSettingsFrame }, // Frame Skip: Off
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[27],	190.0,	280.0,	 75.0,	56.0,	20,	25,	57,	23,	Func_ScreenMode4_3,		Func_ReturnFromSettingsFrame }, // ScreenMode: 4:3
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[28],	285.0,	280.0,	 75.0,	56.0,	20,	26,	22,	24,	Func_ScreenMode16_9,	Func_ReturnFromSettingsFrame }, // ScreenMode: 16:9
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[29],	380.0,	280.0,	135.0,	56.0,	21,	27,	23,	57,	Func_ScreenForce16_9,	Func_ReturnFromSettingsFrame }, // ScreenMode: Force 16:9	
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[30],	230.0,	340.0,	 75.0,	56.0,	23,	28,	27,	26,	Func_DitheringNone,		Func_ReturnFromSettingsFrame }, // Dithering: None
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[32],	325.0,	340.0,	110.0,	56.0,	24,	28,	25,	27,	Func_DitheringDefault,	Func_ReturnFromSettingsFrame }, // Dithering: Game Dependent
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[33],	455.0,	340.0,	110.0,	56.0,	25,	29,	26,	25,	Func_DitheringAlways,	Func_ReturnFromSettingsFrame }, // Dithering: Always
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[65],	200.0,	400.0,	175.0,	56.0,	26,	 1,	29,	29,	Func_BilinearFilter,	Func_ReturnFromSettingsFrame }, // Filters: Bilinear Filter
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[66],	390.0,	400.0,	175.0,	56.0,	27,	 1,	28,	28,	Func_TrapFilter,		Func_ReturnFromSettingsFrame }, // Filters: Trap Filter
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	420.0,	220.0,	 75.0,	56.0,	19,	23,	20,	20,	Func_FrameSkipOff,		Func_ReturnFromSettingsFrame }, // Frame Skip: Off
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[27],	200.0,	280.0,	 135.0,	56.0,	20,	25,	57,	23,	Func_ScreenMode,		Func_ReturnFromSettingsFrame }, // ScreenMode: 4:3/16:9/Force16:9
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[67],	355.0,	280.0,	 135.0,	56.0,	20,	26,	22,	57,	Func_Interlaced,		Func_ReturnFromSettingsFrame }, // Interlaced Mode
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[68],	440.0,	400.0,	110.0,	56.0,	27,	 1,	29,	28,	Func_DeflickerFilter,	Func_ReturnFromSettingsFrame }, // Filters: Deflicker Filter	
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[30],	200.0,	340.0,	 75.0,	56.0,	22,	28,	27,	26,	Func_DitheringNone,		Func_ReturnFromSettingsFrame }, // Dithering: None
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[32],	295.0,	340.0,	110.0,	56.0,	23,	29,	25,	27,	Func_DitheringDefault,	Func_ReturnFromSettingsFrame }, // Dithering: Game Dependent
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[33],	425.0,	340.0,	110.0,	56.0,	23,	24,	26,	25,	Func_DitheringAlways,	Func_ReturnFromSettingsFrame }, // Dithering: Always
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[65],	200.0,	400.0,	100.0,	56.0,	25,	 1,	24,	29,	Func_BilinearFilter,	Func_ReturnFromSettingsFrame }, // Filters: Bilinear Filter
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[66],	320.0,	400.0,	100.0,	56.0,	26,	 1,	28,	24,	Func_TrapFilter,		Func_ReturnFromSettingsFrame }, // Filters: Trap Filter
 	//Buttons for Input Tab (starts at button[30])
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[34],	 90.0,	100.0,	220.0,	56.0,	 2,	32,	31,	31,	Func_ConfigureInput,	Func_ReturnFromSettingsFrame }, // Configure Input Assignment
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[35],	325.0,	100.0,	235.0,	56.0,	 2,	32,	30,	30,	Func_ConfigureButtons,	Func_ReturnFromSettingsFrame }, // Configure Button Mappings
@@ -332,7 +334,7 @@ struct ButtonInfo
     //Buttons for Saves Tab (starts at button[55]) ..was[56]
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[16],	490.0,	310.0,	 75.0,	56.0,	12,	15,	54,	56,	Func_FastloadYes,		Func_ReturnFromSettingsFrame }, // Fast load: Yes
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[17],	570.0,	310.0,	 75.0,	56.0,	13,	15,	55,	54,	Func_FastloadNo,		Func_ReturnFromSettingsFrame }, // Fast load: No
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[64],	535.0,	280.0,	 75.0,	56.0,	21,	27,	24,	22,	Func_Screen240p,		Func_ReturnFromSettingsFrame }  // ScreenMode: 240p
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[64],	510.0,	280.0,	 75.0,	56.0,	21,	27,	23,	22,	Func_Screen240p,		Func_ReturnFromSettingsFrame }  // ScreenMode: 240p
 };
 
 struct TextBoxInfo
@@ -354,9 +356,9 @@ struct TextBoxInfo
 	{	NULL,	FRAME_STRINGS[18],	190.0,	128.0,	 1.0,	true }, // Show FPS: On/Off
 	{	NULL,	FRAME_STRINGS[19],	190.0,	188.0,	 1.0,	true }, // Limit FPS: Auto/Off
 	{	NULL,	FRAME_STRINGS[20],	190.0,	248.0,	 1.0,	true }, // Frame Skip: On/Off
-	{	NULL,	FRAME_STRINGS[21],	90.0,	308.0,	 1.0,	true }, // ScreenMode: 4x3/16x9/Force16x9/240p
-	{	NULL,	FRAME_STRINGS[22],	130.0,	368.0,	 1.0,	true }, // Dithering: None/Game Dependent/Always
-	{	NULL,	FRAME_STRINGS[23],	120.0,	428.0,	 1.0,	true }, // Filters
+	{	NULL,	FRAME_STRINGS[21],	90.0,	308.0,	 1.0,	true }, // ScreenMode: 4x3/16x9/Force16x9/Interlaced/240p
+	{	NULL,	FRAME_STRINGS[22],	115.0,	368.0,	 1.0,	true }, // Dithering: None/Game Dependent/Always
+	{	NULL,	FRAME_STRINGS[23],	130.0,	428.0,	 1.0,	true }, // Filters
 	//TextBoxes for Input Tab (starts at textBox[10])
 	{	NULL,	FRAME_STRINGS[36],	145.0,	198.0,	 1.0,	true }, // PSX Controller Type: Analog/Digital/Light Gun
 	{	NULL,	FRAME_STRINGS[37],	145.0,	268.0,	 1.0,	true }, // Disable Rumble: Yes/No
@@ -498,12 +500,13 @@ void SettingsFrame::activateSubmenu(int submenu)
 			else								FRAME_BUTTONS[19].button->setSelected(true);
 			if (frameSkip == FRAMESKIP_ENABLE)	FRAME_BUTTONS[20].button->setSelected(true);
 			else								FRAME_BUTTONS[21].button->setSelected(true);
-			if (screenMode == SCREENMODE_4x3)		FRAME_BUTTONS[22].button->setSelected(true);
-			else if (screenMode == SCREENMODE_16x9)	FRAME_BUTTONS[23].button->setSelected(true);
-			else									FRAME_BUTTONS[24].button->setSelected(true);
 			if (originalMode == ORIGINALMODE_ENABLE)FRAME_BUTTONS[57].button->setSelected(true);
 			if (bilinearFilter == BILINEARFILTER_ENABLE)FRAME_BUTTONS[28].button->setSelected(true);
 			if (trapFilter == TRAPFILTER_ENABLE)FRAME_BUTTONS[29].button->setSelected(true);
+			if (interlacedMode == INTERLACED_ENABLE)FRAME_BUTTONS[23].button->setSelected(true);
+			if (deflickerFilter == DEFLICKER_ENABLE)FRAME_BUTTONS[24].button->setSelected(true);
+			FRAME_BUTTONS[22].buttonString = FRAME_STRINGS[27 + lang];
+			
 			FRAME_BUTTONS[57].button->setVisible(true);
 			FRAME_BUTTONS[57].button->setActive(true);
 
@@ -1092,28 +1095,48 @@ void Func_FrameSkipOff()
 	GPUsetframelimit(0);
 }
 
-void Func_ScreenMode4_3()
+
+void Func_Interlaced()
 {
-	for (int i = 22; i <= 24; i++)
-		FRAME_BUTTONS[i].button->setSelected(false);
-	FRAME_BUTTONS[22].button->setSelected(true);
-	screenMode = SCREENMODE_4x3;
+	if(interlacedMode == INTERLACED_ENABLE)
+	{
+		FRAME_BUTTONS[23].button->setSelected(false);
+		interlacedMode = INTERLACED_DISABLE;
+	}
+	else
+	{
+		FRAME_BUTTONS[23].button->setSelected(true);
+		interlacedMode = INTERLACED_ENABLE;
+	}
 }
 
-void Func_ScreenMode16_9()
+
+void Func_DeflickerFilter()
 {
-	for (int i = 22; i <= 24; i++)
-		FRAME_BUTTONS[i].button->setSelected(false);
-	FRAME_BUTTONS[23].button->setSelected(true);
-	screenMode = SCREENMODE_16x9;
+	if(deflickerFilter == DEFLICKER_ENABLE)
+	{
+		FRAME_BUTTONS[24].button->setSelected(false);
+		deflickerFilter = DEFLICKER_DISABLE;
+	}
+	else
+	{
+		FRAME_BUTTONS[24].button->setSelected(true);
+		deflickerFilter = DEFLICKER_ENABLE;
+	}
 }
 
-void Func_ScreenForce16_9()
+void Func_ScreenMode()
 {
-	for (int i = 22; i <= 24; i++)
-		FRAME_BUTTONS[i].button->setSelected(false);
-	FRAME_BUTTONS[24].button->setSelected(true);
-	screenMode = SCREENMODE_16x9_PILLARBOX;
+	//SCREENMODE_4x3=0,
+	//SCREENMODE_16x9,
+	//SCREENMODE_16x9_PILLARBOX
+    screenMode++;
+    if (screenMode > SCREENMODE_16x9_PILLARBOX)
+    {
+        screenMode = SCREENMODE_4x3;
+    }
+    FRAME_BUTTONS[22].button->setSelected(true);
+    FRAME_BUTTONS[22].buttonString = FRAME_STRINGS[27 + screenMode];
 }
 
 void Func_Screen240p()

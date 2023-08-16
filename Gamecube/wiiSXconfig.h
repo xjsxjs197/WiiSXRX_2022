@@ -266,6 +266,20 @@ enum trapFilter
 	TRAPFILTER_ENABLE,
 };
 
+extern char interlacedMode;
+enum interlacedMode
+{
+	INTERLACED_DISABLE=0,
+	INTERLACED_ENABLE,
+};
+
+extern char deflickerFilter;
+enum deflickerFilter
+{
+	DEFLICKER_DISABLE=0,
+	DEFLICKER_ENABLE,
+};
+
 extern const unsigned char En_dat[];
 extern const unsigned int  En_dat_size;
 extern char canChangeFont;

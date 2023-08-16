@@ -137,6 +137,8 @@ char fastLoad = 0;
 char originalMode = 0;
 char bilinearFilter = 1;
 char trapFilter = 1;
+char interlacedMode = 0;
+char deflickerFilter = 1;
 
 #define CONFIG_STRING_TYPE 0
 #define CONFIG_STRING_SIZE 256
@@ -187,7 +189,9 @@ static struct {
   { "fastLoad", &fastLoad, 0, 1 },
   { "TVMode", &originalMode, ORIGINALMODE_DISABLE, ORIGINALMODE_ENABLE },
   { "BilinearFilter", &bilinearFilter, BILINEARFILTER_DISABLE, BILINEARFILTER_ENABLE },
-  { "TrapFilter", &trapFilter, TRAPFILTER_DISABLE, TRAPFILTER_ENABLE }
+  { "TrapFilter", &trapFilter, TRAPFILTER_DISABLE, TRAPFILTER_ENABLE },
+  { "Interlaced", &interlacedMode, INTERLACED_DISABLE, INTERLACED_ENABLE },
+  { "DeflickerFilter", &deflickerFilter, DEFLICKER_DISABLE, DEFLICKER_ENABLE }
 };
 void handleConfigPair(char* kv);
 void readConfig(FILE* f);
