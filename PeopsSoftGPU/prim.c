@@ -656,6 +656,9 @@ void primMoveImage(unsigned char * baseAddr)
  short *sgpuData = ((short *) baseAddr);
 
  short imageY0,imageX0,imageY1,imageX1,imageSX,imageSY,i,j;
+ 
+ long setMask32 = SWAP32(lSetMask);
+ short setMask16 = SWAP16(sSetMask);
 
  imageX0 = GETLEs16(&sgpuData[2])&0x03ff;
  imageY0 = GETLEs16(&sgpuData[3])&0x01ff;
@@ -710,7 +713,7 @@ void primMoveImage(unsigned char * baseAddr)
 
    for(j=0;j<imageSY;j++)
     {
-     for(i=0;i<imageSX;i++) *DSTPtr++ = *SRCPtr++;
+     for(i=0;i<imageSX;i++) *DSTPtr++ = (*SRCPtr++) | setMask16;
      SRCPtr += LineOffset;
      DSTPtr += LineOffset;
     }
@@ -728,7 +731,7 @@ void primMoveImage(unsigned char * baseAddr)
 
    for(j=0;j<imageSY;j++)
     {
-     for(i=0;i<dx;i++) *DSTPtr++ = *SRCPtr++;
+     for(i=0;i<dx;i++) *DSTPtr++ = (*SRCPtr++) | setMask32;
      SRCPtr += LineOffset;
      DSTPtr += LineOffset;
     }

@@ -34,7 +34,7 @@ static char *name = "sd:/WiiStation/WiiStation.elf";
 u32 event_cycles[PSXINT_COUNT];
 u32 next_interupt;
 
-static bool use_lightrec_interpreter = false;
+static bool use_lightrec_interpreter = false;  
 static bool use_pcsx_interpreter = false;
 static bool booting;
 

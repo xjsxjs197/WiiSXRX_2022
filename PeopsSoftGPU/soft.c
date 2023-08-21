@@ -2884,6 +2884,60 @@ void drawPoly3TEx4(short x1, short y1, short x2, short y2, short x3, short y3, s
  difY=delta_right_v;difY2=difY<<1;
 
 #ifdef FASTSOLID
+if(!bCheckMask && !DrawSemiTrans && (g_m1 == 128) && (g_m2 == 128) && (g_m3 == 128))
+  {
+   for (i=ymin;i<=ymax;i++)
+    {
+	 if (checkInterlace(i)){
+		 if(NextRow_FT()) return;
+	 continue;}
+	 
+     xmin=(left_x >> 16);
+     xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!
+     if(drawW<xmax) xmax=drawW;
+
+     if(xmax>=xmin)
+      {
+       posX=left_u;
+       posY=left_v;
+
+       if(xmin<drawX)
+        {j=drawX-xmin;xmin=drawX;posX+=j*difX;posY+=j*difY;}
+
+       for(j=xmin;j<xmax;j+=2)
+        {
+         XAdjust=(posX>>16);
+         tC1 = src[((posY>>5)&0xFFFFF800)+(XAdjust>>1)];
+         tC1=(tC1>>((XAdjust&1)<<2))&0xf;
+         XAdjust=((posX+difX)>>16);
+         tC2 = src[(((posY+difY)>>5)&0xFFFFF800)+
+                    (XAdjust>>1)];
+         tC2=(tC2>>((XAdjust&1)<<2))&0xf;
+
+         GetTextureTransColG32_S_NM((unsigned long *)&psxVuw[(i<<10)+j],
+             GETLE16(&psxVuw[clutP+tC1])|
+             ((long)GETLE16(&psxVuw[clutP+tC2]))<<16);
+
+         posX+=difX2;
+         posY+=difY2;
+        }
+       if(j==xmax)
+        {
+         XAdjust=(posX>>16);
+         tC1 = src[((posY>>5)&0xFFFFF800)+
+                      (XAdjust>>1)];
+         tC1=(tC1>>((XAdjust&1)<<2))&0xf;
+         GetTextureTransColG_S(&psxVuw[(i<<10)+j],GETLE16(&psxVuw[clutP+tC1]));
+        }
+      }
+     if(NextRow_FT())
+      {
+       return;
+      }
+    }
+   return;
+  }
+  
  if(!bCheckMask && !DrawSemiTrans && (g_m1 <= 128) && (g_m2 <= 128) && (g_m3 <= 128))
   {
    for (i=ymin;i<=ymax;i++)
@@ -3232,6 +3286,63 @@ void drawPoly4TEx4(short x1, short y1, short x2, short y2, short x3, short y3, s
 
 
 #ifdef FASTSOLID
+if(!bCheckMask && !DrawSemiTrans && (g_m1 == 128) && (g_m2 == 128) && (g_m3 == 128))
+  {
+   for (i=ymin;i<=ymax;i++)
+    {
+	 if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
+     xmin=(left_x >> 16);
+     xmax=(right_x >> 16);
+
+     if(xmax>=xmin)
+      {
+       posX=left_u;
+       posY=left_v;
+
+       num=(xmax-xmin);
+       if(num==0) num=1;
+       difX=(right_u-posX)/num;
+       difY=(right_v-posY)/num;
+       difX2=difX<<1;
+       difY2=difY<<1;
+
+       if(xmin<drawX)
+        {j=drawX-xmin;xmin=drawX;posX+=j*difX;posY+=j*difY;}
+       xmax--;if(drawW<xmax) xmax=drawW;
+
+       for(j=xmin;j<xmax;j+=2)
+        {
+         XAdjust=(posX>>16);
+         tC1 = psxVub[((posY>>5)&0xFFFFF800)+YAdjust+(XAdjust>>1)];
+         tC1=(tC1>>((XAdjust&1)<<2))&0xf;
+         XAdjust=((posX+difX)>>16);
+         tC2 = psxVub[(((posY+difY)>>5)&0xFFFFF800)+YAdjust+
+                       (XAdjust>>1)];
+         tC2=(tC2>>((XAdjust&1)<<2))&0xf;
+
+         GetTextureTransColG32_S_NM((unsigned long *)&psxVuw[(i<<10)+j],
+              GETLE16(&psxVuw[clutP+tC1])|
+              ((long)GETLE16(&psxVuw[clutP+tC2]))<<16);
+         posX+=difX2;
+         posY+=difY2;
+        }
+       if(j==xmax)
+        {
+         XAdjust=(posX>>16);
+         tC1 = psxVub[((posY>>5)&0xFFFFF800)+YAdjust+
+                      (XAdjust>>1)];
+         tC1=(tC1>>((XAdjust&1)<<2))&0xf;
+         GetTextureTransColG_S(&psxVuw[(i<<10)+j],GETLE16(&psxVuw[clutP+tC1]));
+        }
+
+      }
+     if(NextRow_FT4()) return;
+    }
+   return;
+  }
+  
  if(!bCheckMask && !DrawSemiTrans && (g_m1 <= 128) && (g_m2 <= 128) && (g_m3 <= 128))
   {
    for (i=ymin;i<=ymax;i++)
