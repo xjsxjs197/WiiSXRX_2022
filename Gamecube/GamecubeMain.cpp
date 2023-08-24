@@ -106,6 +106,7 @@ char biosDevice;
 char LoadCdBios=0;
 char frameLimit;
 char frameSkip;
+char useDithering;
 extern char audioEnabled;
 char volume;
 char showFPSonScreen;
@@ -172,6 +173,7 @@ static struct {
   { "BootThruBios", &LoadCdBios, BOOTTHRUBIOS_NO, BOOTTHRUBIOS_YES },
   { "LimitFrames", &frameLimit, FRAMELIMIT_NONE, FRAMELIMIT_AUTO },
   { "SkipFrames", &frameSkip, FRAMESKIP_DISABLE, FRAMESKIP_ENABLE },
+  { "Dithering", &useDithering, USEDITHER_NONE, USEDITHER_ALWAYS },
   { "PadAutoAssign", &padAutoAssign, PADAUTOASSIGN_MANUAL, PADAUTOASSIGN_AUTOMATIC },
   { "PadType1", &padType[0], PADTYPE_NONE, PADTYPE_WII },
   { "PadType2", &padType[1], PADTYPE_NONE, PADTYPE_WII },
@@ -212,7 +214,7 @@ void loadSettings(int argc, char *argv[])
 	printToSD        = 0; // Disable SD logging
 	frameLimit		 = 1; // Auto limit FPS
 	frameSkip		 = 0; // Disable frame skipping
-	iUseDither		 = 1; // Default dithering
+	useDithering		 = 1; // Default dithering (set to 0 (disabled) in PEOPSgpu)
 	saveEnabled      = 0; // Don't save game
 	nativeSaveDevice = 0; // SD
 	saveStateDevice	 = 0; // SD
@@ -364,6 +366,7 @@ void loadSettings(int argc, char *argv[])
 
 	//Synch settings with Config
 	Config.Cpu=dynacore;
+	iUseDither = useDithering;
 	iVolume = volume;
 }
 
