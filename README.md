@@ -18,6 +18,8 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
 * Replacing the old PowerPC (PPC) dynarec with the new dynamic recompiler [Lightrec](https://github.com/pcercuei/lightrec) by pcercuei, the speed/performance of the emulation is greatly improved.
 
+* 240p support!
+
 * Support for multiple languages.
   At first, I wanted to refer to Snes9x GX and support TTF font library.
   However, it encountered a memory leak problem, resulting in automatic exit.
@@ -66,7 +68,7 @@ Any help is appreciated.
 
 WiiStation (formely WiiSXRX_2022) - developed by xjsxjs197 - https://github.com/xjsxjs197/WiiSXRX_2022
 
-240p support by Jokkipo - http://github.com/Jokippo
+240p support by Jokippo - http://github.com/Jokippo
 
 WiiStation icon - made by Dakangel (high quality logo made by saulfabreg)
 
