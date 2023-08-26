@@ -45,8 +45,11 @@
 static u32 psxRecLUT[0x010000];
 //static char recMem[RECMEM_SIZE] __attribute__((aligned(32)));	/* the recompiled blocks will be here */
 static char *recMem = RECMEM2_LO;	/* the recompiled blocks will be here */
-static char recRAM[0x200000] __attribute__((aligned(32)));	/* and the ptr to the blocks here */
-static char recROM[0x080000] __attribute__((aligned(32)));	/* and here */
+//static char recRAM[0x200000] __attribute__((aligned(32)));	/* and the ptr to the blocks here */
+//static char recROM[0x080000] __attribute__((aligned(32)));	/* and here */
+extern char recBuffer[0x400000] __attribute__((aligned(32)));
+static char* recRAM = (char*)recBuffer;
+static char* recROM = (char*)recBuffer + 0x200000;
 
 static u32 pc;			/* recompiler pc */
 static u32 pcold;		/* recompiler oldpc */
@@ -1003,7 +1006,7 @@ static void rec##f() { \
 }
 
 #define CP2_FUNC(f) \
-void gte##f##_R(); \
+void gte##f(); \
 static void rec##f() { \
 	if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2); \
 	iFlushRegs(0); \
@@ -1015,12 +1018,12 @@ static void rec##f() { \
 	/*ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2));*/ \
 	LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D); \
 	FlushAllHWReg(); \
-	CALLFunc ((u32)gte##f##_R); \
+	CALLFunc ((u32)gte##f); \
 	cop2readypc = pc + (psxCP2time[_fFunct_(psxRegs.code)]<<2); \
 }
 
 #define CP2_FUNCNC(f) \
-void gte##f##_R(); \
+void gte##f(); \
 static void rec##f() { \
 	if (pc < cop2readypc) idlecyclecount += ((cop2readypc - pc)>>2); \
 	iFlushRegs(0); \
@@ -1029,7 +1032,7 @@ static void rec##f() { \
 	/*STW(0, OFFSET(&psxRegs, &psxRegs.gteCycle), GetHWRegSpecial(PSXREGS));*/ \
 	/*ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), (u32)(psxCP2time[_fFunct_(psxRegs.code)]<<2));*/ \
 	LIW(PutHWRegSpecial(ARG1), (struct psxCP2Regs *)&psxRegs.CP2D); \
-	CALLFunc ((u32)gte##f##_R); \
+	CALLFunc ((u32)gte##f); \
 /*	branch = 2; */\
 	cop2readypc = pc + psxCP2time[_fFunct_(psxRegs.code)]; \
 }

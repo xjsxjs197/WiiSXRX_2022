@@ -165,7 +165,7 @@ static struct {
   { "ScreenMode", &screenMode, SCREENMODE_4x3, SCREENMODE_16x9_PILLARBOX },
   { "VideoMode", &videoMode, VIDEOMODE_AUTO, VIDEOMODE_PROGRESSIVE },
   { "FileSortMode", &fileSortMode, FILESORT_DIRS_MIXED, FILESORT_DIRS_FIRST },
-  { "Core", &dynacore, DYNACORE_DYNAREC, DYNACORE_INTERPRETER },
+  { "Core", &dynacore, DYNACORE_DYNAREC, DYNACORE_DYNAREC_OLD },
   { "NativeDevice", &nativeSaveDevice, NATIVESAVEDEVICE_SD, NATIVESAVEDEVICE_CARDB },
   { "StatesDevice", &saveStateDevice, SAVESTATEDEVICE_SD, SAVESTATEDEVICE_USB },
   { "AutoSave", &autoSave, AUTOSAVE_DISABLE, AUTOSAVE_ENABLE },
@@ -500,7 +500,10 @@ int main(int argc, char *argv[])
 		memset(AutobootROM, 0, sizeof(AutobootROM));
 	}
 
-		VM_Init(1024*1024, 256*1024); // whatever for now, we're not really using this for anything other than mmap on Wii.
+		if (Config.Cpu == DYNACORE_DYNAREC)
+		{
+			VM_Init(1024*1024, 256*1024); // whatever for now, we're not really using this for anything other than mmap on Wii.
+		}
 
 		L2Enhance();
 

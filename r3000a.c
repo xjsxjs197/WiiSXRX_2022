@@ -26,17 +26,25 @@
 #include "psxdma.h"
 #include "cdrom.h"
 #include "mdec.h"
+#include "Gamecube/wiiSXconfig.h"
 R3000Acpu *psxCpu;
 psxRegisters psxRegs;
 
 int psxInit() {
 
-	if(Config.Cpu) {
+	if (Config.Cpu == DYNACORE_INTERPRETER) {
 		if(Config.Dbg) psxCpu = &psxIntDbg;
 		else 	psxCpu = &psxInt;
 	}
 #if defined(__x86_64__) || defined(__i386__) || defined(__sh__) || defined(__ppc__) || defined(HW_RVL) || defined(HW_DOL)
-	if (!Config.Cpu) psxCpu = &psxLightrec;
+	if (Config.Cpu == DYNACORE_DYNAREC)
+	{
+		psxCpu = &psxLightrec;
+	}
+	else
+	{
+		psxCpu = &psxRec;
+	}
 #endif
 	Log=0;
 

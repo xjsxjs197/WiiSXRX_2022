@@ -30,6 +30,7 @@
 #include "../libgui/MessageBox.h"
 #include "../wiiSXconfig.h"
 #include "../../psxcommon.h"
+#include "../vm/vm.h"
 
 #ifdef SHOW_DEBUG
 #include "../DEBUG.h"
@@ -51,6 +52,7 @@ void Func_TabSaves();
 
 void Func_CpuInterp();
 void Func_CpuDynarec();
+void Func_CpuLightrec();
 void Func_BiosSelectHLE();
 void Func_BiosSelectSD();
 void Func_BiosSelectUSB();
@@ -130,7 +132,7 @@ void pauseAudio(void);  void pauseInput(void);
 void resumeAudio(void); void resumeInput(void);
 }
 
-#define NUM_FRAME_BUTTONS 58
+#define NUM_FRAME_BUTTONS 59
 #define NUM_TAB_BUTTONS 5
 #define FRAME_BUTTONS settingsFrameButtons
 #define FRAME_STRINGS settingsFrameStrings
@@ -172,7 +174,7 @@ Auto Save Memcards: Yes; No
 Save States Device: SD; USB
 */
 
-static char FRAME_STRINGS[69][24] =
+static char FRAME_STRINGS[70][24] =
 	{ "General",
 	  "Video",
 	  "Input",
@@ -248,7 +250,8 @@ static char FRAME_STRINGS[69][24] =
 	  "Bilinear",
 	  "Trap",
 	  "Interlaced ",
-	  "Deflicker "	  
+	  "Deflicker ",
+	  "Lightrec"
       };
 
 
@@ -276,8 +279,8 @@ struct ButtonInfo
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[3],	395.0,	 30.0,	100.0,	56.0,	-1,	-1,	 2,	 4,	Func_TabAudio,			Func_ReturnFromSettingsFrame }, // Audio tab
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[4],	515.0,	 30.0,	100.0,	56.0,	-1,	-1,	 3,	 0,	Func_TabSaves,			Func_ReturnFromSettingsFrame }, // Saves tab
 	//Buttons for General Tab (starts at button[5])
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[10],	295.0,	100.0,	160.0,	56.0,	 0,	 7,	 6,	 6,	Func_CpuInterp,			Func_ReturnFromSettingsFrame }, // CPU: Interp
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[11],	465.0,	100.0,	130.0,	56.0,	 0,	 9,	 5,	 5,	Func_CpuDynarec,		Func_ReturnFromSettingsFrame }, // CPU: Dynarec
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[10],	295.0,	100.0,	140.0,	56.0,	 0,	 7,	 58, 6,	Func_CpuInterp,			Func_ReturnFromSettingsFrame }, // CPU: Interp
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[67],	445.0,	100.0,	130.0,	56.0,	 0,	 9,	 5,	 58,Func_CpuLightrec,		Func_ReturnFromSettingsFrame }, // CPU: Lightrec
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[12],	295.0,	170.0,	 70.0,	56.0,	 5,	11,	10,	 8,	Func_BiosSelectHLE,		Func_ReturnFromSettingsFrame }, // Bios: HLE
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[13],	375.0,	170.0,	 55.0,	56.0,	 5,	12,	 7,	 9,	Func_BiosSelectSD,		Func_ReturnFromSettingsFrame }, // Bios: SD
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[14],	440.0,	170.0,	 70.0,	56.0,	 6,	12,	 8,	10,	Func_BiosSelectUSB,		Func_ReturnFromSettingsFrame }, // Bios: USB
@@ -313,7 +316,7 @@ struct ButtonInfo
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[13],	285.0,	310.0,	 55.0,	56.0,	34,	38,	37,	37,	Func_SaveButtonsSD,		Func_ReturnFromSettingsFrame }, // Save Button Mappings: SD
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[14],	350.0,	310.0,	 70.0,	56.0,	35,	38,	36,	36,	Func_SaveButtonsUSB,	Func_ReturnFromSettingsFrame }, // Save Button Mappings: USB
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[42],	285.0,	380.0,	135.0,	56.0,	36,	 2,	-1,	-1,	Func_ToggleButtonLoad,	Func_ReturnFromSettingsFrame }, // Auto Load Button Config Slot: Default,1,2,3,4
-	//Buttons for Audio Tab (starts at button[39]) ..was[41]
+	//Buttons for Audio Tab (starts at button[39]) ..was[45]
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[16],	345.0,	100.0,	 75.0,	56.0,	 3,	41,	40,	40,	Func_DisableAudioYes,	Func_ReturnFromSettingsFrame }, // Disable Audio: Yes
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[17],	440.0,	100.0,	 75.0,	56.0,	 3,	42,	39,	39,	Func_DisableAudioNo,	Func_ReturnFromSettingsFrame }, // Disable Audio: No
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[16],	345.0,	170.0,	 75.0,	56.0,	39,	43,	42,	42,	Func_DisableXaYes,		Func_ReturnFromSettingsFrame }, // Disable XA: Yes
@@ -330,11 +333,12 @@ struct ButtonInfo
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[17],	380.0,	170.0,	 75.0,	56.0,	47,	53,	50,	50,	Func_AutoSaveNo,		Func_ReturnFromSettingsFrame }, // Auto Save Memcards: No
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[13],	295.0,	240.0,	 55.0,	56.0,	50,	 4,	53,	53,	Func_SaveStateSD,		Func_ReturnFromSettingsFrame }, // Save State: SD
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[14],	360.0,	240.0,	 70.0,	56.0,	51,	 4,	52,	52,	Func_SaveStateUSB,		Func_ReturnFromSettingsFrame }, // Save State: USB
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[57],	225.0,	310.0,	 90.0,	56.0,	 11,55,	56,	55,	Func_SelectLanguage,	Func_ReturnFromSettingsFrame }, // Select Language: En
-    //Buttons for Saves Tab (starts at button[55]) ..was[56]
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[57],	235.0,	310.0,	 90.0,	56.0,	 11,55,	56,	55,	Func_SelectLanguage,	Func_ReturnFromSettingsFrame }, // Select Language: En
+    //Buttons for Saves Tab (starts at button[55]) ..was[58]
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[16],	490.0,	310.0,	 75.0,	56.0,	12,	15,	54,	56,	Func_FastloadYes,		Func_ReturnFromSettingsFrame }, // Fast load: Yes
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[17],	570.0,	310.0,	 75.0,	56.0,	13,	15,	55,	54,	Func_FastloadNo,		Func_ReturnFromSettingsFrame }, // Fast load: No
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[64],	510.0,	280.0,	 75.0,	56.0,	21,	27,	23,	22,	Func_Screen240p,		Func_ReturnFromSettingsFrame }  // ScreenMode: 240p
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[11],	585.0,	100.0,	130.0,	56.0,	 0,	 9,	 6,	 5,	Func_CpuDynarec,		Func_ReturnFromSettingsFrame }  // CPU: Dynarec
 };
 
 struct TextBoxInfo
@@ -460,8 +464,19 @@ void SettingsFrame::activateSubmenu(int submenu)
             FRAME_TEXTBOXES[21].textBox->setVisible(true);
             FRAME_TEXTBOXES[22].textBox->setVisible(true);
 			FRAME_BUTTONS[0].button->setSelected(true);
-			if (dynacore == DYNACORE_INTERPRETER)	FRAME_BUTTONS[5].button->setSelected(true);
-			else									FRAME_BUTTONS[6].button->setSelected(true);
+			if (dynacore == DYNACORE_INTERPRETER)
+			{
+				FRAME_BUTTONS[5].button->setSelected(true);
+			}
+			else if (dynacore == DYNACORE_DYNAREC)
+			{
+				FRAME_BUTTONS[6].button->setSelected(true);
+			}
+			else
+			{
+				FRAME_BUTTONS[58].button->setSelected(true);
+			}
+
 			FRAME_BUTTONS[7+biosDevice].button->setSelected(true);
 			if (LoadCdBios == BOOTTHRUBIOS_YES)	FRAME_BUTTONS[11].button->setSelected(true);
 			else								FRAME_BUTTONS[12].button->setSelected(true);
@@ -481,6 +496,10 @@ void SettingsFrame::activateSubmenu(int submenu)
             FRAME_BUTTONS[56].button->setActive(true);
             FRAME_BUTTONS[55].button->setSelected(fastLoad == 1);
             FRAME_BUTTONS[56].button->setSelected(fastLoad == 0);
+
+            // CPU: Dynarec
+            FRAME_BUTTONS[58].button->setVisible(true);
+            FRAME_BUTTONS[58].button->setActive(true);
 			break;
 		case SUBMENU_VIDEO:
 			setDefaultFocus(FRAME_BUTTONS[1].button);
@@ -779,42 +798,43 @@ void Func_TabSaves()
 	pMenuContext->setActiveFrame(MenuContext::FRAME_SETTINGS,SettingsFrame::SUBMENU_SAVES);
 }
 
+#define ChangeCpu(cpuCore, btnIdx) \
+    FRAME_BUTTONS[5].button->setSelected(false); \
+    FRAME_BUTTONS[6].button->setSelected(false); \
+    FRAME_BUTTONS[58].button->setSelected(false); \
+    FRAME_BUTTONS[btnIdx].button->setSelected(true); \
+    int needInit = 0; \
+	if (hasLoadedISO && dynacore != cpuCore) { \
+		SysClose(); \
+		needInit = 1; \
+	} \
+	dynacore = cpuCore; \
+	if(hasLoadedISO && needInit) { \
+		if (dynacore == DYNACORE_DYNAREC) \
+		{ \
+			VM_Init(1024*1024, 256*1024); \
+		} \
+		SysInit(); \
+		CheckCdrom(); \
+		SysReset(); \
+		LoadCdrom(); \
+		Func_SetPlayGame(); \
+		menu::MessageBox::getInstance().setMessage("Game Reset"); \
+	}
+
 void Func_CpuInterp()
 {
-	for (int i = 5; i <= 6; i++)
-		FRAME_BUTTONS[i].button->setSelected(false);
-	FRAME_BUTTONS[5].button->setSelected(true);
-
-	int needInit = 0;
-	if(hasLoadedISO && dynacore != DYNACORE_INTERPRETER){ SysClose(); needInit = 1; }
-	dynacore = DYNACORE_INTERPRETER;
-	if(hasLoadedISO && needInit) {
-		SysInit();
-		CheckCdrom();
-		SysReset();
-		LoadCdrom();
-		Func_SetPlayGame();
-		menu::MessageBox::getInstance().setMessage("Game Reset");
-	}
+	ChangeCpu(DYNACORE_INTERPRETER, 5);
 }
 
 void Func_CpuDynarec()
 {
-	for (int i = 5; i <= 6; i++)
-		FRAME_BUTTONS[i].button->setSelected(false);
-	FRAME_BUTTONS[6].button->setSelected(true);
+	ChangeCpu(DYNACORE_DYNAREC_OLD, 58);
+}
 
-	int needInit = 0;
-	if(hasLoadedISO && dynacore != DYNACORE_DYNAREC){ SysClose(); needInit = 1; }
-	dynacore = DYNACORE_DYNAREC;
-	if(hasLoadedISO && needInit) {
-		SysInit ();
-		CheckCdrom();
-		SysReset();
-		LoadCdrom();
-		Func_SetPlayGame();
-		menu::MessageBox::getInstance().setMessage("Game Reset");
-	}
+void Func_CpuLightrec()
+{
+	ChangeCpu(DYNACORE_DYNAREC, 6);
 }
 
 void Func_BiosSelectHLE()

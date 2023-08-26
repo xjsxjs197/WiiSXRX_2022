@@ -89,19 +89,22 @@ int psxMemInit() {
 	psxP = &psxM[0x200000];
 	psxH = &psxM[0x210000];
 
-    /* Memory-map the allocated buffers */
-	if (lightrec_mmap(psxM, 0x0, 0x200000)
-	    || lightrec_mmap(psxM, 0x200000, 0x200000)
-	    || lightrec_mmap(psxM, 0x400000, 0x200000)
-	    || lightrec_mmap(psxM, 0x600000, 0x200000)) {
-		SysMessage(_("Error mapping RAM"));
+    if (Config.Cpu == DYNACORE_DYNAREC)
+	{
+		/* Memory-map the allocated buffers */
+		if (lightrec_mmap(psxM, 0x0, 0x200000)
+			|| lightrec_mmap(psxM, 0x200000, 0x200000)
+			|| lightrec_mmap(psxM, 0x400000, 0x200000)
+			|| lightrec_mmap(psxM, 0x600000, 0x200000)) {
+			SysMessage(_("Error mapping RAM"));
+		}
+
+		if (lightrec_mmap(psxR, 0x1fc00000, 0x80000))
+			SysMessage(_("Error mapping BIOS"));
+
+		if (lightrec_mmap(psxM + 0x210000, 0x1f800000, 0x3000))
+			SysMessage(_("Error mapping scratch/IO"));
 	}
-
-	if (lightrec_mmap(psxR, 0x1fc00000, 0x80000))
-		SysMessage(_("Error mapping BIOS"));
-
-	if (lightrec_mmap(psxM + 0x210000, 0x1f800000, 0x3000))
-		SysMessage(_("Error mapping scratch/IO"));
 
 	memset(psxMemRLUT, 0, 0x10000 * sizeof(void*));
 	memset(psxMemWLUT, 0, 0x10000 * sizeof(void*));
