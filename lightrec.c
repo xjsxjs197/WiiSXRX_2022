@@ -25,7 +25,11 @@
 #	define unlikely(x)     (x)
 #endif
 
-static s8 code_buffer [0x400000] __attribute__((aligned(32))); // 4 MiB code buffer for Lightrec
+#define BUF_SIZE 0x400000 // 4 MiB code buffer for Lightrec and DYNAREC
+char recBuffer[BUF_SIZE] __attribute__((aligned(32)));
+
+//static s8 code_buffer [0x400000] __attribute__((aligned(32)));
+static s8* code_buffer = (s8*)recBuffer;
 static struct lightrec_state *lightrec_state;
 
 static char *name = "sd:/WiiStation/WiiStation.elf";
@@ -276,7 +280,7 @@ static struct lightrec_mem_map lightrec_map[] = {
 		.mirror_of = &lightrec_map[PSX_MAP_KERNEL_USER_RAM],
 	},
 	[PSX_MAP_CODE_BUFFER] = {
-		.length = sizeof(code_buffer), // RECMEM2_SIZE,
+		.length = BUF_SIZE, //sizeof(code_buffer),
 	},
 };
 

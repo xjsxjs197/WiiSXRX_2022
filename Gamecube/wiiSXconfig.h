@@ -129,8 +129,9 @@ extern char dynacore;
 enum dynacore
 {
 
-	DYNACORE_DYNAREC=0,
+	DYNACORE_DYNAREC=0, // lightrec
 	DYNACORE_INTERPRETER,
+	DYNACORE_DYNAREC_OLD
 };
 
 extern char biosDevice;

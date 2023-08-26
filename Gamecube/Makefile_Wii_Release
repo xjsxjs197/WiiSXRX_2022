@@ -25,7 +25,7 @@ TARGET		:=	WiiSXRX_Release
 BUILD		:=	build_release
 SOURCES		:=	../lang ../fonts \
                 . ./gc_input/ ./libgui/ ./menu/ ./fileBrowser/ .. ../Peops$(GPU)GPU/ \
-				./libgui/gui2 ../dfsound/ ./vm
+				./libgui/gui2 ../dfsound/ ./vm ../ppc
 
 DATA		:=	data
 
