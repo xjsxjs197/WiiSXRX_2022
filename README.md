@@ -20,6 +20,10 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
 * 240p support!
 
+* Interlace mode support - renders the games to a resolution close to the real PSX hardware (480i mode), which gives full speed to 480i games!
+
+* Posibility of enabling/disabling bilinear, trap, and deflicker filters!
+
 * (Experimental) PS1 Lightgun (GunCon) support! (sorry, Konami Justifier is still not supported, see Goals section!)
 
 * Support for multiple languages.
