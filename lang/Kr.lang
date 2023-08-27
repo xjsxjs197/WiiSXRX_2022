@@ -128,6 +128,9 @@ msgstr "자동"
 msgid "Force 16:9"
 msgstr "강제 16:9"
 
+msgid "Interlaced"
+msgstr "비월주사"
+
 msgid "240p"
 msgstr ""
 
@@ -146,11 +149,14 @@ msgstr "기본값"
 msgid "Always"
 msgstr "항상"
 
-msgid "Bilinear Filter"
-msgstr "이중선형 필터"
+msgid "Bilinear"
+msgstr "이중선형"
 
-msgid "Trap Filter"
-msgstr "트랩 플터"
+msgid "Trap"
+msgstr "트랩"
+
+msgid "Deflicker"
+msgstr "깜박임제거"
 
 msgid "Always"
 msgstr "항상"

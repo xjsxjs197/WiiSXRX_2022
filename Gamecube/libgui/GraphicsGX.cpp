@@ -61,6 +61,9 @@ extern "C" void VIDEO_SetTrapFilter(bool enable);
 GXRModeObj gvmode;
 GXRModeObj mgvmode;
 
+extern u32* xfb[2];
+extern int whichfb;
+
 extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
 	GXRModeObj *rmode;
 	f32 yscale;
@@ -82,7 +85,6 @@ extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
 	
 	if ((dHeight > 256))
 	{
-		GX_SetCopyFilter(rmode->aa,rmode->sample_pattern,GX_TRUE,rmode->vfilter);
 		if(!retMenu)
 		{
 			rmode = &gvmode;	
@@ -90,7 +92,6 @@ extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
 			rmode->efbHeight = dHeight;
 			rmode->xfbHeight = dHeight;
 			rmode->viYOrigin = (VI_MAX_HEIGHT_NTSC - dHeight)/2;
-			GX_SetCopyFilter(rmode->aa,rmode->sample_pattern,GX_FALSE,rmode->vfilter);
 			if ((CONF_GetEuRGB60() == 0) && (CONF_GetVideo() == CONF_VIDEO_PAL))
 				rmode->viYOrigin = (VI_MAX_HEIGHT_PAL - dHeight)/2;
 		}
@@ -129,11 +130,17 @@ extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
 		
 		rmode->fbWidth = dWidth;
 		width = rmode->fbWidth;
-		GX_SetCopyFilter(rmode->aa,rmode->sample_pattern,GX_FALSE,rmode->vfilter);
-	}
 		
+	}
+	if (retMenu)
+		GX_SetCopyFilter(rmode->aa,rmode->sample_pattern,GX_TRUE,rmode->vfilter);
+	else
+		GX_SetCopyFilter(rmode->aa,rmode->sample_pattern,(deflickerFilter)?GX_TRUE:GX_FALSE,rmode->vfilter);
+	
 	VIDEO_Configure (rmode);
 	VIDEO_Flush();
+	VIDEO_ClearFrameBuffer (rmode, xfb[whichfb], COLOR_BLACK);
+	VIDEO_Flush ();
 	VIDEO_WaitVSync();	
 	if(rmode->viTVMode&VI_NON_INTERLACE) VIDEO_WaitVSync();
 	

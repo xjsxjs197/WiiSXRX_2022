@@ -130,9 +130,9 @@ extern char dynacore;
 enum dynacore
 {
 
-	DYNACORE_DYNAREC=0, // lightrec
-	DYNACORE_INTERPRETER,
-	DYNACORE_DYNAREC_OLD
+	DYNACORE_DYNAREC=0, // Lightrec
+	DYNACORE_INTERPRETER, // Interpreter
+	DYNACORE_DYNAREC_OLD // old PPC dynarec
 };
 
 extern char biosDevice;
@@ -266,6 +266,20 @@ enum trapFilter
 {
 	TRAPFILTER_DISABLE=0,
 	TRAPFILTER_ENABLE,
+};
+
+extern char interlacedMode;
+enum interlacedMode
+{
+	INTERLACED_DISABLE=0,
+	INTERLACED_ENABLE,
+};
+
+extern char deflickerFilter;
+enum deflickerFilter
+{
+	DEFLICKER_DISABLE=0,
+	DEFLICKER_ENABLE,
 };
 
 extern const unsigned char En_dat[];

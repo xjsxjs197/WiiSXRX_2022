@@ -140,7 +140,7 @@ void DoBufferSwap(void)                                // SWAP BUFFERS
 		imgPtr+=PreviousPSXDisplay.Range.x0<<1;
 	}
 	
-	
+
 	GX_Flip(iDX, iDY, imgPtr, iResX_Max*2, PSXDisplay.RGB24 ? GX_TF_RGBA8 : GX_TF_RGB5A3);
 	
 	// Check if TVMode needs to be changed (240 or 480 lines)
@@ -462,7 +462,7 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 //	printf("Prv.Rng.x0,x1,y0 = %d, %d, %d, Prv.Mode.y = %d,DispPos.x,y = %d, %d, RGB24 = %x\n",PreviousPSXDisplay.Range.x0,PreviousPSXDisplay.Range.x1,PreviousPSXDisplay.Range.y0,PreviousPSXDisplay.DisplayMode.y,PSXDisplay.DisplayPosition.x,PSXDisplay.DisplayPosition.y,PSXDisplay.RGB24);
 	VIDEO_SetNextFramebuffer(xfb[whichfb]);
 	VIDEO_Flush();
-//	VIDEO_WaitVSync();
+// VIDEO_WaitVSync();
 }
 
 ////////////////////////////////////////////////////////////////////////

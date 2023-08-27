@@ -167,17 +167,26 @@ void round_init(void);
 void yuv2rgb24(int *blk,unsigned char *image);
 void yuv2rgb15(int *blk,unsigned short *image);
 
+struct _pending_dma1 {
+	u32 adr;
+	u32 bcr;
+	u32 chcr;
+};
+
 struct {
 	u32 command;
 	u32 status;
 	unsigned short *rl;
+	unsigned short *rl_end;
 	int rlsize;
+	struct _pending_dma1 pending_dma1;
 } mdec;
 
 int iq_y[DCTSIZE2],iq_uv[DCTSIZE2];
 
 void mdecInit(void) {
 	mdec.rl = (u16*)&psxM[0x100000];
+	mdec.rl_end = 0;
 	mdec.command = 0;
 	mdec.status = 0;
 	round_init();
@@ -227,7 +236,7 @@ u32 mdecRead1(void) {
 
 void psxDma0(u32 adr, u32 bcr, u32 chcr) {
 	int cmd = mdec.command;
-	//int size;
+	int size;
 
 #ifdef CDR_LOG
 	CDR_LOG("DMA0 %lx %lx %lx\n", adr, bcr, chcr);
@@ -235,7 +244,7 @@ void psxDma0(u32 adr, u32 bcr, u32 chcr) {
 
 	if (chcr!=0x01000201) return;
 
-	//size = (bcr>>16)*(bcr&0xffff);
+	size = (bcr>>16)*(bcr&0xffff);
 
 	if (cmd==0x60000000) {
 	} else
@@ -246,6 +255,14 @@ void psxDma0(u32 adr, u32 bcr, u32 chcr) {
 	} else
 	if ((cmd&0xf5ff0000)==0x30000000) {
 		mdec.rl = (u16*)PSXM(adr);
+		mdec.rl_end = mdec.rl + (size * 2);
+		mdec.status|= MDEC_BUSY;
+		
+		if(mdec.pending_dma1.adr){
+				psxDma1(mdec.pending_dma1.adr, mdec.pending_dma1.bcr, mdec.pending_dma1.chcr);
+		}
+		mdec.pending_dma1.adr = 0;
+		return;
 	}
 	else {
 	}
@@ -264,7 +281,14 @@ void psxDma1(u32 adr, u32 bcr, u32 chcr) {
 #endif
 
 	if (chcr!=0x01000200) return;
-
+	if (!(mdec.status & MDEC_BUSY)) {
+		/* add to pending */
+		mdec.pending_dma1.adr = adr;
+		mdec.pending_dma1.bcr = bcr;
+		mdec.pending_dma1.chcr = chcr;
+		/* do not free the dma */
+	}
+	
 	size = (bcr>>16)*(bcr&0xffff);
 
     image = (u16*)PSXM(adr);
@@ -285,30 +309,30 @@ void psxDma1(u32 adr, u32 bcr, u32 chcr) {
 			yuv2rgb24(blk,(u8 *)image);
 		}
 	}
-	mdec.status|= MDEC_BUSY;
 }
+
+#define	MDEC_END_OF_DATA	0xfe00
 
 void mdec1Interrupt() {
 #ifdef CDR_LOG
 	CDR_LOG("mdec1Interrupt\n");
 #endif
-	if (HW_DMA1_CHCR & SWAP32(0x01000000)) {
-    // Set a fixed value totaly arbitrarie
-    // another sound value is PSXCLK / 60 or
-    // PSXCLK / 50 since the bug happend
-    // at end of frame. PSXCLK / 1000 seems
-    // good for FF9.
-    // (for FF9 need < ~28000)
-    // CAUTION: commented interrupt-handling may lead to problems, keep an eye ;-)
-		MDECOUTDMA_INT(PSXCLK / 1000);
-    	//psxRegs.interrupt|= 0x02000000;
-		//psxRegs.intCycle[5+24+1] *= 8;
-		//psxRegs.intCycle[5+24] = psxRegs.cycle;
-		HW_DMA1_CHCR&= SWAP32(~0x01000000);
-		DMA_INTERRUPT(1);
-	} else {
-		mdec.status&= ~MDEC_BUSY;
+	if (mdec.rl >= mdec.rl_end || SWAP16(*(mdec.rl)) == MDEC_END_OF_DATA) {
+		mdec.status &= ~MDEC_BUSY;
+		if (HW_DMA0_CHCR & SWAP32(0x01000000))
+		{
+			HW_DMA0_CHCR &= SWAP32(~0x01000000);
+			DMA_INTERRUPT(0);
+		}
 	}
+
+	if (HW_DMA1_CHCR & SWAP32(0x01000000))
+	{
+		MDECOUTDMA_INT(PSXCLK / 1000);
+		HW_DMA1_CHCR &= SWAP32(~0x01000000);
+		DMA_INTERRUPT(1);
+	}
+	
 }
 
 #define	RUNOF(a)	((a)>>10)
@@ -391,7 +415,7 @@ unsigned short* rl2blk(int *blk,unsigned short *mdec_rl) {
 #define	MULB(a)		((int)((float)1.77200 * (a)))
 #endif
 
-#define	MAKERGB15(r,g,b)	( SWAP16((((r)>>3)<<10)|(((g)>>3)<<5)|((b)>>3)) )
+#define	MAKERGB15(r,g,b,a)	( SWAP16((((r)>>3)<<10)|(((g)>>3)<<5)|((b)>>3) | a) )
 #define	ROUND(c)	roundtbl[((c)+128+256)]//&0x3ff]
 /*#define ROUND(c)	round(c+128)
 int round(int r) {
@@ -401,10 +425,10 @@ int round(int r) {
 }*/
 
 #define RGB15(n, Y) \
-	image[n] = MAKERGB15(ROUND(Y + R),ROUND(Y + G),ROUND(Y + B));
+	image[n] = MAKERGB15(ROUND(Y + R),ROUND(Y + G),ROUND(Y + B), A);
 
 #define RGB15BW(n, Y) \
-	image[n] = MAKERGB15(ROUND(Y),ROUND(Y),ROUND(Y));
+	image[n] = MAKERGB15(ROUND(Y),ROUND(Y),ROUND(Y), A);
 
 #define RGB24(n, Y) \
 	image[n+2] = ROUND(Y + R); \
@@ -432,7 +456,8 @@ void yuv2rgb15(int *blk,unsigned short *image) {
 	int *Yblk = blk+DCTSIZE2*2;
 	int *Cbblk = blk;
 	int *Crblk = blk+DCTSIZE2;
-
+	int A = (mdec.command&0x2000000) ? 0x8000 : 0;
+	
 	if (!Config.Mdec)
 	for (y=0;y<16;y+=2,Crblk+=4,Cbblk+=4,Yblk+=8,image+=24) {
 		if (y==8) Yblk+=DCTSIZE2;
@@ -442,6 +467,7 @@ void yuv2rgb15(int *blk,unsigned short *image) {
 			int R = MULR(Cr);
 			int G = MULG(Cb) + MULG2(Cr);
 			int B = MULB(Cb);
+			
 
 			RGB15(0, Yblk[0]);
 			RGB15(1, Yblk[1]);
