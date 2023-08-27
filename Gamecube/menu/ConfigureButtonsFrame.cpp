@@ -247,9 +247,16 @@ enum ActivePadAssigned
 	ACTIVEPADASSIGNED_TRUE,
 };
 
+enum IsLightgun
+{
+	ISLIGHTGUN_FALSE=0,
+	ISLIGHTGUN_TRUE,
+};
+
 int activePad=ConfigureButtonsFrame::SUBMENU_PSX_PAD0;
 int activePadType=ACTIVEPADTYPE_NONE;
 int activePadAssigned=ACTIVEPADASSIGNED_TRUE;
+int isLightgun=ISLIGHTGUN_FALSE;
 
 void ConfigureButtonsFrame::activateSubmenu(int submenu)
 {
@@ -260,16 +267,21 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 		menu::Gui::getInstance().menuLogo->setVisible(false);
 	}
 
+	isLightgun=ISLIGHTGUN_FALSE;
 	//Fill out title text
 	if (virtualControllers[activePad].control == &controller_GC)
 		activePadType = ACTIVEPADTYPE_GAMECUBE;
 #ifdef HW_RVL
 	else if (virtualControllers[activePad].control == &controller_Classic)
 		activePadType = ACTIVEPADTYPE_CLASSIC;
-	else if (virtualControllers[activePad].control == &controller_WiimoteNunchuk)
+	else if (virtualControllers[activePad].control == &controller_WiimoteNunchuk){
 		activePadType = ACTIVEPADTYPE_WIIMOTENUNCHUCK;
-	else if (virtualControllers[activePad].control == &controller_Wiimote)
+		isLightgun = ISLIGHTGUN_TRUE;
+	}
+	else if (virtualControllers[activePad].control == &controller_Wiimote){
 		activePadType = ACTIVEPADTYPE_WIIMOTE;
+		isLightgun = ISLIGHTGUN_TRUE;
+	}
 	else if (virtualControllers[activePad].control == &controller_WiiUPro)
 		activePadType = ACTIVEPADTYPE_WIIUPRO;
 	else if (virtualControllers[activePad].control == &controller_WiiUGamepad)
@@ -307,12 +319,36 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 			activePadAssigned = ACTIVEPADASSIGNED_TRUE;
 		}
 
-		FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_UP, FRAME_BUTTONS[FRAME_BUTTONS[0].focusUp].button);
-		FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_DOWN, FRAME_BUTTONS[FRAME_BUTTONS[0].focusDown].button);
-		FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_LEFT, FRAME_BUTTONS[FRAME_BUTTONS[0].focusLeft].button);
-		FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_RIGHT, FRAME_BUTTONS[FRAME_BUTTONS[0].focusRight].button);
-		for (int i = 1; i < NUM_FRAME_BUTTONS; i++)
-			FRAME_BUTTONS[i].button->setActive(true);
+		if ((lightGun == LIGHTGUN_DISABLE) || !isLightgun){
+			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_UP, FRAME_BUTTONS[FRAME_BUTTONS[0].focusUp].button);
+			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_DOWN, FRAME_BUTTONS[FRAME_BUTTONS[0].focusDown].button);
+			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_LEFT, FRAME_BUTTONS[FRAME_BUTTONS[0].focusLeft].button);
+			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_RIGHT, FRAME_BUTTONS[FRAME_BUTTONS[0].focusRight].button);
+			for (int i = 1; i < NUM_FRAME_BUTTONS; i++){
+				FRAME_BUTTONS[i].button->setActive(true);
+				FRAME_BUTTONS[i].button->setVisible(true);
+			}
+		}
+		else{
+			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_UP, NULL);
+			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_DOWN, NULL);
+			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_LEFT, NULL);
+			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_RIGHT, NULL);
+			
+			for (int i = 5; i < NUM_FRAME_BUTTONS; i++){
+				FRAME_BUTTONS[i].button->setActive(false);
+				FRAME_BUTTONS[i].button->setVisible(false);
+			}
+			for (int i = 1; i < 5; i++)
+				FRAME_BUTTONS[i].button->setActive(true);
+			
+			FRAME_BUTTONS[9].button->setActive(true);
+			FRAME_BUTTONS[18].button->setActive(true);
+			FRAME_BUTTONS[19].button->setActive(true);
+			FRAME_BUTTONS[9].button->setVisible(true);
+			FRAME_BUTTONS[18].button->setVisible(true);
+			FRAME_BUTTONS[19].button->setVisible(true);
+		}
 
 		//Assign text to each button
 		strcpy(FRAME_STRINGS[5], currentConfig->exit->name);
@@ -368,6 +404,12 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 								   {420, 200, 408, 204}, //R2 (204,16)
 								   {260, 345, 278, 294}, //AnalogL (74,106)
 								   {380, 345, 362, 294}};//AnalogR (158,106)
+		int baseGCon_x = 133;	
+		int baseGCon_y = 215;		
+		int linesGCon[3][4] =     {{560, 310, 270, 300}, //Cro
+								   {506, 365, 372, 290}, //Cir
+								   {365, 160, 372, 290}}; //START
+
 
 		GXColor controllerColors[6] = {	{  1,  29, 169, 255}, //blue
 										{254,  32,  21, 255}, //orange/red
@@ -380,7 +422,11 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 		menu::Image* controllerIcon = NULL;
 //		gfx.setColor(controllerColors[activePad]);
 		gfx.setColor(controllerColors[5]);
-		controllerIcon = menu::Resources::getInstance().getImage(menu::Resources::IMAGE_PSX_CONTROLLER);
+		if ((lightGun == LIGHTGUN_DISABLE) || !isLightgun)
+			controllerIcon = menu::Resources::getInstance().getImage(menu::Resources::IMAGE_PSX_CONTROLLER);
+		else
+			controllerIcon = menu::Resources::getInstance().getImage(menu::Resources::IMAGE_GCON);
+		
 		controllerIcon->activateImage(GX_TEXMAP0);
 //		GX_SetTevColorIn(GX_TEVSTAGE0,GX_CC_ZERO,GX_CC_ZERO,GX_CC_ZERO,GX_CC_RASC);
 		GX_SetTevColorIn(GX_TEVSTAGE0,GX_CC_ZERO,GX_CC_TEXC,GX_CC_RASC,GX_CC_ZERO);
@@ -388,17 +434,27 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 		GX_SetTevAlphaIn(GX_TEVSTAGE0,GX_CA_ZERO,GX_CA_RASA,GX_CA_TEXA,GX_CA_ZERO);
 		GX_SetTevAlphaOp(GX_TEVSTAGE0,GX_TEV_ADD,GX_TB_ZERO,GX_CS_SCALE_1,GX_TRUE,GX_TEVPREV);
 		gfx.enableBlending(true);
-		gfx.drawImage(0, base_x, base_y, 232, 152, 0, 1, 0, 1);
+		if ((lightGun == LIGHTGUN_DISABLE) || !isLightgun)
+			gfx.drawImage(0, base_x, base_y, 232, 152, 0, 1, 0, 1);
+		else
+			gfx.drawImage(0, baseGCon_x, baseGCon_y, 290, 190, 0, 1, 0, 1);
 		gfx.setTEV(GX_PASSCLR);
 
 		//Draw lines and circles
 		gfx.setColor(controllerColors[5]);
 		gfx.setLineWidth(1);
-		gfx.drawCircle(115, 300, 60, 33);
-		gfx.drawCircle(525, 300, 60, 33);
+		if ((lightGun == LIGHTGUN_DISABLE) || !isLightgun){
+			gfx.drawCircle(115, 300, 60, 33);
+			gfx.drawCircle(525, 300, 60, 33);
 
-		for (int i=0; i<NUM_LINES; i++)
-			gfx.drawLine(lines[i][0], lines[i][1], lines[i][2], lines[i][3]);
+			for (int i=0; i<NUM_LINES; i++)
+				gfx.drawLine(lines[i][0], lines[i][1], lines[i][2], lines[i][3]);
+		}
+		else{
+			for (int i=0; i<3; i++)
+				gfx.drawLine(linesGCon[i][0], linesGCon[i][1], linesGCon[i][2], linesGCon[i][3]);
+		}
+			
 
 		//Draw buttons
 		menu::ComponentList::const_iterator iteration;

@@ -21,6 +21,7 @@
 #include <malloc.h>
 #include <time.h>
 #include <ogc/lwp_watchdog.h>
+#include <wiiuse/wpad.h>
 #include "../coredebug.h"
 #include "stdafx.h"
 #define _IN_DRAW
@@ -33,6 +34,7 @@
 #include "../Gamecube/libgui/IPLFontC.h"
 #include "../Gamecube/DEBUG.h"
 #include "../Gamecube/wiiSXconfig.h"
+#include "../Gamecube/gc_input/controller.h"
 
 ////////////////////////////////////////////////////////////////////////////////////
 // misc globals
@@ -77,6 +79,8 @@ extern char screenMode;
 // prototypes
 void BlitScreenNS_GX(unsigned char * surf,long x,long y, short dx, short dy);
 void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt);
+void drawLine(float x1, float y1, float x2, float y2, char r, char g, char b);
+void drawCircle(int x, int y, int radius, int numSegments, char r, char g, char b);
 
 void switchToTVMode(short dWidth, short dHeight, bool retMenu);
 
@@ -264,11 +268,15 @@ void ShowTextGpuPic(void)
 ////////////////////////////////////////////////////////////////////////
 void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 {	
-	int h, w;
+	int h, w, i;
+	char r, g, b;
 	static int oldwidth=0;
 	static int oldheight=0;
 	static int oldformat=-1;
 	static GXTexObj GXtexobj;
+	WPADData* wpad;
+	int cursorX;
+	int cursorY; 
 
 	if((width == 0) || (height == 0))
 		return;
@@ -435,7 +443,42 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 	  GX_Position2f32(-xcoord,-ycoord);
 	  GX_TexCoord2f32( 0.0, 1.0);
 	GX_End();
-
+	
+	if (lightGun == LIGHTGUN_ENABLE){	
+	
+	GX_InvVtxCache();
+	GX_InvalidateTexAll();
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc(GX_VA_POS, GX_DIRECT);
+	GX_SetVtxDesc(GX_VA_CLR0, GX_DIRECT);
+	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS,	GX_POS_XY,	GX_F32,	0);
+	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8,	0);
+	GX_SetNumChans(1);
+	GX_SetNumTexGens(0);
+	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0);
+	GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
+	GX_SetLineWidth(10, GX_TO_ZERO );
+	
+		for (i=0;i<2;i++){
+			if (controller_Wiimote.available[i] || controller_WiimoteNunchuk.available[i]){
+				wpad = WPAD_Data(0);
+				if (!wpad[i].ir.valid) continue;
+				cursorX = wpad[i].ir.x;
+				cursorY = wpad[i].ir.y; 
+				if (i){r=255; g=0; b=0;} else{r=0; g=255; b=0;}
+				
+				drawCircle(cursorX, cursorY, 20, 10, r, g, b);
+				drawLine(cursorX, cursorY-5, cursorX, cursorY+5, r, g, b);
+				drawLine(cursorX-5, cursorY, cursorX+5, cursorY, r, g, b);
+				
+				drawLine(cursorX+20, cursorY, cursorX+15, cursorY, r, g, b);
+				drawLine(cursorX-20, cursorY, cursorX-15, cursorY, r, g, b);
+				drawLine(cursorX, cursorY+20, cursorX, cursorY+15, r, g, b);
+				drawLine(cursorX, cursorY-20, cursorX, cursorY-15, r, g, b);
+			}
+		}
+	}
+	
 	//Write menu/debug text on screen
 	if (showFPSonScreen && (ulKeybits&KEY_SHOWFPS))
     {
@@ -464,6 +507,43 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 	VIDEO_Flush();
 // VIDEO_WaitVSync();
 }
+
+drawCircle(int x, int y, int radius, int numSegments, char r, char g, char b)
+{
+
+	GX_Begin(GX_LINESTRIP, GX_VTXFMT0, numSegments+1);
+
+	for (int i = 0; i<=numSegments; i++)
+	{
+		float angle, point_x, point_y;
+		angle = 2*3.14 * i/numSegments;
+		point_x = (float)x + (float)radius * cos( angle );
+		point_y = (float)y + (float)radius * sin( angle );
+		
+		point_x = (point_x/320)-1;
+		point_y = ((point_y/240)-1)*-1;
+
+		GX_Position2f32((float) point_x,(float) point_y);
+		GX_Color4u8(r, g, b, 0xFF);
+	}
+
+	GX_End();
+}
+
+drawLine(float x1, float y1, float x2, float y2, char r, char g, char b)
+{
+	x1 = (x1/320)-1;
+	y1 = ((y1/240)-1) *-1;
+	x2 = (x2/320)-1;
+	y2 = ((y2/240)-1) *-1;
+	GX_Begin(GX_LINES, GX_VTXFMT0, 2);
+		GX_Position2f32((float) x1,(float) y1);
+		GX_Color4u8(r, g, b, 0xFF);
+		GX_Position2f32((float) x2,(float) y2);
+		GX_Color4u8(r, g, b, 0xFF);
+	GX_End();
+}
+
 
 ////////////////////////////////////////////////////////////////////////
 

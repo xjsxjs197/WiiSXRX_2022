@@ -282,6 +282,13 @@ enum deflickerFilter
 	DEFLICKER_ENABLE,
 };
 
+extern char lightGun;
+enum lightGun
+{
+	LIGHTGUN_DISABLE=0,
+	LIGHTGUN_ENABLE,
+};
+
 extern const unsigned char En_dat[];
 extern const unsigned int  En_dat_size;
 extern char canChangeFont;
