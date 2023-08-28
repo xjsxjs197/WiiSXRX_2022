@@ -131,6 +131,7 @@ void InputStatusBar::drawComponent(Graphics& gfx)
 			controller_GC.available[(int)padAssign[i]] = (gc_connected & (1<<padAssign[i])) ? 1 : 0;
 			if (controller_GC.available[(int)padAssign[i]])
 			{
+				assign_controller(i, &controller_GC, (int)padAssign[i]);
 				gfx.setColor(activeColor);
 				IplFont::getInstance().drawInit(activeColor);
 //				gfx.setColor(controllerColors[i]);

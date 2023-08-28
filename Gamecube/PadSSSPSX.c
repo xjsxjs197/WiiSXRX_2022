@@ -132,7 +132,9 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 			virtualControllers[Control].control == &controller_WiimoteNunchuk){
 				global.padID[pad] = 0x63;
 				wpad = WPAD_Data(0);
-				cursorX = (wpad[virtualControllers[Control].number].ir.x/1.8)+80;
+				if(screenMode == 2)	cursorX = ((wpad[virtualControllers[Control].number].ir.x*848/640 - 104)/1.8)+80;
+				else cursorX = (wpad[virtualControllers[Control].number].ir.x/1.8)+80;
+				
 				cursorY = (wpad[virtualControllers[Control].number].ir.y/2); 
 				
 				if (!wpad[virtualControllers[Control].number].ir.valid){
