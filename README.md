@@ -16,9 +16,15 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 * Combined the DFSound module from PCSX-ReARMed and used the SDL library.
   The sound quality of the system has been greatly improved.
 
-* Replacing the old PowerPC (PPC) dynarec with the new dynamic recompiler [Lightrec](https://github.com/pcercuei/lightrec) by pcercuei, the speed/performance of the emulation is greatly improved.
+* Adding the new, updated PSX dynamic recompiler [Lightrec](https://github.com/pcercuei/lightrec) by pcercuei, the speed/performance of the emulation is greatly improved. The original old (and fixed/improved) PPC dynarec is kept as an option in case compatibility or speed changes much.
 
 * 240p support!
+
+* Interlace mode support - renders the games to a resolution close to the real PSX hardware (480i mode), which gives full speed to 480i games!
+
+* Posibility of enabling/disabling bilinear, trap, and deflicker filters!
+
+* (Experimental) PS1 Lightgun (GunCon) support! (sorry, Konami Justifier is still not supported, see Goals section!)
 
 * Support for multiple languages.
   At first, I wanted to refer to Snes9x GX and support TTF font library.
@@ -33,10 +39,9 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
   ※※※ Note: It reads a font file in a fixed location, so make sure that [sd:/wiisxrx/fonts/chs.dat] exists ※※※
 
-## Old changes (before Lightrec)
+## Changes on old PPC dynarec:
 
-* ̶M̶o̶d̶i̶f̶i̶c̶a̶t̶i̶o̶n̶ ̶o̶f̶ ̶s̶o̶m̶e̶ ̶d̶y̶n̶a̶m̶i̶c̶ ̶c̶o̶m̶p̶i̶l̶a̶t̶i̶o̶n̶ ̶i̶n̶s̶t̶r̶u̶c̶t̶i̶o̶n̶s̶,̶ ̶s̶u̶c̶h̶ ̶a̶s̶ ̶S̶L̶L̶V̶,̶ ̶S̶R̶L̶V̶,̶ ̶S̶R̶A̶V̶,̶ ̶F̶i̶n̶a̶l̶ ̶F̶a̶n̶t̶a̶s̶y̶ ̶9̶ ̶a̶n̶d̶ ̶B̶i̶o̶h̶a̶z̶a̶r̶d̶ ̶3̶ ̶(̶R̶e̶s̶i̶d̶e̶n̶t̶ ̶E̶v̶i̶l̶ ̶3̶)̶ ̶c̶a̶n̶ ̶b̶e̶ ̶r̶u̶n̶.̶
-̶ ̶ ̶(̶P̶a̶r̶t̶ ̶o̶f̶ ̶t̶h̶e̶ ̶d̶i̶v̶i̶s̶i̶o̶n̶ ̶i̶n̶s̶t̶r̶u̶c̶t̶i̶o̶n̶ ̶u̶s̶e̶s̶ ̶a̶ ̶s̶t̶a̶t̶i̶c̶ ̶c̶o̶m̶p̶i̶l̶a̶t̶i̶o̶n̶ ̶i̶n̶s̶t̶r̶u̶c̶t̶i̶o̶n̶)̶
+* ̶Modification of some dynamic compilation instructions on the old PPC dynarec, such as SLLV, SRLV, SRAV, Final Fantasy 9 and Biohazard 3 (Resident Evil 3) can be run. (Part of the division instruction uses a static compilation instruction)
 
 ## Goals
 
@@ -51,6 +56,8 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 * DualShock 3, DualShock 4 and DualShock 5 controller support.
 
 * Possibility to select other BIOS with some basic buttons.
+
+* Konami Justifier support.
 
 Any help is appreciated.
 
@@ -68,7 +75,7 @@ Any help is appreciated.
 
 WiiStation (formely WiiSXRX_2022) - developed by xjsxjs197 - https://github.com/xjsxjs197/WiiSXRX_2022
 
-240p support by Jokippo - http://github.com/Jokippo
+240p support, some fixes, additional improvements and Lightgun support by Jokippo - http://github.com/Jokippo
 
 WiiStation icon - made by Dakangel (high quality logo made by saulfabreg)
 

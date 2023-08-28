@@ -35,6 +35,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <ogc/pad.h>
+#include <wiiuse/wpad.h>
 #include "../plugins.h"
 #include "../psxcommon.h"
 #include "../psemu_plugin_defs.h"
@@ -101,7 +102,10 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 {
 	const int vib0 = global.padVibF[pad][0] ? 1 : 0;
 	const int vib1 = global.padVibF[pad][1] ? 1 : 0;
+	int cursorX = 0x1;
+	int cursorY = 0xA; 
 	static BUTTONS PAD_Data;
+	static WPADData* wpad;
 
 	//TODO: Rework/simplify the following code & reset BUTTONS when no controller in use
 	int Control = pad;
@@ -122,8 +126,31 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 				assign_controller(Control, &controller_Classic, virtualControllers[Control].number);
 		}
 	}
+	
+	if (lightGun == LIGHTGUN_ENABLE){
+		if (virtualControllers[Control].control == &controller_Wiimote || 
+			virtualControllers[Control].control == &controller_WiimoteNunchuk){
+				global.padID[pad] = 0x63;
+				wpad = WPAD_Data(0);
+				cursorX = (wpad[virtualControllers[Control].number].ir.x/1.8)+80;
+				cursorY = (wpad[virtualControllers[Control].number].ir.y/2); 
+				
+				if (!wpad[virtualControllers[Control].number].ir.valid){
+					cursorX = 0x1;
+					cursorY = 0xA; 
+				}
+			}
+		else{
+			if (global.padID[pad] == 0x63)
+			PADsetMode( pad, controllerType == CONTROLLERTYPE_ANALOG ? 1 : 0);
+		}
+	}
+	else{
+		if (global.padID[pad] == 0x63)
+		PADsetMode( pad, controllerType == CONTROLLERTYPE_ANALOG ? 1 : 0);
+	}
 #endif
-
+	
 	if (global.padMode1[pad] != controllerType)
 		PADsetMode( pad, controllerType == CONTROLLERTYPE_ANALOG ? 1 : 0);
 
@@ -138,20 +165,39 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 		PAD_Data.btns.All = 0xFFFF;
 		PAD_Data.leftStickX = PAD_Data.leftStickY = PAD_Data.rightStickX = PAD_Data.rightStickY = 128;
 	}
-
+	
+	
+	
 	global.padStat[pad] = (((PAD_Data.btns.All>>8)&0xFF) | ( (PAD_Data.btns.All<<8) & 0xFF00 )) &0xFFFF;
-
-	if (pad==0)
-	{
-		lastport1.leftJoyX = PAD_Data.leftStickX; lastport1.leftJoyY = PAD_Data.leftStickY;
-		lastport1.rightJoyX = PAD_Data.rightStickX; lastport1.rightJoyY = PAD_Data.rightStickY;
-		lastport1.buttonStatus = global.padStat[pad];
+	
+	
+	if (global.padID[pad] == 0x63){
+		if (pad==0)
+		{
+			lastport1.leftJoyX = cursorY & 0xFF; lastport1.leftJoyY = cursorY >> 8;
+			lastport1.rightJoyX = cursorX & 0xFF; lastport1.rightJoyY = cursorX >> 8;
+			lastport1.buttonStatus = global.padStat[pad];
+		}
+		else
+		{
+			lastport2.leftJoyX = cursorY & 0xFF; lastport2.leftJoyY = cursorY >> 8;
+			lastport2.rightJoyX = cursorX & 0xFF; lastport2.rightJoyY = cursorX >> 8;
+			lastport2.buttonStatus = global.padStat[pad];
+		}
 	}
-	else
-	{
-		lastport2.leftJoyX = PAD_Data.leftStickX; lastport2.leftJoyY = PAD_Data.leftStickY;
-		lastport2.rightJoyX = PAD_Data.rightStickX; lastport2.rightJoyY = PAD_Data.rightStickY;
-		lastport2.buttonStatus = global.padStat[pad];
+	else{
+		if (pad==0)
+		{
+			lastport1.leftJoyX = PAD_Data.leftStickX; lastport1.leftJoyY = PAD_Data.leftStickY;
+			lastport1.rightJoyX = PAD_Data.rightStickX; lastport1.rightJoyY = PAD_Data.rightStickY;
+			lastport1.buttonStatus = global.padStat[pad];
+		}
+		else
+		{
+			lastport2.leftJoyX = PAD_Data.leftStickX; lastport2.leftJoyY = PAD_Data.leftStickY;
+			lastport2.rightJoyX = PAD_Data.rightStickX; lastport2.rightJoyY = PAD_Data.rightStickY;
+			lastport2.buttonStatus = global.padStat[pad];
+		}
 	}
 
 	/* Small Motor */

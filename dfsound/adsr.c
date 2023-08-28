@@ -198,6 +198,8 @@ decay:
         //--------------------------------------------------//
 sustain:
     case ADSR_SUSTAIN:                                  // -> sustain
+		EnvelopeCounter = EnvelopeTicks[adsr->SustainRate];
+	
         if (adsr->SustainIncrease)
         {
             if (EnvelopeVol >= 32767)

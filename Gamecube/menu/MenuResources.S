@@ -75,4 +75,12 @@
    .globl PsxControllerTexture_length
    PsxControllerTexture_length:
    .long (PsxControllerTexture_length - PsxControllerTexture)
+   
+   .globl GConTexture
+   .balign 32
+   GConTexture:
+   .incbin	"../menu/resources/GCon.tx"
+   .globl GConTexture_length
+   GConTexture_length:
+   .long (GConTexture_length - GConTexture)
 
