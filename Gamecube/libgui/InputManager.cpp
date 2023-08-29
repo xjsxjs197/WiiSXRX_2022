@@ -22,6 +22,7 @@
 #include "FocusManager.h"
 #include "CursorManager.h"
 #include "../gc_input/controller.h"
+#include "../../Nintendont/HID.h"
 
 bool isWiiVC = false;
 
@@ -30,7 +31,7 @@ void ShutdownWii();
 
 
 namespace menu {
-	
+
 Input::Input()
 {
 	PAD_Init();
@@ -42,7 +43,7 @@ Input::Input()
 	WPAD_Init();
 	WPAD_SetIdleTimeout(120);
 	WPAD_SetVRes(WPAD_CHAN_ALL, 640, 480);
-	WPAD_SetDataFormat(WPAD_CHAN_ALL, WPAD_FMT_BTNS_ACC_IR); 
+	WPAD_SetDataFormat(WPAD_CHAN_ALL, WPAD_FMT_BTNS_ACC_IR);
 	WPAD_SetPowerButtonCallback((WPADShutdownCallback)ShutdownWii);
 	SYS_SetPowerCallback(ShutdownWii);
 
@@ -69,6 +70,10 @@ void Input::refreshInput()
 	wiiPad = WPAD_Data(0);
 	wupcData = WUPC_Data(0);
 	wiidrcData = WiiDRC_Data();
+	HIDUpdateRegisters();
+	static u32 (*const PADRead)(u32) = (void*)0x93000000;
+	PADRead(0);
+	PADStatus *hidGcPad = (PADStatus*)(0x93003100); //PadBuff
 #endif
 }
 
@@ -87,6 +92,11 @@ const WiiDRCData* Input::getWiiDRC()
 {
 	return wiidrcData;
 }
+
+PADStatus* Input::getHidPad()
+{
+    return hidGcPad;
+}
 #endif
 
 PADStatus* Input::getPad()
@@ -100,4 +110,4 @@ void Input::clearInputData()
 	Cursor::getInstance().clearInputData();
 }
 
-} //namespace menu 
+} //namespace menu

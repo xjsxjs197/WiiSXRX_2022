@@ -23,11 +23,11 @@ GPU = Soft
 #---------------------------------------------------------------------------------
 TARGET		:=	WiiSXRX_Release
 BUILD		:=	build_release
-SOURCES		:=	../lang ../fonts \
+SOURCES		:=	../lang ../fonts ../Nintendont \
                 . ./gc_input/ ./libgui/ ./menu/ ./fileBrowser/ .. ../Peops$(GPU)GPU/ \
 				./libgui/gui2 ../dfsound/ ./vm ../ppc
 
-DATA		:=	data
+DATA		:=	../Nintendont
 
 INCLUDES	:=
 
@@ -48,7 +48,7 @@ LDFLAGS	=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map,-wrap,wiiuse_register
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS	:=	-ldi -liso9660 -lm -lSDL -lfat -ldb -lwiiuse -lwupc -lwiidrc -lbte -logc -lz -ltinysmb -lwiikeyboard -llightrecNoLog -llightning
+LIBS	:=	-ldi -liso9660 -lm -lSDL -lfat -ldb -lwiiuse -lwupc -lwiidrc -lbte -logc -lz -ltinysmb -lwiikeyboard -llightrecNoLog -llightning -lfatfs-ppc
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
@@ -79,7 +79,7 @@ CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
 CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
 sFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.S)))
-BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
+BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.bin)))
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
@@ -91,6 +91,7 @@ else
 endif
 
 export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
+                    $(BINFILES:.bin=.bin.o) \
                     $(FONTFILES:.dat=.dat.o) \
                     $(LANGFILES:.lang=.lang.o) \
 					$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) \
@@ -148,6 +149,10 @@ $(OUTPUT).elf: $(OFILES)
 	$(bin2o)
 
 %.dat.o : %.dat
+	@echo $(notdir $<)
+	$(bin2o)
+
+%.bin.o : %.bin
 	@echo $(notdir $<)
 	$(bin2o)
 

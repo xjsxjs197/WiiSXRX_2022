@@ -24,14 +24,9 @@
 #define MCD2_LO       (MCD1_HI)
 #define MCD2_HI       (MCD2_LO + MCD2_SIZE)
 
-// We want 256KB for fontFont
-#define FONT_SIZE (256*KB)
-#define FONT_LO   (MCD2_HI)
-#define FONT_HI   (FONT_LO + FONT_SIZE)
-
-// We want 20MB for chinese font
+// We want 20MB for font for various languages
 #define CN_FONT_SIZE (20*MB)
-#define CN_FONT_LO   (FONT_HI)
+#define CN_FONT_LO   (MCD2_HI)
 #define CN_FONT_HI   (CN_FONT_LO + CN_FONT_SIZE)
 
 // We want 20MB for the recompiled blocks

@@ -51,7 +51,7 @@ void Func_ReturnFromConfigureInputFrame();
 #define NUM_FRAME_TEXTBOXES 3
 #define FRAME_TEXTBOXES configureInputFrameTextBoxes
 
-static char FRAME_STRINGS[16][15] =
+static char FRAME_STRINGS[17][15] =
 	{ "Pad Assignment",
 	  "PSX Pad 1",
 	  "PSX Pad 2",
@@ -68,7 +68,8 @@ static char FRAME_STRINGS[16][15] =
 	  "1",
 	  "2",
 	  "3",
-	  "4"};
+	  "4",
+	  "HID Pad"};
 
 struct ButtonInfo
 {
@@ -114,8 +115,8 @@ struct TextBoxInfo
 ConfigureInputFrame::ConfigureInputFrame()
 {
 	for (int i = 0; i < NUM_FRAME_BUTTONS; i++)
-		FRAME_BUTTONS[i].button = new menu::Button(FRAME_BUTTONS[i].buttonStyle, &FRAME_BUTTONS[i].buttonString, 
-										FRAME_BUTTONS[i].x, FRAME_BUTTONS[i].y, 
+		FRAME_BUTTONS[i].button = new menu::Button(FRAME_BUTTONS[i].buttonStyle, &FRAME_BUTTONS[i].buttonString,
+										FRAME_BUTTONS[i].x, FRAME_BUTTONS[i].y,
 										FRAME_BUTTONS[i].width, FRAME_BUTTONS[i].height);
 
 	for (int i = 0; i < NUM_FRAME_BUTTONS; i++)
@@ -128,15 +129,15 @@ ConfigureInputFrame::ConfigureInputFrame()
 		if (FRAME_BUTTONS[i].clickedFunc) FRAME_BUTTONS[i].button->setClicked(FRAME_BUTTONS[i].clickedFunc);
 		if (FRAME_BUTTONS[i].returnFunc) FRAME_BUTTONS[i].button->setReturn(FRAME_BUTTONS[i].returnFunc);
 		add(FRAME_BUTTONS[i].button);
-		menu::Cursor::getInstance().addComponent(this, FRAME_BUTTONS[i].button, FRAME_BUTTONS[i].x, 
-												FRAME_BUTTONS[i].x+FRAME_BUTTONS[i].width, FRAME_BUTTONS[i].y, 
+		menu::Cursor::getInstance().addComponent(this, FRAME_BUTTONS[i].button, FRAME_BUTTONS[i].x,
+												FRAME_BUTTONS[i].x+FRAME_BUTTONS[i].width, FRAME_BUTTONS[i].y,
 												FRAME_BUTTONS[i].y+FRAME_BUTTONS[i].height);
 	}
 
 	for (int i = 0; i < NUM_FRAME_TEXTBOXES; i++)
 	{
-		FRAME_TEXTBOXES[i].textBox = new menu::TextBox(&FRAME_TEXTBOXES[i].textBoxString, 
-										FRAME_TEXTBOXES[i].x, FRAME_TEXTBOXES[i].y, 
+		FRAME_TEXTBOXES[i].textBox = new menu::TextBox(&FRAME_TEXTBOXES[i].textBoxString,
+										FRAME_TEXTBOXES[i].x, FRAME_TEXTBOXES[i].y,
 										FRAME_TEXTBOXES[i].scale, FRAME_TEXTBOXES[i].centered);
 		add(FRAME_TEXTBOXES[i].textBox);
 	}
@@ -188,7 +189,14 @@ void ConfigureInputFrame::activateSubmenu(int submenu)
 		for (int i = 0; i < 2; i++)
 		{
 			FRAME_BUTTONS[i+2].button->setActive(true);
-			FRAME_BUTTONS[i+2].buttonString = FRAME_STRINGS[padType[i]+7];
+			if (padType[i] < 3)
+			{
+				FRAME_BUTTONS[i+2].buttonString = FRAME_STRINGS[padType[i]+7];
+			}
+			else
+			{
+				FRAME_BUTTONS[i+2].buttonString = FRAME_STRINGS[16];
+			}
 			FRAME_BUTTONS[i+4].button->setActive(true);
 			FRAME_BUTTONS[i+4].buttonString = FRAME_STRINGS[padAssign[i]+12];
 		}
@@ -218,6 +226,10 @@ void Func_AssignPad(int i)
 		type = &controller_GC;
 		break;
 #ifdef HW_RVL
+    case PADTYPE_HID:
+    	type = &controller_HidGC;
+		break;
+
 	case PADTYPE_WII:
 		if (controller_WiiUPro.available[(int)padAssign[i]])
 			type = &controller_WiiUPro;
@@ -238,9 +250,9 @@ void Func_TogglePad0Type()
 {
 	int i = PADASSIGN_INPUT0;
 #ifdef HW_RVL
-	padType[i] = (padType[i]+1) %3;
+	padType[i] = (padType[i]+1) & 3;
 #else
-	padType[i] = (padType[i]+1) %2;
+	padType[i] = (padType[i]+1) & 1;
 #endif
 
 	if (padType[i]) Func_AssignPad(i);
@@ -252,9 +264,9 @@ void Func_TogglePad1Type()
 {
 	int i = PADASSIGN_INPUT1;
 #ifdef HW_RVL
-	padType[i] = (padType[i]+1) %3;
+	padType[i] = (padType[i]+1) & 3;
 #else
-	padType[i] = (padType[i]+1) %2;
+	padType[i] = (padType[i]+1) & 1;
 #endif
 
 	if (padType[i]) Func_AssignPad(i);

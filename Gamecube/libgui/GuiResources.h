@@ -53,6 +53,7 @@ public:
 		IMAGE_CONTROLLER_WIIMOTENUNCHUCK,
 		IMAGE_CONTROLLER_WIIMOTE,
 		IMAGE_PSX_CONTROLLER,
+		IMAGE_CONTROLLER_HID_GAMECUBE,
 		IMAGE_GCON
 	};
 
@@ -65,7 +66,7 @@ private:
 	Image *styleAButtonSelectOnImage, *styleAButtonSelectOnFocusImage;
 	Image *menuBackgroundImage;
 	Image *logoImage;
-	Image *controllerEmptyImage, *controllerGamecubeImage;
+	Image *controllerEmptyImage, *controllerGamecubeImage, *controllerHidGamecubeImage;
 	Image *controllerClassicImage, *controllerWiimoteNunchuckImage;
 	Image *controllerWiimoteImage;
 	Image *psxControllerImage;
@@ -73,6 +74,6 @@ private:
 
 };
 
-} //namespace menu 
+} //namespace menu
 
 #endif

@@ -3,7 +3,7 @@
  * Copyright (C) 2007, 2008, 2009 Mike Slegeir
  * Copyright (C) 2007, 2008, 2009, 2010 sepp256
  * Copyright (C) 2007, 2008, 2009 emu_kidid
- * 
+ *
  * Basic Analog PAD plugin for WiiSX
  *
  * WiiSX homepage: http://www.emulatemii.com
@@ -61,6 +61,7 @@ controller_t* controller_ts[num_controller_t] =
 	  &controller_Wiimote,
 	  &controller_WiiUPro,
 	  &controller_WiiUGamepad,
+	  &controller_HidGC,
 	 };
 #else
 	{ &controller_GC,
@@ -145,7 +146,19 @@ void auto_assign_controllers(void)
 			if(w == 4) continue;
 
 			assign_controller(i, type, w);
-			padType[i] = type == &controller_GC ? PADTYPE_GAMECUBE : PADTYPE_WII;
+			//padType[i] = type == &controller_GC ? PADTYPE_GAMECUBE : PADTYPE_WII;
+			if (type == &controller_GC)
+			{
+				padType[i] = PADTYPE_GAMECUBE;
+			}
+			else if (type == &controller_HidGC)
+			{
+				padType[i] = PADTYPE_HID;
+			}
+			else
+			{
+				padType[i] = PADTYPE_WII;
+			}
 			padAssign[i] = w;
 
 			// Don't assign the next type over this one or the same controller
@@ -165,14 +178,14 @@ void auto_assign_controllers(void)
 
 int load_configurations(FILE* f, controller_t* controller){
 	int i;
-	char magic[4] = { 
+	char magic[4] = {
 		'W', 'X', controller->identifier, CONTROLLER_CONFIG_VERSION
 	};
 	char actual[4];
 	fread(actual, 1, 4, f);
 	if(memcmp(magic, actual, 4))
 		return 0;
-	
+
 	inline button_t* getPointer(button_t* list, int size){
 		int index;
 		fread(&index, 4, 1, f);
@@ -181,13 +194,13 @@ int load_configurations(FILE* f, controller_t* controller){
 	inline button_t* getButton(void){
 		return getPointer(controller->buttons, controller->num_buttons);
 	}
-	
+
 	for(i=0; i<4; ++i){
 		controller->config_slot[i].SQU = getButton();
 		controller->config_slot[i].CRO = getButton();
 		controller->config_slot[i].CIR = getButton();
 		controller->config_slot[i].TRI = getButton();
-		
+
 		controller->config_slot[i].R1 = getButton();
 		controller->config_slot[i].L1 = getButton();
 		controller->config_slot[i].R2 = getButton();
@@ -202,10 +215,10 @@ int load_configurations(FILE* f, controller_t* controller){
 
 		controller->config_slot[i].START  = getButton();
 		controller->config_slot[i].SELECT = getButton();
-				
-		controller->config_slot[i].analogL = 
+
+		controller->config_slot[i].analogL =
 			getPointer(controller->analog_sources, controller->num_analog_sources);
-		controller->config_slot[i].analogR = 
+		controller->config_slot[i].analogR =
 			getPointer(controller->analog_sources, controller->num_analog_sources);
 		controller->config_slot[i].exit =
 			getPointer(controller->menu_combos, controller->num_menu_combos);
@@ -220,38 +233,38 @@ int load_configurations(FILE* f, controller_t* controller){
 			       &controller->config_slot[(int)loadButtonSlot],
 			       sizeof(controller_config_t));
 	}
-	
+
 	return 1;
 }
 
 void save_configurations(FILE* f, controller_t* controller){
 	int i;
-	char magic[4] = { 
+	char magic[4] = {
 		'W', 'X', controller->identifier, CONTROLLER_CONFIG_VERSION
 	};
 	fwrite(magic, 1, 4, f);
-	
+
 	for(i=0; i<4; ++i){
 		fwrite(&controller->config_slot[i].SQU->index, 4, 1, f);
 		fwrite(&controller->config_slot[i].CRO->index, 4, 1, f);
 		fwrite(&controller->config_slot[i].CIR->index, 4, 1, f);
 		fwrite(&controller->config_slot[i].TRI->index, 4, 1, f);
-		
+
 		fwrite(&controller->config_slot[i].R1->index, 4, 1, f);
 		fwrite(&controller->config_slot[i].L1->index, 4, 1, f);
 		fwrite(&controller->config_slot[i].R2->index, 4, 1, f);
 		fwrite(&controller->config_slot[i].L2->index, 4, 1, f);
 		fwrite(&controller->config_slot[i].R3->index, 4, 1, f);
 		fwrite(&controller->config_slot[i].L3->index, 4, 1, f);
-		
+
 		fwrite(&controller->config_slot[i].DL->index, 4, 1, f);
 		fwrite(&controller->config_slot[i].DR->index, 4, 1, f);
 		fwrite(&controller->config_slot[i].DU->index, 4, 1, f);
 		fwrite(&controller->config_slot[i].DD->index, 4, 1, f);
-		
+
 		fwrite(&controller->config_slot[i].START->index, 4, 1, f);
 		fwrite(&controller->config_slot[i].SELECT->index, 4, 1, f);
-				
+
 		fwrite(&controller->config_slot[i].analogL->index, 4, 1, f);
 		fwrite(&controller->config_slot[i].analogR->index, 4, 1, f);
 		fwrite(&controller->config_slot[i].exit->index, 4, 1, f);
@@ -296,7 +309,7 @@ long PAD__readPort1(PadDataS* pad) {
 		pad->rightJoyX = PAD_1.rightStickX;
 		pad->rightJoyY = PAD_1.rightStickY;
 	}
-	else { 
+	else {
 		//TODO: Light Gun
 	}
 
@@ -322,7 +335,7 @@ long PAD__readPort2(PadDataS* pad) {
 		pad->rightJoyX = PAD_2.rightStickX;
 		pad->rightJoyY = PAD_2.rightStickY;
 	}
-	else { 
+	else {
 		//TODO: Light Gun
 	}
 

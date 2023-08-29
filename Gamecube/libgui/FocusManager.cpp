@@ -39,6 +39,7 @@ Focus::Focus()
 	for (int i=0; i<4; i++) {
 		previousButtonsWii[i] = 0;
 		previousButtonsGC[i] = 0;
+		previousButtonsGCHid[i] = 0;
 	}
 }
 
@@ -52,6 +53,7 @@ void Focus::updateFocus()
 	int buttonsDown = 0;
 #ifdef HW_RVL
 	WPADData* wiiPad = Input::getInstance().getWpad();
+	PADStatus* hidGcPad = Input::getInstance().getHidPad();
 #endif
 //	PADStatus* gcPad = Input::getInstance().getPad();
 
@@ -71,6 +73,7 @@ void Focus::updateFocus()
 		{
 			previousButtonsGC[i] = PAD_ButtonsHeld(i);
 #ifdef HW_RVL
+			previousButtonsGCHid[i] = hidGcPad[i].button;
 			previousButtonsWii[i] = wiiPad[i].btns_h;
 			previousButtonsWiiUPro[i] = WUPC_ButtonsHeld(i);
 			if(i == 0)
@@ -238,6 +241,36 @@ void Focus::updateFocus()
 			previousButtonsWiiUGamepad[i] = currentButtonsWiiUGamepad;
 			break;
 		}
+		else if (hidGcPad[i].button ^ previousButtonsGCHid[i])
+		{
+			switch (hidGcPad[i].button & 0x0F) {
+			case PAD_BUTTON_LEFT:
+				focusDirection = DIRECTION_LEFT;
+				break;
+			case PAD_BUTTON_RIGHT:
+				focusDirection = DIRECTION_RIGHT;
+				break;
+			case PAD_BUTTON_DOWN:
+				focusDirection = DIRECTION_DOWN;
+				break;
+			case PAD_BUTTON_UP:
+				focusDirection = DIRECTION_UP;
+				break;
+			default:
+				focusDirection = DIRECTION_NONE;
+			}
+			if (hidGcPad[i].button & PAD_BUTTON_A) buttonsDown |= ACTION_SELECT;
+			if (hidGcPad[i].button & PAD_BUTTON_B) buttonsDown |= ACTION_BACK;
+			if (freezeAction)
+			{
+				focusDirection = DIRECTION_NONE;
+				buttonsDown = 0;
+			}
+			if (primaryFocusOwner) primaryFocusOwner = primaryFocusOwner->updateFocus(focusDirection, buttonsDown);
+			else primaryFocusOwner = currentFrame->updateFocus(focusDirection, buttonsDown);
+			previousButtonsGCHid[i] = hidGcPad[i].button;
+			break;
+		}
 #endif
 	}
 }
@@ -291,4 +324,4 @@ void Focus::setFreezeAction(bool freeze)
 	freezeAction = freeze;
 }
 
-} //namespace menu 
+} //namespace menu

@@ -31,6 +31,7 @@
 #include <fat.h>
 #include <aesndlib.h>
 #include <sys/iosupport.h>
+#include <wiidrc/wiidrc.h>
 
 #ifdef DEBUGON
 # include <debug.h>
@@ -41,6 +42,10 @@
 #include "menu/MenuContext.h"
 #include "libgui/IPLFont.h"
 #include "libgui/MessageBox.h"
+
+#include "PADReadGC_bin.h"
+#include "kernel_bin.h"
+#include "kernelboot_bin.h"
 
 extern char * GetGameBios(char * biosPath, char * fileName, int isoFileNameLen);
 extern char* filenameFromAbsPath(char* absPath);
@@ -201,6 +206,7 @@ void handleConfigPair(char* kv);
 void readConfig(FILE* f);
 void writeConfig(FILE* f);
 int checkBiosExists(int testDevice);
+void initHid();
 
 void loadSettings(int argc, char *argv[])
 {
@@ -526,6 +532,9 @@ int main(int argc, char *argv[])
 	loadSettings(argc, argv);
 	// added by xjsxjs197 start
 	LoadLanguage();
+
+	// for hid
+	initHid();
 	// added by xjsxjs197 end
 
 	MenuContext *menu = new MenuContext(vmode);
@@ -736,6 +745,69 @@ void writeConfig(FILE* f){
 		else
 			fprintf(f, "%s = %d\n", OPTIONS[i].key, *OPTIONS[i].value);
 	}
+}
+
+// for hid
+#define STATUS			((void*)0x90004100)
+#define STATUS_LOADING	(*(volatile unsigned int*)(0x90004100))
+
+void initHid()
+{
+	// for BT.c
+	CONF_GetPadDevices((conf_pads*)0x932C0000);
+	DCFlushRange((void*)0x932C0000, sizeof(conf_pads));
+	*(vu32*)0x932C0490 = CONF_GetIRSensitivity();
+	*(vu32*)0x932C0494 = CONF_GetSensorBarPosition();
+	DCFlushRange((void*)0x932C0490, 8);
+
+	// inject nintendont kernel
+	memcpy((void*)0x92F00000,kernel_bin, kernel_bin_size);
+	DCFlushRange((void*)0x92F00000, kernel_bin_size);
+
+	// inject kernelboot
+	memcpy((void*)0x92FFFE00,kernelboot_bin, kernelboot_bin_size);
+	DCFlushRange((void*)0x92FFFE00,kernelboot_bin_size);
+
+	memset( STATUS, 0, 0x20 );
+	DCFlushRange( STATUS, 0x20 );
+	//make sure kernel doesnt reload
+	*(vu32*)0x93003420 = 0;
+	DCFlushRange((void*)0x93003420,0x20);
+
+	bool isWiiVC = false;
+	*(vu32*)0x92FFFFC0 = isWiiVC; //cant be detected in IOS
+	if(WiiDRC_Connected()) //used in PADReadGC.c
+		*(vu32*)0x92FFFFC4 = (u32)WiiDRC_GetRawI2CAddr();
+	else //will disable gamepad spot for player 1
+		*(vu32*)0x92FFFFC4 = 0;
+	DCFlushRange((void*)0x92FFFFC0,0x20);
+
+	//static char dev_es[] __attribute__((aligned(32))) = "/dev/es";
+	//static ioctlv IOCTL_Buf[2] __attribute__((aligned(32)));
+	//s32 fd;
+	//fd = IOS_Open( dev_es, 0 );
+	//IOS_IoctlvAsync(fd, 0x1F, 0, 0, IOCTL_Buf, NULL, NULL);
+	//Waiting for Nintendont...
+	while(1)
+	{
+		DCInvalidateRange( STATUS, 0x20 );
+		if((STATUS_LOADING > 0 || STATUS_LOADING > 1 || STATUS_LOADING < -1) && STATUS_LOADING < 20)
+		{
+			printf("Kernel sent signal\n");
+			break;
+		}
+	}
+	//Async Ioctlv done by now
+	//IOS_Close(fd);
+
+	// Initialize controllers.
+	DCInvalidateRange((void*)0x93000000, 0x3000);
+	memcpy((void*)0x93000000, PADReadGC_bin, PADReadGC_bin_size);
+	DCFlushRange((void*)0x93000000, 0x3000);
+	ICInvalidateRange((void*)0x93000000, 0x3000);
+	DCInvalidateRange((void*)0x93003010, 0x190);
+	memset((void*)0x93003010, 0, 0x190); //clears alot of pad stuff
+	DCFlushRange((void*)0x93003010, 0x190);
 }
 
 extern "C" {

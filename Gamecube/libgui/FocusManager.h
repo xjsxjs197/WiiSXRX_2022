@@ -64,6 +64,7 @@ private:
 	int buttonsPressed, previousButtonsPressed;
 	u32 previousButtonsWii[4];
 	u16 previousButtonsGC[4];
+	u32 previousButtonsGCHid[4];
 	u32 previousButtonsWiiUPro[4];
 	u16 previousButtonsWiiUGamepad[4];
 	ComponentList focusList;
@@ -72,6 +73,6 @@ private:
 
 };
 
-} //namespace menu 
+} //namespace menu
 
 #endif

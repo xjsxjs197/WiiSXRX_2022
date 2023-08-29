@@ -1,5 +1,5 @@
    .rodata
-   
+
    .globl BackgroundTexture
    .balign 32
    BackgroundTexture:
@@ -43,6 +43,14 @@
    .globl ControlGamecubeTexture_length
    ControlGamecubeTexture_length:
    .long (ControlGamecubeTexture_length - ControlGamecubeTexture)
+
+   .globl ControlHidGamecubeTexture
+   .balign 32
+   ControlHidGamecubeTexture:
+   .incbin	"../menu/resources/cntrlHidGC.tx"
+   .globl ControlHidGamecubeTexture_length
+   ControlHidGamecubeTexture_length:
+   .long (ControlHidGamecubeTexture_length - ControlHidGamecubeTexture)
 
    .globl ControlClassicTexture
    .balign 32

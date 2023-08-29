@@ -186,7 +186,8 @@ enum padType
 {
 	PADTYPE_NONE=0,
 	PADTYPE_GAMECUBE,
-	PADTYPE_WII
+	PADTYPE_WII,
+	PADTYPE_HID
 };
 
 extern char padAssign[2];
