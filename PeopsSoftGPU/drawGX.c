@@ -459,13 +459,18 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 	GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
 	GX_SetLineWidth(10, GX_TO_ZERO );
 	
-		for (i=0;i<2;i++){
+		for (i=0;i<4;i++){
 			if (controller_Wiimote.available[i] || controller_WiimoteNunchuk.available[i]){
 				wpad = WPAD_Data(0);
 				if (!wpad[i].ir.valid) continue;
 				cursorX = wpad[i].ir.x;
 				cursorY = wpad[i].ir.y; 
-				if (i){r=255; g=0; b=0;} else{r=0; g=255; b=0;}
+				switch (i){
+					case 0: r=0; g=255; b=0;break;
+					case 1: r=255; g=0; b=0;break;
+					case 2: r=0; g=0; b=255;break;
+					case 3: r=0; g=255; b=255;break;
+				}
 				
 				drawCircle(cursorX, cursorY, 20, 10, r, g, b);
 				drawLine(cursorX, cursorY-5, cursorX, cursorY+5, r, g, b);
