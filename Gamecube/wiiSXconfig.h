@@ -286,7 +286,8 @@ extern char lightGun;
 enum lightGun
 {
 	LIGHTGUN_DISABLE=0,
-	LIGHTGUN_ENABLE,
+	LIGHTGUN_GUNCON,
+	LIGHTGUN_JUST,
 };
 
 extern const unsigned char En_dat[];

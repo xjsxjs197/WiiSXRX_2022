@@ -195,7 +195,7 @@ static struct {
   { "TrapFilter", &trapFilter, TRAPFILTER_DISABLE, TRAPFILTER_ENABLE },
   { "Interlaced", &interlacedMode, INTERLACED_DISABLE, INTERLACED_ENABLE },
   { "DeflickerFilter", &deflickerFilter, DEFLICKER_DISABLE, DEFLICKER_ENABLE },
-  { "LightGun", &lightGun, LIGHTGUN_DISABLE, LIGHTGUN_ENABLE }
+  { "LightGun", &lightGun, LIGHTGUN_DISABLE, LIGHTGUN_JUST }
 };
 void handleConfigPair(char* kv);
 void readConfig(FILE* f);
