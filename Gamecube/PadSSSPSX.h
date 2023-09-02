@@ -30,4 +30,6 @@ typedef struct
 	u32 keys[2][21];
 } SSSConfig;
 
+void lightgunInterrupt(void);
+
 #endif

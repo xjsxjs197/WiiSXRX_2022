@@ -24,6 +24,7 @@
 #include "psxcounters.h"
 #include "gpu.h"
 #include "Gamecube/DEBUG.h"
+#include "Gamecube/wiiSXconfig.h"
 #include "psxcommon.h"
 
 /******************************************************************************/
@@ -79,6 +80,7 @@ static u32 hsync_steps = 0;
 u32 psxNextCounter = 0, psxNextsCounter = 0;
 
 extern int gInterlaceLine;
+int gLightgun;
 
 /******************************************************************************/
 
@@ -349,6 +351,12 @@ void psxRcntUpdate()
 
             GPU_updateLace();
             SysUpdate();
+			
+			if (lightGun == LIGHTGUN_JUST){
+				psxRegs.interrupt |= (1 << PSXINT_LIGHTGUN);
+				new_dyna_set_event(PSXINT_LIGHTGUN, (Config.PsxType ? 2157: 2146)*12);
+				gLightgun = 5;
+			}
 
 //            if( SPU_async )
 //            {

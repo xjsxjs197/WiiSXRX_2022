@@ -55,6 +55,7 @@ Resources::Resources()
 	controllerWiimoteImage = new Image(ControlWiimoteTexture, 48, 64, GX_TF_I4, GX_CLAMP, GX_CLAMP, GX_FALSE);
 	psxControllerImage = new Image(PsxControllerTexture, 232, 152, GX_TF_IA4, GX_CLAMP, GX_CLAMP, GX_FALSE);
 	GConImage = new Image(GConTexture, 250, 179, GX_TF_IA4, GX_CLAMP, GX_CLAMP, GX_FALSE);
+	JustImage = new Image(JustTexture, 250, 179, GX_TF_IA4, GX_CLAMP, GX_CLAMP, GX_FALSE);
 
 }
 
@@ -77,6 +78,7 @@ Resources::~Resources()
 	delete controllerWiimoteImage;
 	delete psxControllerImage;
 	delete GConImage;
+	delete JustImage;
 }
 
 Image* Resources::getImage(int image)
@@ -134,6 +136,9 @@ Image* Resources::getImage(int image)
 		break;
 	case IMAGE_GCON:
 		returnImage = GConImage;
+		break;
+	case IMAGE_JUST:
+		returnImage = JustImage;
 		break;
 	}
 	return returnImage;

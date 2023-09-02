@@ -132,15 +132,16 @@ extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
 		width = rmode->fbWidth;
 		
 	}
-	if (retMenu)
-		GX_SetCopyFilter(rmode->aa,rmode->sample_pattern,GX_TRUE,rmode->vfilter);
-	else
-		GX_SetCopyFilter(rmode->aa,rmode->sample_pattern,(deflickerFilter)?GX_TRUE:GX_FALSE,rmode->vfilter);
+
+	GX_SetCopyFilter(rmode->aa,rmode->sample_pattern,(deflickerFilter)?GX_TRUE:GX_FALSE,rmode->vfilter);
 	
 	VIDEO_Configure (rmode);
 	VIDEO_Flush();
-	VIDEO_ClearFrameBuffer (rmode, xfb[whichfb], COLOR_BLACK);
-	VIDEO_Flush ();
+	if (retMenu){
+		GX_SetCopyFilter(rmode->aa,rmode->sample_pattern,GX_TRUE,rmode->vfilter);
+		VIDEO_ClearFrameBuffer (rmode, xfb[whichfb], COLOR_BLACK);
+		VIDEO_Flush ();
+	}
 	VIDEO_WaitVSync();	
 	if(rmode->viTVMode&VI_NON_INTERLACE) VIDEO_WaitVSync();
 	

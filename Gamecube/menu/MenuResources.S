@@ -83,4 +83,12 @@
    .globl GConTexture_length
    GConTexture_length:
    .long (GConTexture_length - GConTexture)
+   
+   .globl JustTexture
+   .balign 32
+   JustTexture:
+   .incbin	"../menu/resources/Just.tx"
+   .globl JustTexture_length
+   JustTexture_length:
+   .long (JustTexture_length - JustTexture)
 

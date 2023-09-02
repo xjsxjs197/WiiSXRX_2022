@@ -69,6 +69,7 @@ static struct
 	int curByte;		//current command/data byte
 	int curCmd;			//current command from PSX/PS2
 	int cmdLen;			//# of bytes in pad reply
+	int irq10En[2];	// enable IRQ10 output for lightgun port
 } global;
 
 extern void SysPrintf(char *fmt, ...);
@@ -77,6 +78,7 @@ extern int stop;
 /* Controller type, later do this by a Variable in the GUI */
 //extern char controllerType = 0; // 0 = standard, 1 = analog (analog fails on old games)
 extern long  PadFlags;
+extern int gLightgun;
 
 extern virtualControllers_t virtualControllers[2];
 
@@ -86,6 +88,52 @@ extern virtualControllers_t virtualControllers[2];
 		virtualControllers[Control].number, ## args)
 
 void assign_controller(int wv, controller_t* type, int wp);
+
+void setIrq( u32 irq )
+{
+    psxHu32ref(0x1070) |= irq;
+}
+
+void lightgunInterrupt()
+{
+	int cursorX;
+	int cursorY;
+	int Control;
+	WPADData* wpad = WPAD_Data(0);
+	
+
+	if (global.irq10En[0] == 0x10) Control = 0;
+	else if (global.irq10En[1] == 0x10) Control = 1;
+	else return;
+	
+	if ((global.padID[Control] != 0x31) && (global.padID[Control] != 0x63))
+		return;
+	
+	if(screenMode == 2)	cursorX = ((wpad[virtualControllers[Control].number].ir.x*848/640 - 104));
+	else cursorX = (wpad[virtualControllers[Control].number].ir.x);
+				
+	cursorY = (wpad[virtualControllers[Control].number].ir.y/2); 
+	
+	
+	
+	if ((cursorY > 5) && (cursorY < 220) && wpad[virtualControllers[Control].number].ir.valid){
+		if (gLightgun == 5){
+		gLightgun--;
+		psxRegs.interrupt |= (1 << PSXINT_LIGHTGUN);
+		new_dyna_set_event(PSXINT_LIGHTGUN, (Config.PsxType ? 2157: 2146)*(cursorY + (Config.PsxType ? 40 : 0)));
+		return;
+		}
+
+
+		if (gLightgun>0){
+			setIrq( SWAPu32((u32)0x400) );	
+			gLightgun--;
+			psxRcntWcount(0,(cursorX*(rcnts[0].rate < 5 ? 2.52 : 0.4))+ (rcnts[0].rate < 5 ? 115 : 0) );
+			psxRegs.interrupt |= (1 << PSXINT_LIGHTGUN);
+			new_dyna_set_event(PSXINT_LIGHTGUN, (Config.PsxType ? 2157: 2146));
+		}
+	}
+}
 
 static void PADsetMode (const int pad, const int mode)	//mode = 0 (digital) or 1 (analog)
 {
@@ -127,28 +175,32 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 		}
 	}
 	
-	if (lightGun == LIGHTGUN_ENABLE){
+	if (lightGun){
 		if (virtualControllers[Control].control == &controller_Wiimote || 
 			virtualControllers[Control].control == &controller_WiimoteNunchuk){
-				global.padID[pad] = 0x63;
-				wpad = WPAD_Data(0);
-				if(screenMode == 2)	cursorX = ((wpad[virtualControllers[Control].number].ir.x*848/640 - 104)/1.8)+80;
-				else cursorX = (wpad[virtualControllers[Control].number].ir.x/1.8)+80;
-				
-				cursorY = (wpad[virtualControllers[Control].number].ir.y/2); 
-				
-				if (!wpad[virtualControllers[Control].number].ir.valid){
-					cursorX = 0x1;
-					cursorY = 0xA; 
+				if (lightGun == LIGHTGUN_GUNCON){
+					global.padID[pad] = 0x63;
+					wpad = WPAD_Data(0);
+					if(screenMode == 2)	cursorX = ((wpad[virtualControllers[Control].number].ir.x*848/640 - 104)/1.78) + 80;
+					else cursorX = (wpad[virtualControllers[Control].number].ir.x/1.78) + 80;
+					
+					cursorY = (wpad[virtualControllers[Control].number].ir.y/2) + (Config.PsxType ? 48 : 25); 
+					
+					if (!wpad[virtualControllers[Control].number].ir.valid){
+						cursorX = 0x1;
+						cursorY = 0xA; 
+					}
 				}
+				else 
+					global.padID[pad] = 0x31;
 			}
 		else{
-			if (global.padID[pad] == 0x63)
+			if ((global.padID[pad] == 0x31) || (global.padID[pad] == 0x63))
 			PADsetMode( pad, controllerType == CONTROLLERTYPE_ANALOG ? 1 : 0);
 		}
 	}
 	else{
-		if (global.padID[pad] == 0x63)
+		if ((global.padID[pad] == 0x31) || (global.padID[pad] == 0x63))
 		PADsetMode( pad, controllerType == CONTROLLERTYPE_ANALOG ? 1 : 0);
 	}
 #endif
@@ -173,7 +225,8 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 	global.padStat[pad] = (((PAD_Data.btns.All>>8)&0xFF) | ( (PAD_Data.btns.All<<8) & 0xFF00 )) &0xFFFF;
 	
 	
-	if (global.padID[pad] == 0x63){
+	if ((global.padID[pad] == 0x31) || (global.padID[pad] == 0x63)){
+		global.padStat[pad] |= lightGun == LIGHTGUN_GUNCON ? ~0x860:~0x8c0;
 		if (pad==0)
 		{
 			lastport1.leftJoyX = cursorY & 0xFF; lastport1.leftJoyY = cursorY >> 8;
@@ -388,6 +441,8 @@ unsigned char SSS_PADpoll (const unsigned char value)
 			global.padVibF[pad][0] = value;
 		if (cur == global.padVib1[pad])
 			global.padVibF[pad][1] = value;
+		if (cur == 2)
+			global.irq10En[pad] = value;
 		break;
 	case 0x43:
 		if (cur == 2)

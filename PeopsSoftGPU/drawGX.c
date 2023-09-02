@@ -90,7 +90,9 @@ void DoBufferSwap(void)                                // SWAP BUFFERS
 	static int iOldDY=0;
 	long x = PSXDisplay.DisplayPosition.x;
 	long y = PSXDisplay.DisplayPosition.y;
-	short iDX = PreviousPSXDisplay.DisplayMode.x;
+	short iDX = PreviousPSXDisplay.Range.x1 & 0xFFF8;
+	if (iDX < PreviousPSXDisplay.Range.x1)
+		iDX += 8;
 	short iDY = PreviousPSXDisplay.DisplayMode.y;
 
 	if (menuActive) return;
@@ -444,7 +446,7 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 	  GX_TexCoord2f32( 0.0, 1.0);
 	GX_End();
 	
-	if (lightGun == LIGHTGUN_ENABLE){	
+	if (lightGun){	
 	
 	GX_InvVtxCache();
 	GX_InvalidateTexAll();
