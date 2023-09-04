@@ -24,7 +24,7 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
 * Posibility of enabling/disabling bilinear, trap, and deflicker filters!
 
-* (Experimental) PS1 Lightgun (GunCon) support! (sorry, Konami Justifier is still not supported, see Goals section!)
+* PS1 Lightguns support! Both Namco GunCon and Konami Justifier lightguns are supported and emulated with the Wiimotes! (Needs to be enabled in emulator settings and calibrate them by using the in-game calibration screen)
 
 * Support for multiple languages.
   At first, I wanted to refer to Snes9x GX and support TTF font library.
@@ -57,7 +57,7 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
 * Possibility to select other BIOS with some basic buttons.
 
-* Konami Justifier support.
+* Decent PS1 multitap support (with options for connect to Port 1 and/or Port 2).
 
 Any help is appreciated.
 

@@ -343,10 +343,16 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 				FRAME_BUTTONS[i].button->setActive(true);
 			
 			FRAME_BUTTONS[9].button->setActive(true);
-			FRAME_BUTTONS[18].button->setActive(true);
-			FRAME_BUTTONS[19].button->setActive(true);
 			FRAME_BUTTONS[9].button->setVisible(true);
-			FRAME_BUTTONS[18].button->setVisible(true);
+			if (lightGun == LIGHTGUN_JUST){
+				FRAME_BUTTONS[17].button->setActive(true);
+				FRAME_BUTTONS[17].button->setVisible(true);
+			}
+			else {
+				FRAME_BUTTONS[18].button->setActive(true);
+				FRAME_BUTTONS[18].button->setVisible(true);
+			}
+			FRAME_BUTTONS[19].button->setActive(true);
 			FRAME_BUTTONS[19].button->setVisible(true);
 		}
 
@@ -406,9 +412,14 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 								   {380, 345, 362, 294}};//AnalogR (158,106)
 		int baseGCon_x = 133;	
 		int baseGCon_y = 215;		
-		int linesGCon[3][4] =     {{560, 310, 270, 300}, //Cro
-								   {506, 365, 372, 290}, //Cir
+		int linesGCon[3][4] =     {{560, 310, 270, 300}, //Cir
+								   {506, 365, 372, 290}, //Cro
 								   {365, 160, 372, 290}}; //START
+		int baseJust_x = 120;	
+		int baseJust_y = 220;		
+		int linesJust[3][4] =     {{500, 310, 315, 300}, //Squ
+								   {490, 380, 370, 275}, //Cro
+								   {365, 160, 343, 270}}; //START
 
 
 		GXColor controllerColors[6] = {	{  1,  29, 169, 255}, //blue
@@ -424,8 +435,10 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 		gfx.setColor(controllerColors[5]);
 		if ((lightGun == LIGHTGUN_DISABLE) || !isLightgun)
 			controllerIcon = menu::Resources::getInstance().getImage(menu::Resources::IMAGE_PSX_CONTROLLER);
-		else
+		else if (lightGun == LIGHTGUN_GUNCON)
 			controllerIcon = menu::Resources::getInstance().getImage(menu::Resources::IMAGE_GCON);
+		else
+			controllerIcon = menu::Resources::getInstance().getImage(menu::Resources::IMAGE_JUST);
 		
 		controllerIcon->activateImage(GX_TEXMAP0);
 //		GX_SetTevColorIn(GX_TEVSTAGE0,GX_CC_ZERO,GX_CC_ZERO,GX_CC_ZERO,GX_CC_RASC);
@@ -436,8 +449,10 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 		gfx.enableBlending(true);
 		if ((lightGun == LIGHTGUN_DISABLE) || !isLightgun)
 			gfx.drawImage(0, base_x, base_y, 232, 152, 0, 1, 0, 1);
-		else
+		else if (lightGun == LIGHTGUN_GUNCON)
 			gfx.drawImage(0, baseGCon_x, baseGCon_y, 290, 190, 0, 1, 0, 1);
+		else
+			gfx.drawImage(0, baseJust_x, baseJust_y, 280, 180, 0, 1, 0, 1);
 		gfx.setTEV(GX_PASSCLR);
 
 		//Draw lines and circles
@@ -450,9 +465,13 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 			for (int i=0; i<NUM_LINES; i++)
 				gfx.drawLine(lines[i][0], lines[i][1], lines[i][2], lines[i][3]);
 		}
-		else{
+		else if (lightGun == LIGHTGUN_GUNCON){
 			for (int i=0; i<3; i++)
 				gfx.drawLine(linesGCon[i][0], linesGCon[i][1], linesGCon[i][2], linesGCon[i][3]);
+		}
+		else{
+			for (int i=0; i<3; i++)
+				gfx.drawLine(linesJust[i][0], linesJust[i][1], linesJust[i][2], linesJust[i][3]);
 		}
 			
 

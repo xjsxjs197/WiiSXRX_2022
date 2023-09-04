@@ -14,6 +14,7 @@
 #include "psxmem.h"
 #include "r3000a.h"
 #include "Gamecube/MEM2.h"
+#include "Gamecube/PadSSSPSX.h"
 
 #define ARRAY_SIZE(x) (sizeof(x) ? sizeof(x) / sizeof((x)[0]) : 0)
 
@@ -476,6 +477,7 @@ static irq_func * const irq_funcs[] = {
     [PSXINT_CDRPLAY] = cdrPlayInterrupt,
 	[PSXINT_SPU_UPDATE] = spuUpdate,
 	[PSXINT_RCNT] = psxRcntUpdate,
+	[PSXINT_LIGHTGUN] = lightgunInterrupt,
 };
 
 /* local dupe of psxBranchTest, using event_cycles */

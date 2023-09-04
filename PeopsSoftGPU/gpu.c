@@ -777,7 +777,7 @@ void PEOPS_GPUupdateLace(void)
  //if(!(dwActFixes&32))                                  // std fps limitation?
   CheckFrameRate();
   
- if(lightGun == LIGHTGUN_ENABLE) 
+ if(lightGun) 
 	 bDoVSyncUpdate=TRUE;
 		
  if(PSXDisplay.Interlaced)                             // interlaced mode?
