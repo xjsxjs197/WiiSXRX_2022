@@ -40,6 +40,14 @@ Input::Input()
 	WUPC_Init();
 	WiiDRC_Init();
 	isWiiVC = WiiDRC_Inited();
+
+	*(vu32*)0x92FFFFC0 = isWiiVC; //cant be detected in IOS
+	if(WiiDRC_Connected()) //used in PADReadGC.c
+		*(vu32*)0x92FFFFC4 = (u32)WiiDRC_GetRawI2CAddr();
+	else //will disable gamepad spot for player 1
+		*(vu32*)0x92FFFFC4 = 0;
+	DCFlushRange((void*)0x92FFFFC0,0x20);
+
 	WPAD_Init();
 	WPAD_SetIdleTimeout(120);
 	WPAD_SetVRes(WPAD_CHAN_ALL, 640, 480);
@@ -70,6 +78,13 @@ void Input::refreshInput()
 	wiiPad = WPAD_Data(0);
 	wupcData = WUPC_Data(0);
 	wiidrcData = WiiDRC_Data();
+
+	if (hidPadNeedScan)
+	{
+	    static u32* HID_STATUS = (u32*)0xD3003440;
+		hidGcConnected = ((*HID_STATUS == 0) ? 0 : 1);
+	    hidPadNeedScan = 0;
+	}
 	HIDUpdateRegisters();
 	static u32 (*const PADRead)(u32) = (void*)0x93000000;
 	PADRead(0);

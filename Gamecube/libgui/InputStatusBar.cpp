@@ -147,7 +147,7 @@ void InputStatusBar::drawComponent(Graphics& gfx)
 			break;
 #ifdef HW_RVL
         case PADTYPE_HID:
-			if (controller_HidGC.available[0])
+			if (controller_HidGC.available[i])
 			{
 				gfx.setColor(activeColor);
 				IplFont::getInstance().drawInit(activeColor);

@@ -83,6 +83,8 @@ static button_t menu_combos[] = {
 	{ 1, PAD_BUTTON_START|PAD_BUTTON_X, "Start+X" },
 };
 
+u32 hidGcConnected;
+
 //static unsigned int getButtons(int Control)
 //{
 //	HIDUpdateRegisters();
@@ -143,7 +145,7 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 
 	HIDUpdateRegisters();
 	static u32 (*const PADRead)(u32) = (void*)0x93000000;
-	PADRead(1);
+	PADRead(0);
 	PADStatus *Pad = (PADStatus*)(0x93003100); //PadBuff
 	for(i = 0; i < PAD_CHANMAX; ++i)
 	{
@@ -268,5 +270,13 @@ controller_t controller_HidGC =
 
 static u32* HID_STATUS = (u32*)0xD3003440;
 static void refreshAvailable(void){
-	controller_HidGC.available[0] = ((*HID_STATUS == 0) ? 0 : 1);
+	if (hidPadNeedScan)
+	{
+		hidGcConnected = ((*HID_STATUS == 0) ? 0 : 1);
+	    hidPadNeedScan = 0;
+	}
+	controller_HidGC.available[0] = hidGcConnected;
+	controller_HidGC.available[1] = hidGcConnected;
+	controller_HidGC.available[2] = hidGcConnected;
+	controller_HidGC.available[3] = hidGcConnected;
 }
