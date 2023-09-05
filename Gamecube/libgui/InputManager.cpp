@@ -28,6 +28,7 @@ bool isWiiVC = false;
 
 void ShutdownWii();
 
+static u32 (*const PADRead)(u32) = (void*)0x93000000;
 
 
 namespace menu {
@@ -47,6 +48,10 @@ Input::Input()
 	else //will disable gamepad spot for player 1
 		*(vu32*)0x92FFFFC4 = 0;
 	DCFlushRange((void*)0x92FFFFC0,0x20);
+
+	HIDUpdateRegisters();
+	PADRead(0);
+	hidGcPad = (PADStatus*)(0x93003100); //PadBuff
 
 	WPAD_Init();
 	WPAD_SetIdleTimeout(120);
@@ -86,9 +91,7 @@ void Input::refreshInput()
 	    hidPadNeedScan = 0;
 	}
 	HIDUpdateRegisters();
-	static u32 (*const PADRead)(u32) = (void*)0x93000000;
 	PADRead(0);
-	PADStatus *hidGcPad = (PADStatus*)(0x93003100); //PadBuff
 #endif
 }
 
