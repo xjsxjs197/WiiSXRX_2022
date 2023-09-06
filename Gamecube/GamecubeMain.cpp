@@ -530,7 +530,7 @@ int main(int argc, char *argv[])
 	#endif
 
 	// for hid
-	initHid();
+	//initHid();
 
 	control_info_init(); //Perform controller auto assignment at least once at startup.
 
@@ -755,11 +755,11 @@ void writeConfig(FILE* f){
 void initHid()
 {
 	// for BT.c
-//	CONF_GetPadDevices((conf_pads*)0x932C0000);
-//	DCFlushRange((void*)0x932C0000, sizeof(conf_pads));
-//	*(vu32*)0x932C0490 = CONF_GetIRSensitivity();
-//	*(vu32*)0x932C0494 = CONF_GetSensorBarPosition();
-//	DCFlushRange((void*)0x932C0490, 8);
+	CONF_GetPadDevices((conf_pads*)0x932C0000);
+	DCFlushRange((void*)0x932C0000, sizeof(conf_pads));
+	*(vu32*)0x932C0490 = CONF_GetIRSensitivity();
+	*(vu32*)0x932C0494 = CONF_GetSensorBarPosition();
+	DCFlushRange((void*)0x932C0490, 8);
 
 	// inject nintendont kernel
 	memcpy((void*)0x92F00000,kernel_bin, kernel_bin_size);
@@ -774,14 +774,6 @@ void initHid()
 	//make sure kernel doesnt reload
 	*(vu32*)0x93003420 = 0;
 	DCFlushRange((void*)0x93003420,0x20);
-
-//	bool isWiiVC = false;
-//	*(vu32*)0x92FFFFC0 = isWiiVC; //cant be detected in IOS
-//	if(WiiDRC_Connected()) //used in PADReadGC.c
-//		*(vu32*)0x92FFFFC4 = (u32)WiiDRC_GetRawI2CAddr();
-//	else //will disable gamepad spot for player 1
-//		*(vu32*)0x92FFFFC4 = 0;
-//	DCFlushRange((void*)0x92FFFFC0,0x20);
 
 	//static char dev_es[] __attribute__((aligned(32))) = "/dev/es";
 	//static ioctlv IOCTL_Buf[2] __attribute__((aligned(32)));
