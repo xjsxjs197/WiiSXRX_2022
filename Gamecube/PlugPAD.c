@@ -52,7 +52,7 @@ extern int stop;
 //extern char controllerType = 0; // 0 = standard, 1 = analog (analog fails on old games)
 long  PadFlags = 0;
 
-virtualControllers_t virtualControllers[2];
+virtualControllers_t virtualControllers[10];
 
 controller_t* controller_ts[num_controller_t] =
 #if defined(WII) && !defined(NO_BT)
@@ -110,7 +110,7 @@ void assign_controller(int wv, controller_t* type, int wp){
 	virtualControllers[wv].control = type;
 	virtualControllers[wv].inUse   = 1;
 	virtualControllers[wv].number  = wp;
-	virtualControllers[wv].config  = &type->config[wv];
+	virtualControllers[wv].config  = &type->config[wp];
 
 	type->assign(wp,wv);
 }

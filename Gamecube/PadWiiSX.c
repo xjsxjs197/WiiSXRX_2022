@@ -30,7 +30,7 @@
 #include "gc_input/controller.h"
 #include "wiiSXconfig.h"
 
-extern virtualControllers_t virtualControllers[2];
+extern virtualControllers_t virtualControllers[10];
 extern int stop;
 
 // Use to invoke func on the mapped controller with args

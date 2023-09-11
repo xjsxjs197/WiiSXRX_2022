@@ -76,7 +76,8 @@ void InputStatusBar::drawComponent(Graphics& gfx)
 	int box_x = 50;
 	int box_y = 0;
 	int width = 235;
-	int height = 340;
+	int height = 340 + 65*((padType[0] == PADTYPE_MULTITAP)
+						  +(padType[1] == PADTYPE_MULTITAP));
 	int labelScissor = 5;
 	GXColor activeColor = (GXColor) {255, 255, 255, 255};
 	GXColor inactiveColor = (GXColor) {192, 192, 192, 192};
@@ -86,6 +87,8 @@ void InputStatusBar::drawComponent(Graphics& gfx)
 //									{255, 192,   1, 255}, //yellow/gold
 //									{150, 150, 255, 255}};
 //	char statusText[50];
+	char padNames[10][3] = {"1","2","1A","1B","1C","1D",
+							"2A","2B","2C","2D"};
 	Image* statusIcon = NULL;
 	//Draw Status Info Box
 	GXColor boxColor = (GXColor) {87, 90, 100,128};
@@ -123,8 +126,18 @@ void InputStatusBar::drawComponent(Graphics& gfx)
 	}
 	gfx.disableScissor();
 	//Update controller availability
-	for (int i = 0; i < 2; i++)
+	for (int i = 0; i < 10; i++)
 	{
+		if ((padType[0] != PADTYPE_MULTITAP) && (i == 2)){
+			i+=3;
+			continue;
+		}
+		
+		if ((padType[1] != PADTYPE_MULTITAP) && (i == 6)){
+			i+=3;
+			continue;
+		}
+		
 		switch (padType[i])
 		{
 		case PADTYPE_GAMECUBE:
@@ -212,6 +225,7 @@ void InputStatusBar::drawComponent(Graphics& gfx)
 
 			break;
 #endif
+		case PADTYPE_MULTITAP:
 		case PADTYPE_NONE:
 			gfx.setColor(inactiveColor);
 			IplFont::getInstance().drawInit(inactiveColor);
@@ -223,14 +237,34 @@ void InputStatusBar::drawComponent(Graphics& gfx)
 //		IplFont::getInstance().drawString((int) box_x+width/2, (int) 215+30*i, statusText, 1.0, true);
 		int base_x = box_x + 14 + 53*i;
 		int base_y = 260;
+		if (i > 1 && i < 6){
+			base_y = 330;
+			base_x = box_x + 14 + 53*(i-2);
+		}
+		if (i > 5){
+			if (padType[0]==PADTYPE_MULTITAP)
+				base_y = 395;
+			else 
+				base_y = 330;
+			base_x = box_x + 14 + 53*(i-6);
+		}
+			
 		//draw numbers
-		sprintf(buffer,"%d",i+1);
+		sprintf(buffer,padNames[i]);
 		IplFont::getInstance().drawString((int) base_x+36, (int) base_y+10, buffer, 0.8, true);
-		if (padType[i]!=PADTYPE_NONE)
+		if (padType[i]==PADTYPE_MULTITAP)
+		{
+			sprintf(buffer,"M");
+			IplFont::getInstance().drawString((int) base_x+34, (int) base_y+32, buffer, 0.8, true);
+			sprintf(buffer,"Tap");
+			IplFont::getInstance().drawString((int) base_x+21, (int) base_y+49, buffer, 0.8, true);
+		}
+		else if (padType[i]!=PADTYPE_NONE)
 		{
 			sprintf(buffer,"%d",padAssign[i]+1);
 			IplFont::getInstance().drawString((int) base_x+37, (int) base_y+52, buffer, 0.8, true);
 		}
+		
 		//draw icon
 		statusIcon->activateImage(GX_TEXMAP0);
 		GX_SetTevColorIn(GX_TEVSTAGE0,GX_CC_ZERO,GX_CC_ZERO,GX_CC_ZERO,GX_CC_RASC);

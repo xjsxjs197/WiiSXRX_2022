@@ -110,6 +110,9 @@ void Func_AutoSaveYes();
 void Func_AutoSaveNo();
 void Func_SaveStateSD();
 void Func_SaveStateUSB();
+void Func_Memcard1();
+void Func_Memcard2();
+
 
 void Func_FastloadYes();
 void Func_FastloadNo();
@@ -133,11 +136,11 @@ void pauseAudio(void);  void pauseInput(void);
 void resumeAudio(void); void resumeInput(void);
 }
 
-#define NUM_FRAME_BUTTONS 60
+#define NUM_FRAME_BUTTONS 62
 #define NUM_TAB_BUTTONS 5
 #define FRAME_BUTTONS settingsFrameButtons
 #define FRAME_STRINGS settingsFrameStrings
-#define NUM_FRAME_TEXTBOXES 23
+#define NUM_FRAME_TEXTBOXES 24
 #define FRAME_TEXTBOXES settingsFrameTextBoxes
 
 /*
@@ -175,7 +178,7 @@ Auto Save Memcards: Yes; No
 Save States Device: SD; USB
 */
 
-static char FRAME_STRINGS[73][24] =
+static char FRAME_STRINGS[76][24] =
 	{ "General",
 	  "Video",
 	  "Input",
@@ -255,7 +258,10 @@ static char FRAME_STRINGS[73][24] =
 	  "Lightrec",
 	  "Lightgun ",
 	  "GunCon",
-	  "Justifier "
+	  "Justifier ",
+	  "Memcard 1",
+	  "Memcard 2",
+	  "Enable Memcard"
       };
 
 
@@ -343,7 +349,9 @@ struct ButtonInfo
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[17],	570.0,	310.0,	 75.0,	56.0,	13,	15,	55,	54,	Func_FastloadNo,		Func_ReturnFromSettingsFrame }, // Fast load: No
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[64],	510.0,	280.0,	 75.0,	56.0,	21,	27,	23,	22,	Func_Screen240p,		Func_ReturnFromSettingsFrame },  // ScreenMode: 240p
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[11],	505.0,	100.0,	130.0,	56.0,	 0,	 9,	 6,	 5,	Func_CpuDynarec,		Func_ReturnFromSettingsFrame },  // CPU: Dynarec
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[70],	510.0,	170.0,	115.0,	56.0,	31,	35,	33,	32,	Func_PsxTypeLightgun,	Func_ReturnFromSettingsFrame }  // PSX Controller Type: Lightgun
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[70],	510.0,	170.0,	115.0,	56.0,	31,	35,	33,	32,	Func_PsxTypeLightgun,	Func_ReturnFromSettingsFrame },  // PSX Controller Type: Lightgun
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[73],	295.0,	310.0,	155.0,	56.0,	31,	35,	33,	32,	Func_Memcard1,			Func_ReturnFromSettingsFrame },  // Memcard 1 toggle
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[74],	460.0,	310.0,	155.0,	56.0,	31,	35,	33,	32,	Func_Memcard2,			Func_ReturnFromSettingsFrame }  // Memcard 2 toggle
 };
 
 struct TextBoxInfo
@@ -384,6 +392,7 @@ struct TextBoxInfo
 	{	NULL,	FRAME_STRINGS[53],	150.0,	268.0,	 1.0,	true }, // Save State Device: SD/USB
 	{	NULL,	FRAME_STRINGS[56],	130.0,	338.0,	 1.0,	true }, // Select language: En, Chs, ......
 	{	NULL,	FRAME_STRINGS[63],	405.0,	338.0,	 1.0,	true }, // Fast load
+	{	NULL,	FRAME_STRINGS[75],	150.0,	338.0,	 1.0,	true }, // Memcard enable
 };
 
 SettingsFrame::SettingsFrame()
@@ -613,12 +622,19 @@ void SettingsFrame::activateSubmenu(int submenu)
 			}
 			for (int i = 18; i < 21; i++)
 				FRAME_TEXTBOXES[i].textBox->setVisible(true);
+			FRAME_TEXTBOXES[23].textBox->setVisible(true);
 			FRAME_BUTTONS[4].button->setSelected(true);
 			FRAME_BUTTONS[46+nativeSaveDevice].button->setSelected(true);
 			if (autoSave == AUTOSAVE_ENABLE)	FRAME_BUTTONS[50].button->setSelected(true);
 			else								FRAME_BUTTONS[51].button->setSelected(true);
 			if (saveStateDevice == SAVESTATEDEVICE_SD)	FRAME_BUTTONS[52].button->setSelected(true);
 			else										FRAME_BUTTONS[53].button->setSelected(true);
+			if (memCard[0] == MEMCARD_ENABLE)FRAME_BUTTONS[60].button->setSelected(true);
+			if (memCard[1] == MEMCARD_ENABLE)FRAME_BUTTONS[61].button->setSelected(true);
+			FRAME_BUTTONS[60].button->setVisible(true);
+			FRAME_BUTTONS[60].button->setActive(true);
+			FRAME_BUTTONS[61].button->setVisible(true);
+			FRAME_BUTTONS[61].button->setActive(true);
 			for (int i = 46; i < NUM_FRAME_BUTTONS; i++)
 			{
 			    if (i >= 54) {
@@ -1302,6 +1318,36 @@ void Func_DisableRumbleNo()
 	FRAME_BUTTONS[35].button->setSelected(true);
 	rumbleEnabled = RUMBLE_ENABLE;
 }
+
+void Func_Memcard1()
+{
+	if(memCard[0] == MEMCARD_ENABLE)
+	{
+		FRAME_BUTTONS[60].button->setSelected(false);
+		memCard[0] = MEMCARD_DISABLE;
+	}
+	else
+	{
+		FRAME_BUTTONS[60].button->setSelected(true);
+		memCard[0] = MEMCARD_ENABLE;
+	}
+}
+
+void Func_Memcard2()
+{
+	if(memCard[1] == MEMCARD_ENABLE)
+	{
+		FRAME_BUTTONS[61].button->setSelected(false);
+		memCard[1] = MEMCARD_DISABLE;
+	}
+	else
+	{
+		FRAME_BUTTONS[61].button->setSelected(true);
+		memCard[1] = MEMCARD_ENABLE;
+	}
+}
+
+
 
 void Func_SaveButtonsSD()
 {

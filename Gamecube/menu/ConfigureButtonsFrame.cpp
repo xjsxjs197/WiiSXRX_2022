@@ -229,6 +229,9 @@ static char controllerTypeStrings[7][17] =
 	  "Wii U Pro",
 	  "Wii U Gamepad",
 	  "NULL"};
+	  
+static char padNames[10][3] = {"1","2","1A","1B","1C","1D",
+							"2A","2B","2C","2D"};
 
 enum ActivePadType
 {
@@ -310,7 +313,7 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 	}
 	else
 	{
-		sprintf(TITLE_STRING, "PSX Pad %d: %s Pad %d Mapping", activePad+1, controllerTypeStrings[activePadType], virtualControllers[activePad].number+1 );
+		sprintf(TITLE_STRING, "PSX Pad %s: %s Pad %d Mapping", padNames[activePad], controllerTypeStrings[activePadType], virtualControllers[activePad].number+1 );
 	
 		controller_config_t* currentConfig = virtualControllers[activePad].config;
 
@@ -488,7 +491,13 @@ extern MenuContext *pMenuContext;
 
 void Func_NextPad()
 {
-	activePad = (activePad+1) %2;
+	activePad = (activePad+1) %10;
+	
+	if (activePad == 2 && padType[0]!=PADTYPE_MULTITAP)
+		activePad += 4;
+	if (activePad == 6 && padType[1]!=PADTYPE_MULTITAP)
+		activePad = 0;
+	
 
 	pMenuContext->getFrame(MenuContext::FRAME_CONFIGUREBUTTONS)->activateSubmenu(activePad);
 }

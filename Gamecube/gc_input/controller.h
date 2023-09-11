@@ -134,7 +134,7 @@ typedef struct _virtualControllers_t {
 	controller_config_t* config; // This is no longer needed...
 } virtualControllers_t;
 
-extern virtualControllers_t virtualControllers[2];
+extern virtualControllers_t virtualControllers[10];
 
 // List of all the defined controller_t's
 #if defined(WII) && !defined(NO_BT)

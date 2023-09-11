@@ -31,5 +31,6 @@ typedef struct
 } SSSConfig;
 
 void lightgunInterrupt(void);
+void SSS_SetMultiPad(int pad, int mpad);
 
 #endif
