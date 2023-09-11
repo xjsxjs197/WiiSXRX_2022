@@ -105,6 +105,16 @@ CREDITS:
      ( http://sourceforge.net/projects/devkitpro )
  * www.emulatemii.com and https://code.google.com/archive/p/pcsxgc/downloads
 
+LATER UPDATES BY:
+ * matguitarist
+ * Daxtsu
+ * Mystro256
+ * FIX94
+ * NiuuS
+ * xjsxjs197
+ * saulfabregwiivc
+ * Jokippo
+
 WiiStation CHANGE LOG:
 Ver 2.4:
 * Use devkitPPC r41-2 + libOGC2 to compile code and solve the problem of some games not running.
@@ -122,9 +132,9 @@ Ver 2.0:
 * Import the GTE code of PCSX-ReARMed.
 * Fix issues
     Batman Beyond: Return of the Joker can't be played.
-    Driver 2 code dump error mission chase the gunman.
-* Modify the code to support higher versions of Devkitppc.
-  ※※※ Note: For issue 81, the latest high version of Libogc must be used.
+    Driver 2 code dump error on mission "Chase the Gunman".
+* Modify the code to support higher versions of devkitPPC.
+  ※※※ Note: For issue 81, the latest high version of libOGC must be used.
 
 Ver 1.0:
 * Incorporating the CDROM and CDRISO codes of PCSX-ReARMed.
