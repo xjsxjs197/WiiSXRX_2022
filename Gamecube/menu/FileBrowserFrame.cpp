@@ -435,7 +435,7 @@ void fileBrowserFrame_FillPage()
 			FRAME_BUTTONS[i+2].button->setClicked(FRAME_BUTTONS[i+2].clickedFunc);
 			FRAME_BUTTONS[i+2].button->setActive(true);
 			if(dir_entries[i+(current_page*NUM_FILE_SLOTS)].attr & FILE_BROWSER_ATTR_DIR)
-				FRAME_BUTTONS[i+2].button->setLabelColor((GXColor) {255,50,50,255});
+				FRAME_BUTTONS[i+2].button->setLabelColor((GXColor) {254,213,95,255});
 		}
 		else
 			FRAME_BUTTONS[i+2].buttonString = FRAME_STRINGS[2];

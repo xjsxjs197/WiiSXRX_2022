@@ -25,6 +25,8 @@
 #include "Gamecube/fileBrowser/fileBrowser.h"
 #include "Gamecube/fileBrowser/fileBrowser-libfat.h"
 #include <sys/stat.h>
+#include "Gamecube/wiiSXconfig.h"
+#include "Gamecube/PadSSSPSX.h"
 
 // *** FOR WORKS ON PADS AND MEMORY CARDS *****
 
@@ -139,6 +141,9 @@ void sioWrite8(unsigned char value) {
 				} else {
 					bufcount = 2 + (buf[parp] & 0x0f) * 2;
 				}
+				if (buf[parp] == 0xFF)
+					bufcount = 3;
+
 				if (buf[parp] == 0x41) {
 					switch (value) {
 						case 0x43:
@@ -252,12 +257,38 @@ void sioWrite8(unsigned char value) {
 
 	switch (value) {
 		case 0x01: // start pad
+		case 0x02: // start pad
+		case 0x03: // start pad
+		case 0x04: // start pad
 			StatReg |= RX_RDY;		// Transfer is Ready
 
 			if (!Config.UseNet) {
 				switch (CtrlReg&0x2002) {
-					case 0x0002: buf[0] = PAD1_startPoll(1); break;
-					case 0x2002: buf[0] = PAD2_startPoll(2); break;
+					case 0x0002: 
+						if (padType[0]){
+							SSS_SetMultiPad(0, value);
+							buf[0] = PAD1_startPoll(1); 
+							break;
+						}
+						else{
+							buf[0] = 0xff;
+							parp = 0;
+							bufcount = 0;
+							return;
+						}
+							
+					case 0x2002: 
+						if (padType[1]){
+							SSS_SetMultiPad(1, value);
+							buf[0] = PAD1_startPoll(2); 
+							break;
+						}
+						else{
+							buf[0] = 0xff;
+							parp = 0;
+							bufcount = 0;
+							return;
+						}
 				}
 			} else {
 				if ((CtrlReg & 0x2002) == 0x0002) {
@@ -297,14 +328,48 @@ void sioWrite8(unsigned char value) {
 			SIO_INT();
 			return;
 		case 0x81: // start memcard
-			StatReg |= RX_RDY;
-			memcpy(buf, cardh, 4);
-			parp = 0;
-			bufcount = 3;
-			mcdst = 1;
-			rdwr = 0;
-			SIO_INT();
-			return;
+		case 0x82: // start memcard
+		case 0x83: // start memcard
+		case 0x84: // start memcard
+		switch (CtrlReg&0x2002) {
+			case 0x0002:
+				if (memCard[0]){
+					StatReg |= RX_RDY;
+					memcpy(buf, cardh, 4);
+					parp = 0;
+					bufcount = 3;
+					mcdst = 1;
+					rdwr = 0;
+					SIO_INT();
+					return;
+				}
+				else{
+					StatReg |= RX_RDY;
+					buf[0] = 0xff;
+					parp = 0;
+					bufcount = 0;
+					return;
+				}
+					
+			case 0x2002:
+				if (memCard[1]){
+					StatReg |= RX_RDY;
+					memcpy(buf, cardh, 4);
+					parp = 0;
+					bufcount = 3;
+					mcdst = 1;
+					rdwr = 0;
+					SIO_INT();
+					return;
+				}
+				else{
+					StatReg |= RX_RDY;
+					buf[0] = 0xff;
+					parp = 0;
+					bufcount = 0;
+					return;
+				}
+		}
 	}
 }
 

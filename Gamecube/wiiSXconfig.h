@@ -181,21 +181,29 @@ enum padAutoAssign
 	PADAUTOASSIGN_AUTOMATIC
 };
 
-extern char padType[2];
+extern char padType[10];
 enum padType
 {
 	PADTYPE_NONE=0,
 	PADTYPE_GAMECUBE,
-	PADTYPE_WII
+	PADTYPE_WII,
+	PADTYPE_MULTITAP
+	
 };
 
-extern char padAssign[2];
+extern char padAssign[10];
 enum padAssign
 {
 	PADASSIGN_INPUT0=0,
 	PADASSIGN_INPUT1,
-	PADASSIGN_INPUT2,
-	PADASSIGN_INPUT3
+	PADASSIGN_INPUT0A,
+	PADASSIGN_INPUT0B,
+	PADASSIGN_INPUT0C,
+	PADASSIGN_INPUT0D,
+	PADASSIGN_INPUT1A,
+	PADASSIGN_INPUT1B,
+	PADASSIGN_INPUT1C,
+	PADASSIGN_INPUT1D,
 };
 
 extern char rumbleEnabled;
@@ -289,6 +297,14 @@ enum lightGun
 	LIGHTGUN_GUNCON,
 	LIGHTGUN_JUST,
 };
+
+extern char memCard[2];
+enum memCard
+{
+	MEMCARD_DISABLE=0,
+	MEMCARD_ENABLE,
+};
+
 
 extern const unsigned char En_dat[];
 extern const unsigned int  En_dat_size;
