@@ -26,6 +26,8 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
 * PS1 Lightguns support! Both Namco GunCon and Konami Justifier lightguns are supported and emulated with the Wiimotes! (Needs to be enabled in emulator settings and calibrate them by using the in-game calibration screen)
 
+* PS1 Multitap support! With options for enabling them on both Port 1 and Port 2, supports up to 8 players. (Needs to be enabled in emulator settings and controllers need to be set for use the Multitap adequately)
+
 * Support for multiple languages.
   At first, I wanted to refer to Snes9x GX and support TTF font library.
   However, it encountered a memory leak problem, resulting in automatic exit.
@@ -41,7 +43,8 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
 ## Changes on old PPC dynarec:
 
-* ̶Modification of some dynamic compilation instructions on the old PPC dynarec, such as SLLV, SRLV, SRAV, Final Fantasy 9 and Biohazard 3 (Resident Evil 3) can be run. (Part of the division instruction uses a static compilation instruction)
+* Modification of some dynamic compilation instructions on the old PPC dynarec, such as SLLV, SRLV, SRAV, Final Fantasy 9 and Biohazard 3 (Resident Evil 3) can be run.
+(Part of the division instruction uses a static compilation instruction)
 
 ## Goals
 
@@ -56,8 +59,6 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 * DualShock 3, DualShock 4 and DualShock 5 controller support.
 
 * Possibility to select other BIOS with some basic buttons.
-
-* Decent PS1 multitap support (with options for connect to Port 1 and/or Port 2).
 
 Any help is appreciated.
 
@@ -75,7 +76,7 @@ Any help is appreciated.
 
 WiiStation (formely WiiSXRX_2022) - developed by xjsxjs197 - https://github.com/xjsxjs197/WiiSXRX_2022
 
-240p support, some fixes, additional improvements and Lightgun support by Jokippo - http://github.com/Jokippo
+240p/Lightgun/Multitap support, some fixes and additional improvements by Jokippo - http://github.com/Jokippo
 
 WiiStation icon - made by Dakangel (high quality logo made by saulfabreg)
 

@@ -125,8 +125,8 @@ char screenMode = 0;
 char videoMode = 0;
 char fileSortMode = 1;
 char padAutoAssign;
-char padType[2];
-char padAssign[2];
+char padType[10];
+char padAssign[10];
 char rumbleEnabled;
 char loadButtonSlot;
 char controllerType;
@@ -141,6 +141,7 @@ char trapFilter = 1;
 char interlacedMode = 0;
 char deflickerFilter = 1;
 char lightGun = 0;
+char memCard[2];
 
 #define CONFIG_STRING_TYPE 0
 #define CONFIG_STRING_SIZE 256
@@ -176,10 +177,26 @@ static struct {
   { "SkipFrames", &frameSkip, FRAMESKIP_DISABLE, FRAMESKIP_ENABLE },
   { "Dithering", &useDithering, USEDITHER_NONE, USEDITHER_ALWAYS },
   { "PadAutoAssign", &padAutoAssign, PADAUTOASSIGN_MANUAL, PADAUTOASSIGN_AUTOMATIC },
-  { "PadType1", &padType[0], PADTYPE_NONE, PADTYPE_WII },
-  { "PadType2", &padType[1], PADTYPE_NONE, PADTYPE_WII },
-  { "PadAssign1", &padAssign[0], PADASSIGN_INPUT0, PADASSIGN_INPUT3 },
-  { "PadAssign2", &padAssign[1], PADASSIGN_INPUT0, PADASSIGN_INPUT3 },
+  { "PadType1", &padType[0], PADTYPE_NONE, PADTYPE_MULTITAP },
+  { "PadType2", &padType[1], PADTYPE_NONE, PADTYPE_MULTITAP },
+  { "PadType3", &padType[2], PADTYPE_NONE, PADTYPE_MULTITAP },
+  { "PadType4", &padType[3], PADTYPE_NONE, PADTYPE_MULTITAP },
+  { "PadType5", &padType[4], PADTYPE_NONE, PADTYPE_MULTITAP },
+  { "PadType6", &padType[5], PADTYPE_NONE, PADTYPE_MULTITAP },
+  { "PadType7", &padType[6], PADTYPE_NONE, PADTYPE_MULTITAP },
+  { "PadType8", &padType[7], PADTYPE_NONE, PADTYPE_MULTITAP },
+  { "PadType9", &padType[8], PADTYPE_NONE, PADTYPE_MULTITAP },
+  { "PadType10", &padType[9], PADTYPE_NONE, PADTYPE_MULTITAP },
+  { "PadAssign1", &padAssign[0], PADASSIGN_INPUT0, PADASSIGN_INPUT1D },
+  { "PadAssign2", &padAssign[1], PADASSIGN_INPUT0, PADASSIGN_INPUT1D },
+  { "PadAssign3", &padAssign[2], PADASSIGN_INPUT0, PADASSIGN_INPUT1D },
+  { "PadAssign4", &padAssign[3], PADASSIGN_INPUT0, PADASSIGN_INPUT1D },
+  { "PadAssign5", &padAssign[4], PADASSIGN_INPUT0, PADASSIGN_INPUT1D },
+  { "PadAssign6", &padAssign[5], PADASSIGN_INPUT0, PADASSIGN_INPUT1D },
+  { "PadAssign7", &padAssign[6], PADASSIGN_INPUT0, PADASSIGN_INPUT1D },
+  { "PadAssign8", &padAssign[7], PADASSIGN_INPUT0, PADASSIGN_INPUT1D },
+  { "PadAssign9", &padAssign[8], PADASSIGN_INPUT0, PADASSIGN_INPUT1D },
+  { "PadAssign10", &padAssign[9], PADASSIGN_INPUT0, PADASSIGN_INPUT1D },
   { "RumbleEnabled", &rumbleEnabled, RUMBLE_DISABLE, RUMBLE_ENABLE },
   { "LoadButtonSlot", &loadButtonSlot, LOADBUTTON_SLOT0, LOADBUTTON_DEFAULT },
   { "ControllerType", &controllerType, CONTROLLERTYPE_STANDARD, CONTROLLERTYPE_ANALOG },
@@ -195,7 +212,9 @@ static struct {
   { "TrapFilter", &trapFilter, TRAPFILTER_DISABLE, TRAPFILTER_ENABLE },
   { "Interlaced", &interlacedMode, INTERLACED_DISABLE, INTERLACED_ENABLE },
   { "DeflickerFilter", &deflickerFilter, DEFLICKER_DISABLE, DEFLICKER_ENABLE },
-  { "LightGun", &lightGun, LIGHTGUN_DISABLE, LIGHTGUN_JUST }
+  { "LightGun", &lightGun, LIGHTGUN_DISABLE, LIGHTGUN_JUST },
+  { "Memcard0", &memCard[0], MEMCARD_DISABLE, MEMCARD_ENABLE },
+  { "Memcard1", &memCard[1], MEMCARD_DISABLE, MEMCARD_ENABLE }
 };
 void handleConfigPair(char* kv);
 void readConfig(FILE* f);
@@ -227,10 +246,13 @@ void loadSettings(int argc, char *argv[])
 	videoMode		 = VIDEOMODE_AUTO;
 	fileSortMode	 = FILESORT_DIRS_FIRST;
 	padAutoAssign	 = PADAUTOASSIGN_AUTOMATIC;
-	padType[0]		 = PADTYPE_NONE;
-	padType[1]		 = PADTYPE_NONE;
-	padAssign[0]	 = PADASSIGN_INPUT0;
+	for (int i = 0; i < 10; i++){
+		padType[i]		 = PADTYPE_NONE;
+		padAssign[i]	 = PADASSIGN_INPUT0;
+	}
 	padAssign[1]	 = PADASSIGN_INPUT1;
+	memCard[0]		 = MEMCARD_ENABLE;
+	memCard[1]		 = MEMCARD_ENABLE;
 	rumbleEnabled	 = RUMBLE_ENABLE;
 	loadButtonSlot	 = LOADBUTTON_DEFAULT;
 	controllerType	 = CONTROLLERTYPE_STANDARD;

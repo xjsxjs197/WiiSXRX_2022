@@ -8,16 +8,19 @@
    <long_description>
 WiiStation - A Sony PlayStation 1 emulator for Wii / Wii U, forked from WiiSXRX by NiuuS.
 Featuring:
-- New dynamic recompiler (dynarec) Lightrec. The old one is kept as an option in case compatibility changes much.
+- New dynamic recompiler (dynarec) Lightrec! The old one is kept as an option in case compatibility changes much.
 - CDDA (Compact Disc Digital Audio) tracks support.
 - 240p support!
-- Posibility of enabling/disabling Interlace mode, Bilinear/Trap/Deflicker filters.
+- Posibility of enabling/disabling Interlaced (480i) mode, Bilinear/Trap/Deflicker filters.
+- Lightgun (Namco GunCon/Konami Justifier) support.
+- Multitap support for up to 8 players.
+- Memory Card enabling/disabling support.
 - Multiple languages support.
-- GameCube controller support.
-- Wii U Pro controller support.
-- Wii U GamePad controller support through WiiVC injects.
+- GameCube Controller support.
+- Wii U Pro Controller support.
+- Wii U GamePad Controller support through WiiVC injects.
 - Wii Classic Controller and Pro support.
-- Nintendo Classic Mini Controllers support (NES / SNES)
+- Nintendo Classic Mini Controllers support (NES / SNES).
 
 * WiiSX/CubeSX is a PCSX port. The original team was:
 emu_kidid - general coding
