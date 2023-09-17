@@ -41,7 +41,7 @@ int psxInit() {
 	{
 		psxCpu = &psxLightrec;
 	}
-	else
+	if (Config.Cpu == DYNACORE_DYNAREC_OLD)
 	{
 		psxCpu = &psxRec;
 	}
