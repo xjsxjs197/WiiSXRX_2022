@@ -540,9 +540,9 @@ void gteRTPS(psxCP2Regs *regs) {
 }
 
 #define RTPT_ITEM(v) { \
-    vx = VX(v); \
-    vy = VY(v); \
-    vz = VZ(v); \
+    /*vx = VX(v);*/ \
+    /*vy = VY(v);*/ \
+    /*vz = VZ(v);*/ \
     /*tmpMAC1 = A1(((s64)gteTRX) + ((((s32)gteR11 * (s32)vx) + ((s32)gteR12 * (s32)vy) + ((s32)gteR13 * (s32)vz)) >> 12));*/ \
     /*tmpMAC2 = A2(((s64)gteTRY) + ((((s32)gteR21 * (s32)vx) + ((s32)gteR22 * (s32)vy) + ((s32)gteR23 * (s32)vz)) >> 12));*/ \
     /*tmpMAC3 = A3(((s64)gteTRZ) + ((((s32)gteR31 * (s32)vx) + ((s32)gteR32 * (s32)vy) + ((s32)gteR33 * (s32)vz)) >> 12));*/ \
@@ -741,9 +741,9 @@ void gteSQR(psxCP2Regs *regs) {
 }
 
 #define NCCS(v) \
-    vx = VX(v); \
-    vy = VY(v); \
-    vz = VZ(v); \
+    /*vx = VX(v);*/ \
+    /*vy = VY(v);*/ \
+    /*vz = VZ(v);*/ \
     /*tmpMAC1 = ((s32)gteL11 * vx + (s32)gteL12 * vy + (s32)gteL13 * vz) >> 12;*/ \
     /*tmpMAC2 = ((s32)gteL21 * vx + (s32)gteL22 * vy + (s32)gteL23 * vz) >> 12;*/ \
     /*tmpMAC3 = ((s32)gteL31 * vx + (s32)gteL32 * vy + (s32)gteL33 * vz) >> 12;*/ \
@@ -808,9 +808,9 @@ void gteNCCT(psxCP2Regs *regs) {
 }
 
 #define NCDS(v) \
-    vx = VX(v); \
-    vy = VY(v); \
-    vz = VZ(v); \
+    /*vx = VX(v);*/ \
+    /*vy = VY(v);*/ \
+    /*vz = VZ(v);*/ \
     /*tmpMAC1 = ((s32)gteL11 * vx + (s32)gteL12 * vy + (s32)gteL13 * vz) >> 12;*/ \
     /*tmpMAC2 = ((s32)gteL21 * vx + (s32)gteL22 * vy + (s32)gteL23 * vz) >> 12;*/ \
     /*tmpMAC3 = ((s32)gteL31 * vx + (s32)gteL32 * vy + (s32)gteL33 * vz) >> 12;*/ \
@@ -1050,9 +1050,9 @@ void gteDPCT(psxCP2Regs *regs) {
 }
 
 #define NCS(v) \
-    vx = VX(v); \
-    vy = VY(v); \
-    vz = VZ(v); \
+    /*vx = VX(v);*/ \
+    /*vy = VY(v);*/ \
+    /*vz = VZ(v);*/ \
     /*tmpMAC1 = (((s32)gteL11 * (s32)vx) + ((s32)gteL12 * (s32)vy) + ((s32)gteL13 * (s32)vz)) >> 12;*/ \
     /*tmpMAC2 = (((s32)gteL21 * (s32)vx) + ((s32)gteL22 * (s32)vy) + ((s32)gteL23 * (s32)vz)) >> 12;*/ \
     /*tmpMAC3 = (((s32)gteL31 * (s32)vx) + ((s32)gteL32 * (s32)vy) + ((s32)gteL33 * (s32)vz)) >> 12;*/ \

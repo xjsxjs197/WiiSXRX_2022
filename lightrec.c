@@ -39,7 +39,7 @@ static char *name = "sd:/WiiStation/WiiStation.elf";
 u32 event_cycles[PSXINT_COUNT];
 u32 next_interupt;
 
-static bool use_lightrec_interpreter = false;  
+static bool use_lightrec_interpreter = false;
 static bool use_pcsx_interpreter = false;
 static bool booting;
 
@@ -94,6 +94,10 @@ static void (*cp2_ops[])(struct psxCP2Regs *) = {
 };
 
 static char cache_buf[64 * 1024];
+
+static void cop2_notify(struct lightrec_state *state, u32 func, u32 data)
+{
+}
 
 static void cop2_op(struct lightrec_state *state, u32 func)
 {
@@ -379,6 +383,7 @@ static void lightrec_code_inv(void *ptr, uint32_t len)
 }
 
 static const struct lightrec_ops lightrec_ops = {
+	.cop2_notify = cop2_notify,
 	.cop2_op = cop2_op,
 	.enable_ram = lightrec_enable_ram,
 	.hw_direct = lightrec_can_hw_direct,
