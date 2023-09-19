@@ -234,6 +234,7 @@ controller_t controller_GC =
 	    .exit       = &menu_combos[1], // Start+X
 	    .invertedYL = 0,
 	    .invertedYR = 0,
+		.sensitivity = 1.0,
 	  }
 	 };
 

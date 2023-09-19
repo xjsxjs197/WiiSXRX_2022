@@ -276,6 +276,7 @@ controller_t controller_Classic =
 	    .exit       = &menu_combos[2], // Home
 	    .invertedYL = 0,
 	    .invertedYR = 0,
+		.sensitivity = 1.0,
 	  }
 	 };
 
