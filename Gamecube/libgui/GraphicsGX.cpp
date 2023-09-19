@@ -83,7 +83,7 @@ extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
 		dHeight = rmode->viHeight;
 	
 	
-	if ((dHeight > 256))
+	if ((dHeight > 288))
 	{
 		if(!retMenu)
 		{

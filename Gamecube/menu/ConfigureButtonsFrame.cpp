@@ -63,18 +63,20 @@ void Func_ToggleInvertYL();
 void Func_ToggleInvertYR();
 void Func_ToggleButtonL3();
 void Func_ToggleButtonR3();
+void Func_SensMinus();
+void Func_SensPlus();
 
 void Func_ReturnFromConfigureButtonsFrame();
 
 
-#define NUM_FRAME_BUTTONS 26
+#define NUM_FRAME_BUTTONS 28
 #define FRAME_BUTTONS configureButtonsFrameButtons
 #define FRAME_STRINGS configureButtonsFrameStrings
-#define NUM_FRAME_TEXTBOXES 2
+#define NUM_FRAME_TEXTBOXES 3
 #define FRAME_TEXTBOXES configureButtonsFrameTextBoxes
 #define TITLE_STRING configureButtonsTitleString
 
-static char FRAME_STRINGS[27][20] =
+static char FRAME_STRINGS[32][20] =
 	{ "Next Pad",
 	  "Load Default",
 	  "Slot 1",
@@ -101,7 +103,12 @@ static char FRAME_STRINGS[27][20] =
 	  "Invert Y R",
 	  "Btn L3",
 	  "Btn R3",
-	  "Menu:"};
+	  "???",
+	  "???",
+	  "-",
+	  "x1.0",
+	  "Menu:",
+	  "+"};
 
 static char TITLE_STRING[50] = "Gamecube Pad 1 to PSX Pad 1 Mapping";
 
@@ -126,16 +133,16 @@ struct ButtonInfo
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[1],	175.0,	 80.0,	145.0,	40.0,	24,	 8,	 0,	 2,	Func_DefaultConfig,		Func_ReturnFromConfigureButtonsFrame }, // Restore Default Config
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[2],	340.0,	 80.0,	 80.0,	40.0,	25,	 9,	 1,	 3,	Func_ToggleConfigSlot,	Func_ReturnFromConfigureButtonsFrame }, // Cycle Through Config Slots
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[3],	440.0,	 80.0,	 70.0,	40.0,	23,	10,	 2,	 4,	Func_LoadConfig,		Func_ReturnFromConfigureButtonsFrame }, // Load Config
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[4],	530.0,	 80.0,	 70.0,	40.0,	23,	10,	 3,	 0,	Func_SaveConfig,		Func_ReturnFromConfigureButtonsFrame }, // Save Config
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[4],	530.0,	 80.0,	 70.0,	40.0,	23,	27,	 3,	 0,	Func_SaveConfig,		Func_ReturnFromConfigureButtonsFrame }, // Save Config
 
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[5],	 30.0,	160.0,	100.0,	40.0,	 0,	12,	10,	 6,	Func_ToggleButtonExit,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button Exit
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[5],	 30.0,	160.0,	100.0,	40.0,	 0,	12,	26,	 6,	Func_ToggleButtonExit,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button Exit
 
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[6],	140.0,	130.0,	 80.0,	40.0,	 0,	 7,	 5,	 8,	Func_ToggleButtonL1,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button L1
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[7],	140.0,	180.0,	 80.0,	40.0,	 6,	12,	 5,	 8,	Func_ToggleButtonL2,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button L2
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[8],	235.0,	140.0,	 80.0,	40.0,	 1,	20,	 6,	 9,	Func_ToggleButtonSelect,Func_ReturnFromConfigureButtonsFrame }, // Toggle Button Select
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[9],	325.0,	140.0,	 80.0,	40.0,	 2,	21,	 8,	10,	Func_ToggleButtonStart,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button Start
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[10],	420.0,	130.0,	 80.0,	40.0,	 3,	11,	 9,	 5,	Func_ToggleButtonR1,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button R1
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[11],	420.0,	180.0,	 80.0,	40.0,	10,	16,	 9,	 5,	Func_ToggleButtonR2,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button R2
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[10],	420.0,	130.0,	 80.0,	40.0,	 3,	11,	 9,	 27,Func_ToggleButtonR1,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button R1
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[11],	420.0,	180.0,	 80.0,	40.0,	10,	16,	 9,	 27,Func_ToggleButtonR2,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button R2
 
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[12],	 75.0,	230.0,	 80.0,	40.0,	 5,	13,	16,	16,	Func_ToggleButtonDup,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button D-up
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[13],	 30.0,	280.0,	 80.0,	40.0,	12,	15,	18,	14,	Func_ToggleButtonDleft,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button D-left
@@ -153,6 +160,8 @@ struct ButtonInfo
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[23],	415.0,	395.0,	130.0,	40.0,	19,	 3,	25,	22,	Func_ToggleInvertYR,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Analog Invert Y R
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[24],	235.0,	395.0,	 80.0,	40.0,	20,	 1,	22,	25,	Func_ToggleButtonL3,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button L3
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[25],	325.0,	395.0,	 80.0,	40.0,	21,	 2,	24,	23,	Func_ToggleButtonR3,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button R3
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[31],	575.0,	140.0,	 50.0,	40.0,	4,	16,	27,	5,	Func_SensPlus,			Func_ReturnFromConfigureButtonsFrame }, // Stick Sensitivity +
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[28],	515.0,	140.0,	 50.0,	40.0,	4,	16,	10,	26,	Func_SensMinus,			Func_ReturnFromConfigureButtonsFrame }, // Stick Sensitivity -
 };
 
 struct TextBoxInfo
@@ -166,7 +175,8 @@ struct TextBoxInfo
 } FRAME_TEXTBOXES[NUM_FRAME_TEXTBOXES] =
 { //	textBox	textBoxString		x		y		scale	centered
 	{	NULL,	TITLE_STRING,		320.0,	 50.0,	 1.0,	true }, // ______ Pad X to N64 Pad Y Mapping
-	{	NULL,	FRAME_STRINGS[26],	 80.0,	145.0,	 0.9,	true }, // Menu Combo
+	{	NULL,	FRAME_STRINGS[30],	 80.0,	145.0,	 0.9,	true }, // Menu Combo
+	{	NULL,	FRAME_STRINGS[29],	 565.0,	210.0,	 0.9,	true }, // Stick Sensitivity
 };
 
 ConfigureButtonsFrame::ConfigureButtonsFrame()
@@ -190,10 +200,7 @@ ConfigureButtonsFrame::ConfigureButtonsFrame()
 												FRAME_BUTTONS[i].x+FRAME_BUTTONS[i].width, FRAME_BUTTONS[i].y, 
 												FRAME_BUTTONS[i].y+FRAME_BUTTONS[i].height);
 	}
-	for (int i = 0; i < 5; i++)
-		FRAME_BUTTONS[i].button->setFontSize(0.8);
-	for (int i = 5; i < NUM_FRAME_BUTTONS; i++)
-		FRAME_BUTTONS[i].button->setFontSize(0.7);
+
 
 	for (int i = 0; i < NUM_FRAME_TEXTBOXES; i++)
 	{
@@ -331,6 +338,8 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 				FRAME_BUTTONS[i].button->setActive(true);
 				FRAME_BUTTONS[i].button->setVisible(true);
 			}
+			FRAME_TEXTBOXES[1].textBox->setVisible(true);
+			FRAME_TEXTBOXES[2].textBox->setVisible(true);
 		}
 		else{
 			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_UP, NULL);
@@ -357,6 +366,9 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 			}
 			FRAME_BUTTONS[19].button->setActive(true);
 			FRAME_BUTTONS[19].button->setVisible(true);
+			
+			FRAME_TEXTBOXES[1].textBox->setVisible(false);
+			FRAME_TEXTBOXES[2].textBox->setVisible(false);
 		}
 
 		//Assign text to each button
@@ -387,6 +399,8 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 			strcpy(FRAME_STRINGS[23], "Normal Y");
 		strcpy(FRAME_STRINGS[24], currentConfig->L3->name);
 		strcpy(FRAME_STRINGS[25], currentConfig->R3->name);
+		if (currentConfig->sensitivity < 0.1) currentConfig->sensitivity = 1.0;
+		sprintf(FRAME_STRINGS[29], "Stick: x%.1f", currentConfig->sensitivity);
 	}
 }
 
@@ -719,6 +733,26 @@ void Func_ToggleInvertYR()
 	{
 		virtualControllers[activePad].config->invertedYR = 1;
 		strcpy(FRAME_STRINGS[23], "Inverted Y");
+	}
+}
+
+void Func_SensPlus()
+{
+	float sensitivity = virtualControllers[activePad].config->sensitivity;
+	if (sensitivity<2)
+	{
+		virtualControllers[activePad].config->sensitivity += 0.1;
+		sprintf(FRAME_STRINGS[29], "Stick: x%.1f", virtualControllers[activePad].config->sensitivity);
+	}
+}
+
+void Func_SensMinus()
+{
+	float sensitivity = virtualControllers[activePad].config->sensitivity;
+	if (sensitivity>0.2)
+	{
+		virtualControllers[activePad].config->sensitivity -= 0.1;
+		sprintf(FRAME_STRINGS[29], "Stick: x%.1f", virtualControllers[activePad].config->sensitivity);
 	}
 }
 

@@ -364,6 +364,7 @@ controller_t controller_WiimoteNunchuk =
 	    .exit       = &menu_combos[0], // 1+2
 	    .invertedYL = 0,
 	    .invertedYR = 0,
+		.sensitivity = 1.0,
 	  }
 	 };
 
