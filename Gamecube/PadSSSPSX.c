@@ -138,6 +138,14 @@ void lightgunInterrupt()
 	}
 }
 
+static inline u8 SetSensitivity(int a, float sensitivity)
+{
+	a -= 128; 
+	a *= sensitivity;
+	if(a >= 128) a = 127; else if(a < -128) a = -128; // clamp
+	return a + 128; // PSX controls range 0-255
+}
+
 static void PADsetMode (const int pad, const int mode)	//mode = 0 (digital) or 1 (analog)
 {
 	static const u8 padID[] = { 0x41, 0x73, 0x41, 0x79 };
@@ -157,6 +165,7 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 	int cursorY = 0xA; 
 	static BUTTONS PAD_Data;
 	static WPADData* wpad;
+	float sensitivity;
 
 	//TODO: Rework/simplify the following code & reset BUTTONS when no controller in use
 	int Control = pad;
@@ -225,7 +234,12 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 		PAD_Data.leftStickX = PAD_Data.leftStickY = PAD_Data.rightStickX = PAD_Data.rightStickY = 128;
 	}
 	
-	
+	sensitivity = virtualControllers[Control].config->sensitivity;
+	if (sensitivity < 0.1) sensitivity = 1.0;
+	PAD_Data.leftStickX = SetSensitivity(PAD_Data.leftStickX, sensitivity);
+	PAD_Data.leftStickY = SetSensitivity(PAD_Data.leftStickY, sensitivity);
+	PAD_Data.rightStickX = SetSensitivity(PAD_Data.rightStickX, sensitivity);
+	PAD_Data.rightStickY = SetSensitivity(PAD_Data.rightStickY, sensitivity);
 	
 	global.padStat[pad] = (((PAD_Data.btns.All>>8)&0xFF) | ( (PAD_Data.btns.All<<8) & 0xFF00 )) &0xFFFF;
 	
@@ -389,10 +403,11 @@ unsigned char SSS_PADpoll (const unsigned char value)
 		global.curCmd = value;
 		if (controllerType != CONTROLLERTYPE_ANALOG)
 		{
-			if (value != 0x42){
-				buf.b8[1] = 0xFF;
-				return 0xFF;
-			}
+			if (value != 0x42)
+				if (padType[slot] == PADTYPE_MULTITAP)
+					return 0xFF;
+				else
+				global.curCmd = 0x42;
 		}
 		switch (global.curCmd)
 		{
