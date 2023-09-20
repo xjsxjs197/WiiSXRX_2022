@@ -944,7 +944,7 @@ static void intReset() {
 
 // interpreter execution
 static void execI() {
-	u32 *code = Read_ICache(psxRegs.pc, FALSE);
+	u32 *code = Read_ICache(psxRegs.pc, TRUE);
 	psxRegs.code = ((code == NULL) ? 0 : SWAP32(*code));
 
 	debugI();
