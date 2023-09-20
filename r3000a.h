@@ -25,6 +25,20 @@
 #include "psxcounters.h"
 #include "psxbios.h"
 
+/* R3000A exceptions list:
+
+- R3000E_Int = 0      // Interrupt
+- R3000E_AdEL = 4     // Address error (on load/I-fetch)
+- R3000E_AdES = 5     // Address error (on store)
+- R3000E_IBE = 6      // Bus error (instruction fetch)
+- R3000E_DBE = 7      // Bus error (data load/store)
+- R3000E_Syscall = 8  // syscall instruction
+- R3000E_Bp = 9       // Breakpoint - a break instruction
+- R3000E_RI = 10      // reserved instruction
+- R3000E_CpU = 11     // Co-Processor unusable
+- R3000E_Ov = 12      // arithmetic overflow
+*/
+
 typedef struct {
 	int  (*Init)();
 	void (*Reset)();
