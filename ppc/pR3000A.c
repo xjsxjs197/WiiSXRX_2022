@@ -2733,6 +2733,7 @@ static void recSRAV() {
 }
 
 //REC_SYS(SYSCALL);
+void psxSYSCALL();
 static void recSYSCALL() {
 //	dump=1;
 	#ifdef SHOW_DEBUG
@@ -2752,10 +2753,23 @@ static void recSYSCALL() {
 }
 
 //REC_SYS(BREAK);
+void psxBREAK();
 static void recBREAK() {
+//	dump=1;
     #ifdef SHOW_DEBUG
     printFunctionLog();
     #endif // SHOW_DEBUG
+	iFlushRegs(0);
+
+	ReserveArgs(2);
+	LIW(PutHWRegSpecial(PSXPC), pc - 4);
+	LIW(PutHWRegSpecial(ARG1), 0x24);
+	LIW(PutHWRegSpecial(ARG2), (branch == 1 ? 1 : 0));
+	FlushAllHWReg();
+	CALLFunc ((u32)psxException);
+
+	branch = 2;
+	iRet();
 }
 
 //REC_FUNC(MFHI);
