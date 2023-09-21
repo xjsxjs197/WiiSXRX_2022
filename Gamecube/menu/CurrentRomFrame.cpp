@@ -46,6 +46,7 @@ extern int PerGameFix_timing; 		// variable for see if game has timing autoFix
 extern int PerGameFix_GPUbusy; 		// variable for see if game has GPU 'Fake Busy States' (dwEmuFixes) autoFix
 extern int PerGameFix_specialCorrect; 	// variable for see if game has special correction (dwActFixes) autoFix
 extern int PerGameFix_pR3000A; 		// variable for see if game has pR3000A autoFix
+extern int PerGameFix_LightrecHacks; 	// variable for see if game uses hacks from Lightrec
 
 void Func_ShowRomInfo();
 void Func_ResetROM();
@@ -171,6 +172,11 @@ void Func_ShowRomInfo()
   if (PerGameFix_specialCorrect)
   {
   	sprintf(buffer, "Special game auto fixed\n");
+  	strcat(RomInfo,buffer);
+  }
+  if (PerGameFix_LightrecHacks)
+  {
+  	sprintf(buffer, "Applied Lightrec hacks\n");
   	strcat(RomInfo,buffer);
   }
   if (PerGameFix_pR3000A)
