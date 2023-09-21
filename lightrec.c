@@ -417,6 +417,8 @@ static int lightrec_plugin_init(void)
 			lightrec_map, ARRAY_SIZE(lightrec_map),
 			&lightrec_ops);
 
+	lightrec_set_unsafe_opt_flags(lightrec_state, lightrec_hacks);
+
 	signal(SIGPIPE, exit);
 
 	return 0;
@@ -578,6 +580,8 @@ static void lightrec_plugin_execute_internal(bool block_only)
 static void lightrec_plugin_execute(void)
 {
 	extern int stop;
+
+	lightrec_set_unsafe_opt_flags(lightrec_state, lightrec_hacks);
 
 	if (!booting)
 		lightrec_plugin_sync_regs_from_pcsx();
