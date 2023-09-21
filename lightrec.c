@@ -562,9 +562,9 @@ static void lightrec_plugin_execute_internal(bool block_only)
 	}
 
 	if (flags & LIGHTREC_EXIT_SYSCALL)
-		psxException(8 << 2, 0); // R3000A syscall instruction
+		psxException(0x20, 0); // R3000A syscall instruction
 	if (flags & LIGHTREC_EXIT_BREAK)
-		psxException(9 << 2, 0); // R3000A breakpoint - a break instruction
+		psxException(0x24, 0); // R3000A breakpoint - a break instruction
 
 	//if (booting && (psxRegs.pc & 0xff800000) == 0x80000000)
 	//	booting = false;
