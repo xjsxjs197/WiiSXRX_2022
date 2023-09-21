@@ -417,8 +417,6 @@ static int lightrec_plugin_init(void)
 			lightrec_map, ARRAY_SIZE(lightrec_map),
 			&lightrec_ops);
 
-	lightrec_set_unsafe_opt_flags(lightrec_state, lightrec_hacks);
-
 	signal(SIGPIPE, exit);
 
 	return 0;
@@ -624,6 +622,8 @@ static void lightrec_plugin_reset(void)
 
 	regs->cp0[12] = 0x10900000; // COP0 enabled | BEV = 1 | TS = 1
 	regs->cp0[15] = 0x00000002; // PRevID = Revision ID, same as R3000A
+
+	lightrec_set_unsafe_opt_flags(lightrec_state, lightrec_hacks);
 
 	//booting = true;
 }
