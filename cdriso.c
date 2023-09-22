@@ -90,11 +90,12 @@ static struct {
 
 #ifdef USE_LIBCHDR
 static struct {
-	unsigned char (*buffer)[CD_FRAMESIZE_RAW + SUB_FRAMESIZE];
+	unsigned char *buffer;
 	chd_file* chd;
 	const chd_header* header;
 	unsigned int sectors_per_hunk;
-	unsigned int current_hunk;
+	unsigned int current_hunk[2];
+	unsigned int current_buffer;
 	unsigned int sector_in_hunk;
 } *chd_img;
 #endif // USE_LIBCHDR
@@ -950,12 +951,13 @@ static int handlechd(const char *isofile) {
 
    chd_img->header = chd_get_header(chd_img->chd);
 
-   chd_img->buffer = malloc(chd_img->header->hunkbytes);
+   chd_img->buffer = malloc(chd_img->header->hunkbytes * 2);
    if (chd_img->buffer == NULL)
 		goto fail_io;
 
    chd_img->sectors_per_hunk = chd_img->header->hunkbytes / (CD_FRAMESIZE_RAW + SUB_FRAMESIZE);
-   chd_img->current_hunk = (unsigned int)-1;
+   chd_img->current_hunk[0] = (unsigned int)-1;
+   chd_img->current_hunk[1] = (unsigned int)-1;
 
    cddaBigEndian = TRUE;
 
@@ -1201,6 +1203,13 @@ finish:
 }
 
 #ifdef USE_LIBCHDR
+static unsigned char *chd_get_sector(unsigned int current_buffer, unsigned int sector_in_hunk)
+{
+	return chd_img->buffer
+		+ current_buffer * chd_img->header->hunkbytes
+		+ sector_in_hunk * (CD_FRAMESIZE_RAW + SUB_FRAMESIZE);
+}
+
 static int cdread_chd(FILE *f, unsigned int base, void *dest, int sector)
 {
 	int hunk;
@@ -1210,14 +1219,19 @@ static int cdread_chd(FILE *f, unsigned int base, void *dest, int sector)
 	hunk = sector / chd_img->sectors_per_hunk;
 	chd_img->sector_in_hunk = sector % chd_img->sectors_per_hunk;
 
-	if (hunk != chd_img->current_hunk)
+	if (hunk == chd_img->current_hunk[0])
+		chd_img->current_buffer = 0;
+	else if (hunk == chd_img->current_hunk[1])
+		chd_img->current_buffer = 1;
+	else
 	{
-		chd_read(chd_img->chd, hunk, chd_img->buffer);
-		chd_img->current_hunk = hunk;
+		chd_read(chd_img->chd, hunk, chd_img->buffer +
+			chd_img->current_buffer * chd_img->header->hunkbytes);
+		chd_img->current_hunk[chd_img->current_buffer] = hunk;
 	}
 
 	if (dest != cdbuffer) // copy avoid HACK
-		memcpy(dest, chd_img->buffer[chd_img->sector_in_hunk],
+		memcpy(dest, chd_get_sector(chd_img->current_buffer, chd_img->sector_in_hunk),
 			CD_FRAMESIZE_RAW);
 	return CD_FRAMESIZE_RAW;
 }
@@ -1244,7 +1258,7 @@ static unsigned char * CALLBACK ISOgetBuffer_compr(void) {
 
 #ifdef USE_LIBCHDR
 static unsigned char * CALLBACK ISOgetBuffer_chd(void) {
-	return chd_img->buffer[chd_img->sector_in_hunk] + 12;
+	return chd_get_sector(chd_img->current_buffer, chd_img->sector_in_hunk) + 12;
 }
 #endif // USE_LIBCHDR
 
