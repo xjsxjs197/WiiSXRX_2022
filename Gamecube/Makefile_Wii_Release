@@ -26,8 +26,7 @@ GPU = Soft
 TARGET		:=	WiiSXRX_Release
 BUILD		:=	build_release
 SOURCES		:=	../lang ../fonts \
-                $(CHDLIBDIR)/src/ $(CHDLIBDIR)/deps/libFLAC/ $(CHDLIBDIR)/deps/libFLAC/include/FLAC/ $(CHDLIBDIR)/deps/lzma/ \
-                . ./gc_input/ ./libgui/ ./menu/ ./fileBrowser/ .. ../Peops$(GPU)GPU/ \
+                . ./gc_input/ ./libgui/ ./menu/ ./fileBrowser/ .. $(CHDLIBDIR)/src/ ../Peops$(GPU)GPU/ \
 				./libgui/gui2 ../dfsound/ ./vm ../ppc
 
 DATA		:=	data
