@@ -872,27 +872,149 @@
 //    lmw r5, 0x80(r3)                  // restore r5--r31 register
 //    blr
 
-.globl guVecMultiplySR
+.globl guVecMulMt
 // r3 = mt, r4 = src, r5 = dst
-guVecMultiplySR:
-    psq_l		fr0, 0(r3), 0, 3    // fr0 = m11, m12 GQR0 = 0(s16)
-    psq_l		fr6, 0(r4), 0, 3    // fr6 = x, y
-    psq_l		fr2, 6(r3), 0, 3    // fr2 = m21, m22
-    ps_mul		fr8, fr0, fr6       // fr8 = m11 * x, m12 * y
-    psq_l		fr4, 12(r3), 0, 3   // fr4 = m31, m32
-    ps_mul		fr10, fr2, fr6      // fr10 = m21 * x, m22 * y
-    psq_l		fr7, 4(r4), 0, 3    // fr7 = z, 0
-    ps_mul		fr12, fr4, fr6      // fr12 = m31 * x, m32 * y
+guVecMulMt:
+    psq_l		fr0, 0(r3), 0, 3    // fr0 = m12, m11 GQR3 = 0(s16)
+    psq_l		fr6, 0(r4), 0, 3    // fr6 = y, x
 
-    psq_l		fr3, 4(r3), 0, 3    // fr3 = m13, 0
-    ps_sum0		fr8, fr8, fr8, fr8  // fr8 = m11 * x + m12 * y
-    psq_l		fr5, 10(r3), 0, 3   // fr5 = m23, 0
-    ps_sum0		fr10,fr10,fr10,fr10 // fr10 = m21 * x + m21 * y
-    psq_l		fr1, 16(r3), 0, 3   // fr1 = m33, 0
-    ps_sum0		fr12,fr12,fr12,fr12 // fr12 = m31 * x + m32 * y
-    ps_madd		fr9,fr3,fr7,fr8    // fr9 = m13 * z + m11 * x + m12 * y
-    ps_madd		fr11,fr5,fr7,fr10  // fr11 = m23 * z + m21 * x + m22 * y
-    ps_madd		fr13,fr1,fr7,fr12  // fr13 = m33 * z + m31 * x + m33 * y
+    psq_l		fr2, 10(r3), 1, 3   // fr2 = m22
+    psq_l		fr9, 4(r3), 1, 3    // fr9 = m21
+
+    ps_mul		fr8, fr0, fr6       // fr8 = m12 * y, m11 * x
+    ps_merge00  fr2, fr2, fr9       // fr2 = m22, m21
+    psq_l		fr4, 12(r3), 0, 3   // fr4 = m32, m31
+    ps_mul		fr10, fr2, fr6      // fr10 = m22 * y, m21 * x
+    psq_l		fr7, 6(r4), 1, 3    // fr7 = z, 1
+    ps_mul		fr12, fr4, fr6      // fr12 = m32 * y, m31 * x
+
+    psq_l		fr3, 6(r3), 1, 3    // fr3 = m13, 1
+    ps_sum0		fr8, fr8, fr8, fr8  // fr8 = m12 * y + m11 * x
+    psq_l		fr5, 8(r3), 1, 3    // fr5 = m23, 1
+    ps_sum0		fr10,fr10,fr10,fr10 // fr10 = m22 * y + m21 * x
+    psq_l		fr1, 18(r3), 1, 3   // fr1 = m33, 1
+    ps_sum0		fr12,fr12,fr12,fr12 // fr12 = m32 * y + m31 * x
+    ps_madd		fr9,fr3,fr7,fr8    // fr9 = m13 * z + m12 * y + m11 * x
+    ps_madd		fr11,fr5,fr7,fr10  // fr11 = m23 * z + m22 * y + m21 * x
+    ps_madd		fr13,fr1,fr7,fr12  // fr13 = m33 * z + m32 * y + m31 * x
+
+    fctiw       fr9, fr9           // X => int
+    fctiw       fr11, fr11         // Y => int
+    fctiw       fr13, fr13         // Z => int
+
+    addi         r3, r5, 4
+    addi         r4, r5, 8
+
+    stfiwx      fr9, 0, r5         // store X
+    stfiwx      fr11, 0, r3        // store Y
+    stfiwx      fr13, 0, r4        // store Z
+    blr
+
+.globl guVecMulMtShift
+// r3 = mt, r4 = src, r5 = dst
+guVecMulMtShift:
+    psq_l		fr0, 0(r3), 0, 3    // fr0 = m12, m11 GQR3 = 0(s16)
+    psq_l		fr6, 0(r4), 0, 5    // fr6 = y, x
+
+    psq_l		fr2, 10(r3), 1, 3   // fr2 = m22
+    psq_l		fr9, 4(r3), 1, 3    // fr9 = m21
+
+    ps_mul		fr8, fr0, fr6       // fr8 = m12 * y, m11 * x
+    ps_merge00  fr2, fr2, fr9       // fr2 = m22, m21
+    psq_l		fr4, 12(r3), 0, 3   // fr4 = m32, m31
+    ps_mul		fr10, fr2, fr6      // fr10 = m22 * y, m21 * x
+    psq_l		fr7, 6(r4), 1, 5    // fr7 = z, 1
+    ps_mul		fr12, fr4, fr6      // fr12 = m32 * y, m31 * x
+
+    psq_l		fr3, 6(r3), 1, 3    // fr3 = m13, 1
+    ps_sum0		fr8, fr8, fr8, fr8  // fr8 = m12 * y + m11 * x
+    psq_l		fr5, 8(r3), 1, 3    // fr5 = m23, 1
+    ps_sum0		fr10,fr10,fr10,fr10 // fr10 = m22 * y + m21 * x
+    psq_l		fr1, 18(r3), 1, 3   // fr1 = m33, 1
+    ps_sum0		fr12,fr12,fr12,fr12 // fr12 = m32 * y + m31 * x
+    ps_madd		fr9,fr3,fr7,fr8    // fr9 = m13 * z + m12 * y + m11 * x
+    ps_madd		fr11,fr5,fr7,fr10  // fr11 = m23 * z + m22 * y + m21 * x
+    ps_madd		fr13,fr1,fr7,fr12  // fr13 = m33 * z + m32 * y + m31 * x
+
+    fctiw       fr9, fr9           // X => int
+    fctiw       fr11, fr11         // Y => int
+    fctiw       fr13, fr13         // Z => int
+
+    addi         r3, r5, 4
+    addi         r4, r5, 8
+
+    stfiwx      fr9, 0, r5         // store X
+    stfiwx      fr11, 0, r3        // store Y
+    stfiwx      fr13, 0, r4        // store Z
+    blr
+
+.globl guVecMulMtIR
+// r3 = mt, r4 = src, r5 = dst
+guVecMulMtIR:
+    psq_l		fr6, 4(r4), 1, 3    // fr6 = y
+    psq_l		fr11, 0(r4), 1, 3   // fr11 = x
+    psq_l		fr0, 0(r3), 0, 3    // fr0 = m12, m11 GQR3 = 0(s16)
+    ps_merge00  fr6, fr6, fr11      // fr6 = y, x
+
+    psq_l		fr2, 10(r3), 1, 3   // fr2 = m22
+    psq_l		fr9, 4(r3), 1, 3    // fr9 = m21
+
+    ps_mul		fr8, fr0, fr6       // fr8 = m12 * y, m11 * x
+    ps_merge00  fr2, fr2, fr9       // fr2 = m22, m21
+    psq_l		fr4, 12(r3), 0, 3   // fr4 = m32, m31
+    ps_mul		fr10, fr2, fr6      // fr10 = m22 * y, m21 * x
+    psq_l		fr7, 8(r4), 1, 3    // fr7 = z, 1
+    ps_mul		fr12, fr4, fr6      // fr12 = m32 * y, m31 * x
+
+    psq_l		fr3, 6(r3), 1, 3    // fr3 = m13, 1
+    ps_sum0		fr8, fr8, fr8, fr8  // fr8 = m12 * y + m11 * x
+    psq_l		fr5, 8(r3), 1, 3    // fr5 = m23, 1
+    ps_sum0		fr10,fr10,fr10,fr10 // fr10 = m22 * y + m21 * x
+    psq_l		fr1, 18(r3), 1, 3   // fr1 = m33, 1
+    ps_sum0		fr12,fr12,fr12,fr12 // fr12 = m32 * y + m31 * x
+    ps_madd		fr9,fr3,fr7,fr8    // fr9 = m13 * z + m12 * y + m11 * x
+    ps_madd		fr11,fr5,fr7,fr10  // fr11 = m23 * z + m22 * y + m21 * x
+    ps_madd		fr13,fr1,fr7,fr12  // fr13 = m33 * z + m32 * y + m31 * x
+
+    fctiw       fr9, fr9           // X => int
+    fctiw       fr11, fr11         // Y => int
+    fctiw       fr13, fr13         // Z => int
+
+    addi         r3, r5, 4
+    addi         r4, r5, 8
+
+    stfiwx      fr9, 0, r5         // store X
+    stfiwx      fr11, 0, r3        // store Y
+    stfiwx      fr13, 0, r4        // store Z
+    blr
+
+.globl guVecMulMtIRShift
+// r3 = mt, r4 = src, r5 = dst
+guVecMulMtIRShift:
+    psq_l		fr6, 4(r4), 1, 5    // fr6 = y
+    psq_l		fr11, 0(r4), 1, 5   // fr11 = x
+    psq_l		fr0, 0(r3), 0, 3    // fr0 = m12, m11 GQR3 = 0(s16)
+    ps_merge00  fr6, fr6, fr11      // fr6 = y, x
+
+    psq_l		fr2, 10(r3), 1, 3   // fr2 = m22
+    psq_l		fr9, 4(r3), 1, 3    // fr9 = m21
+
+    ps_mul		fr8, fr0, fr6       // fr8 = m12 * y, m11 * x
+    ps_merge00  fr2, fr2, fr9       // fr2 = m22, m21
+    psq_l		fr4, 12(r3), 0, 3   // fr4 = m32, m31
+    ps_mul		fr10, fr2, fr6      // fr10 = m22 * y, m21 * x
+    psq_l		fr7, 8(r4), 1, 5    // fr7 = z, 1
+    ps_mul		fr12, fr4, fr6      // fr12 = m32 * y, m31 * x
+
+    psq_l		fr3, 6(r3), 1, 3    // fr3 = m13, 1
+    ps_sum0		fr8, fr8, fr8, fr8  // fr8 = m12 * y + m11 * x
+    psq_l		fr5, 8(r3), 1, 3    // fr5 = m23, 1
+    ps_sum0		fr10,fr10,fr10,fr10 // fr10 = m22 * y + m21 * x
+    psq_l		fr1, 18(r3), 1, 3   // fr1 = m33, 1
+    ps_sum0		fr12,fr12,fr12,fr12 // fr12 = m32 * y + m31 * x
+    ps_madd		fr9,fr3,fr7,fr8    // fr9 = m13 * z + m12 * y + m11 * x
+    ps_madd		fr11,fr5,fr7,fr10  // fr11 = m23 * z + m22 * y + m21 * x
+    ps_madd		fr13,fr1,fr7,fr12  // fr13 = m33 * z + m32 * y + m31 * x
 
     fctiw       fr9, fr9           // X => int
     fctiw       fr11, fr11         // Y => int
