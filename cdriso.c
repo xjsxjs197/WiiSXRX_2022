@@ -961,6 +961,7 @@ static int handlechd(const char *isofile) {
 
 	numtracks = 0;
 	int frame_offset = 0;
+	int file_offset = 0;
 	memset(ti, 0, sizeof(ti));
 
    while (1)
@@ -985,18 +986,20 @@ static int handlechd(const char *isofile) {
       else
          break;
 
+		if(md.track == 1)
+			md.pregap = 150;
+		else
+			sec2msf(msf2sec(ti[md.track-1].length) + md.pregap, ti[md.track-1].length);
+
 		ti[md.track].type = !strncmp(md.type, "AUDIO", 5) ? CDDA : DATA;
 
-      sec2msf(frame_offset + md.pregap, ti[md.track].start);
-      sec2msf(md.frames, ti[md.track].length);
+		sec2msf(frame_offset + md.pregap, ti[md.track].start);
+		sec2msf(md.frames, ti[md.track].length);
 
-      if (!strcmp(md.type, md.pgtype))
-         frame_offset += md.pregap;
+		ti[md.track].start_offset = file_offset;
 
-      ti[md.track].start_offset = frame_offset * CD_FRAMESIZE_RAW;
-
-		frame_offset += (md.frames + 3) & ~3;
-		frame_offset += md.postgap;
+		frame_offset += md.pregap + md.frames + md.postgap;
+		file_offset += md.frames + md.postgap;
 		numtracks++;
 	}
 
@@ -1203,19 +1206,17 @@ static int cdread_chd(FILE *f, unsigned int base, void *dest, int sector)
 	int hunk;
 
 	if (base)
-		sector += base / CD_FRAMESIZE_RAW;
+		sector += base;
 
 	hunk = sector / chd_img->sectors_per_hunk;
 	chd_img->sector_in_hunk = sector % chd_img->sectors_per_hunk;
 
-	if (hunk == chd_img->current_hunk)
-		goto finish;
+	if (hunk != chd_img->current_hunk)
+	{
+		chd_read(chd_img->chd, hunk, chd_img->buffer);
+		chd_img->current_hunk = hunk;
+	}
 
-	chd_read(chd_img->chd, hunk, chd_img->buffer);
-
-	chd_img->current_hunk = hunk;
-
-finish:
 	if (dest != cdbuffer) // copy avoid HACK
 		memcpy(dest, chd_img->buffer[chd_img->sector_in_hunk],
 			CD_FRAMESIZE_RAW);
