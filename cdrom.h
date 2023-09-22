@@ -129,7 +129,6 @@ extern int msf2SectMNoItob[];
 extern int msf2SectSNoItob[];
 
 void cdrReset();
-void cdrAttenuate(s16 *buf, int samples, int stereo);
 
 void cdrInterrupt();
 void cdrReadInterrupt();
