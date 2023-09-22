@@ -47,6 +47,13 @@ int PerGameFix_timing; 		// variable for see if game has timing autoFix
 int PerGameFix_GPUbusy; 	// variable for see if game has GPU 'Fake Busy States' (dwEmuFixes) autoFix
 int PerGameFix_specialCorrect; 	// variable for see if game has special correction (dwActFixes) autoFix
 int PerGameFix_pR3000A; 	// variable for see if game has pR3000A autoFix
+int PerGameFix_LightrecHacks; 	// variable for see if game uses hacks from Lightrec
+
+/* Corresponds to LIGHTREC_OPT_INV_DMA_ONLY of lightrec.h */
+#define LIGHTREC_HACK_INV_DMA_ONLY (1 << 0)
+
+// define variable for store and handle Lightrec hacks
+u32 lightrec_hacks;
 
 void Func_PrevPage();
 void Func_NextPage();
@@ -607,6 +614,40 @@ static void CheckGameAutoFix(void)
 	        PerGameFix_specialCorrect = 1;
         }
     }
+
+    // Apply LIGHTREC_HACK_INV_DMA_ONLY hack for some games when in Lightrec
+    autoFixLen = 13;
+    char LightrecDMAhackAutoFixGames[autoFixLen][10] = {
+        // Formula One Arcade
+         "SCES03886" // PAL
+
+        // Formula One '99
+        ,"SLUS00870" // NTSC-U
+        ,"SCPS10101" // NTSC-J
+        ,"SCES01979" // PAL
+        ,"SLES01979" // PAL
+
+        // Formula One 2000
+        ,"SLUS01134" // NTSC-U
+        ,"SCES02777" // PAL
+        ,"SCES02778" // PAL (France, Germany)
+        ,"SCES02779" // PAL (Italy, Spain)
+
+        // Formula One 2001
+        ,"SCES03404" // PAL
+        ,"SCES03423" // PAL (France, Germany)
+        ,"SCES03424" // PAL (Italy, Spain)
+        ,"SCES03524" // PAL (Russia)
+    };
+    lightrec_hacks = 0;
+    PerGameFix_LightrecHacks = 0;
+    for (i = 0; i < autoFixLen; i++)
+    {
+	if (ChkString(CdromId, LightrecDMAhackAutoFixGames[i], strlen(LightrecDMAhackAutoFixGames[i]))) {
+		lightrec_hacks = LIGHTREC_HACK_INV_DMA_ONLY;
+			PerGameFix_LightrecHacks = 1;
+        }
+    }
 }
 
 static void CheckGameR3000AutoFix(void)
@@ -745,6 +786,11 @@ void fileBrowserFrame_LoadFile(int i)
             if (dwActFixes)
             {
                 sprintf(buffer, "Special game auto fixed\n");
+                strcat(RomInfo,buffer);
+            }
+            if (lightrec_hacks)
+            {
+                sprintf(buffer, "Applied Lightrec hacks\n");
                 strcat(RomInfo,buffer);
             }
             // Switches for painting textured quads as 2 triangles (small glitches, but better shading!)

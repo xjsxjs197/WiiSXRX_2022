@@ -43,6 +43,8 @@ static bool use_lightrec_interpreter = false;
 static bool use_pcsx_interpreter = false;
 static bool booting;
 
+extern u32 lightrec_hacks;
+
 enum my_cp2_opcodes {
 	OP_CP2_RTPS		= 0x01,
 	OP_CP2_NCLIP		= 0x06,
@@ -415,6 +417,8 @@ static int lightrec_plugin_init(void)
 			lightrec_map, ARRAY_SIZE(lightrec_map),
 			&lightrec_ops);
 
+	lightrec_set_unsafe_opt_flags(lightrec_state, lightrec_hacks);
+
 	signal(SIGPIPE, exit);
 
 	return 0;
@@ -558,9 +562,9 @@ static void lightrec_plugin_execute_internal(bool block_only)
 	}
 
 	if (flags & LIGHTREC_EXIT_SYSCALL)
-		psxException(8 << 2, 0); // R3000A syscall instruction
+		psxException(0x20, 0); // R3000A syscall instruction
 	if (flags & LIGHTREC_EXIT_BREAK)
-		psxException(9 << 2, 0); // R3000A breakpoint - a break instruction
+		psxException(0x24, 0); // R3000A breakpoint - a break instruction
 
 	//if (booting && (psxRegs.pc & 0xff800000) == 0x80000000)
 	//	booting = false;
@@ -576,6 +580,8 @@ static void lightrec_plugin_execute_internal(bool block_only)
 static void lightrec_plugin_execute(void)
 {
 	extern int stop;
+
+	lightrec_set_unsafe_opt_flags(lightrec_state, lightrec_hacks);
 
 	if (!booting)
 		lightrec_plugin_sync_regs_from_pcsx();
@@ -620,6 +626,8 @@ static void lightrec_plugin_reset(void)
 
 	regs->cp0[12] = 0x10900000; // COP0 enabled | BEV = 1 | TS = 1
 	regs->cp0[15] = 0x00000002; // PRevID = Revision ID, same as R3000A
+
+	lightrec_set_unsafe_opt_flags(lightrec_state, lightrec_hacks);
 
 	//booting = true;
 }
