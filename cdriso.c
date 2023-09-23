@@ -959,7 +959,7 @@ static int handlechd(const char *isofile) {
    chd_img->current_hunk[0] = (unsigned int)-1;
    chd_img->current_hunk[1] = (unsigned int)-1;
 
-   cddaBigEndian = TRUE;
+   cddaBigEndian = FALSE;
 
 	numtracks = 0;
 	int frame_offset = 150;
