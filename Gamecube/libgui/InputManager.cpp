@@ -37,6 +37,31 @@ bool isWiiVC = false;
 
 void ShutdownWii();
 void initHid();
+static char *debugLogFile = "sd:/wiisxrx/debugLog.txt";
+static FILE* fdebugLog = NULL;
+
+void openLogFile() {
+    if (!fdebugLog) {
+        fdebugLog = fopen(debugLogFile, "a+");
+    }
+}
+
+void closeLogFile() {
+    if (fdebugLog) {
+        fclose(fdebugLog);
+        fdebugLog = NULL;
+    }
+}
+
+void writeLogFile(char* string) {
+    closeLogFile();
+
+    openLogFile();
+
+    fprintf(fdebugLog, string);
+
+    closeLogFile();
+}
 
 static ioctlv IOCTL_Buf[2] ALIGNED(32);
 static u32 (*const PADRead)(u32) = (void*)0x93000000;
@@ -83,6 +108,7 @@ Input::Input()
 	WiiDRC_Init();
 	isWiiVC = WiiDRC_Inited();
 
+	writeLogFile("1111111");
 	*(vu32*)0x92FFFFC0 = isWiiVC; //cant be detected in IOS
 	if(WiiDRC_Connected()) //used in PADReadGC.c
 		*(vu32*)0x92FFFFC4 = (u32)WiiDRC_GetRawI2CAddr();
@@ -111,34 +137,47 @@ Input::Input()
 //		}
 
 		// Load and patch IOS58.
+		writeLogFile("LoadKernel====\r\n");
 		if (LoadKernel() >= 0)
 		{
+		    writeLogFile("LoadKernel==OK==\r\n");
 		    PatchKernel(isWiiVC);
+		    writeLogFile("PatchKernel==OK==\r\n");
             u32 v = FoundVersion;
             //this ensures all IOS modules get loaded in ES on reload
             memcpy( ESBootPatch+0x14, &v, 4 );
             DCInvalidateRange( (void*)0x939F0348, sizeof(ESBootPatch) );
             memcpy( (void*)0x939F0348, ESBootPatch, sizeof(ESBootPatch) );
             DCFlushRange( (void*)0x939F0348, sizeof(ESBootPatch) );
+            writeLogFile("ensures all IOS==OK==\r\n");
 
             //libogc still has that, lets close it
             __ES_Close();
-            fd = IOS_Open( dev_es, 0 );
-
-            irq_handler_t irq_handler = BeforeIOSReload();
-            IOS_IoctlvAsync( fd, 0x25, 0, 0, IOCTL_Buf, NULL, NULL );
-            sleep(1); //wait this time at least
-            AfterIOSReload( irq_handler, v );
-            //Disables MEMPROT for patches
-            write16(MEM_PROT, 0);
+//            fd = IOS_Open( dev_es, 0 );
+//            writeLogFile("IOS_Open==dev_es==\r\n");
+//
+//            irq_handler_t irq_handler = BeforeIOSReload();
+//            IOS_IoctlvAsync( fd, 0x25, 0, 0, IOCTL_Buf, NULL, NULL );
+//            writeLogFile("IOS_IoctlvAsync====\r\n");
+//            sleep(1); //wait this time at least
+//            AfterIOSReload( irq_handler, v );
+//            //Disables MEMPROT for patches
+//            write16(MEM_PROT, 0);
+//            writeLogFile("Kernel==ALL OK==\r\n");
 		}
+		else
+        {
+            writeLogFile("LoadKernel==ERROR==\r\n");
+        }
 	}
 
 	initHid();
 
 	HIDUpdateRegisters();
+	writeLogFile("HIDUpdateRegisters==OK==\r\n");
 	PADRead(0);
 	hidGcPad = (PADStatus*)(0x93003100); //PadBuff
+	writeLogFile("PADRead==OK==\r\n");
 
 	WUPC_Init();
 	WPAD_Init();
@@ -162,6 +201,7 @@ Input::~Input()
 
 void initHid()
 {
+	writeLogFile("initHid==11111==\r\n");
 	// for BT.c
 	CONF_GetPadDevices((conf_pads*)0x932C0000);
 	DCFlushRange((void*)0x932C0000, sizeof(conf_pads));
@@ -183,11 +223,13 @@ void initHid()
 	*(vu32*)0x93003420 = 0;
 	DCFlushRange((void*)0x93003420,0x20);
 
+	writeLogFile("initHid==2222222==\r\n");
 	static ioctlv IOCTL_Buf[2] __attribute__((aligned(32)));
 	s32 fd;
 	fd = IOS_Open( dev_es, 0 );
 	IOS_IoctlvAsync(fd, 0x1F, 0, 0, IOCTL_Buf, NULL, NULL);
 	//Waiting for Nintendont...
+	writeLogFile("initHid==3333333333==\r\n");
 	while(1)
 	{
 		DCInvalidateRange( STATUS, 0x20 );
@@ -198,7 +240,9 @@ void initHid()
 		}
 	}
 	//Async Ioctlv done by now
+	writeLogFile("initHid==444444444==\r\n");
 	IOS_Close(fd);
+	writeLogFile("initHid==5555555==\r\n");
 
 	// Initialize controllers.
 	DCInvalidateRange((void*)0x93000000, 0x3000);
@@ -208,6 +252,7 @@ void initHid()
 	DCInvalidateRange((void*)0x93003010, 0x190);
 	memset((void*)0x93003010, 0, 0x190); //clears alot of pad stuff
 	DCFlushRange((void*)0x93003010, 0x190);
+	writeLogFile("initHid==OK==\r\n");
 }
 
 void Input::refreshInput()
