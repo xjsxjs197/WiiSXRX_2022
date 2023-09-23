@@ -658,9 +658,6 @@ static int cdrSeekTime(unsigned char *target)
 	return seekTime;
 }
 
-static void cdrPrepCdda(s16 *buf, int samples);
-static void cdrAttenuate(s16 *buf, int samples, int stereo);
-
 // also handles seek
 void cdrPlayInterrupt()
 {
@@ -721,7 +718,6 @@ void cdrPlayInterrupt()
         sprintf(txtbuffer, "CDR_readCDDA time %d %d %d", cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2]);
         DEBUG_print(txtbuffer, DBG_CDR2);
         #endif // DISP_DEBUG
-    	cdrPrepCdda(read_buf, CD_FRAMESIZE_RAW / 4);
     	cdrAttenuate(read_buf, CD_FRAMESIZE_RAW / 4, 1);
 		SPU_playCDDAchannel(read_buf, CD_FRAMESIZE_RAW);
 		cdr.FirstSector = 0;
@@ -1360,18 +1356,7 @@ finish:
   else if (v > 32767) v = 32767; \
 }
 
-static void cdrPrepCdda(s16 *buf, int samples)
-{
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	int i;
-	for (i = 0; i < samples; i++) {
-		buf[i * 2 + 0] = SWAP16(buf[i * 2 + 0]);
-		buf[i * 2 + 1] = SWAP16(buf[i * 2 + 1]);
-	}
-#endif
-}
-
-static void cdrAttenuate(s16 *buf, int samples, int stereo)
+void cdrAttenuate(s16 *buf, int samples, int stereo)
 {
 	int i, l, r;
 	int ll = cdr.AttenuatorLeftToLeft;
