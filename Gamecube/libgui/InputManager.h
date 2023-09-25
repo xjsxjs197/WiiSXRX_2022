@@ -47,6 +47,7 @@ private:
 	Input();
 	~Input();
 	PADStatus gcPad[4];
+	void initHid();
 #ifdef HW_RVL
 	WPADData *wiiPad;
 	WUPCData *wupcData;

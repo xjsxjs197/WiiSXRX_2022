@@ -19,6 +19,10 @@
 **/
 #include <ogc/machine/processor.h>
 #include <unistd.h>
+#include <fatfs/diskio.h>
+#include <fatfs/ff.h>
+#include <fatfs/ff_utf8.h>
+
 #include "InputManager.h"
 #include "FocusManager.h"
 #include "CursorManager.h"
@@ -95,6 +99,13 @@ static char dev_es[] ATTRIBUTE_ALIGN(32) = "/dev/es";
 
 extern vu32 FoundVersion;
 
+static const WCHAR *primaryDevice;
+void changeToDefaultDrive()
+{
+	f_chdrive(primaryDevice);
+	f_chdir_char("/");
+}
+
 namespace menu {
 
 Input::Input()
@@ -108,7 +119,6 @@ Input::Input()
 	WiiDRC_Init();
 	isWiiVC = WiiDRC_Inited();
 
-	writeLogFile("1111111");
 	*(vu32*)0x92FFFFC0 = isWiiVC; //cant be detected in IOS
 	if(WiiDRC_Connected()) //used in PADReadGC.c
 		*(vu32*)0x92FFFFC4 = (u32)WiiDRC_GetRawI2CAddr();
@@ -125,16 +135,16 @@ Input::Input()
 		//Disables MEMPROT for patches
 		write16(MEM_PROT, 0);
 		//Patches FS access
-//		for( u = 0x93A00000; u < 0x94000000; u+=2 )
-//		{
-//			if( memcmp( (void*)(u), FSAccessPattern, sizeof(FSAccessPattern) ) == 0 )
-//			{
-//				//gprintf("FSAccessPatch:%08X\r\n", u );
-//				memcpy( (void*)u, FSAccessPatch, sizeof(FSAccessPatch) );
-//				DCFlushRange((void*)u, sizeof(FSAccessPatch));
-//				break;
-//			}
-//		}
+		for( u = 0x93A00000; u < 0x94000000; u+=2 )
+		{
+			if( memcmp( (void*)(u), FSAccessPattern, sizeof(FSAccessPattern) ) == 0 )
+			{
+				//gprintf("FSAccessPatch:%08X\r\n", u );
+				memcpy( (void*)u, FSAccessPatch, sizeof(FSAccessPatch) );
+				DCFlushRange((void*)u, sizeof(FSAccessPatch));
+				break;
+			}
+		}
 
 		// Load and patch IOS58.
 		writeLogFile("LoadKernel====\r\n");
@@ -161,9 +171,9 @@ Input::Input()
 //            writeLogFile("IOS_IoctlvAsync====\r\n");
 //            sleep(1); //wait this time at least
 //            AfterIOSReload( irq_handler, v );
-//            //Disables MEMPROT for patches
-//            write16(MEM_PROT, 0);
-//            writeLogFile("Kernel==ALL OK==\r\n");
+            //Disables MEMPROT for patches
+            write16(MEM_PROT, 0);
+            writeLogFile("Kernel==ALL OK==\r\n");
 		}
 		else
         {
@@ -199,9 +209,13 @@ Input::~Input()
 #endif
 }
 
-void initHid()
+void Input::initHid()
 {
 	writeLogFile("initHid==11111==\r\n");
+	RAMInit();
+	//tell devkitPPC r29 that we use UTF-8
+	setlocale(LC_ALL,"C.UTF-8");
+
 	// for BT.c
 	CONF_GetPadDevices((conf_pads*)0x932C0000);
 	DCFlushRange((void*)0x932C0000, sizeof(conf_pads));
@@ -222,6 +236,14 @@ void initHid()
 	//make sure kernel doesnt reload
 	*(vu32*)0x93003420 = 0;
 	DCFlushRange((void*)0x93003420,0x20);
+
+	//Set some important kernel regs
+	*(vu32*)0x92FFFFC0 = isWiiVC; //cant be detected in IOS
+	if(WiiDRC_Connected()) //used in PADReadGC.c
+		*(vu32*)0x92FFFFC4 = (u32)WiiDRC_GetRawI2CAddr();
+	else //will disable gamepad spot for player 1
+		*(vu32*)0x92FFFFC4 = 0;
+	DCFlushRange((void*)0x92FFFFC0,0x20);
 
 	writeLogFile("initHid==2222222==\r\n");
 	static ioctlv IOCTL_Buf[2] __attribute__((aligned(32)));
@@ -244,6 +266,27 @@ void initHid()
 	IOS_Close(fd);
 	writeLogFile("initHid==5555555==\r\n");
 
+		// Initialize devices.
+	// TODO: Only mount the device Nintendont was launched from
+	// Mount the other device asynchronously.
+	bool foundOneDevice = false;
+	int i;
+	for (i = DEV_SD; i <= DEV_USB; i++)
+	{
+		//only check SD on Wii VC
+		if(i == DEV_USB && isWiiVC)
+			break;
+		//check SD and USB on Wii and WiiU
+		const WCHAR *devNameFF = MountDevice(i);
+		if (devNameFF && !foundOneDevice)
+		{
+			// Set this device as primary.
+			primaryDevice = devNameFF;
+			changeToDefaultDrive();
+			foundOneDevice = true;
+		}
+	}
+
 	// Initialize controllers.
 	DCInvalidateRange((void*)0x93000000, 0x3000);
 	memcpy((void*)0x93000000, PADReadGC_bin, PADReadGC_bin_size);
@@ -252,6 +295,9 @@ void initHid()
 	DCInvalidateRange((void*)0x93003010, 0x190);
 	memset((void*)0x93003010, 0, 0x190); //clears alot of pad stuff
 	DCFlushRange((void*)0x93003010, 0x190);
+	//struct BTPadCont *BTPad = (struct BTPadCont*)0x932F0000;
+	//for(i = 0; i < WPAD_MAX_WIIMOTES; ++i)
+	//	BTPad[i].used = C_NOT_SET;
 	writeLogFile("initHid==OK==\r\n");
 }
 
