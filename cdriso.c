@@ -27,6 +27,7 @@
 
 #include <errno.h>
 #include <zlib.h>
+#include "deps/libchdr/include/libchdr/chd.h"
 
 #include <ogc/lwp.h>
 #include <ogc/mutex.h>
@@ -87,6 +88,18 @@ static struct {
 	unsigned int sector_in_blk;
 } *compr_img;
 
+#ifdef USE_LIBCHDR
+static struct {
+	unsigned char *buffer;
+	chd_file* chd;
+	const chd_header* header;
+	unsigned int sectors_per_hunk;
+	unsigned int current_hunk[2];
+	unsigned int current_buffer;
+	unsigned int sector_in_hunk;
+} *chd_img;
+#endif // USE_LIBCHDR
+
 int (*cdimg_read_func)(FILE *f, unsigned int base, void *dest, int sector);
 
 char* CALLBACK CDR__getDriveLetter(void);
@@ -103,7 +116,7 @@ struct trackinfo {
 	char start[3];		// MSF-format
 	char length[3];		// MSF-format
 	FILE *handle;		// for multi-track images CDDA
-	unsigned int start_offset; // byte offset from start of above file
+	unsigned int start_offset; // byte offset from start of above file (chd: sector offset)
 };
 
 #define MAXTRACKS 100 /* How many tracks can a CD hold? */
@@ -927,6 +940,87 @@ fail_io:
 	return -1;
 }
 
+#ifdef USE_LIBCHDR
+static int handlechd(const char *isofile) {
+	chd_img = calloc(1, sizeof(*chd_img));
+	if (chd_img == NULL)
+		goto fail_io;
+
+	if(chd_open(isofile, CHD_OPEN_READ, NULL, &chd_img->chd) != CHDERR_NONE)
+      goto fail_io;
+
+   chd_img->header = chd_get_header(chd_img->chd);
+
+   chd_img->buffer = malloc(chd_img->header->hunkbytes * 2);
+   if (chd_img->buffer == NULL)
+		goto fail_io;
+
+   chd_img->sectors_per_hunk = chd_img->header->hunkbytes / (CD_FRAMESIZE_RAW + SUB_FRAMESIZE);
+   chd_img->current_hunk[0] = (unsigned int)-1;
+   chd_img->current_hunk[1] = (unsigned int)-1;
+
+   cddaBigEndian = FALSE;
+
+	numtracks = 0;
+	int frame_offset = 150;
+	int file_offset = 0;
+	memset(ti, 0, sizeof(ti));
+
+   while (1)
+   {
+      struct {
+         char type[64];
+         char subtype[32];
+         char pgtype[32];
+         char pgsub[32];
+         uint32_t track;
+         uint32_t frames;
+         uint32_t pregap;
+         uint32_t postgap;
+      } md = {};
+      char meta[256];
+      uint32_t meta_size = 0;
+
+      if (chd_get_metadata(chd_img->chd, CDROM_TRACK_METADATA2_TAG, numtracks, meta, sizeof(meta), &meta_size, NULL, NULL) == CHDERR_NONE)
+         sscanf(meta, CDROM_TRACK_METADATA2_FORMAT, &md.track, md.type, md.subtype, &md.frames, &md.pregap, md.pgtype, md.pgsub, &md.postgap);
+      else if (chd_get_metadata(chd_img->chd, CDROM_TRACK_METADATA_TAG, numtracks, meta, sizeof(meta), &meta_size, NULL, NULL) == CHDERR_NONE)
+         sscanf(meta, CDROM_TRACK_METADATA_FORMAT, &md.track, md.type, md.subtype, &md.frames);
+      else
+         break;
+
+/*
+		if(md.track == 1)
+			md.pregap = 150;
+		else
+			sec2msf(msf2sec(ti[md.track-1].length) + md.pregap, ti[md.track-1].length);
+*/
+
+		ti[md.track].type = !strncmp(md.type, "AUDIO", 5) ? CDDA : DATA;
+
+		sec2msf(frame_offset + md.pregap, ti[md.track].start);
+		sec2msf(md.frames, ti[md.track].length);
+
+		ti[md.track].start_offset = file_offset + md.pregap;
+
+		// XXX: what about postgap?
+		frame_offset += md.frames;
+		file_offset += md.frames;
+		numtracks++;
+	}
+
+	if (numtracks)
+		return 0;
+
+fail_io:
+	if (chd_img != NULL) {
+		free(chd_img->buffer);
+		free(chd_img);
+		chd_img = NULL;
+	}
+	return -1;
+}
+#endif // USE_LIBCHDR
+
 // this function tries to get the .sub file of the given .img
 static int opensubfile(const char *isoname) {
 	char		subname[MAXPATHLEN];
@@ -1111,6 +1205,41 @@ finish:
 	return CD_FRAMESIZE_RAW;
 }
 
+#ifdef USE_LIBCHDR
+static unsigned char *chd_get_sector(unsigned int current_buffer, unsigned int sector_in_hunk)
+{
+	return chd_img->buffer
+		+ current_buffer * chd_img->header->hunkbytes
+		+ sector_in_hunk * (CD_FRAMESIZE_RAW + SUB_FRAMESIZE);
+}
+
+static int cdread_chd(FILE *f, unsigned int base, void *dest, int sector)
+{
+	int hunk;
+
+	sector += base;
+
+	hunk = sector / chd_img->sectors_per_hunk;
+	chd_img->sector_in_hunk = sector % chd_img->sectors_per_hunk;
+
+	if (hunk == chd_img->current_hunk[0])
+		chd_img->current_buffer = 0;
+	else if (hunk == chd_img->current_hunk[1])
+		chd_img->current_buffer = 1;
+	else
+	{
+		chd_read(chd_img->chd, hunk, chd_img->buffer +
+			chd_img->current_buffer * chd_img->header->hunkbytes);
+		chd_img->current_hunk[chd_img->current_buffer] = hunk;
+	}
+
+	if (dest != cdbuffer) // copy avoid HACK
+		memcpy(dest, chd_get_sector(chd_img->current_buffer, chd_img->sector_in_hunk),
+			CD_FRAMESIZE_RAW);
+	return CD_FRAMESIZE_RAW;
+}
+#endif // USE_LIBCHDR
+
 static int cdread_2048(FILE *f, unsigned int base, void *dest, int sector)
 {
 	int ret;
@@ -1129,6 +1258,12 @@ static int cdread_2048(FILE *f, unsigned int base, void *dest, int sector)
 static unsigned char * CALLBACK ISOgetBuffer_compr(void) {
 	return compr_img->buff_raw[compr_img->sector_in_blk] + 12;
 }
+
+#ifdef USE_LIBCHDR
+static unsigned char * CALLBACK ISOgetBuffer_chd(void) {
+	return chd_get_sector(chd_img->current_buffer, chd_img->sector_in_hunk) + 12;
+}
+#endif // USE_LIBCHDR
 
 static unsigned char * CALLBACK ISOgetBuffer(void) {
 	return cdbuffer + 12;
@@ -1209,6 +1344,13 @@ static long CALLBACK ISOopen(void) {
 		CDR_getBuffer = ISOgetBuffer_compr;
 		cdimg_read_func = cdread_compressed;
 	}
+#ifdef USE_LIBCHDR
+	else if (handlechd(GetIsoFile()) == 0) {
+		SysPrintf("[chd]");
+		CDR_getBuffer = ISOgetBuffer_chd;
+		cdimg_read_func = cdread_chd;
+	}
+#endif // USE_LIBCHDR
 
 	if (!subChanMixed && opensubfile(GetIsoFile()) == 0) {
 		strcat(image_str, "[+sub]");
@@ -1303,6 +1445,15 @@ static long CALLBACK ISOclose(void) {
 		free(compr_img);
 		compr_img = NULL;
 	}
+
+#ifdef USE_LIBCHDR
+	if (chd_img != NULL) {
+		chd_close(chd_img->chd);
+		free(chd_img->buffer);
+		free(chd_img);
+		chd_img = NULL;
+	}
+#endif // USE_LIBCHDR
 
 	for (i = 1; i <= numtracks; i++) {
 		if (ti[i].handle != NULL) {

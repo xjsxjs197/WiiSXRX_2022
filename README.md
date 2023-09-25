@@ -28,6 +28,8 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
 * PS1 Multitap support! With options for enabling them on both Port 1 and Port 2, supports up to 8 players. (Needs to be enabled in emulator settings and controllers need to be set for use the Multitap adequately)
 
+* CHD v1-v5 compressed format support with the [libchdr](https://github.com/rtissera/libchdr) library.
+
 * Support for multiple languages.
   At first, I wanted to refer to Snes9x GX and support TTF font library.
   However, it encountered a memory leak problem, resulting in automatic exit.
@@ -93,5 +95,7 @@ PCSX-ReARMed - developed by notaz - https://github.com/notaz/pcsx_rearmed
 libOGC2 - developed by Extrems - https://github.com/extremscorner/libogc2
 
 Lightrec - developed by pcercuei - https://github.com/pcercuei/lightrec
+
+libchdr - developed by MAME Team and rtissera - https://github.com/rtissera/libchdr
 
 Thanks for everyone's attention and enthusiasm, which gives me the motivation to continue this project.
