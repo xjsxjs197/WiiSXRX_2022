@@ -72,6 +72,8 @@ static u32 (*const PADRead)(u32) = (void*)0x93000000;
 #define STATUS			((void*)0x90004100)
 #define STATUS_LOADING	(*(volatile unsigned int*)(0x90004100))
 #define MEM_PROT		0xD8B420A
+#define C_NOT_SET	(0<<0)
+#define WPAD_MAX_WIIMOTES 4
 
 static unsigned char ESBootPatch[] =
 {
@@ -96,6 +98,19 @@ static const unsigned char FSAccessPatch[] =
 };
 
 static char dev_es[] ATTRIBUTE_ALIGN(32) = "/dev/es";
+struct BTPadCont {
+	u32 used;
+	s16 xAxisL;
+	s16 xAxisR;
+	s16 yAxisL;
+	s16 yAxisR;
+	u32 button;
+	u8 triggerL;
+	u8 triggerR;
+	s16 xAccel;
+	s16 yAccel;
+	s16 zAccel;
+} __attribute__((aligned(32)));
 
 extern vu32 FoundVersion;
 
@@ -114,17 +129,19 @@ Input::Input()
 	PAD_Init();
 #ifdef HW_RVL
     RAMInit();
+	//tell devkitPPC r29 that we use UTF-8
+	setlocale(LC_ALL,"C.UTF-8");
+
+	// for BT.c
+	CONF_GetPadDevices((conf_pads*)0x932C0000);
+	DCFlushRange((void*)0x932C0000, sizeof(conf_pads));
+	*(vu32*)0x932C0490 = CONF_GetIRSensitivity();
+	*(vu32*)0x932C0494 = CONF_GetSensorBarPosition();
+	DCFlushRange((void*)0x932C0490, 8);
 
 	CONF_Init();
 	WiiDRC_Init();
 	isWiiVC = WiiDRC_Inited();
-
-	*(vu32*)0x92FFFFC0 = isWiiVC; //cant be detected in IOS
-	if(WiiDRC_Connected()) //used in PADReadGC.c
-		*(vu32*)0x92FFFFC4 = (u32)WiiDRC_GetRawI2CAddr();
-	else //will disable gamepad spot for player 1
-		*(vu32*)0x92FFFFC4 = 0;
-	DCFlushRange((void*)0x92FFFFC0,0x20);
 
 	s32 fd;
 	/* Wii VC fw.img is pre-patched but Wii/vWii isnt, so we
@@ -163,14 +180,15 @@ Input::Input()
 
             //libogc still has that, lets close it
             __ES_Close();
-//            fd = IOS_Open( dev_es, 0 );
-//            writeLogFile("IOS_Open==dev_es==\r\n");
-//
-//            irq_handler_t irq_handler = BeforeIOSReload();
-//            IOS_IoctlvAsync( fd, 0x25, 0, 0, IOCTL_Buf, NULL, NULL );
-//            writeLogFile("IOS_IoctlvAsync====\r\n");
-//            sleep(1); //wait this time at least
-//            AfterIOSReload( irq_handler, v );
+            fd = IOS_Open( dev_es, 0 );
+            writeLogFile("IOS_Open==dev_es==\r\n");
+
+            irq_handler_t irq_handler = BeforeIOSReload();
+            writeLogFile("BeforeIOSReload==OK==\r\n");
+            IOS_IoctlvAsync( fd, 0x25, 0, 0, IOCTL_Buf, NULL, NULL );
+            writeLogFile("IOS_IoctlvAsync==OK==\r\n");
+            sleep(1); //wait this time at least
+            AfterIOSReload( irq_handler, v );
             //Disables MEMPROT for patches
             write16(MEM_PROT, 0);
             writeLogFile("Kernel==ALL OK==\r\n");
@@ -212,16 +230,6 @@ Input::~Input()
 void Input::initHid()
 {
 	writeLogFile("initHid==11111==\r\n");
-	RAMInit();
-	//tell devkitPPC r29 that we use UTF-8
-	setlocale(LC_ALL,"C.UTF-8");
-
-	// for BT.c
-	CONF_GetPadDevices((conf_pads*)0x932C0000);
-	DCFlushRange((void*)0x932C0000, sizeof(conf_pads));
-	*(vu32*)0x932C0490 = CONF_GetIRSensitivity();
-	*(vu32*)0x932C0494 = CONF_GetSensorBarPosition();
-	DCFlushRange((void*)0x932C0490, 8);
 
 	// inject nintendont kernel
 	memcpy((void*)0x92F00000,kernel_bin, kernel_bin_size);
@@ -231,6 +239,8 @@ void Input::initHid()
 	memcpy((void*)0x92FFFE00,kernelboot_bin, kernelboot_bin_size);
 	DCFlushRange((void*)0x92FFFE00,kernelboot_bin_size);
 
+	//close in case this is wii vc
+	__ES_Close();
 	memset( STATUS, 0, 0x20 );
 	DCFlushRange( STATUS, 0x20 );
 	//make sure kernel doesnt reload
@@ -246,7 +256,6 @@ void Input::initHid()
 	DCFlushRange((void*)0x92FFFFC0,0x20);
 
 	writeLogFile("initHid==2222222==\r\n");
-	static ioctlv IOCTL_Buf[2] __attribute__((aligned(32)));
 	s32 fd;
 	fd = IOS_Open( dev_es, 0 );
 	IOS_IoctlvAsync(fd, 0x1F, 0, 0, IOCTL_Buf, NULL, NULL);
@@ -295,9 +304,9 @@ void Input::initHid()
 	DCInvalidateRange((void*)0x93003010, 0x190);
 	memset((void*)0x93003010, 0, 0x190); //clears alot of pad stuff
 	DCFlushRange((void*)0x93003010, 0x190);
-	//struct BTPadCont *BTPad = (struct BTPadCont*)0x932F0000;
-	//for(i = 0; i < WPAD_MAX_WIIMOTES; ++i)
-	//	BTPad[i].used = C_NOT_SET;
+	struct BTPadCont *BTPad = (struct BTPadCont*)0x932F0000;
+	for(i = 0; i < WPAD_MAX_WIIMOTES; ++i)
+		BTPad[i].used = C_NOT_SET;
 	writeLogFile("initHid==OK==\r\n");
 }
 
