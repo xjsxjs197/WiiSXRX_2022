@@ -201,12 +201,6 @@ Input::Input()
 
 	initHid();
 
-	HIDUpdateRegisters();
-	writeLogFile("HIDUpdateRegisters==OK==\r\n");
-	PADRead(0);
-	hidGcPad = (PADStatus*)(0x93003100); //PadBuff
-	writeLogFile("PADRead==OK==\r\n");
-
 	WUPC_Init();
 	WPAD_Init();
 	WPAD_SetIdleTimeout(120);
@@ -214,6 +208,12 @@ Input::Input()
 	WPAD_SetDataFormat(WPAD_CHAN_ALL, WPAD_FMT_BTNS_ACC_IR);
 	WPAD_SetPowerButtonCallback((WPADShutdownCallback)ShutdownWii);
 	SYS_SetPowerCallback(ShutdownWii);
+
+	HIDUpdateRegisters();
+	writeLogFile("HIDUpdateRegisters==OK==\r\n");
+	PADRead(0);
+	hidGcPad = (PADStatus*)(0x93003100); //PadBuff
+	writeLogFile("PADRead==OK==\r\n");
 
 #endif
 //	VIDEO_SetPostRetraceCallback (PAD_ScanPads);
