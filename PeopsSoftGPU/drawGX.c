@@ -65,7 +65,7 @@ bool 		   backFromMenu=0;
 //int	iResX_Max=640;	//Max FB Width
 int		iResX_Max=RESX_MAX;
 int		iResY_Max=RESY_MAX;
-static unsigned char	GXtexture[GXRESX_MAX*RESY_MAX*2] __attribute__((aligned(32)));
+static unsigned char	GXtexture[GXRESX_MAX*RESY_MAX*4] __attribute__((aligned(32)));
 char *	pCaptionText;
 
 extern u32* xfb[2];	/*** Framebuffers ***/
@@ -114,7 +114,7 @@ void DoBufferSwap(void)                                // SWAP BUFFERS
 
 	if(iOldDX!=iDX || iOldDY!=iDY)
 	{
-		memset(GXtexture, 0, GXRESX_MAX*RESY_MAX*2);
+		memset(GXtexture, 0, GXRESX_MAX*RESY_MAX*4);
 		iOldDX=iDX;iOldDY=iDY;
 		backFromMenu = 1;
 	}
