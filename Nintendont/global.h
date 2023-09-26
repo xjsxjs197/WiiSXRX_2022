@@ -188,8 +188,8 @@ void hexdump(void *d, int len);
 void DrawBuffer(void);
 void UpdateScreen(void);
 void Screenshot(void);
-irq_handler_t BeforeIOSReload();
-void AfterIOSReload(irq_handler_t handle, u32 rev);
+raw_irq_handler_t BeforeIOSReload();
+void AfterIOSReload(raw_irq_handler_t handle, u32 rev);
 
 /** Device mount/unmount. **/
 #include "fatfs/integer.h"	/* for WCHAR */

@@ -234,7 +234,7 @@ inline void UpdateScreen(void) {
 	DrawBuffer();
 }
 
-irq_handler_t BeforeIOSReload()
+raw_irq_handler_t BeforeIOSReload()
 {
 	__STM_Close();
 
@@ -243,7 +243,7 @@ irq_handler_t BeforeIOSReload()
 	return IRQ_Free(IRQ_PI_ACR);
 }
 extern void udelay(u32 us);
-void AfterIOSReload(irq_handler_t handle, u32 rev)
+void AfterIOSReload(raw_irq_handler_t handle, u32 rev)
 {
 	while((read32(0x80003140)) != rev)
 		udelay(1000);
@@ -255,7 +255,7 @@ void AfterIOSReload(irq_handler_t handle, u32 rev)
 		if (counter >= 40000)
 			break;
 	}
-	IRQ_Request(IRQ_PI_ACR, handle);
+	IRQ_Request(IRQ_PI_ACR, handle, NULL);
 	__UnmaskIrq(IRQ_PI_ACR);
 	__IPC_Reinitialize();
 
