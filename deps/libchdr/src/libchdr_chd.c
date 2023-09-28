@@ -48,12 +48,12 @@
 #include "../include/libchdr/flac.h"
 #include "../include/libchdr/huffman.h"
 
-#include "../deps/lzma/LzmaEnc.h"
-#include "../deps/lzma/LzmaDec.h"
+#include "../deps/lzma-19.00/LzmaEnc.h"
+#include "../deps/lzma-19.00/LzmaDec.h"
 #if defined(__PS3__) || defined(__PSL1GHT__)
 #define __MACTYPES__
 #endif
-#include "../deps/zlib/zlib.h"
+#include "../deps/zlib-1.2.13/zlib.h"
 
 #undef TRUE
 #undef FALSE
