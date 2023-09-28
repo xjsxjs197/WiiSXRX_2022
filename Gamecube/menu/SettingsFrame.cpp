@@ -1114,6 +1114,7 @@ void Func_FpsLimitAuto()
 	for (int i = 18; i <= 19; i++)
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[18].button->setSelected(true);
+	frameLimit[0] = FRAMELIMIT_AUTO;
 	frameLimit[1] = FRAMELIMIT_AUTO;
 	GPUsetframelimit(0);
 }
@@ -1123,6 +1124,7 @@ void Func_FpsLimitOff()
 	for (int i = 18; i <= 19; i++)
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[19].button->setSelected(true);
+	frameLimit[0] = FRAMELIMIT_NONE;
 	frameLimit[1] = FRAMELIMIT_NONE;
 	GPUsetframelimit(0);
 }
