@@ -212,6 +212,8 @@ int load_configurations(FILE* f, controller_t* controller){
 		fread(&controller->config_slot[i].invertedYL, 4, 1, f);
 		fread(&controller->config_slot[i].invertedYR, 4, 1, f);
 		fread(&controller->config_slot[i].sensitivity, 4, 1, f);
+		controller->config_slot[i].fastf =
+			getPointer(controller->menu_combos, controller->num_menu_combos);
 	}
 
 	if (loadButtonSlot != LOADBUTTON_DEFAULT) {
@@ -259,6 +261,7 @@ void save_configurations(FILE* f, controller_t* controller){
 		fwrite(&controller->config_slot[i].invertedYL, 4, 1, f);
 		fwrite(&controller->config_slot[i].invertedYR, 4, 1, f);
 		fwrite(&controller->config_slot[i].sensitivity, 4, 1, f);
+		fwrite(&controller->config_slot[i].fastf->index, 4, 1, f);
 	}
 }
 

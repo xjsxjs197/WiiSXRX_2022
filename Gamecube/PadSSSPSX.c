@@ -166,6 +166,7 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 	static BUTTONS PAD_Data;
 	static WPADData* wpad;
 	float sensitivity;
+	int miscButton;
 
 	//TODO: Rework/simplify the following code & reset BUTTONS when no controller in use
 	int Control = pad;
@@ -223,8 +224,12 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 	if(virtualControllers[Control].inUse)
 	{
 		global.isConnected[pad] = 1;
-		if(DO_CONTROL(Control, GetKeys, (BUTTONS*)&PAD_Data, virtualControllers[Control].config))
+		
+		miscButton = DO_CONTROL(Control, GetKeys, (BUTTONS*)&PAD_Data, virtualControllers[Control].config);
+		if (miscButton == 1)
 			stop = 1;
+		else if (Control == 0 || Control == 2)
+			frameLimit[0] = (miscButton == 0 ? frameLimit[1] : 0);
 	}
 	else
 	{	//TODO: Emulate no controller present in this case.

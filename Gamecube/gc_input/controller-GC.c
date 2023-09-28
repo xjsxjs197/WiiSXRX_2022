@@ -73,13 +73,14 @@ static button_t buttons[] = {
 };
 
 static button_t analog_sources[] = {
-	{ 0, ANALOG_AS_ANALOG,  "Analog Stick" },
+	{ 0, ANALOG_AS_ANALOG,  "A-Stick" },
 	{ 1, C_STICK_AS_ANALOG, "C-Stick" },
 };
 
 static button_t menu_combos[] = {
 	{ 0, PAD_BUTTON_X|PAD_BUTTON_Y, "X+Y" },
 	{ 1, PAD_BUTTON_START|PAD_BUTTON_X, "Start+X" },
+	{ 2, PAD_BUTTON_START|PAD_BUTTON_Y, "Start+Y" },
 };
 
 u32 gc_connected;
@@ -173,8 +174,11 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 	c->rightStickX = GCtoPSXAnalog(stickX);
 	c->rightStickY = GCtoPSXAnalog(config->invertedYR ? stickY : -stickY);
 
-	// Return 1 if whether the exit button(s) are pressed
-	return isHeld(config->exit) ? 0 : 1;
+	// Return 1 if exit, 2 if fastforward
+	if (!isHeld(config->exit)) return 1;
+	if (!isHeld(config->fastf)) return 2;
+	else 
+		return 0;
 }
 
 static void pause(int Control){
@@ -235,6 +239,7 @@ controller_t controller_GC =
 	    .invertedYL = 0,
 	    .invertedYR = 0,
 		.sensitivity = 1.0,
+		.fastf       = &menu_combos[2], // Start+Y
 	  }
 	 };
 

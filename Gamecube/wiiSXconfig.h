@@ -75,7 +75,7 @@ enum printToSD
 	SDLOG_ENABLE
 };
 
-extern char frameLimit;
+extern char frameLimit[2];
 enum frameLimit
 {
 	FRAMELIMIT_NONE=0,

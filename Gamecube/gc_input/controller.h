@@ -84,6 +84,7 @@ typedef struct {
 	button_tp analogL, analogR, exit;
 	int invertedYL, invertedYR;
 	float sensitivity;
+	button_tp fastf;
 } controller_config_t;
 
 typedef struct {

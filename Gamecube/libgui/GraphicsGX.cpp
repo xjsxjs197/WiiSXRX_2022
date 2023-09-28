@@ -94,6 +94,15 @@ extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
 			rmode->viYOrigin = (VI_MAX_HEIGHT_NTSC - dHeight)/2;
 			if ((CONF_GetEuRGB60() == 0) && (CONF_GetVideo() == CONF_VIDEO_PAL))
 				rmode->viYOrigin = (VI_MAX_HEIGHT_PAL - dHeight)/2;
+			
+			if (interlacedMode){
+				rmode->viTVMode =	(mgvmode.viTVMode & ~0x03) + VI_INTERLACE;
+				rmode->xfbMode = VI_XFBMODE_DF;
+			}
+			else{
+				rmode->viTVMode =	mgvmode.viTVMode;
+				rmode->xfbMode = mgvmode.xfbMode;
+			}
 		}
 		xfbWidth = VIDEO_PadFramebufferWidth(rmode->fbWidth);  
 		width = xfbWidth;
