@@ -942,28 +942,29 @@ fail_io:
 
 #ifdef USE_LIBCHDR
 static int handlechd(const char *isofile) {
+	int frame_offset = 150;
+	int file_offset = 0;
+
 	chd_img = calloc(1, sizeof(*chd_img));
 	if (chd_img == NULL)
 		goto fail_io;
 
 	if(chd_open(isofile, CHD_OPEN_READ, NULL, &chd_img->chd) != CHDERR_NONE)
-      goto fail_io;
-
-   chd_img->header = chd_get_header(chd_img->chd);
-
-   chd_img->buffer = malloc(chd_img->header->hunkbytes * 2);
-   if (chd_img->buffer == NULL)
 		goto fail_io;
 
-   chd_img->sectors_per_hunk = chd_img->header->hunkbytes / (CD_FRAMESIZE_RAW + SUB_FRAMESIZE);
-   chd_img->current_hunk[0] = (unsigned int)-1;
-   chd_img->current_hunk[1] = (unsigned int)-1;
+	chd_img->header = chd_get_header(chd_img->chd);
 
-   cddaBigEndian = FALSE;
+	chd_img->buffer = malloc(chd_img->header->hunkbytes * 2);
+	if (chd_img->buffer == NULL)
+		goto fail_io;
+
+	chd_img->sectors_per_hunk = chd_img->header->hunkbytes / (CD_FRAMESIZE_RAW + SUB_FRAMESIZE);
+	chd_img->current_hunk[0] = (unsigned int)-1;
+	chd_img->current_hunk[1] = (unsigned int)-1;
+
+	cddaBigEndian = FALSE;
 
 	numtracks = 0;
-	int frame_offset = 150;
-	int file_offset = 0;
 	memset(ti, 0, sizeof(ti));
 
    while (1)
@@ -988,12 +989,15 @@ static int handlechd(const char *isofile) {
       else
          break;
 
-/*
-		if(md.track == 1)
-			md.pregap = 150;
-		else
-			sec2msf(msf2sec(ti[md.track-1].length) + md.pregap, ti[md.track-1].length);
-*/
+		SysPrintf("chd: %s\n", meta);
+
+		if (md.track == 1) {
+			if (!strncmp(md.subtype, "RW", 2)) {
+				subChanMixed = TRUE;
+				if (!strcmp(md.subtype, "RW_RAW"))
+					subChanRaw = TRUE;
+			}
+		}
 
 		ti[md.track].type = !strncmp(md.type, "AUDIO", 5) ? CDDA : DATA;
 
@@ -1346,7 +1350,7 @@ static long CALLBACK ISOopen(void) {
 	}
 #ifdef USE_LIBCHDR
 	else if (handlechd(GetIsoFile()) == 0) {
-		SysPrintf("[chd]");
+		strcat(image_str, "[+chd]");
 		CDR_getBuffer = ISOgetBuffer_chd;
 		cdimg_read_func = cdread_chd;
 	}
