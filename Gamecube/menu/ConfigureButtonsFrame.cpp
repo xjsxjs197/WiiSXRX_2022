@@ -43,6 +43,7 @@ void Func_LoadConfig();
 void Func_SaveConfig();
 
 void Func_ToggleButtonExit();
+void Func_ToggleButtonFastF();
 void Func_ToggleButtonL1();
 void Func_ToggleButtonL2();
 void Func_ToggleButtonSelect();
@@ -69,14 +70,14 @@ void Func_SensPlus();
 void Func_ReturnFromConfigureButtonsFrame();
 
 
-#define NUM_FRAME_BUTTONS 28
+#define NUM_FRAME_BUTTONS 29
 #define FRAME_BUTTONS configureButtonsFrameButtons
 #define FRAME_STRINGS configureButtonsFrameStrings
-#define NUM_FRAME_TEXTBOXES 3
+#define NUM_FRAME_TEXTBOXES 4
 #define FRAME_TEXTBOXES configureButtonsFrameTextBoxes
 #define TITLE_STRING configureButtonsTitleString
 
-static char FRAME_STRINGS[32][20] =
+static char FRAME_STRINGS[34][20] =
 	{ "Next Pad",
 	  "Load Default",
 	  "Slot 1",
@@ -108,7 +109,9 @@ static char FRAME_STRINGS[32][20] =
 	  "-",
 	  "x1.0",
 	  "Menu:",
-	  "+"};
+	  "+",
+	  "X+Y",
+	  "Limit FPS:"};
 
 static char TITLE_STRING[50] = "Gamecube Pad 1 to PSX Pad 1 Mapping";
 
@@ -129,20 +132,20 @@ struct ButtonInfo
 	ButtonFunc		returnFunc;
 } FRAME_BUTTONS[NUM_FRAME_BUTTONS] =
 { //	button	buttonStyle buttonString		x		y		width	height	Up	Dwn	Lft	Rt	clickFunc				returnFunc
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[0],	 40.0,	 80.0,	115.0,	40.0,	22,	 5,	 4,	 1,	Func_NextPad,			Func_ReturnFromConfigureButtonsFrame }, // Next Pad
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[1],	175.0,	 80.0,	145.0,	40.0,	24,	 8,	 0,	 2,	Func_DefaultConfig,		Func_ReturnFromConfigureButtonsFrame }, // Restore Default Config
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[2],	340.0,	 80.0,	 80.0,	40.0,	25,	 9,	 1,	 3,	Func_ToggleConfigSlot,	Func_ReturnFromConfigureButtonsFrame }, // Cycle Through Config Slots
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[3],	440.0,	 80.0,	 70.0,	40.0,	23,	10,	 2,	 4,	Func_LoadConfig,		Func_ReturnFromConfigureButtonsFrame }, // Load Config
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[4],	530.0,	 80.0,	 70.0,	40.0,	23,	27,	 3,	 0,	Func_SaveConfig,		Func_ReturnFromConfigureButtonsFrame }, // Save Config
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[0],	 40.0,	 20.0,	115.0,	40.0,	22,	 5,	 4,	 1,	Func_NextPad,			Func_ReturnFromConfigureButtonsFrame }, // Next Pad
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[1],	175.0,	 20.0,	145.0,	40.0,	24,	 8,	 0,	 2,	Func_DefaultConfig,		Func_ReturnFromConfigureButtonsFrame }, // Restore Default Config
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[2],	340.0,	 20.0,	 80.0,	40.0,	25,	 9,	 1,	 3,	Func_ToggleConfigSlot,	Func_ReturnFromConfigureButtonsFrame }, // Cycle Through Config Slots
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[3],	440.0,	 20.0,	 70.0,	40.0,	23,	10,	 2,	 4,	Func_LoadConfig,		Func_ReturnFromConfigureButtonsFrame }, // Load Config
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[4],	530.0,	 20.0,	 70.0,	40.0,	23,	28,	 3,	 0,	Func_SaveConfig,		Func_ReturnFromConfigureButtonsFrame }, // Save Config
 
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[5],	 30.0,	160.0,	100.0,	40.0,	 0,	12,	26,	 6,	Func_ToggleButtonExit,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button Exit
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[5],	 15.0,	160.0,	110.0,	40.0,	 0,	12,	28,	 6,	Func_ToggleButtonExit,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button Exit
 
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[6],	140.0,	130.0,	 80.0,	40.0,	 0,	 7,	 5,	 8,	Func_ToggleButtonL1,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button L1
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[7],	140.0,	180.0,	 80.0,	40.0,	 6,	12,	 5,	 8,	Func_ToggleButtonL2,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button L2
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[8],	235.0,	140.0,	 80.0,	40.0,	 1,	20,	 6,	 9,	Func_ToggleButtonSelect,Func_ReturnFromConfigureButtonsFrame }, // Toggle Button Select
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[9],	325.0,	140.0,	 80.0,	40.0,	 2,	21,	 8,	10,	Func_ToggleButtonStart,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button Start
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[10],	420.0,	130.0,	 80.0,	40.0,	 3,	11,	 9,	 27,Func_ToggleButtonR1,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button R1
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[11],	420.0,	180.0,	 80.0,	40.0,	10,	16,	 9,	 27,Func_ToggleButtonR2,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button R2
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[10],	420.0,	130.0,	 80.0,	40.0,	 3,	11,	 9,	 28,Func_ToggleButtonR1,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button R1
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[11],	420.0,	180.0,	 80.0,	40.0,	10,	16,	 9,	 28,Func_ToggleButtonR2,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button R2
 
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[12],	 75.0,	230.0,	 80.0,	40.0,	 5,	13,	16,	16,	Func_ToggleButtonDup,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button D-up
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[13],	 30.0,	280.0,	 80.0,	40.0,	12,	15,	18,	14,	Func_ToggleButtonDleft,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button D-left
@@ -154,14 +157,15 @@ struct ButtonInfo
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[18],	530.0,	280.0,	 80.0,	40.0,	16,	19,	17,	13,	Func_ToggleButtonCir,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button Circle
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[19],	485.0,	330.0,	 80.0,	40.0,	17,	23,	21,	15,	Func_ToggleButtonCro,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button Cross
 
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[20],	165.0,	345.0,	150.0,	40.0,	 8,	24,	15,	21,	Func_ToggleAnalogL,		Func_ReturnFromConfigureButtonsFrame }, // Toggle Analog Stick L
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[21],	325.0,	345.0,	150.0,	40.0,	 9,	25,	20,	19,	Func_ToggleAnalogR,		Func_ReturnFromConfigureButtonsFrame }, // Toggle Analog Stick R
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[20],	160.0,	345.0,	100.0,	40.0,	 8,	24,	15,	27,	Func_ToggleAnalogL,		Func_ReturnFromConfigureButtonsFrame }, // Toggle Analog Stick L
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[21],	380.0,	345.0,	100.0,	40.0,	 9,	25,	26,	19,	Func_ToggleAnalogR,		Func_ReturnFromConfigureButtonsFrame }, // Toggle Analog Stick R
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[22],	 95.0,	395.0,	130.0,	40.0,	15,	 0,	23,	24,	Func_ToggleInvertYL,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Analog Invert Y L
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[23],	415.0,	395.0,	130.0,	40.0,	19,	 3,	25,	22,	Func_ToggleInvertYR,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Analog Invert Y R
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[24],	235.0,	395.0,	 80.0,	40.0,	20,	 1,	22,	25,	Func_ToggleButtonL3,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button L3
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[25],	325.0,	395.0,	 80.0,	40.0,	21,	 2,	24,	23,	Func_ToggleButtonR3,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button R3
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[31],	575.0,	140.0,	 50.0,	40.0,	4,	16,	27,	5,	Func_SensPlus,			Func_ReturnFromConfigureButtonsFrame }, // Stick Sensitivity +
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[28],	515.0,	140.0,	 50.0,	40.0,	4,	16,	10,	26,	Func_SensMinus,			Func_ReturnFromConfigureButtonsFrame }, // Stick Sensitivity -
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[24],	235.0,	395.0,	 80.0,	40.0,	27,	 1,	22,	25,	Func_ToggleButtonL3,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button L3
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[25],	325.0,	395.0,	 80.0,	40.0,	26,	 2,	24,	23,	Func_ToggleButtonR3,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button R3
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[31],	325.0,	340.0,	 50.0,	40.0,	9,	25,	27,	21,	Func_SensPlus,			Func_ReturnFromConfigureButtonsFrame }, // Stick Sensitivity +
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[28],	265.0,	340.0,	 50.0,	40.0,	8,	24,	20,	26,	Func_SensMinus,			Func_ReturnFromConfigureButtonsFrame }, // Stick Sensitivity -
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[32],	515.0,	160.0,	110.0,	40.0,	4,	16,	10,	 5,	Func_ToggleButtonFastF,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button FastForward
 };
 
 struct TextBoxInfo
@@ -174,9 +178,10 @@ struct TextBoxInfo
 	bool			centered;
 } FRAME_TEXTBOXES[NUM_FRAME_TEXTBOXES] =
 { //	textBox	textBoxString		x		y		scale	centered
-	{	NULL,	TITLE_STRING,		320.0,	 50.0,	 1.0,	true }, // ______ Pad X to N64 Pad Y Mapping
-	{	NULL,	FRAME_STRINGS[30],	 80.0,	145.0,	 0.9,	true }, // Menu Combo
-	{	NULL,	FRAME_STRINGS[29],	 565.0,	210.0,	 0.9,	true }, // Stick Sensitivity
+	{	NULL,	TITLE_STRING,		320.0,	100.0,	 1.0,	true }, // ______ Pad X to N64 Pad Y Mapping
+	{	NULL,	FRAME_STRINGS[30],	 70.0,	145.0,	 0.9,	true }, // Menu Combo
+	{	NULL,	FRAME_STRINGS[29],	 318.0,	323.0,	 0.9,	true }, // Stick Sensitivity
+	{	NULL,	FRAME_STRINGS[33],	 565.0,	145.0,	 0.9,	true }, // Fast Forward
 };
 
 ConfigureButtonsFrame::ConfigureButtonsFrame()
@@ -309,8 +314,9 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 			activePadAssigned = ACTIVEPADASSIGNED_FALSE;
 			menu::Focus::getInstance().clearPrimaryFocus();
 		}
-		for (int i = 5; i < NUM_FRAME_BUTTONS; i++)
+		for (int i = 5; i < 26; i++)
 			strcpy(FRAME_STRINGS[i], "");
+		strcpy(FRAME_STRINGS[32], "");
 		FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_UP, NULL);
 		FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_DOWN, NULL);
 		FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_LEFT, NULL);
@@ -347,15 +353,17 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_LEFT, NULL);
 			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_RIGHT, NULL);
 			
-			for (int i = 5; i < NUM_FRAME_BUTTONS; i++){
+			for (int i = 6; i < NUM_FRAME_BUTTONS; i++){
 				FRAME_BUTTONS[i].button->setActive(false);
 				FRAME_BUTTONS[i].button->setVisible(false);
 			}
-			for (int i = 1; i < 5; i++)
+			for (int i = 1; i < 6; i++)
 				FRAME_BUTTONS[i].button->setActive(true);
 			
 			FRAME_BUTTONS[9].button->setActive(true);
 			FRAME_BUTTONS[9].button->setVisible(true);
+			FRAME_BUTTONS[28].button->setActive(true);
+			FRAME_BUTTONS[28].button->setVisible(true);
 			if (lightGun == LIGHTGUN_JUST){
 				FRAME_BUTTONS[17].button->setActive(true);
 				FRAME_BUTTONS[17].button->setVisible(true);
@@ -367,7 +375,6 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 			FRAME_BUTTONS[19].button->setActive(true);
 			FRAME_BUTTONS[19].button->setVisible(true);
 			
-			FRAME_TEXTBOXES[1].textBox->setVisible(false);
 			FRAME_TEXTBOXES[2].textBox->setVisible(false);
 		}
 
@@ -400,7 +407,8 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 		strcpy(FRAME_STRINGS[24], currentConfig->L3->name);
 		strcpy(FRAME_STRINGS[25], currentConfig->R3->name);
 		if (currentConfig->sensitivity < 0.1) currentConfig->sensitivity = 1.0;
-		sprintf(FRAME_STRINGS[29], "Stick: x%.1f", currentConfig->sensitivity);
+		sprintf(FRAME_STRINGS[29], "x%.1f", currentConfig->sensitivity);
+		strcpy(FRAME_STRINGS[32], currentConfig->fastf->name);
 	}
 }
 
@@ -425,8 +433,15 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 								   {420, 170, 398, 192}, //R1 (194,4)
 								   {220, 200, 232, 204}, //L2 (28,16)
 								   {420, 200, 408, 204}, //R2 (204,16)
-								   {260, 345, 278, 294}, //AnalogL (74,106)
-								   {380, 345, 362, 294}};//AnalogR (158,106)
+								   {250, 345, 278, 294}, //AnalogL (74,106)
+								   {390, 345, 362, 294}}; //AnalogR (158,106)
+								   
+		int linesSens[6][4] = 	  {{300, 310, 288, 294}, //AnalogL (74,106)
+								   {340, 310, 352, 294}, //AnalogR (158,106
+								   {295, 310, 345, 310},
+								   {295, 335, 345, 335},
+								   {295, 310, 295, 335},
+								   {345, 310, 345, 335}};
 		int baseGCon_x = 133;	
 		int baseGCon_y = 215;		
 		int linesGCon[3][4] =     {{560, 310, 270, 300}, //Cir
@@ -439,12 +454,13 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 								   {365, 160, 343, 270}}; //START
 
 
-		GXColor controllerColors[6] = {	{  1,  29, 169, 255}, //blue
+		GXColor controllerColors[7] = {	{  1,  29, 169, 255}, //blue
 										{254,  32,  21, 255}, //orange/red
 										{  8, 147,  48, 255}, //green
 										{255, 192,   1, 255}, //yellow/gold
 										{150, 150, 255, 255}, //light blue lines
-										{255, 255, 255, 255}};//white
+										{255, 255, 255, 255},//white
+										{80, 80, 80, 255}};// dark grey
 
 		//Draw PSX Controller
 		menu::Image* controllerIcon = NULL;
@@ -481,6 +497,9 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 
 			for (int i=0; i<NUM_LINES; i++)
 				gfx.drawLine(lines[i][0], lines[i][1], lines[i][2], lines[i][3]);
+			gfx.setColor(controllerColors[6]);
+			for (int i=0; i<6; i++)
+				gfx.drawLine(linesSens[i][0], linesSens[i][1], linesSens[i][2], linesSens[i][3]);
 		}
 		else if (lightGun == LIGHTGUN_GUNCON){
 			for (int i=0; i<3; i++)
@@ -560,6 +579,15 @@ void Func_ToggleButtonExit()
 	currentButton = (currentButton+1) %virtualControllers[activePad].control->num_menu_combos;
 	currentConfig->exit = &virtualControllers[activePad].control->menu_combos[currentButton];
 	strcpy(FRAME_STRINGS[5], currentConfig->exit->name);
+}
+
+void Func_ToggleButtonFastF()
+{
+	controller_config_t* currentConfig = virtualControllers[activePad].config;
+	int currentButton = currentConfig->fastf->index;
+	currentButton = (currentButton+1) %virtualControllers[activePad].control->num_menu_combos;
+	currentConfig->fastf = &virtualControllers[activePad].control->menu_combos[currentButton];
+	strcpy(FRAME_STRINGS[32], currentConfig->fastf->name);
 }
 
 void Func_ToggleButtonL1()
@@ -742,7 +770,7 @@ void Func_SensPlus()
 	if (sensitivity<2)
 	{
 		virtualControllers[activePad].config->sensitivity += 0.1;
-		sprintf(FRAME_STRINGS[29], "Stick: x%.1f", virtualControllers[activePad].config->sensitivity);
+		sprintf(FRAME_STRINGS[29], "x%.1f", virtualControllers[activePad].config->sensitivity);
 	}
 }
 
@@ -752,7 +780,7 @@ void Func_SensMinus()
 	if (sensitivity>0.2)
 	{
 		virtualControllers[activePad].config->sensitivity -= 0.1;
-		sprintf(FRAME_STRINGS[29], "Stick: x%.1f", virtualControllers[activePad].config->sensitivity);
+		sprintf(FRAME_STRINGS[29], "x%.1f", virtualControllers[activePad].config->sensitivity);
 	}
 }
 

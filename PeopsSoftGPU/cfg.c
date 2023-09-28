@@ -318,7 +318,7 @@ void ReadConfig(void)
  iColDepth=16;
  iWindowMode=1;
  iUseScanLines=0;
- if (frameLimit == FRAMELIMIT_AUTO)
+ if (frameLimit[0] == FRAMELIMIT_AUTO)
  {
 	 UseFrameLimit=1;
 	 iFrameLimit=2;

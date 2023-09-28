@@ -97,6 +97,7 @@ static button_t analog_sources_wm[] = {
 static button_t menu_combos[] = {
 	{ 0, WPAD_BUTTON_1|WPAD_BUTTON_2, "1+2" },
 	{ 1, WPAD_BUTTON_PLUS|WPAD_BUTTON_MINUS, "+&-" },
+	{ 2, WPAD_BUTTON_HOME, "Home" },
 };
 
 static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config,
@@ -189,8 +190,11 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config,
 	if(config->invertedYR)	c->rightStickY = (u8)(stickY+127) & 0xFF;
 	else					c->rightStickY = (u8)(-stickY+127) & 0xFF;
 
-	// Return 1 if whether the exit button(s) are pressed
-	return isHeld(config->exit) ? 0 : 1;
+	// Return 1 if exit, 2 if fastforward
+	if (!isHeld(config->exit)) return 1;
+	if (!isHeld(config->fastf)) return 2;
+	else 
+		return 0;
 }
 
 static int checkType(int Control, int type){
@@ -324,6 +328,8 @@ controller_t controller_Wiimote =
 	    .exit       = &menu_combos[1], // +&-
 	    .invertedYL = 0,
 	    .invertedYR = 0,
+		.sensitivity = 1.0,
+		.fastf       = &menu_combos[0], // 1+2
 	  }
 	};
 
@@ -365,6 +371,7 @@ controller_t controller_WiimoteNunchuk =
 	    .invertedYL = 0,
 	    .invertedYR = 0,
 		.sensitivity = 1.0,
+		.fastf       = &menu_combos[1], // +&-
 	  }
 	 };
 
