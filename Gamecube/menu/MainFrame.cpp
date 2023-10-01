@@ -244,6 +244,7 @@ extern "C" char mcd2Written;
 extern "C" unsigned int usleep(unsigned int us);
 
 extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu);
+extern "C" void GPUsetframelimit(unsigned long option);
 
 void Func_PlayGame()
 {
@@ -297,6 +298,8 @@ void Func_PlayGame()
 #endif
 	if (originalMode)
 		backFromMenu = 1;
+	frameLimit[0] = frameLimit[1];
+	GPUsetframelimit(0);
 #ifdef SHOW_DEBUG
 	try {
 #endif // SHOW_DEBUG

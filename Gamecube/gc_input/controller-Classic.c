@@ -92,13 +92,13 @@ static button_t buttons[] = {
 };
 
 static button_t analog_sources[] = {
-	{ 0, L_STICK_AS_ANALOG,  "Left Stick" },
-	{ 1, R_STICK_AS_ANALOG,  "Right Stick" },
+	{ 0, L_STICK_AS_ANALOG,  "L-Stick" },
+	{ 1, R_STICK_AS_ANALOG,  "R-Stick" },
 };
 
 static button_t menu_combos[] = {
 	{ 0, CLASSIC_CTRL_BUTTON_X|CLASSIC_CTRL_BUTTON_Y, "X+Y" },
-	{ 1, CLASSIC_CTRL_BUTTON_ZL|CLASSIC_CTRL_BUTTON_ZR, "ZL+ZR" },
+	{ 1, CLASSIC_CTRL_BUTTON_ZL|CLASSIC_CTRL_BUTTON_ZR | CLASSIC_CTRL_BUTTON_FULL_L, "ZL+ZR+L" },
 	{ 2, CLASSIC_CTRL_BUTTON_HOME, "Home" },
 };
 
@@ -215,8 +215,11 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 	c->rightStickX = CCtoPSXAnalog(stickX);
 	c->rightStickY = CCtoPSXAnalog(config->invertedYR ? stickY : -stickY);
 
-	// Return 1 if whether the exit button(s) are pressed
-	return isHeld(config->exit) ? 0 : 1;
+	// Return 1 if exit, 2 if fastforward
+	if (!isHeld(config->exit)) return 1;
+	if (!isHeld(config->fastf)) return 2;
+	else 
+		return 0;
 }
 
 static void pause(int Control){
@@ -277,6 +280,7 @@ controller_t controller_Classic =
 	    .invertedYL = 0,
 	    .invertedYR = 0,
 		.sensitivity = 1.0,
+		.fastf       = &menu_combos[1], // ZL+ZR+L
 	  }
 	 };
 

@@ -529,7 +529,7 @@ void SettingsFrame::activateSubmenu(int submenu)
 			FRAME_BUTTONS[1].button->setSelected(true);
 			if (showFPSonScreen == FPS_SHOW)	FRAME_BUTTONS[16].button->setSelected(true);
 			else								FRAME_BUTTONS[17].button->setSelected(true);
-			if (frameLimit == FRAMELIMIT_AUTO)	FRAME_BUTTONS[18].button->setSelected(true);
+			if (frameLimit[1] == FRAMELIMIT_AUTO)	FRAME_BUTTONS[18].button->setSelected(true);
 			else								FRAME_BUTTONS[19].button->setSelected(true);
 			if (frameSkip == FRAMESKIP_ENABLE)	FRAME_BUTTONS[20].button->setSelected(true);
 			else								FRAME_BUTTONS[21].button->setSelected(true);
@@ -1114,7 +1114,8 @@ void Func_FpsLimitAuto()
 	for (int i = 18; i <= 19; i++)
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[18].button->setSelected(true);
-	frameLimit = FRAMELIMIT_AUTO;
+	frameLimit[0] = FRAMELIMIT_AUTO;
+	frameLimit[1] = FRAMELIMIT_AUTO;
 	GPUsetframelimit(0);
 }
 
@@ -1123,7 +1124,8 @@ void Func_FpsLimitOff()
 	for (int i = 18; i <= 19; i++)
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[19].button->setSelected(true);
-	frameLimit = FRAMELIMIT_NONE;
+	frameLimit[0] = FRAMELIMIT_NONE;
+	frameLimit[1] = FRAMELIMIT_NONE;
 	GPUsetframelimit(0);
 }
 

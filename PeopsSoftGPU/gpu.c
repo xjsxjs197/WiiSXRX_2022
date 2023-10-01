@@ -772,8 +772,13 @@ void PEOPS_GPUupdateLace(void)
 //    writeLogFile(txtbuffer);
 //    #endif // DISP_DEBUG
  //if(!(dwActFixes&1))
+  static char oldframeLimit = 1;
   lGPUstatusRet^=0x80000000;                           // odd/even bit
-
+  
+  if ( frameLimit[0] != oldframeLimit)
+	  GPUsetframelimit(0);
+  oldframeLimit = frameLimit[0];
+  
  //if(!(dwActFixes&32))                                  // std fps limitation?
   CheckFrameRate();
   
@@ -1939,7 +1944,7 @@ void CALLBACK GPUsetframelimit(unsigned long option)
 {
  bInitCap = TRUE;
 
-if (frameLimit == FRAMELIMIT_AUTO)
+if (frameLimit[0] == FRAMELIMIT_AUTO)
  {
 	UseFrameLimit=1;
 	iFrameLimit=2;
