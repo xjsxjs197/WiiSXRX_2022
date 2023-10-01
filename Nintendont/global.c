@@ -95,7 +95,7 @@ void RAMInit(void)
 	mtspr   535, 4\n\
 	mtspr   534, 4\n\
 	isync");
-	
+
 	*(vu32*)0x80000028 = 0x01800000;
 	*(vu32*)0x8000002C = 0;
 
@@ -103,21 +103,21 @@ void RAMInit(void)
 	*(vu32*)0x80000038 = 0x01800000;
 	*(vu32*)0x800000F0 = 0x01800000;
 	*(vu32*)0x800000EC = 0x81800000;
-	
-	*(vu32*)0x80003100 = 0x01800000;	//Physical MEM1 size 
-	*(vu32*)0x80003104 = 0x01800000;	//Simulated MEM1 size 
+
+	*(vu32*)0x80003100 = 0x01800000;	//Physical MEM1 size
+	*(vu32*)0x80003104 = 0x01800000;	//Simulated MEM1 size
 	*(vu32*)0x80003108 = 0x01800000;
 	*(vu32*)0x8000310C = 0;
 	*(vu32*)0x80003110 = 0;
 	*(vu32*)0x80003114 = 0;
-	*(vu32*)0x80003118 = 0;				//Physical MEM2 size 
-	*(vu32*)0x8000311C = 0;				//Simulated MEM2 size 
+	*(vu32*)0x80003118 = 0;				//Physical MEM2 size
+	*(vu32*)0x8000311C = 0;				//Simulated MEM2 size
 	*(vu32*)0x80003120 = 0;
 	*(vu32*)0x80003124 = 0x0000FFFF;
 	*(vu32*)0x80003128 = 0;
-	*(vu32*)0x80003130 = 0x0000FFFF;	//IOS Heap Range 
+	*(vu32*)0x80003130 = 0x0000FFFF;	//IOS Heap Range
 	*(vu32*)0x80003134 = 0;
-	*(vu32*)0x80003138 = 0x11;			//Hollywood Version 
+	*(vu32*)0x80003138 = 0x11;			//Hollywood Version
 	*(vu32*)0x8000313C = 0;
 
 	*(vu32*)0x800030CC = 0;
@@ -125,7 +125,7 @@ void RAMInit(void)
 	*(vu32*)0x800030D0 = 0;
 	*(vu32*)0x800030C4 = 0;
 	*(vu32*)0x800030C8 = 0;
-	*(vu32*)0x800030D8 = 0;	
+	*(vu32*)0x800030D8 = 0;
 	*(vu32*)0x8000315C = 0x81;
 
 //	__asm("lis 3, 0x8000\n");
@@ -147,11 +147,11 @@ void RAMInit(void)
 	//*(vu32*)0xCD000034 = 0x4000;
 
 	*(vu32*)0x800030D8 = 0;
-	
+
 	*(vu32*)0x8000315C = 0x81;
 }
 
-void unzip_data(const void *input, const unsigned int input_size, 
+void unzip_data(const void *input, const unsigned int input_size,
 	void **output, unsigned int *output_size)
 {
 	//char filepath[20]; //statically linked zip file
@@ -234,7 +234,7 @@ inline void UpdateScreen(void) {
 	DrawBuffer();
 }
 
-raw_irq_handler_t BeforeIOSReload()
+irq_handler_t BeforeIOSReload()
 {
 	__STM_Close();
 
@@ -243,7 +243,7 @@ raw_irq_handler_t BeforeIOSReload()
 	return IRQ_Free(IRQ_PI_ACR);
 }
 extern void udelay(u32 us);
-void AfterIOSReload(raw_irq_handler_t handle, u32 rev)
+void AfterIOSReload(irq_handler_t handle, u32 rev)
 {
 	while((read32(0x80003140)) != rev)
 		udelay(1000);
@@ -255,7 +255,7 @@ void AfterIOSReload(raw_irq_handler_t handle, u32 rev)
 		if (counter >= 40000)
 			break;
 	}
-	IRQ_Request(IRQ_PI_ACR, handle, NULL);
+	IRQ_Request(IRQ_PI_ACR, handle);
 	__UnmaskIrq(IRQ_PI_ACR);
 	__IPC_Reinitialize();
 
@@ -416,47 +416,62 @@ bool IsGCGame(u8 *Buffer)
 
 void UpdateNinCFG()
 {
-	if (ncfg->Version == 2)
-	{	//251 blocks, used to be there
-		ncfg->NetworkProfile = 0x2;
-		ncfg->Version = 3;
-	}
-	if (ncfg->Version == 3)
-	{	//new memcard setting space
-		ncfg->MemCardBlocks = ncfg->NetworkProfile;
-		ncfg->VideoScale = 0;
-		ncfg->VideoOffset = 0;
-		ncfg->Version = 4;
-	}
-	if (ncfg->Version == 4)
-	{	//Option got changed so not confuse it
-		ncfg->Config &= ~NIN_CFG_HID;
-		ncfg->Version = 5;
-	}
-	if (ncfg->Version == 5)
-	{	//New Video Mode option
-		ncfg->VideoMode &= ~NIN_VID_PATCH_PAL50;
-		ncfg->Version = 6;
-	}
-	if (ncfg->Version == 6)
-	{	//New flag, disabled by default
-		ncfg->Config &= ~NIN_CFG_ARCADE_MODE;
-		ncfg->Version = 7;
-	}
-	if (ncfg->Version == 7)
-	{	// Wiimote CC Rumble, disabled by default;
-		// don't skip IPL by default.
-		ncfg->Config &= ~NIN_CFG_CC_RUMBLE;
-		ncfg->Config &= ~NIN_CFG_SKIP_IPL;
-		ncfg->Version = 8;
-	}
-	if (ncfg->Version == 8)
-	{	// BBA Emu disabled by default
-		// BBA Config 0 by default
-		ncfg->Config &= ~NIN_CFG_BBA_EMU;
-		ncfg->NetworkProfile = 0;
-		ncfg->Version = 9;
-	}
+//	if (ncfg->Version == 2)
+//	{	//251 blocks, used to be there
+//		ncfg->NetworkProfile = 0x2;
+//		ncfg->Version = 3;
+//	}
+//	if (ncfg->Version == 3)
+//	{	//new memcard setting space
+//		ncfg->MemCardBlocks = ncfg->NetworkProfile;
+//		ncfg->VideoScale = 0;
+//		ncfg->VideoOffset = 0;
+//		ncfg->Version = 4;
+//	}
+//	if (ncfg->Version == 4)
+//	{	//Option got changed so not confuse it
+//		ncfg->Config &= ~NIN_CFG_HID;
+//		ncfg->Version = 5;
+//	}
+//	if (ncfg->Version == 5)
+//	{	//New Video Mode option
+//		ncfg->VideoMode &= ~NIN_VID_PATCH_PAL50;
+//		ncfg->Version = 6;
+//	}
+//	if (ncfg->Version == 6)
+//	{	//New flag, disabled by default
+//		ncfg->Config &= ~NIN_CFG_ARCADE_MODE;
+//		ncfg->Version = 7;
+//	}
+//	if (ncfg->Version == 7)
+//	{	// Wiimote CC Rumble, disabled by default;
+//		// don't skip IPL by default.
+//		ncfg->Config &= ~NIN_CFG_CC_RUMBLE;
+//		ncfg->Config &= ~NIN_CFG_SKIP_IPL;
+//		ncfg->Version = 8;
+//	}
+//	if (ncfg->Version == 8)
+//	{	// BBA Emu disabled by default
+//		// BBA Config 0 by default
+//		ncfg->Config &= ~NIN_CFG_BBA_EMU;
+//		ncfg->NetworkProfile = 0;
+//		ncfg->Version = 9;
+//	}
+//	if (ncfg->Version == 9)
+//	{
+//		ncfg->WiiUGamepadSlot = 0;
+//		ncfg->Version = 10;
+//	}
+//	if (ncfg->Version == 10)
+//	{
+//		// NIN_CFG with version 10 may have loaded
+//		// garbage bytes into WiiUGamepadSlot so sanitize
+//		// the slot if necessary.
+//		if (ncfg->WiiUGamepadSlot > NIN_CFG_MAXPAD)
+//		{
+//			ncfg->WiiUGamepadSlot = 0;
+//		}
+//	}
 }
 
 int CreateNewFile(const char *Path, unsigned int size)

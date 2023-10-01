@@ -29,7 +29,6 @@
 #define CONTROLLER_H
 
 #include <stdio.h>
-#include <gcbool.h>
 
 extern char padNeedScan, wpadNeedScan, hidPadNeedScan;
 extern u32 gc_connected, hidGcConnected;

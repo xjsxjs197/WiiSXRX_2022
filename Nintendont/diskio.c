@@ -20,8 +20,8 @@
 #include "ff_cache/cache.h"
 
 extern DISC_INTERFACE __io_wiisd;
-//extern DISC_INTERFACE __io_custom_usbstorage;
-DISC_INTERFACE *driver[_VOLUMES] = { &__io_wiisd, &__io_wiisd };
+extern DISC_INTERFACE __io_custom_usbstorage;
+DISC_INTERFACE *driver[_VOLUMES] = { &__io_wiisd, &__io_custom_usbstorage };
 static bool disk_isInit[_VOLUMES] = {0};
 
 // Disk cache.
@@ -84,7 +84,7 @@ DSTATUS disk_initialize (
 			sectorSize[pdrv] = 512;
 			break;
 		case DEV_USB:
-			sectorSize[pdrv] = 512;
+			sectorSize[pdrv] = __sector_size;
 			break;
 	}
 

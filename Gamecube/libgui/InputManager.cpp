@@ -183,7 +183,7 @@ Input::Input()
             fd = IOS_Open( dev_es, 0 );
             writeLogFile("IOS_Open==dev_es==\r\n");
 
-            raw_irq_handler_t irq_handler = BeforeIOSReload();
+            irq_handler_t irq_handler = BeforeIOSReload();
             writeLogFile("BeforeIOSReload==OK==\r\n");
             IOS_IoctlvAsync( fd, 0x25, 0, 0, IOCTL_Buf, NULL, NULL );
             writeLogFile("IOS_IoctlvAsync==OK==\r\n");

@@ -110,7 +110,7 @@ export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 #---------------------------------------------------------------------------------
 export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
 					-L$(LIBOGC_LIB) \
-					-L$(DEVKITPRO)/libogc/lib/wii, -L$(DEVKITPRO)/libfat/libogc/lib/wii
+					-L$(DEVKITPRO)/libogc2/lib/wii, -L$(DEVKITPRO)/libfat/libogc/lib/wii
 
 export OUTPUT	:=	$(CURDIR)/$(TARGET)
 .PHONY: $(BUILD) clean
