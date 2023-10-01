@@ -54,6 +54,8 @@
 
 #include "Gamecube/vm/vm.h"
 
+static bool lightrec_mmap_inited;
+
 #include <ogc/machine/processor.h>
 #include <ogc/cast.h>
 #include <ogc/cache.h>
@@ -89,8 +91,11 @@ int psxMemInit() {
 	psxP = &psxM[0x200000];
 	psxH = &psxM[0x210000];
 
-    if (Config.Cpu == DYNACORE_DYNAREC)
+    if (Config.Cpu == DYNACORE_DYNAREC) // Lightrec
 	{
+		if (lightrec_mmap_inited)
+			return 0;
+
 		/* Memory-map the allocated buffers */
 		if (lightrec_mmap(psxM, 0x0, 0x200000)
 			|| lightrec_mmap(psxM, 0x200000, 0x200000)
@@ -104,6 +109,8 @@ int psxMemInit() {
 
 		if (lightrec_mmap(psxM + 0x210000, 0x1f800000, 0x3000))
 			SysMessage(_("Error mapping scratch/IO"));
+
+		lightrec_mmap_inited = true;
 	}
 
 	memset(psxMemRLUT, 0, 0x10000 * sizeof(void*));
