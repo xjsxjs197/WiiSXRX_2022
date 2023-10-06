@@ -470,7 +470,7 @@ static void unusedInterrupt()
 static irq_func * const irq_funcs[] = {
 	[PSXINT_SIO]	= sioInterrupt,
 	[PSXINT_CDR]	= cdrInterrupt,
-	[PSXINT_CDREAD]	= cdrReadInterrupt,
+	[PSXINT_CDREAD]	= cdrPlayReadInterrupt,
 	[PSXINT_GPUDMA]	= gpuInterrupt,
 	[PSXINT_MDECOUTDMA] = mdec1Interrupt,
 	[PSXINT_SPUDMA]	= spuInterrupt,
@@ -478,7 +478,7 @@ static irq_func * const irq_funcs[] = {
 	[PSXINT_GPUOTCDMA] = gpuotcInterrupt,
 	[PSXINT_CDRDMA] = cdrDmaInterrupt,
 	[PSXINT_CDRLID] = cdrLidSeekInterrupt,
-    [PSXINT_CDRPLAY] = cdrPlayInterrupt,
+	//[PSXINT_CDRPLAY_OLD] = unusedInterrupt,
 	[PSXINT_SPU_UPDATE] = spuUpdate,
 	[PSXINT_RCNT] = psxRcntUpdate,
 	[PSXINT_LIGHTGUN] = lightgunInterrupt,
