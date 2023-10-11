@@ -60,9 +60,8 @@ static u32 resp;
 static u32 cop2readypc = 0;
 static u32 idlecyclecount = 0;
 static iRegisters iRegs[34];
-// added xjsxjs197 start
 static iRegisters iRegsTmp[34];
-// added xjsxjs197 end
+static s32 cycleMult;
 
 int psxCP2time[64] = {
         2 , 16, 1 , 1 , 1 , 1 , 8 , 1 , // 00
@@ -691,7 +690,7 @@ static void Return()
 
 static void iRet() {
     /* store cycle */
-    count = (idlecyclecount + (pc - pcold) / 4) * BIAS;
+    count = (idlecyclecount + (pc - pcold) / 4) * cycleMult / 100;
     ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), count);
     Return();
 }
@@ -743,7 +742,7 @@ static void SetBranch() {
 		LIW(0, psxRegs.code);
 		STW(0, OFFSET(&psxRegs, &psxRegs.code), GetHWRegSpecial(PSXREGS));
 		/* store cycle */
-		count = (idlecyclecount + (pc - pcold) / 4) * BIAS;
+		count = (idlecyclecount + (pc - pcold) / 4) * cycleMult / 100;
 		ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), count);
 
 		treg = GetHWRegSpecial(TARGET);
@@ -766,7 +765,7 @@ static void SetBranch() {
 	DisposeHWReg(GetHWRegFromCPUReg(treg));
 	FlushAllHWReg();
 
-	count = (idlecyclecount + (pc - pcold) / 4) * BIAS;
+	count = (idlecyclecount + (pc - pcold) / 4) * cycleMult / 100;
         ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), count);
 	FlushAllHWReg();
 	CALLFunc((u32)psxBranchTest);
@@ -786,7 +785,7 @@ static void iJump(u32 branchPC) {
 		LIW(0, psxRegs.code);
 		STW(0, OFFSET(&psxRegs, &psxRegs.code), GetHWRegSpecial(PSXREGS));
 		/* store cycle */
-		count = (idlecyclecount + (pc - pcold) / 4) * BIAS;
+		count = (idlecyclecount + (pc - pcold) / 4) * cycleMult / 100;
 		ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), count);
 
 		LIW(PutHWRegSpecial(ARG2), branchPC);
@@ -805,7 +804,7 @@ static void iJump(u32 branchPC) {
 	LIW(PutHWRegSpecial(PSXPC), branchPC);
 	FlushAllHWReg();
 
-	count = (idlecyclecount + (pc - pcold) / 4) * BIAS;
+	count = (idlecyclecount + (pc - pcold) / 4) * cycleMult / 100;
         //if (/*psxRegs.code == 0 &&*/ count == 2 && branchPC == pcold) {
         //    LIW(PutHWRegSpecial(CYCLECOUNT), 0);
         //} else {
@@ -866,7 +865,7 @@ static void iBranch(u32 branchPC, int savectx) {
 		LIW(0, psxRegs.code);
 		STW(0, OFFSET(&psxRegs, &psxRegs.code), GetHWRegSpecial(PSXREGS));
 		/* store cycle */
-		count = (idlecyclecount + ((pc+4) - pcold) / 4) * BIAS;
+		count = (idlecyclecount + ((pc+4) - pcold) / 4) * cycleMult / 100;
 		ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), count);
 
 		LIW(PutHWRegSpecial(ARG2), branchPC);
@@ -887,7 +886,7 @@ static void iBranch(u32 branchPC, int savectx) {
 	FlushAllHWReg();
 
 	/* store cycle */
-	count = (idlecyclecount + (pc - pcold) / 4) * BIAS;
+	count = (idlecyclecount + (pc - pcold) / 4) * cycleMult / 100;
         //if (/*psxRegs.code == 0 &&*/ count == 2 && branchPC == pcold) {
         //    LIW(PutHWRegSpecial(CYCLECOUNT), 0);
         //} else {
@@ -1126,6 +1125,15 @@ static void recReset() {
 	memset(iRegs, 0, sizeof(iRegs));
 	iRegs[0].state = ST_CONST;
 	iRegs[0].k     = 0;
+}
+
+static void recNotify(enum R3000Anote note, void *data) {
+
+}
+
+static void recApplyConfig() {
+    cycleMult = Config.cycle_multiplier_override && Config.cycle_multiplier == CYCLE_MULT_DEFAULT
+        ? Config.cycle_multiplier_override : 200;
 }
 
 static void recShutdown() {
@@ -3319,7 +3327,7 @@ static void recHLE() {
 
     // upd xjsxjs197 start
 	//count = idlecyclecount + (pc - pcold)/4 + 20;
-	count = (idlecyclecount + (pc - pcold) / 4 + 20) * BIAS;
+	count = (idlecyclecount + (pc - pcold) / 4 + 20) * cycleMult / 100;
 	// upd xjsxjs197 end
 
 	ADDI(PutHWRegSpecial(CYCLECOUNT), GetHWRegSpecial(CYCLECOUNT), count);
@@ -3531,6 +3539,8 @@ R3000Acpu psxRec = {
 	recExecute,
 	recExecuteBlock,
 	recClear,
+	recNotify,
+	recApplyConfig,
 	recShutdown
 };
 

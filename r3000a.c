@@ -64,6 +64,7 @@ void psxReset() {
 	psxRegs.CP0.r[12] = 0x10900000; // COP0 enabled | BEV = 1 | TS = 1
 	psxRegs.CP0.r[15] = 0x00000002; // PRevID = Revision ID, same as R3000A
 
+	psxCpu->ApplyConfig();
 	psxCpu->Reset();
 
 	psxHwReset();
@@ -273,7 +274,14 @@ void psxJumpTest() {
 }
 
 void psxExecuteBios() {
-	while (psxRegs.pc != 0x80030000)
-		psxCpu->ExecuteBlock();
+	int i;
+	for (i = 0; i < 5000000; i++) {
+		psxCpu->ExecuteBlock(EXEC_CALLER_BOOT);
+		if ((psxRegs.pc & 0xff800000) == 0x80000000)
+			break;
+	}
+	if (psxRegs.pc != 0x80030000)
+		SysPrintf("non-standard BIOS detected (%d, %08x)\n", i, psxRegs.pc);
 }
+
 

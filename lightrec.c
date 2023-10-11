@@ -41,7 +41,7 @@ u32 next_interupt;
 
 static bool use_lightrec_interpreter = false;
 static bool use_pcsx_interpreter = false;
-static bool booting;
+static bool block_stepping;
 
 extern u32 lightrec_hacks;
 
@@ -123,55 +123,62 @@ static bool has_interrupt(void)
 		(regs->cp0[12] & regs->cp0[13] & 0x0300);
 }
 
-static void lightrec_restore_state(struct lightrec_state *state)
+static void lightrec_tansition_to_pcsx(struct lightrec_state *state)
 {
-	lightrec_reset_cycle_count(state, psxRegs.cycle);
+	psxRegs.cycle += lightrec_current_cycle_count(state) / 1024;
+	lightrec_reset_cycle_count(state, 0);
+}
 
-	if (booting || has_interrupt())
+static void lightrec_tansition_from_pcsx(struct lightrec_state *state)
+{
+	s32 cycles_left = next_interupt - psxRegs.cycle;
+
+	if (block_stepping || cycles_left <= 0 || has_interrupt())
 		lightrec_set_exit_flags(state, LIGHTREC_EXIT_CHECK_INTERRUPT);
-	else
-		lightrec_set_target_cycle_count(state, next_interupt);
+	else {
+		lightrec_set_target_cycle_count(state, cycles_left * 1024);
+	}
 }
 
 static void hw_write_byte(struct lightrec_state *state,
 			  u32 op, void *host, u32 mem, u8 val)
 {
-	psxRegs.cycle = lightrec_current_cycle_count(state);
+	lightrec_tansition_to_pcsx(state);
 
 	psxHwWrite8(mem, val);
 
-	lightrec_restore_state(state);
+	lightrec_tansition_from_pcsx(state);
 }
 
 static void hw_write_half(struct lightrec_state *state,
 			  u32 op, void *host, u32 mem, u16 val)
 {
-	psxRegs.cycle = lightrec_current_cycle_count(state);
+	lightrec_tansition_to_pcsx(state);
 
 	psxHwWrite16(mem, val);
 
-	lightrec_restore_state(state);
+	lightrec_tansition_from_pcsx(state);
 }
 
 static void hw_write_word(struct lightrec_state *state,
 			  u32 op, void *host, u32 mem, u32 val)
 {
-	psxRegs.cycle = lightrec_current_cycle_count(state);
+	lightrec_tansition_to_pcsx(state);
 
 	psxHwWrite32(mem, val);
 
-	lightrec_restore_state(state);
+	lightrec_tansition_from_pcsx(state);
 }
 
 static u8 hw_read_byte(struct lightrec_state *state, u32 op, void *host, u32 mem)
 {
 	u8 val;
 
-	psxRegs.cycle = lightrec_current_cycle_count(state);
+	lightrec_tansition_to_pcsx(state);
 
 	val = psxHwRead8(mem);
 
-	lightrec_restore_state(state);
+	lightrec_tansition_from_pcsx(state);
 
 	return val;
 }
@@ -181,11 +188,11 @@ static u16 hw_read_half(struct lightrec_state *state,
 {
 	u16 val;
 
-	psxRegs.cycle = lightrec_current_cycle_count(state);
+	lightrec_tansition_to_pcsx(state);
 
 	val = psxHwRead16(mem);
 
-	lightrec_restore_state(state);
+	lightrec_tansition_from_pcsx(state);
 
 	return val;
 }
@@ -195,11 +202,11 @@ static u32 hw_read_word(struct lightrec_state *state,
 {
 	u32 val;
 
-	psxRegs.cycle = lightrec_current_cycle_count(state);
+	lightrec_tansition_to_pcsx(state);
 
 	val = psxHwRead32(mem);
 
-	lightrec_restore_state(state);
+	lightrec_tansition_from_pcsx(state);
 
 	return val;
 }
@@ -256,7 +263,7 @@ static struct lightrec_mem_map lightrec_map[] = {
 	[PSX_MAP_HW_REGISTERS] = {
 		/* Hardware registers */
 		.pc = 0x1f801000,
-		.length = 0x2000,
+		.length = 0x8000,
 		.ops = &hw_regs_ops,
 	},
 	[PSX_MAP_CACHE_CONTROL] = {
@@ -424,26 +431,8 @@ static int lightrec_plugin_init(void)
 	return 0;
 }
 
-static void lightrec_dump_regs(struct lightrec_state *state)
-{
-	struct lightrec_registers *regs = lightrec_get_registers(state);
-
-	if (unlikely(booting))
-		memcpy(&psxRegs.GPR, regs->gpr, sizeof(regs->gpr));
-	psxRegs.CP0.n.Status = regs->cp0[12];
-	psxRegs.CP0.n.Cause = regs->cp0[13];
-}
-
-static void lightrec_restore_regs(struct lightrec_state *state)
-{
-	struct lightrec_registers *regs = lightrec_get_registers(state);
-
-	if (unlikely(booting))
-		memcpy(regs->gpr, &psxRegs.GPR, sizeof(regs->gpr));
-	regs->cp0[12] = psxRegs.CP0.n.Status;
-	regs->cp0[13] = psxRegs.CP0.n.Cause;
-	regs->cp0[14] = psxRegs.CP0.n.EPC;
-}
+static void lightrec_plugin_sync_regs_to_pcsx(bool need_cp2);
+static void lightrec_plugin_sync_regs_from_pcsx(bool need_cp2);
 
 static void schedule_timeslice(void)
 {
@@ -509,7 +498,7 @@ static void irq_test(void)
 	}
 }
 
-void gen_interupt()
+void gen_interupt(psxCP0Regs *cp0)
 {
 	//printf("%08x, %u->%u (%d)\r\n", psxRegs.pc, psxRegs.cycle,
 	//	next_interupt, next_interupt - psxRegs.cycle);
@@ -519,30 +508,31 @@ void gen_interupt()
 
 static void lightrec_plugin_execute_internal(bool block_only)
 {
-	u32 flags;
+	struct lightrec_registers *regs;
+	u32 flags, cycles_pcsx;
 
-	gen_interupt();
+	regs = lightrec_get_registers(lightrec_state);
+	gen_interupt((psxCP0Regs *)regs->cp0);
+	cycles_pcsx = next_interupt - psxRegs.cycle;
+	//assert((s32)cycles_pcsx > 0);
 
 	// step during early boot so that 0x80030000 fastboot hack works
-	booting = block_only;
+	block_stepping = block_only;
 	if (block_only)
-		next_interupt = psxRegs.cycle;
+		cycles_pcsx = 0;
 
-	lightrec_reset_cycle_count(lightrec_state, psxRegs.cycle);
-	lightrec_restore_regs(lightrec_state);
-
+	u32 cycles_lightrec = cycles_pcsx * 1024;
 	if (unlikely(use_lightrec_interpreter)) {
 		psxRegs.pc = lightrec_run_interpreter(lightrec_state,
-						      psxRegs.pc, next_interupt);
+						      psxRegs.pc, cycles_lightrec);
 	} else {
 		//if(!booting)
 		//	printf("Cycles %08X next_interupt %08X\r\n", psxRegs.pc, next_interupt);
 		psxRegs.pc = lightrec_execute(lightrec_state,
-					      psxRegs.pc, next_interupt);
+					      psxRegs.pc, cycles_lightrec);
 	}
 
-	psxRegs.cycle = lightrec_current_cycle_count(lightrec_state);
-	lightrec_dump_regs(lightrec_state);
+	lightrec_tansition_to_pcsx(lightrec_state);
 
 	flags = lightrec_exit_flags(lightrec_state);
 
@@ -583,29 +573,54 @@ static void lightrec_plugin_execute(void)
 
 	lightrec_set_unsafe_opt_flags(lightrec_state, lightrec_hacks);
 
-	if (!booting)
-		lightrec_plugin_sync_regs_from_pcsx();
-
 	while (!stop)
 		lightrec_plugin_execute_internal(false);
-
-	lightrec_plugin_sync_regs_to_pcsx();
 }
 
-static void lightrec_plugin_execute_block(void)
+static void lightrec_plugin_execute_block(enum blockExecCaller caller)
 {
 	lightrec_plugin_execute_internal(true);
 }
 
 static void lightrec_plugin_clear(u32 addr, u32 size)
 {
-	//if (addr == 0 && size == UINT32_MAX)
-	//	lightrec_invalidate_all(lightrec_state);
-	//else
+	if (addr == 0 && size == UINT32_MAX)
+		lightrec_invalidate_all(lightrec_state);
+	else
 		/* size * 4: PCSX uses DMA units */
 		lightrec_invalidate(lightrec_state, addr, size * 4);
 }
 
+static void lightrec_plugin_notify(enum R3000Anote note, void *data)
+{
+	switch (note)
+	{
+	case R3000ACPU_NOTIFY_CACHE_ISOLATED:
+		// Sent from psxDma3().
+		break;
+	case R3000ACPU_NOTIFY_CACHE_UNISOLATED:
+		//lightrec_plugin_clear(0, 0x200000/4);
+		break;
+	case R3000ACPU_NOTIFY_BEFORE_SAVE:
+		/* non-null 'data' means this is HLE related sync */
+		lightrec_plugin_sync_regs_to_pcsx(data == NULL);
+		break;
+	case R3000ACPU_NOTIFY_AFTER_LOAD:
+		lightrec_plugin_sync_regs_from_pcsx(data == NULL);
+		if (data == NULL)
+			lightrec_invalidate_all(lightrec_state);
+		break;
+	}
+}
+
+static void lightrec_plugin_apply_config()
+{
+	u32 cycle_mult = Config.cycle_multiplier_override && Config.cycle_multiplier == CYCLE_MULT_DEFAULT
+		? Config.cycle_multiplier_override : Config.cycle_multiplier;
+	//assert(cycle_mult);
+
+	lightrec_set_cycles_per_opcode(lightrec_state, cycle_mult * 1024 / 100);
+}
 
 static void lightrec_plugin_shutdown(void)
 {
@@ -628,62 +643,28 @@ static void lightrec_plugin_reset(void)
 	regs->cp0[15] = 0x00000002; // PRevID = Revision ID, same as R3000A
 
 	lightrec_set_unsafe_opt_flags(lightrec_state, lightrec_hacks);
-
-	//booting = true;
 }
 
-void lightrec_plugin_sync_regs_from_pcsx(void)
+static void lightrec_plugin_sync_regs_from_pcsx(bool need_cp2)
 {
 	struct lightrec_registers *regs;
 
 	regs = lightrec_get_registers(lightrec_state);
-	memcpy(regs->cp2d, &psxRegs.CP2, sizeof(regs->cp2d) + sizeof(regs->cp2c));
-	memcpy(regs->cp0, &psxRegs.CP0, sizeof(regs->cp0));
 	memcpy(regs->gpr, &psxRegs.GPR, sizeof(regs->gpr));
-
-	lightrec_invalidate_all(lightrec_state);
+	memcpy(regs->cp0, &psxRegs.CP0, sizeof(regs->cp0));
+	if (need_cp2)
+		memcpy(regs->cp2d, &psxRegs.CP2, sizeof(regs->cp2d) + sizeof(regs->cp2c));
 }
 
-void lightrec_plugin_sync_regs_to_pcsx(void)
+static void lightrec_plugin_sync_regs_to_pcsx(bool need_cp2)
 {
 	struct lightrec_registers *regs;
 
 	regs = lightrec_get_registers(lightrec_state);
-	memcpy(&psxRegs.CP2, regs->cp2d, sizeof(regs->cp2d) + sizeof(regs->cp2c));
-	memcpy(&psxRegs.CP0, regs->cp0, sizeof(regs->cp0));
 	memcpy(&psxRegs.GPR, regs->gpr, sizeof(regs->gpr));
-}
-static void lightrec_plugin_notify(int note, void *data)
-{
-	/*
-	To change once proper icache emulation is emulated
-	switch (note)
-	{
-		case R3000ACPU_NOTIFY_CACHE_UNISOLATED:
-			lightrec_plugin_clear(0, 0x200000/4);
-			break;
-		case R3000ACPU_NOTIFY_CACHE_ISOLATED:
-		// Sent from psxDma3().
-		case R3000ACPU_NOTIFY_DMA3_EXE_LOAD:
-		default:
-			break;
-	}*/
-}
-
-static void lightrec_plugin_apply_config()
-{
-}
-
-void new_dyna_before_save(void)
-{
-	psxRegs.interrupt &= ~(1 << PSXINT_RCNT); // old savestate compat
-
-	// psxRegs.intCycle is always maintained, no need to convert
-}
-
-void new_dyna_after_save(void)
-{
-	psxRegs.interrupt |= 1 << PSXINT_RCNT;
+	memcpy(&psxRegs.CP0, regs->cp0, sizeof(regs->cp0));
+	if (need_cp2)
+		memcpy(&psxRegs.CP2, regs->cp2d, sizeof(regs->cp2d) + sizeof(regs->cp2c));
 }
 
 R3000Acpu psxLightrec =
@@ -693,7 +674,8 @@ R3000Acpu psxLightrec =
 	lightrec_plugin_execute,
 	lightrec_plugin_execute_block,
 	lightrec_plugin_clear,
-	//lightrec_plugin_notify,
+	lightrec_plugin_notify,
+	lightrec_plugin_apply_config,
 	lightrec_plugin_shutdown,
 };
 

@@ -20,6 +20,10 @@
 #ifndef __R3000A_H__
 #define __R3000A_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "psxcommon.h"
 #include "psxmem.h"
 #include "psxcounters.h"
@@ -39,12 +43,26 @@
 - R3000E_Ov = 12      // arithmetic overflow
 */
 
+enum R3000Anote {
+	R3000ACPU_NOTIFY_CACHE_ISOLATED = 0,
+	R3000ACPU_NOTIFY_CACHE_UNISOLATED = 1,
+	R3000ACPU_NOTIFY_BEFORE_SAVE,  // data arg - hle if non-null
+	R3000ACPU_NOTIFY_AFTER_LOAD,
+};
+
+enum blockExecCaller {
+	EXEC_CALLER_BOOT,
+	EXEC_CALLER_HLE,
+};
+
 typedef struct {
 	int  (*Init)();
 	void (*Reset)();
 	void (*Execute)();		/* executes up to a break */
 	void (*ExecuteBlock)();	/* executes up to a jump */
 	void (*Clear)(u32 Addr, u32 Size);
+	void (*Notify)(enum R3000Anote note, void *data);
+	void (*ApplyConfig)();
 	void (*Shutdown)();
 } R3000Acpu;
 
@@ -179,6 +197,10 @@ typedef struct {
 	u32 interrupt;
 	//u32 intCycle[32];
 	struct { u32 sCycle, cycle; } intCycle[32];
+	u32 gteBusyCycle;
+	u32 muldivBusyCycle;
+	u32 subCycle;       /* interpreter cycle counting */
+	u32 subCycleStep;
 	u8 ICache_Addr[0x1000];
 	u8 ICache_Code[0x1000];
 	bool ICache_valid;
@@ -285,8 +307,6 @@ enum {
 extern u32 event_cycles[PSXINT_COUNT];
 extern u32 next_interupt;
 
-void new_dyna_before_save(void);
-void new_dyna_after_save(void);
 void new_dyna_freeze(void *f, int mode);
 
 #define new_dyna_set_event_abs(e, abs) { \
@@ -384,4 +404,8 @@ void psxDelayTest(int reg, u32 bpc);
 void psxTestSWInts();
 void psxJumpTest();
 
-#endif /* __R3000A_H__ */
+
+#ifdef __cplusplus
+}
+#endif
+#endif

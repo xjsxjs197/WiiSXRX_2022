@@ -1506,8 +1506,8 @@ void psxBios__card_info() { // ab
 	case 0x0:
 	case 0x1:
 		ret = 0x2;
-		//if (McdDisable[port & 1])
-		//	ret = 0x8;
+		if (McdDisable[port & 1])
+			ret = 0x8;
 		break;
 	default:
 #ifdef PSXBIOS_LOG
@@ -1517,8 +1517,8 @@ void psxBios__card_info() { // ab
 		break;
 	}
 
-	//if (McdDisable[0] && McdDisable[1])
-	//	ret = 0x8;
+	if (McdDisable[0] && McdDisable[1])
+		ret = 0x8;
 
 	DeliverEvent(0x11, 0x2); // 0xf0000011, 0x0004
 //	DeliverEvent(0x81, 0x2); // 0xf4000001, 0x0004

@@ -475,10 +475,6 @@ void cdrLidSeekInterrupt(void)
         sprintf(txtbuffer, "cdrLidSeekInterrupt=DRIVESTATE_PREPARE_CD: %x ", cdr.StatP);
         DEBUG_print(txtbuffer, DBG_CDR4);
         #endif // DISP_DEBUG
-		//cdr.StatP |= STATUS_SEEK;
-
-		//cdr.DriveState = DRIVESTATE_STANDBY;
-		//CDRLID_INT(cdReadTime * 26);
 		if (cdr.StatP & STATUS_SEEK) {
 			SetPlaySeekRead(cdr.StatP, 0);
 			cdr.DriveState = DRIVESTATE_STANDBY;
@@ -642,9 +638,9 @@ static void cdrPlayInterrupt_Autopause(s16* cddaBuf)
 		cdr.Result[0] = cdr.StatP;
 		cdr.Result[1] = cdr.subq.Track;
 		cdr.Result[2] = cdr.subq.Index;
-		
+
 		abs_lev_chselect = cdr.subq.Absolute[1] & 0x01;
-		
+
 		/* 8 is a hack. For accuracy, it should be 588. */
 		for (i = 0; i < 8; i++)
 		{
@@ -955,7 +951,7 @@ void cdrInterrupt(void) {
 				CDR_play(cdr.SetSectorPlay);
 
 			SetPlaySeekRead(cdr.StatP, STATUS_SEEK | STATUS_ROTATING);
-			
+
 			// BIOS player - set flag again
 			cdr.Play = TRUE;
 
@@ -1033,7 +1029,7 @@ void cdrInterrupt(void) {
 			InuYasha - Feudal Fairy Tale: slower
 			- Fixes battles
 			*/
-			/* Gameblabla - Tightening the timings (as taken from Duckstation). 
+			/* Gameblabla - Tightening the timings (as taken from Duckstation).
 			 * The timings from Duckstation are based upon hardware tests.
 			 * Mednafen's timing don't work for Gundam Battle Assault 2 in PAL/50hz mode,
 			 * seems to be timing sensitive as it can depend on the CPU's clock speed.
@@ -1304,8 +1300,8 @@ void cdrInterrupt(void) {
 
 			cycles = (cdr.Mode & MODE_SPEED) ? cdReadTime : cdReadTime * 2;
 			cycles += seekTime;
-			//if (Config.hacks.cdr_read_timing)
-			//	cycles = cdrAlignTimingHack(cycles);
+			if (Config.hacks.cdr_read_timing)
+				cycles = cdrAlignTimingHack(cycles);
 			CDRPLAYREAD_INT(cycles, 1);
 
 			SetPlaySeekRead(cdr.StatP, STATUS_SEEK);
@@ -1473,7 +1469,7 @@ static void cdrReadInterrupt(void)
 			cdr.Channel = hdr[1];
 		}
 
-		/* Gameblabla 
+		/* Gameblabla
 		 * Skips playing on channel 255.
 		 * Fixes missing audio in Blue's Clues : Blue's Big Musical. (Should also fix Taxi 2)
 		 * TODO : Check if this is the proper behaviour.
@@ -1812,7 +1808,7 @@ void cdrReset() {
 		cdr.DriveState = DRIVESTATE_STANDBY;
 		cdr.StatP = STATUS_ROTATING;
 	}
-	
+
 	// BIOS player - default values
 	cdr.AttenuatorLeftToLeft = 0x80;
 	cdr.AttenuatorLeftToRight = 0x00;
@@ -1828,10 +1824,10 @@ int cdrFreeze(gzFile f, int Mode) {
 
 	if (Mode == 0 && !Config.Cdda)
 		CDR_stop();
-	
+
 	cdr.freeze_ver = 0x63647202;
 	gzfreeze(&cdr, sizeof(cdr));
-	
+
 	if (Mode == 1) {
 		cdr.ParamP = cdr.ParamC;
 		tmp = cdr.FifoOffset;
