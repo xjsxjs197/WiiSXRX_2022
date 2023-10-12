@@ -21,6 +21,7 @@
 * Handles all CD-ROM registers and functions.
 */
 
+#include <assert.h>
 #include "cdrom.h"
 #include "misc.h"
 #include "ppf.h"
@@ -730,7 +731,7 @@ static void cdrAttenuate(s16 *buf, int samples, int stereo);
 
 static void msfiAdd(u8 *msfi, u32 count)
 {
-	//assert(count < 75);
+	assert(count < 75);
 	msfi[2] += count;
 	if (msfi[2] >= 75) {
 		msfi[2] -= 75;
