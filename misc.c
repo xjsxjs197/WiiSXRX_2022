@@ -21,6 +21,7 @@
 * Miscellaneous functions, including savestates and CD-ROM loading.
 */
 
+#include <assert.h>
 #include "misc.h"
 #include "cdrom.h"
 #include "psxhw.h"
@@ -165,7 +166,7 @@ static void SetBootRegs(u32 pc, u32 gp, u32 sp)
 }
 
 void BiosBootBypass() {
-	//assert(psxRegs.pc == 0x80030000);
+	assert(psxRegs.pc == 0x80030000);
 
 	// skip BIOS logos and region check
 	psxCpu->Notify(R3000ACPU_NOTIFY_BEFORE_SAVE, NULL);
