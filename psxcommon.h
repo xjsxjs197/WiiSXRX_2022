@@ -87,6 +87,8 @@ typedef uintptr_t uptr;
 extern int Log;
 void __Log(char *fmt, ...);
 
+#define CYCLE_MULT_DEFAULT 175
+
 typedef struct {
 	char Gpu[256];
 	char Spu[256];
@@ -116,6 +118,16 @@ typedef struct {
 	long UseNet;
 	long VSyncWA;
 	long pR3000Fix;
+	bool icache_emulation;
+	bool DisableStalls;
+	bool PreciseExceptions;
+	int GpuListWalking;
+	int cycle_multiplier; // 100 for 1.0
+	int cycle_multiplier_override;
+	struct {
+		bool cdr_read_timing;
+		bool gpu_slow_list_walking;
+	} hacks;
 } PcsxConfig;
 
 extern PcsxConfig Config;

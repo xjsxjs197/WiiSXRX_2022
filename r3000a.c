@@ -26,6 +26,7 @@
 #include "psxdma.h"
 #include "cdrom.h"
 #include "mdec.h"
+#include "psxinterpreter.h"
 #include "Gamecube/wiiSXconfig.h"
 R3000Acpu *psxCpu;
 psxRegisters psxRegs;
@@ -55,22 +56,35 @@ int psxInit() {
 }
 
 void psxReset() {
+	bool introBypassed = FALSE;
 	psxMemReset();
 
 	memset(&psxRegs, 0, sizeof(psxRegs));
 
 	psxRegs.pc = 0xbfc00000; // Start in bootstrap
 
-	psxRegs.CP0.r[12] = 0x10900000; // COP0 enabled | BEV = 1 | TS = 1
-	psxRegs.CP0.r[15] = 0x00000002; // PRevID = Revision ID, same as R3000A
+	psxRegs.CP0.n.SR   = 0x10600000; // COP0 enabled | BEV = 1 | TS = 1
+	psxRegs.CP0.n.PRid = 0x00000002; // PRevID = Revision ID, same as R3000A
+	if (Config.HLE) {
+		psxRegs.CP0.n.SR |= 1u << 30;    // COP2 enabled
+		psxRegs.CP0.n.SR &= ~(1u << 22); // RAM exception vector
+	}
 
+	psxCpu->ApplyConfig();
 	psxCpu->Reset();
 
 	psxHwReset();
 	psxBiosInit();
 
-	if (!Config.HLE)
+	if (!Config.HLE) {
 		psxExecuteBios();
+		if (psxRegs.pc == 0x80030000 && LoadCdBios == BOOTTHRUBIOS_NO) {
+			BiosBootBypass();
+			introBypassed = TRUE;
+		}
+	}
+	if (Config.HLE || introBypassed)
+		psxBiosSetupBootState();
 
 #ifdef EMU_LOG
 	EMU_LOG("*BIOS END*\n");
@@ -86,69 +100,34 @@ void psxShutdown() {
 	psxMemShutdown();
 }
 
-void psxException(u32 code, u32 bd) {
+// cp0 is passed separately for lightrec to be less messy
+void psxException(u32 cause, enum R3000Abdt bdt, psxCP0Regs *cp0) {
+	u32 opcode = intFakeFetch(psxRegs.pc);
+
+	if (unlikely(!Config.HLE && (opcode >> 25) == 0x25)) {
+		// "hokuto no ken" / "Crash Bandicot 2" ...
+		// BIOS does not allow to return to GTE instructions
+		// (just skips it, supposedly because it's scheduled already)
+		// so we execute it here
+		psxCP2Regs *cp2 = (psxCP2Regs *)(cp0 + 1);
+		psxRegs.code = opcode;
+		extern void (*psxCP2[64])(struct psxCP2Regs *regs);
+		psxCP2[opcode & 0x3f](cp2);
+	}
+
 	// Set the Cause
-	psxRegs.CP0.n.Cause = (psxRegs.CP0.n.Cause & 0x300) | code;
+	cp0->n.Cause = (bdt << 30) | (cp0->n.Cause & 0x700) | cause;
 
 	// Set the EPC & PC
-	if (bd) {
-#ifdef PSXCPU_LOG
-		PSXCPU_LOG("bd set!!!\n");
-#endif
-		psxRegs.CP0.n.Cause |= 0x80000000;
-		psxRegs.CP0.n.EPC = (psxRegs.pc - 4);
-	} else
-		psxRegs.CP0.n.EPC = (psxRegs.pc);
+	cp0->n.EPC = bdt ? psxRegs.pc - 4 : psxRegs.pc;
 
-	if (psxRegs.CP0.n.Status & 0x400000)
+	if (cp0->n.SR & 0x400000)
 		psxRegs.pc = 0xbfc00180;
 	else
 		psxRegs.pc = 0x80000080;
 
-	// Set the Status
-	psxRegs.CP0.n.Status = (psxRegs.CP0.n.Status &~0x3f) |
-						  ((psxRegs.CP0.n.Status & 0xf) << 2);
-
-    if (Config.HLE)
-    {
-        psxBiosException();
-    }
-    else
-    {
-	    // "hokuto no ken" / "Crash Bandicot 2" ...
-		// BIOS does not allow to return to GTE instructions
-		// (just skips it, supposedly because it's scheduled already)
-		// so we execute it here
-		u32 tmp = PSXMu32(psxRegs.CP0.n.EPC);
-		psxRegs.code = tmp;
-		if (tmp != NULL && ((tmp >> 24) & 0xfe) == 0x4a) {
-            #ifdef DISP_DEBUG
-            PRINT_LOG("========hokuto no ken Fix ");
-            #endif // DISP_DEBUG
-		    PSXMu32ref(psxRegs.CP0.n.EPC) &= SWAP32(~0x02000000);
-
-            psxRegs.code = PSXMu32(psxRegs.CP0.n.EPC);
-			extern void (*psxCP2[64])(struct psxCP2Regs *regs);
-		    psxCP2[psxRegs.code & 0x3f](&psxRegs.CP2D);
-		}
-	}
-}
-
-static inline void psxTestHWInts() {
-	if (*((u32*)psxHAddr(0x1070)) & *((u32*)psxHAddr(0x1074))) {
-		if ((psxRegs.CP0.n.Status & 0x401) == 0x401) {
-            u32 opcode;
-
-			// Crash Bandicoot 2: Don't run exceptions when GTE in pipeline
-			opcode = SWAP32(*Read_ICache(psxRegs.pc, TRUE));
-			if( ((opcode >> 24) & 0xfe) != 0x4a ) {
-			    psxException(0x400, 0);
-			}
-#ifdef PSXCPU_LOG
-			PSXCPU_LOG("Interrupt: %x %x\n", psxHu32(0x1070), psxHu32(0x1074));
-#endif
-		}
-	}
+	// Set the SR
+	cp0->n.SR = (cp0->n.SR & ~0x3f) | ((cp0->n.SR & 0x0f) << 2);
 }
 
 extern u32 psxNextCounter, psxNextsCounter;
@@ -237,8 +216,11 @@ void psxBranchTest() {
 //		}
 	}
 
-	psxTestHWInts();
-//	if (psxRegs.cycle > 0xd29c6500) Log=1;
+	psxRegs.CP0.n.Cause &= ~0x400;
+	if (psxHu32(0x1070) & psxHu32(0x1074))
+		psxRegs.CP0.n.Cause |= 0x400;
+	if (((psxRegs.CP0.n.Cause | 1) & psxRegs.CP0.n.SR & 0x401) == 0x401)
+		psxException(0, 0, &psxRegs.CP0);
 }
 
 void psxJumpTest() {
@@ -273,7 +255,14 @@ void psxJumpTest() {
 }
 
 void psxExecuteBios() {
-	while (psxRegs.pc != 0x80030000)
-		psxCpu->ExecuteBlock();
+	int i;
+	for (i = 0; i < 5000000; i++) {
+		psxCpu->ExecuteBlock(EXEC_CALLER_BOOT);
+		if ((psxRegs.pc & 0xff800000) == 0x80000000)
+			break;
+	}
+	if (psxRegs.pc != 0x80030000)
+		SysPrintf("non-standard BIOS detected (%d, %08x)\n", i, psxRegs.pc);
 }
+
 

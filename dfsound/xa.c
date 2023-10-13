@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "stdafx.h"
+#include "spu.h"
 #define _IN_XA
 #include <stdint.h>
 #include "../psxcommon.h"
@@ -40,7 +41,7 @@ static int gauss_window[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 // MIX XA & CDDA
 ////////////////////////////////////////////////////////////////////////
 
-INLINE void MixXA(int *SSumLR, int ns_to, int decode_pos)
+INLINE void MixXA(int *SSumLR, int *RVB, int ns_to, int decode_pos)
 {
  int cursor = decode_pos;
  int ns;
@@ -52,18 +53,26 @@ INLINE void MixXA(int *SSumLR, int ns_to, int decode_pos)
   if(spu.XAPlay == spu.XAFeed)
    spu.XARepeat--;
 
-  for(ns = 0; ns < ns_to*2; )
+  for(ns = 0; ns < ns_to*2; ns += 2)
    {
     if(spu.XAPlay != spu.XAFeed) v=*spu.XAPlay++;
     if(spu.XAPlay == spu.XAEnd) spu.XAPlay=spu.XAStart;
 
     l = ((int)(short)v * spu.iLeftXAVol) >> 15;
     r = ((int)(short)(v >> 16) * spu.iRightXAVol) >> 15;
-    SSumLR[ns++] += l;
-    SSumLR[ns++] += r;
+    if (spu.spuCtrl & CTRL_CD)
+    {
+     SSumLR[ns+0] += l;
+     SSumLR[ns+1] += r;
+    }
+    if (unlikely(spu.spuCtrl & CTRL_CDREVERB))
+    {
+     RVB[ns+0] += l;
+     RVB[ns+1] += r;
+    }
 
-    spu.spuMem[cursor] = v;
-    spu.spuMem[cursor + 0x400/2] = v >> 16;
+    spu.spuMem[cursor] = HTOLE16(v);
+    spu.spuMem[cursor + 0x400/2] = HTOLE16(v >> 16);
     cursor = (cursor + 1) & 0x1ff;
    }
   spu.XALastVal = v;
@@ -72,18 +81,26 @@ INLINE void MixXA(int *SSumLR, int ns_to, int decode_pos)
  // hence this 'ns_to < 8'
  else if(spu.CDDAPlay != spu.CDDAFeed || ns_to < 8)
  {
-  for(ns = 0; ns < ns_to*2; )
+  for(ns = 0; ns < ns_to*2; ns += 2)
    {
     if(spu.CDDAPlay != spu.CDDAFeed) v=*spu.CDDAPlay++;
     if(spu.CDDAPlay == spu.CDDAEnd) spu.CDDAPlay=spu.CDDAStart;
 
     l = ((int)(short)v * spu.iLeftXAVol) >> 15;
     r = ((int)(short)(v >> 16) * spu.iRightXAVol) >> 15;
-    SSumLR[ns++] += l;
-    SSumLR[ns++] += r;
+    if (spu.spuCtrl & CTRL_CD)
+    {
+     SSumLR[ns+0] += l;
+     SSumLR[ns+1] += r;
+    }
+    if (unlikely(spu.spuCtrl & CTRL_CDREVERB))
+    {
+     RVB[ns+0] += l;
+     RVB[ns+1] += r;
+    }
 
-    spu.spuMem[cursor] = v;
-    spu.spuMem[cursor + 0x400/2] = v >> 16;
+    spu.spuMem[cursor] = HTOLE16(v);
+    spu.spuMem[cursor + 0x400/2] = HTOLE16(v >> 16);
     cursor = (cursor + 1) & 0x1ff;
    }
   spu.XALastVal = v;
@@ -390,10 +407,8 @@ INLINE int FeedCDDA(unsigned char *pcm, int nBytes)
  int space;
  space=(spu.CDDAPlay-spu.CDDAFeed-1)*4 & (CDDA_BUFFER_SIZE - 1);
  if(space<nBytes)
- {
-     return 0x7761; // rearmed_wait
- }
- spu.CDDARepeat  = 3;
+  return 0x7761; // rearmed_wait
+
  while(nBytes>0)
   {
    if(spu.CDDAFeed==spu.CDDAEnd) spu.CDDAFeed=spu.CDDAStart;

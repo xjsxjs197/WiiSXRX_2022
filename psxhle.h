@@ -14,16 +14,36 @@
  *   You should have received a copy of the GNU General Public License     *
  *   along with this program; if not, write to the                         *
  *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   51 Franklin Street, Fifth Floor, Boston, MA 02111-1307 USA.           *
  ***************************************************************************/
 
 #ifndef __PSXHLE_H__
 #define __PSXHLE_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "psxcommon.h"
 #include "r3000a.h"
 #include "plugins.h"
 
+enum hle_op {
+	hleop_dummy = 0, hleop_a0, hleop_b0, hleop_c0,
+	hleop_bootstrap, hleop_execret, hleop_exception, hleop_unused,
+	hleop_exc0_0_1, hleop_exc0_0_2,
+	hleop_exc0_1_1, hleop_exc0_1_2, hleop_exc0_2_2,
+	hleop_exc1_0_1, hleop_exc1_0_2,
+	hleop_exc1_1_1, hleop_exc1_1_2,
+	hleop_exc1_2_1, hleop_exc1_2_2,
+	hleop_exc1_3_1, hleop_exc1_3_2,
+	hleop_exc3_0_2,
+	hleop_exc_padcard1, hleop_exc_padcard2,
+};
+
 extern void (*psxHLEt[256])();
 
-#endif /* __PSXHLE_H__ */
+#ifdef __cplusplus
+}
+#endif
+#endif
