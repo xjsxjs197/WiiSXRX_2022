@@ -401,7 +401,6 @@ void psxRcntUpdate()
 //            {
 //                SPU_async( cycle, 1 , Config.PsxType);
 //            }
-            //psxRegs.gteCycle = 0;
         }
 
         // Update lace.

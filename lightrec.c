@@ -13,6 +13,8 @@
 #include "psxhw.h"
 #include "psxmem.h"
 #include "r3000a.h"
+#include "psxinterpreter.h"
+#include "psxhle.h"
 #include "Gamecube/MEM2.h"
 #include "Gamecube/PadSSSPSX.h"
 
@@ -434,27 +436,6 @@ static int lightrec_plugin_init(void)
 static void lightrec_plugin_sync_regs_to_pcsx(bool need_cp2);
 static void lightrec_plugin_sync_regs_from_pcsx(bool need_cp2);
 
-static void lightrec_dump_regs(struct lightrec_state *state)
-{
-	struct lightrec_registers *regs = lightrec_get_registers(state);
-
-	if (unlikely(block_stepping))
-		memcpy(&psxRegs.GPR, regs->gpr, sizeof(regs->gpr));
-	psxRegs.CP0.n.Status = regs->cp0[12];
-	psxRegs.CP0.n.Cause = regs->cp0[13];
-}
-
-static void lightrec_restore_regs(struct lightrec_state *state)
-{
-	struct lightrec_registers *regs = lightrec_get_registers(state);
-
-	if (unlikely(block_stepping))
-		memcpy(regs->gpr, &psxRegs.GPR, sizeof(regs->gpr));
-	regs->cp0[12] = psxRegs.CP0.n.Status;
-	regs->cp0[13] = psxRegs.CP0.n.Cause;
-	regs->cp0[14] = psxRegs.CP0.n.EPC;
-}
-
 static void schedule_timeslice(void)
 {
 	u32 i, c = psxRegs.cycle;
@@ -495,27 +476,27 @@ static irq_func * const irq_funcs[] = {
 };
 
 /* local dupe of psxBranchTest, using event_cycles */
-static void irq_test(void)
+static void irq_test(psxCP0Regs *cp0)
 {
-	u32 irqs = psxRegs.interrupt;
 	u32 cycle = psxRegs.cycle;
 	u32 irq, irq_bits;
 
-	// irq_funcs() may queue more irqs
-	psxRegs.interrupt = 0;
-
-	for (irq = 0, irq_bits = irqs; irq_bits != 0; irq++, irq_bits >>= 1) {
+	for (irq = 0, irq_bits = psxRegs.interrupt; irq_bits != 0; irq++, irq_bits >>= 1) {
 		if (!(irq_bits & 1))
 			continue;
 		if ((s32)(cycle - event_cycles[irq]) >= 0) {
-			irqs &= ~(1 << irq);
+			// note: irq_funcs() also modify psxRegs.interrupt
+			psxRegs.interrupt &= ~(1u << irq);
 			irq_funcs[irq]();
 		}
 	}
-	psxRegs.interrupt |= irqs;
 
-	if ((psxHu32(0x1070) & psxHu32(0x1074)) && (psxRegs.CP0.n.Status & 0x401) == 0x401) {
-		psxException(0x400, 0);
+	cp0->n.Cause &= ~0x400;
+	if (psxHu32(0x1070) & psxHu32(0x1074))
+		cp0->n.Cause |= 0x400;
+	if (((cp0->n.Cause | 1) & cp0->n.SR & 0x401) == 0x401) {
+		psxException(0, 0, cp0);
+		//pending_exception = 1;
 	}
 }
 
@@ -523,7 +504,7 @@ void gen_interupt(psxCP0Regs *cp0)
 {
 	//printf("%08x, %u->%u (%d)\r\n", psxRegs.pc, psxRegs.cycle,
 	//	next_interupt, next_interupt - psxRegs.cycle);
-	irq_test();
+	irq_test(cp0);
 	schedule_timeslice();
 }
 
@@ -542,8 +523,6 @@ static void lightrec_plugin_execute_internal(bool block_only)
 	if (block_only)
 		cycles_pcsx = 0;
 
-	lightrec_restore_regs(lightrec_state);
-
 	u32 cycles_lightrec = cycles_pcsx * 1024;
 	if (unlikely(use_lightrec_interpreter)) {
 			psxRegs.pc = lightrec_run_interpreter(lightrec_state,
@@ -556,9 +535,7 @@ static void lightrec_plugin_execute_internal(bool block_only)
 
 	lightrec_tansition_to_pcsx(lightrec_state);
 
-	lightrec_dump_regs(lightrec_state);
-
-	flags = lightrec_exit_flags(lightrec_state);
+		flags = lightrec_exit_flags(lightrec_state);
 
 	if (flags & LIGHTREC_EXIT_SEGFAULT) {
 		#ifdef SHOW_DEBUG
@@ -568,26 +545,26 @@ static void lightrec_plugin_execute_internal(bool block_only)
 		exit(1);
 	}
 
-	if (flags & LIGHTREC_EXIT_NOMEM) {
-		#ifdef SHOW_DEBUG
-		fprintf(stderr, "Out of memory!\n");
-		#endif // SHOW_DEBUG
-		exit(1);
+	if (flags & LIGHTREC_EXIT_SYSCALL)
+		psxException(R3000E_Syscall << 2, 0, (psxCP0Regs *)regs->cp0);
+	if (flags & LIGHTREC_EXIT_BREAK)
+		psxException(R3000E_Bp << 2, 0, (psxCP0Regs *)regs->cp0);
+	else if (flags & LIGHTREC_EXIT_UNKNOWN_OP) {
+		u32 op = intFakeFetch(psxRegs.pc);
+		u32 hlec = op & 0x03ffffff;
+		if ((op >> 26) == 0x3b && hlec < ARRAY_SIZE(psxHLEt) && Config.HLE) {
+			lightrec_plugin_sync_regs_to_pcsx(0);
+			psxHLEt[hlec]();
+			lightrec_plugin_sync_regs_from_pcsx(0);
+		}
+		else
+			psxException(R3000E_RI << 2, 0, (psxCP0Regs *)regs->cp0);
 	}
 
-	if (flags & LIGHTREC_EXIT_SYSCALL)
-		psxException(0x20, 0); // R3000A syscall instruction
-	if (flags & LIGHTREC_EXIT_BREAK)
-		psxException(0x24, 0); // R3000A breakpoint - a break instruction
-
-	//if (booting && (psxRegs.pc & 0xff800000) == 0x80000000)
-	//	booting = false;
-
-	if ((psxRegs.CP0.n.Cause & psxRegs.CP0.n.Status & 0x300) &&
-			(psxRegs.CP0.n.Status & 0x1)) {
+	if ((regs->cp0[13] & regs->cp0[12] & 0x300) && (regs->cp0[12] & 0x1)) {
 		/* Handle software interrupts */
-		psxRegs.CP0.n.Cause &= ~0x7c;
-		psxException(psxRegs.CP0.n.Cause, 0);
+		regs->cp0[13] &= ~0x7c;
+		psxException(regs->cp0[13], 0, (psxCP0Regs *)regs->cp0);
 	}
 }
 

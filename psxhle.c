@@ -60,15 +60,15 @@ static void hleBootstrap() { // 0xbfc00000
 	SysPrintf("CdromLabel: \"%s\": PC = %8.8lx (SP = %8.8lx)\n", CdromLabel, psxRegs.pc, psxRegs.GPR.n.sp);
 }
 
-typedef struct {                   
-	u32 _pc0;      
-	u32 gp0;      
-	u32 t_addr;   
-	u32 t_size;   
-	u32 d_addr;   
-	u32 d_size;   
-	u32 b_addr;   
-	u32 b_size;   
+typedef struct {
+	u32 _pc0;
+	u32 gp0;
+	u32 t_addr;
+	u32 t_size;
+	u32 d_addr;
+	u32 d_size;
+	u32 b_addr;
+	u32 b_size;
 	u32 S_addr;
 	u32 s_size;
 	u32 _sp,_fp,_gp,ret,base;
@@ -81,7 +81,7 @@ static void hleExecRet() {
 
 	psxRegs.GPR.n.ra = header->ret;
 	psxRegs.GPR.n.sp = header->_sp;
-	psxRegs.GPR.n.s8 = header->_fp;
+	psxRegs.GPR.n.fp = header->_fp;
 	psxRegs.GPR.n.gp = header->_gp;
 	psxRegs.GPR.n.s0 = header->base;
 

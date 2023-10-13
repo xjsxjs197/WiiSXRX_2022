@@ -156,7 +156,7 @@ static void SetBootRegs(u32 pc, u32 gp, u32 sp)
 	psxRegs.pc = pc;
 	psxRegs.GPR.n.gp = gp;
 	psxRegs.GPR.n.sp = sp ? sp : 0x801fff00;
-	psxRegs.GPR.n.s8 = psxRegs.GPR.n.sp;
+	psxRegs.GPR.n.fp = psxRegs.GPR.n.sp;
 
 	psxRegs.GPR.n.t0 = psxRegs.GPR.n.sp; // mimic A(43)
 	psxRegs.GPR.n.t3 = pc;

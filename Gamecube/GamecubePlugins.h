@@ -511,7 +511,7 @@ unsigned char * CALLBACK Mooby2CDRgetBuffer(void);
 
 #define DFSOUND_PLUGIN \
 	{ "SPU",      \
-	  20,         \
+	  18,         \
 	  { { "SPUinit",  \
 	      (void*)DF_SPUinit}, \
 	    { "SPUshutdown", \
@@ -530,10 +530,6 @@ unsigned char * CALLBACK Mooby2CDRgetBuffer(void);
 	      (void*)DF_SPUwriteRegister}, \
 	    { "SPUreadRegister", \
 	      (void*)DF_SPUreadRegister}, \
-	    { "SPUwriteDMA", \
-	      (void*)DF_SPUwriteDMA}, \
-	    { "SPUreadDMA", \
-	      (void*)DF_SPUreadDMA}, \
 	    { "SPUwriteDMAMem", \
 	      (void*)DF_SPUwriteDMAMem}, \
 	    { "SPUreadDMAMem", \

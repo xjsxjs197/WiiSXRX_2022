@@ -25,6 +25,9 @@
 #include "r3000a.h"
 #include "gte.h"
 #include "psxhle.h"
+#include "psxinterpreter.h"
+#include <stddef.h>
+#include <assert.h>
 
 int branch = 0;
 int branch2 = 0;
@@ -38,6 +41,15 @@ extern int stop;
 #define debugI() PSXCPU_LOG("%s\n", disR3000AF(psxRegs.code, psxRegs.pc));
 #else
 #define debugI()
+#endif
+
+#ifdef __i386__
+#define INT_ATTR __attribute__((regparm(2)))
+#else
+#define INT_ATTR
+#endif
+#ifndef INVALID_PTR
+#define INVALID_PTR NULL
 #endif
 
 static void execI();
@@ -263,6 +275,18 @@ int psxTestLoadDelay(int reg, u32 tmp) {
 	return 0;
 }
 
+// get an opcode without triggering exceptions or affecting cache
+u32 intFakeFetch(u32 pc)
+{
+	u8 *base = psxMemRLUT[pc >> 16];
+	u32 *code;
+	if (unlikely(base == INVALID_PTR))
+		return 0; // nop
+	code = (u32 *)(base + (pc & 0xfffc));
+	return SWAP32(*code);
+
+}
+
 void psxDelayTest(int reg, u32 bpc) {
 	u32 *code;
 	u32 tmp;
@@ -271,7 +295,7 @@ void psxDelayTest(int reg, u32 bpc) {
 	code = Read_ICache(bpc, TRUE);
 
 	tmp = ((code == NULL) ? 0 : SWAP32(*code));
-	branch = 1;
+	branch = R3000A_BRANCH_TAKEN;
 
 	switch (psxTestLoadDelay(reg, tmp)) {
 		case 1:
@@ -429,7 +453,7 @@ __inline void doBranch(u32 tar) {
 	u32 *code;
 	u32 tmp;
 
-	branch2 = branch = 1;
+	branch2 = branch = R3000A_BRANCH_TAKEN;
 	branchPC = tar;
 
 	// notaz: check for branch in delay slot
@@ -626,18 +650,18 @@ void psxMTLO() { _rLo_ = _rRs_; } // Lo = Rs
 *********************************************************/
 void psxBREAK() {
 	psxRegs.pc -= 4;
-	psxException(0x24, branch);
+	psxException(0x24, branch, &psxRegs.CP0);
 }
 
 void psxSYSCALL() {
 	psxRegs.pc -= 4;
-	psxException(0x20, branch);
+	psxException(0x20, branch, &psxRegs.CP0);
 }
 
 void psxRFE() {
 //	SysPrintf("psxRFE\n");
-	psxRegs.CP0.n.Status = (psxRegs.CP0.n.Status & 0xfffffff0) |
-						  ((psxRegs.CP0.n.Status & 0x3c) >> 2);
+	psxRegs.CP0.n.SR = (psxRegs.CP0.n.SR & 0xfffffff0) |
+						  ((psxRegs.CP0.n.SR & 0x3c) >> 2);
 	psxTestSWInts();
 }
 
@@ -816,10 +840,10 @@ void psxMFC0() { if (!_Rt_) return; _i32(_rRt_) = (int)_rFs_; }
 void psxCFC0() { if (!_Rt_) return; _i32(_rRt_) = (int)_rFs_; }
 
 void psxTestSWInts() {
-	if (psxRegs.CP0.n.Cause & psxRegs.CP0.n.Status & 0x0300 &&
-	   psxRegs.CP0.n.Status & 0x1) {
+	if (psxRegs.CP0.n.Cause & psxRegs.CP0.n.SR & 0x0300 &&
+	   psxRegs.CP0.n.SR & 0x1) {
 		psxRegs.CP0.n.Cause &= ~0x7c;
-		psxException(psxRegs.CP0.n.Cause, branch);
+		psxException(psxRegs.CP0.n.Cause, branch, &psxRegs.CP0);
 	}
 }
 
@@ -828,7 +852,7 @@ static void setupCop(u32 sr);
 __inline void MTC0(int reg, u32 val) {
 //	SysPrintf("MTC0 %d: %x\n", reg, val);
 	switch (reg) {
-		case 12: // psxRegs.CP0.r[12] = psxRegs.CP0.n.Status
+		case 12: // psxRegs.CP0.r[12] = psxRegs.CP0.n.SR
 			psxRegs.CP0.r[12] = val;
 			psxTestSWInts();
 			//psxRegs.interrupt|= 0x80000000;
