@@ -19,6 +19,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
+#include <assert.h>
 #include "psxcommon.h"
 #include "plugins.h"
 #include "cdrom.h"
@@ -1501,8 +1502,8 @@ static long CALLBACK ISOclose(void) {
 }
 
 static long CALLBACK ISOinit(void) {
-	//assert(cdHandle == NULL);
-	//assert(subHandle == NULL);
+	assert(cdHandle == NULL);
+	assert(subHandle == NULL);
 
 	return 0; // do nothing
 }
