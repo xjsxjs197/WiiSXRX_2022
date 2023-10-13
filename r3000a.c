@@ -55,6 +55,7 @@ int psxInit() {
 }
 
 void psxReset() {
+	bool introBypassed = FALSE;
 	psxMemReset();
 
 	memset(&psxRegs, 0, sizeof(psxRegs));
@@ -70,8 +71,15 @@ void psxReset() {
 	psxHwReset();
 	psxBiosInit();
 
-	if (!Config.HLE)
+	if (!Config.HLE) {
 		psxExecuteBios();
+		if (psxRegs.pc == 0x80030000 && LoadCdBios == BOOTTHRUBIOS_NO) {
+			BiosBootBypass();
+			introBypassed = TRUE;
+		}
+	}
+	if (Config.HLE || introBypassed)
+		psxBiosSetupBootState();
 
 #ifdef EMU_LOG
 	EMU_LOG("*BIOS END*\n");

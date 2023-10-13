@@ -148,28 +148,6 @@ int GetCdromFile(u8 *mdir, u8 *time, char *filename) {
 	return retval;
 }
 
-static const unsigned int gpu_ctl_def[] = {
-	0x00000000, 0x01000000, 0x03000000, 0x04000000,
-	0x05000800, 0x06c60260, 0x0703fc10, 0x08000027,
-};
-
-static const unsigned int gpu_data_def[] = {
-	0xe100360b, 0xe2000000, 0xe3000800, 0xe4077e7f,
-	0xe5001000, 0xe6000000,
-	0x02000000, 0x00000000, 0x01ff03ff,
-};
-
-static void fake_bios_gpu_setup(void)
-{
-	int i;
-
-	for (i = 0; i < sizeof(gpu_ctl_def) / sizeof(gpu_ctl_def[0]); i++)
-		GPU_writeStatus(gpu_ctl_def[i]);
-
-	for (i = 0; i < sizeof(gpu_data_def) / sizeof(gpu_data_def[0]); i++)
-		GPU_writeData(gpu_data_def[i]);
-}
-
 static void SetBootRegs(u32 pc, u32 gp, u32 sp)
 {
 	//printf("%s %08x %08x %08x\n", __func__, pc, gp, sp);
@@ -187,7 +165,7 @@ static void SetBootRegs(u32 pc, u32 gp, u32 sp)
 }
 
 void BiosBootBypass() {
-	assert(psxRegs.pc == 0x80030000);
+	//assert(psxRegs.pc == 0x80030000);
 
 	// skip BIOS logos and region check
 	psxCpu->Notify(R3000ACPU_NOTIFY_BEFORE_SAVE, NULL);
@@ -209,18 +187,17 @@ int LoadCdrom() {
 	u8 time[4], *buf;
 	u8 mdir[4096];
 
-    if (!swapIso) {
-        // not the best place to do it, but since BIOS boot logo killer
-	    // is just below, do it here
-	    fake_bios_gpu_setup();
-    } else {
+    // restore swapIso status
+    if (swapIso) {
         swapIso = false;
     }
 
 	if (!Config.HLE) {
-		if(!LoadCdBios)
-  	  psxRegs.pc = psxRegs.GPR.n.ra;
-    return 0;
+		if (psxRegs.pc != 0x80030000) // BiosBootBypass'ed or custom BIOS?
+			return 0;
+		if (!LoadCdBios)
+  	        psxRegs.pc = psxRegs.GPR.n.ra;
+        return 0;
 	}
 
 	time[0] = itob(0); time[1] = itob(2); time[2] = itob(0x10);

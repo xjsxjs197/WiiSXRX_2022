@@ -1186,7 +1186,7 @@ static void recExecute() {
 	#endif // SHOW_DEBUG
 }
 
-static void recExecuteBlock() {
+static void recExecuteBlock(enum blockExecCaller caller) {
     // added xjsxjs197 start
     recRecompileInit();
     // added xjsxjs197 end

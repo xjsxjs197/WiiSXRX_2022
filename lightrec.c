@@ -434,6 +434,27 @@ static int lightrec_plugin_init(void)
 static void lightrec_plugin_sync_regs_to_pcsx(bool need_cp2);
 static void lightrec_plugin_sync_regs_from_pcsx(bool need_cp2);
 
+static void lightrec_dump_regs(struct lightrec_state *state)
+{
+	struct lightrec_registers *regs = lightrec_get_registers(state);
+
+	if (unlikely(block_stepping))
+		memcpy(&psxRegs.GPR, regs->gpr, sizeof(regs->gpr));
+	psxRegs.CP0.n.Status = regs->cp0[12];
+	psxRegs.CP0.n.Cause = regs->cp0[13];
+}
+
+static void lightrec_restore_regs(struct lightrec_state *state)
+{
+	struct lightrec_registers *regs = lightrec_get_registers(state);
+
+	if (unlikely(block_stepping))
+		memcpy(regs->gpr, &psxRegs.GPR, sizeof(regs->gpr));
+	regs->cp0[12] = psxRegs.CP0.n.Status;
+	regs->cp0[13] = psxRegs.CP0.n.Cause;
+	regs->cp0[14] = psxRegs.CP0.n.EPC;
+}
+
 static void schedule_timeslice(void)
 {
 	u32 i, c = psxRegs.cycle;
@@ -521,18 +542,21 @@ static void lightrec_plugin_execute_internal(bool block_only)
 	if (block_only)
 		cycles_pcsx = 0;
 
+	lightrec_restore_regs(lightrec_state);
+
 	u32 cycles_lightrec = cycles_pcsx * 1024;
 	if (unlikely(use_lightrec_interpreter)) {
-		psxRegs.pc = lightrec_run_interpreter(lightrec_state,
-						      psxRegs.pc, cycles_lightrec);
+			psxRegs.pc = lightrec_run_interpreter(lightrec_state,
+							      psxRegs.pc,
+							      cycles_lightrec);
 	} else {
-		//if(!booting)
-		//	printf("Cycles %08X next_interupt %08X\r\n", psxRegs.pc, next_interupt);
 		psxRegs.pc = lightrec_execute(lightrec_state,
 					      psxRegs.pc, cycles_lightrec);
 	}
 
 	lightrec_tansition_to_pcsx(lightrec_state);
+
+	lightrec_dump_regs(lightrec_state);
 
 	flags = lightrec_exit_flags(lightrec_state);
 
