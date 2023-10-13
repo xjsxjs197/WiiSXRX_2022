@@ -214,8 +214,12 @@ Graphics::Graphics(GXRModeObj *rmode)
 		vmode = &TVNtsc480IntDf;
 		memcpy( &vmode_phys, vmode, sizeof(GXRModeObj));
 		break;
-	case VIDEOMODE_PAL:
+	case VIDEOMODE_PAL50:
 		vmode = &TVPal576IntDfScale;
+		memcpy( &vmode_phys, vmode, sizeof(GXRModeObj));
+		break;
+	case VIDEOMODE_PAL60:
+		vmode = &TVEurgb60Hz480IntDf;
 		memcpy( &vmode_phys, vmode, sizeof(GXRModeObj));
 		break;
 	case VIDEOMODE_PROGRESSIVE:
