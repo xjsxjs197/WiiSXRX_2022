@@ -2745,10 +2745,11 @@ static void recSYSCALL() {
     #endif // SHOW_DEBUG
 	iFlushRegs(0);
 
-	ReserveArgs(2);
+	ReserveArgs(3);
 	LIW(PutHWRegSpecial(PSXPC), pc - 4);
 	LIW(PutHWRegSpecial(ARG1), 0x20);
 	LIW(PutHWRegSpecial(ARG2), (branch == 1 ? 1 : 0));
+	LIW(PutHWRegSpecial(ARG3), (&psxRegs.CP0));
 	FlushAllHWReg();
 	CALLFunc ((u32)psxException);
 
@@ -2765,10 +2766,11 @@ static void recBREAK() {
     #endif // SHOW_DEBUG
 	iFlushRegs(0);
 
-	ReserveArgs(2);
+	ReserveArgs(3);
 	LIW(PutHWRegSpecial(PSXPC), pc - 4);
 	LIW(PutHWRegSpecial(ARG1), 0x24);
 	LIW(PutHWRegSpecial(ARG2), (branch == 1 ? 1 : 0));
+	LIW(PutHWRegSpecial(ARG3), (&psxRegs.CP0));
 	FlushAllHWReg();
 	CALLFunc ((u32)psxException);
 
