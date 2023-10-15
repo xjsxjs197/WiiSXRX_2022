@@ -36,7 +36,16 @@ char XABuf[WII_SPU_FREQ * sizeof(uint32_t) * 2] __attribute__((aligned(32)));
 char CDDABuf[CDDA_BUFFER_SIZE] __attribute__((aligned(32)));
 
 
-void CALLBACK SPUirq(void) {
+void CALLBACK SPUirq(int cycles_after) {
+	if (cycles_after > 0) {
+		new_dyna_set_event(PSXINT_SPU_IRQ, cycles_after);
+		return;
+	}
+
+	psxHu32ref(0x1070) |= SWAPu32(0x200);
+}
+
+void spuDelayedIrq() {
 	psxHu32ref(0x1070)|= SWAPu32(0x200);
 	//psxRegs.interrupt|= 0x80000000;
 }

@@ -216,7 +216,7 @@ typedef struct
  unsigned char * pSpuBuffer;
  short         * pS;
 
- void (CALLBACK *irqCallback)(void);   // func of main emu, called on spu irq
+ void (CALLBACK *irqCallback)(int);
  void (CALLBACK *cddavCallback)(unsigned short,unsigned short);
  void (CALLBACK *scheduleCallback)(unsigned int);
 

@@ -37,8 +37,9 @@
 #define H_SPUoff1        0x0d8c
 #define H_SPUoff2        0x0d8e
 
-void CALLBACK SPUirq(void);
+void CALLBACK SPUirq(int cycles_after);
 void CALLBACK SPUschedule(unsigned int cycles_after);
+void spuDelayedIrq();
 void spuUpdate();
 
 #endif /* __SPU_H__ */

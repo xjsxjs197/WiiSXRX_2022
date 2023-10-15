@@ -472,6 +472,7 @@ static irq_func * const irq_funcs[] = {
 	[PSXINT_CDRLID] = cdrLidSeekInterrupt,
 	//[PSXINT_CDRPLAY_OLD] = unusedInterrupt,
 	[PSXINT_SPU_UPDATE] = spuUpdate,
+	[PSXINT_SPU_IRQ] = spuDelayedIrq,
 	[PSXINT_RCNT] = psxRcntUpdate,
 	[PSXINT_LIGHTGUN] = lightgunInterrupt,
 };
