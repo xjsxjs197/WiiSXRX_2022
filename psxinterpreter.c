@@ -318,7 +318,7 @@ void psxDelayTest(int reg, u32 bpc) {
 // FIXME: count cache misses, memory latencies, stalls to get rid of this
 static inline void addCycle(psxRegisters *regs)
 {
-	//assert(regs->subCycleStep >= 0x10000);
+	assert(regs->subCycleStep >= 0x10000);
 	regs->subCycle += regs->subCycleStep;
 	regs->cycle += regs->subCycle >> 16;
 	regs->subCycle &= 0xffff;

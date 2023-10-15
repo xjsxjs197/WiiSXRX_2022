@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
+#include <assert.h>
 #include <sys/stat.h>
 
 #include "cdrom.h"
@@ -516,7 +517,7 @@ static void lightrec_plugin_execute_internal(bool block_only)
 	regs = lightrec_get_registers(lightrec_state);
 	gen_interupt((psxCP0Regs *)regs->cp0);
 	cycles_pcsx = next_interupt - psxRegs.cycle;
-	//assert((s32)cycles_pcsx > 0);
+	assert((s32)cycles_pcsx > 0);
 
 	// step during early boot so that 0x80030000 fastboot hack works
 	block_stepping = block_only;
@@ -618,7 +619,7 @@ static void lightrec_plugin_apply_config()
 {
 	u32 cycle_mult = Config.cycle_multiplier_override && Config.cycle_multiplier == CYCLE_MULT_DEFAULT
 		? Config.cycle_multiplier_override : Config.cycle_multiplier;
-	//assert(cycle_mult);
+	assert(cycle_mult);
 
 	lightrec_set_cycles_per_opcode(lightrec_state, cycle_mult * 1024 / 100);
 }
