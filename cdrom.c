@@ -104,7 +104,7 @@ static struct {
 	u16 CmdInProgress;
 	u8 Irq1Pending;
 	u8 unused5;
-	u32 LastReadCycles;
+	u32 LastReadSeekCycles;
 
 	u8 unused7;
 
@@ -677,16 +677,15 @@ static void cdrPlayInterrupt_Autopause(s16* cddaBuf)
 		cdr.ReportDelay--;
 }
 
-// LastReadCycles
 static int cdrSeekTime(unsigned char *target)
 {
 	int diff = msf2sec(cdr.SetSectorPlay) - msf2sec(target);
-	int pausePenalty, seekTime = abs(diff) * (cdReadTime / 2000);
+	int seekTime = abs(diff) * (cdReadTime / 2000);
 	seekTime = MAX_VALUE(seekTime, 20000);
 
 	// need this stupidly long penalty or else Spyro2 intro desyncs
-	pausePenalty = (s32)(psxRegs.cycle - cdr.LastReadCycles) > cdReadTime * 8 ? cdReadTime * 25 : 0;
-	seekTime += pausePenalty;
+	if ((s32)(psxRegs.cycle - cdr.LastReadSeekCycles) > cdReadTime * 8)
+		seekTime += cdReadTime * 25;
 
 	seekTime = MIN_VALUE(seekTime, PSXCLK * 2 / 3);
 	CDR_LOG("seek: %.2f %.2f\n", (float)seekTime / PSXCLK, (float)seekTime / cdReadTime);
@@ -755,7 +754,7 @@ static void msfiSub(u8 *msfi, u32 count)
 
 void cdrPlayReadInterrupt(void)
 {
-	cdr.LastReadCycles = psxRegs.cycle;
+	cdr.LastReadSeekCycles = psxRegs.cycle;
 
 	if (cdr.Reading) {
 		cdrReadInterrupt();
@@ -1213,6 +1212,7 @@ void cdrInterrupt(void) {
 				*(long long int *)(&cdr.LocL) = *(long long int *)(buf);
 			UpdateSubq(cdr.SetSectorPlay);
 			cdr.TrackChanged = FALSE;
+			cdr.LastReadSeekCycles = psxRegs.cycle;
 			break;
 
 		case CdlTest:

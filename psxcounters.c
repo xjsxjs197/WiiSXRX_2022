@@ -609,7 +609,9 @@ s32 psxRcntFreeze( gzFile f, s32 Mode )
         {
             _psxRcntWmode( i, rcnts[i].mode );
             count = (psxRegs.cycle - rcnts[i].cycleStart) / rcnts[i].rate;
-            _psxRcntWcount( i, count );
+            //_psxRcntWcount( i, count );
+            if (count > 0x1000)
+                _psxRcntWcount( i, count & 0xffff );
         }
         scheduleRcntBase();
         psxRcntSet();
