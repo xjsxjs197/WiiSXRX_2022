@@ -687,7 +687,14 @@ static int cdrSeekTime(unsigned char *target)
 	if ((s32)(psxRegs.cycle - cdr.LastReadSeekCycles) > cdReadTime * 8)
 		seekTime += cdReadTime * 25;
 
-	seekTime = MIN_VALUE(seekTime, PSXCLK * 2 / 3);
+	if (fastLoad)
+	{
+		seekTime = MIN_VALUE(seekTime, MinSeekTime);
+	}
+	else
+	{
+		seekTime = MIN_VALUE(seekTime, PSXCLK * 2 / 3);
+	}
 	CDR_LOG("seek: %.2f %.2f\n", (float)seekTime / PSXCLK, (float)seekTime / cdReadTime);
 	return seekTime;
 }
@@ -971,6 +978,10 @@ void cdrInterrupt(void) {
 			// BIOS player - set flag again
 			cdr.Play = TRUE;
 
+			if (fastLoad)
+			{
+				seekTime = 0;
+			}
 			CDRPLAYREAD_INT(cdReadTime + seekTime, 1);
 			start_rotating = 1;
 			break;
@@ -1180,7 +1191,14 @@ void cdrInterrupt(void) {
 			StopReading();
 			SetPlaySeekRead(cdr.StatP, STATUS_SEEK | STATUS_ROTATING);
 
-			seekTime = cdrSeekTime(cdr.SetSector);
+			if (fastLoad)
+			{
+				seekTime = WaitTime1st;
+			}
+			else
+			{
+				seekTime = cdrSeekTime(cdr.SetSector);
+			}
 			*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
 			/*
 			Crusaders of Might and Magic = 0.5x-4x
@@ -1326,6 +1344,13 @@ void cdrInterrupt(void) {
 			cycles += seekTime;
 			if (Config.hacks.cdr_read_timing)
 				cycles = cdrAlignTimingHack(cycles);
+			if (fastLoad)
+			{
+				if (seekTime > MinSeekTime)
+				{
+					seekTime = MinSeekTime;
+				}
+			}
 			CDRPLAYREAD_INT(cycles, 1);
 
 			SetPlaySeekRead(cdr.StatP, STATUS_SEEK);
@@ -1470,9 +1495,17 @@ static void cdrReadInterrupt(void)
 	SetPlaySeekRead(cdr.StatP, STATUS_READ | STATUS_ROTATING);
 	cdr.sectorsRead++;
 
-	read_ok = ReadTrack(cdr.SetSectorPlay);
-	if (read_ok)
+	if (fastLoad)
+	{
+		ReadTrack(cdr.SetSectorPlay);
 		buf = CDR_getBuffer();
+	}
+	else
+	{
+		read_ok = ReadTrack(cdr.SetSectorPlay);	
+		if (read_ok)
+			buf = CDR_getBuffer();
+	}
 	if (buf == NULL)
 		read_ok = 0;
 
