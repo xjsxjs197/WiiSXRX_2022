@@ -66,20 +66,21 @@ void Func_ToggleButtonL3();
 void Func_ToggleButtonR3();
 void Func_SensMinus();
 void Func_SensPlus();
+void Func_ToggleGunMouse();
 
 void Func_ReturnFromConfigureButtonsFrame();
 
 
-#define NUM_FRAME_BUTTONS 29
+#define NUM_FRAME_BUTTONS 30
 #define FRAME_BUTTONS configureButtonsFrameButtons
 #define FRAME_STRINGS configureButtonsFrameStrings
-#define NUM_FRAME_TEXTBOXES 4
+#define NUM_FRAME_TEXTBOXES 5
 #define FRAME_TEXTBOXES configureButtonsFrameTextBoxes
 #define TITLE_STRING configureButtonsTitleString
 
-static char FRAME_STRINGS[34][20] =
-	{ "Next Pad",
-	  "Load Default",
+static char FRAME_STRINGS[36][20] =
+	{ "Next",
+	  "Default",
 	  "Slot 1",
 	  "Load",
 	  "Save",
@@ -111,7 +112,9 @@ static char FRAME_STRINGS[34][20] =
 	  "Menu:",
 	  "+",
 	  "X+Y",
-	  "Limit FPS:"};
+	  "Limit FPS:",
+	  "Lift Mouse:",
+	  "Gun/Mouse"};
 
 static char TITLE_STRING[50] = "Gamecube Pad 1 to PSX Pad 1 Mapping";
 
@@ -132,11 +135,11 @@ struct ButtonInfo
 	ButtonFunc		returnFunc;
 } FRAME_BUTTONS[NUM_FRAME_BUTTONS] =
 { //	button	buttonStyle buttonString		x		y		width	height	Up	Dwn	Lft	Rt	clickFunc				returnFunc
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[0],	 40.0,	 20.0,	115.0,	40.0,	22,	 5,	 4,	 1,	Func_NextPad,			Func_ReturnFromConfigureButtonsFrame }, // Next Pad
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[1],	175.0,	 20.0,	145.0,	40.0,	24,	 8,	 0,	 2,	Func_DefaultConfig,		Func_ReturnFromConfigureButtonsFrame }, // Restore Default Config
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[2],	340.0,	 20.0,	 80.0,	40.0,	25,	 9,	 1,	 3,	Func_ToggleConfigSlot,	Func_ReturnFromConfigureButtonsFrame }, // Cycle Through Config Slots
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[3],	440.0,	 20.0,	 70.0,	40.0,	23,	10,	 2,	 4,	Func_LoadConfig,		Func_ReturnFromConfigureButtonsFrame }, // Load Config
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[4],	530.0,	 20.0,	 70.0,	40.0,	23,	28,	 3,	 0,	Func_SaveConfig,		Func_ReturnFromConfigureButtonsFrame }, // Save Config
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[0],	 20.0,	 20.0,	 80.0,	40.0,	22,	 5,	29,	 1,	Func_NextPad,			Func_ReturnFromConfigureButtonsFrame }, // Next Pad
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[1],	110.0,	 20.0,	100.0,	40.0,	24,	 8,	 0,	 2,	Func_DefaultConfig,		Func_ReturnFromConfigureButtonsFrame }, // Restore Default Config
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[2],	220.0,	 20.0,	 80.0,	40.0,	25,	 9,	 1,	 3,	Func_ToggleConfigSlot,	Func_ReturnFromConfigureButtonsFrame }, // Cycle Through Config Slots
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[3],	310.0,	 20.0,	 70.0,	40.0,	23,	10,	 2,	 4,	Func_LoadConfig,		Func_ReturnFromConfigureButtonsFrame }, // Load Config
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[4],	390.0,	 20.0,	 70.0,	40.0,	23,	28,	 3,	29,	Func_SaveConfig,		Func_ReturnFromConfigureButtonsFrame }, // Save Config
 
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[5],	 15.0,	160.0,	110.0,	40.0,	 0,	12,	28,	 6,	Func_ToggleButtonExit,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button Exit
 
@@ -163,9 +166,10 @@ struct ButtonInfo
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[23],	415.0,	395.0,	130.0,	40.0,	19,	 3,	25,	22,	Func_ToggleInvertYR,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Analog Invert Y R
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[24],	235.0,	395.0,	 80.0,	40.0,	27,	 1,	22,	25,	Func_ToggleButtonL3,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button L3
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[25],	325.0,	395.0,	 80.0,	40.0,	26,	 2,	24,	23,	Func_ToggleButtonR3,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button R3
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[31],	325.0,	340.0,	 50.0,	40.0,	9,	25,	27,	21,	Func_SensPlus,			Func_ReturnFromConfigureButtonsFrame }, // Stick Sensitivity +
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[28],	265.0,	340.0,	 50.0,	40.0,	8,	24,	20,	26,	Func_SensMinus,			Func_ReturnFromConfigureButtonsFrame }, // Stick Sensitivity -
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[32],	515.0,	160.0,	110.0,	40.0,	4,	16,	10,	 5,	Func_ToggleButtonFastF,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button FastForward
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[31],	325.0,	340.0,	 50.0,	40.0,	 9,	25,	27,	21,	Func_SensPlus,			Func_ReturnFromConfigureButtonsFrame }, // Stick Sensitivity +
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[28],	265.0,	340.0,	 50.0,	40.0,	 8,	24,	20,	26,	Func_SensMinus,			Func_ReturnFromConfigureButtonsFrame }, // Stick Sensitivity -
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[32],	515.0,	160.0,	110.0,	40.0,   29,	16,	10,	 5,	Func_ToggleButtonFastF,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Button FastForward
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[35],	480.0,	 20.0,	140.0,	40.0,	19,	28,	 4,	 0,	Func_ToggleGunMouse,	Func_ReturnFromConfigureButtonsFrame }, // Toggle Gun/Mouse Enable
 };
 
 struct TextBoxInfo
@@ -182,6 +186,7 @@ struct TextBoxInfo
 	{	NULL,	FRAME_STRINGS[30],	 70.0,	145.0,	 0.9,	true }, // Menu Combo
 	{	NULL,	FRAME_STRINGS[29],	 318.0,	323.0,	 0.9,	true }, // Stick Sensitivity
 	{	NULL,	FRAME_STRINGS[33],	 565.0,	145.0,	 0.9,	true }, // Fast Forward
+	{	NULL,	FRAME_STRINGS[34],	 520.0,	310.0,	 0.9,	true }, // Lift Mouse
 };
 
 ConfigureButtonsFrame::ConfigureButtonsFrame()
@@ -335,23 +340,50 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 			activePadAssigned = ACTIVEPADASSIGNED_TRUE;
 		}
 
-		if ((lightGun == LIGHTGUN_DISABLE) || !isLightgun){
+		FRAME_TEXTBOXES[4].textBox->setVisible(false);
+		FRAME_TEXTBOXES[2].textBox->setVisible(true);
+		if (padLightgun[activePad] == PADLIGHTGUN_ENABLE)
+			FRAME_BUTTONS[29].button->setSelected(true);
+		else 
+			FRAME_BUTTONS[29].button->setSelected(false);
+		
+		if ((lightGun == LIGHTGUN_DISABLE) || !isLightgun || padLightgun[activePad] == PADLIGHTGUN_DISABLE){
 			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_UP, FRAME_BUTTONS[FRAME_BUTTONS[0].focusUp].button);
 			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_DOWN, FRAME_BUTTONS[FRAME_BUTTONS[0].focusDown].button);
 			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_LEFT, FRAME_BUTTONS[FRAME_BUTTONS[0].focusLeft].button);
 			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_RIGHT, FRAME_BUTTONS[FRAME_BUTTONS[0].focusRight].button);
+			FRAME_BUTTONS[1].button->setNextFocus(menu::Focus::DIRECTION_DOWN, FRAME_BUTTONS[FRAME_BUTTONS[1].focusDown].button);
+			FRAME_BUTTONS[2].button->setNextFocus(menu::Focus::DIRECTION_DOWN, FRAME_BUTTONS[FRAME_BUTTONS[2].focusDown].button);
+			FRAME_BUTTONS[1].button->setNextFocus(menu::Focus::DIRECTION_UP, FRAME_BUTTONS[FRAME_BUTTONS[1].focusUp].button);
+			FRAME_BUTTONS[2].button->setNextFocus(menu::Focus::DIRECTION_UP, FRAME_BUTTONS[FRAME_BUTTONS[2].focusUp].button);
+			FRAME_BUTTONS[17].button->setNextFocus(menu::Focus::DIRECTION_LEFT, FRAME_BUTTONS[FRAME_BUTTONS[17].focusLeft].button);
+			FRAME_BUTTONS[17].button->setNextFocus(menu::Focus::DIRECTION_RIGHT, FRAME_BUTTONS[FRAME_BUTTONS[17].focusRight].button);
+			FRAME_BUTTONS[18].button->setNextFocus(menu::Focus::DIRECTION_LEFT, FRAME_BUTTONS[FRAME_BUTTONS[18].focusLeft].button);
+			FRAME_BUTTONS[18].button->setNextFocus(menu::Focus::DIRECTION_RIGHT, FRAME_BUTTONS[FRAME_BUTTONS[18].focusRight].button);
+			FRAME_BUTTONS[19].button->setNextFocus(menu::Focus::DIRECTION_LEFT, FRAME_BUTTONS[FRAME_BUTTONS[19].focusLeft].button);
+			FRAME_BUTTONS[19].button->setNextFocus(menu::Focus::DIRECTION_RIGHT, FRAME_BUTTONS[FRAME_BUTTONS[19].focusRight].button);
 			for (int i = 1; i < NUM_FRAME_BUTTONS; i++){
 				FRAME_BUTTONS[i].button->setActive(true);
 				FRAME_BUTTONS[i].button->setVisible(true);
 			}
 			FRAME_TEXTBOXES[1].textBox->setVisible(true);
-			FRAME_TEXTBOXES[2].textBox->setVisible(true);
+			
+			if (!isLightgun){
+				FRAME_BUTTONS[29].button->setActive(false);
+				FRAME_BUTTONS[29].button->setSelected(false);
+			}
 		}
 		else{
-			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_UP, NULL);
-			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_DOWN, NULL);
-			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_LEFT, NULL);
-			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_RIGHT, NULL);
+			FRAME_BUTTONS[1].button->setNextFocus(menu::Focus::DIRECTION_DOWN, NULL);
+			FRAME_BUTTONS[2].button->setNextFocus(menu::Focus::DIRECTION_DOWN, NULL);
+			FRAME_BUTTONS[1].button->setNextFocus(menu::Focus::DIRECTION_UP, NULL);
+			FRAME_BUTTONS[2].button->setNextFocus(menu::Focus::DIRECTION_UP, NULL);
+			FRAME_BUTTONS[17].button->setNextFocus(menu::Focus::DIRECTION_LEFT, NULL);
+			FRAME_BUTTONS[17].button->setNextFocus(menu::Focus::DIRECTION_RIGHT, NULL);
+			FRAME_BUTTONS[18].button->setNextFocus(menu::Focus::DIRECTION_LEFT, NULL);
+			FRAME_BUTTONS[18].button->setNextFocus(menu::Focus::DIRECTION_RIGHT, NULL);
+			FRAME_BUTTONS[19].button->setNextFocus(menu::Focus::DIRECTION_LEFT, NULL);
+			FRAME_BUTTONS[19].button->setNextFocus(menu::Focus::DIRECTION_RIGHT, NULL);
 			
 			for (int i = 6; i < NUM_FRAME_BUTTONS; i++){
 				FRAME_BUTTONS[i].button->setActive(false);
@@ -360,22 +392,40 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 			for (int i = 1; i < 6; i++)
 				FRAME_BUTTONS[i].button->setActive(true);
 			
-			FRAME_BUTTONS[9].button->setActive(true);
-			FRAME_BUTTONS[9].button->setVisible(true);
-			FRAME_BUTTONS[28].button->setActive(true);
-			FRAME_BUTTONS[28].button->setVisible(true);
-			if (lightGun == LIGHTGUN_JUST){
-				FRAME_BUTTONS[17].button->setActive(true);
-				FRAME_BUTTONS[17].button->setVisible(true);
-			}
-			else {
-				FRAME_BUTTONS[18].button->setActive(true);
-				FRAME_BUTTONS[18].button->setVisible(true);
-			}
 			FRAME_BUTTONS[19].button->setActive(true);
 			FRAME_BUTTONS[19].button->setVisible(true);
 			
-			FRAME_TEXTBOXES[2].textBox->setVisible(false);
+			FRAME_BUTTONS[28].button->setActive(true);
+			FRAME_BUTTONS[28].button->setVisible(true);
+			FRAME_BUTTONS[29].button->setActive(true);
+			FRAME_BUTTONS[29].button->setVisible(true);
+			if (lightGun == LIGHTGUN_JUST){
+				FRAME_TEXTBOXES[2].textBox->setVisible(false);
+				FRAME_BUTTONS[9].button->setActive(true);
+				FRAME_BUTTONS[9].button->setVisible(true);
+				FRAME_BUTTONS[17].button->setActive(true);
+				FRAME_BUTTONS[17].button->setVisible(true);
+			}
+			else if (lightGun == LIGHTGUN_GUNCON){
+				FRAME_TEXTBOXES[2].textBox->setVisible(false);
+				FRAME_BUTTONS[9].button->setActive(true);
+				FRAME_BUTTONS[9].button->setVisible(true);
+				FRAME_BUTTONS[18].button->setActive(true);
+				FRAME_BUTTONS[18].button->setVisible(true);
+			}
+			else {
+				FRAME_TEXTBOXES[4].textBox->setVisible(true);
+				FRAME_TEXTBOXES[2].textBox->setVisible(true);
+				FRAME_BUTTONS[26].button->setActive(true);
+				FRAME_BUTTONS[26].button->setVisible(true);
+				FRAME_BUTTONS[27].button->setActive(true);
+				FRAME_BUTTONS[27].button->setVisible(true);
+				FRAME_BUTTONS[10].button->setActive(true);
+				FRAME_BUTTONS[10].button->setVisible(true);
+				FRAME_BUTTONS[11].button->setActive(true);
+				FRAME_BUTTONS[11].button->setVisible(true);
+			}
+			
 		}
 
 		//Assign text to each button
@@ -452,6 +502,11 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 		int linesJust[3][4] =     {{500, 310, 315, 300}, //Squ
 								   {490, 380, 370, 275}, //Cro
 								   {365, 160, 343, 270}}; //START
+								   
+		int basePSMouse_x = 105;	
+		int basePSMouse_y = 135;
+		int linesPSMouse[2][4] =  {{170, 240, 460, 150}, //Left
+								   {220, 240, 460, 200}}; //Right
 
 
 		GXColor controllerColors[7] = {	{  1,  29, 169, 255}, //blue
@@ -466,12 +521,14 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 		menu::Image* controllerIcon = NULL;
 //		gfx.setColor(controllerColors[activePad]);
 		gfx.setColor(controllerColors[5]);
-		if ((lightGun == LIGHTGUN_DISABLE) || !isLightgun)
+		if ((lightGun == LIGHTGUN_DISABLE) || !isLightgun || padLightgun[activePad] == PADLIGHTGUN_DISABLE)
 			controllerIcon = menu::Resources::getInstance().getImage(menu::Resources::IMAGE_PSX_CONTROLLER);
 		else if (lightGun == LIGHTGUN_GUNCON)
 			controllerIcon = menu::Resources::getInstance().getImage(menu::Resources::IMAGE_GCON);
-		else
+		else if (lightGun == LIGHTGUN_JUST)
 			controllerIcon = menu::Resources::getInstance().getImage(menu::Resources::IMAGE_JUST);
+		else
+			controllerIcon = menu::Resources::getInstance().getImage(menu::Resources::IMAGE_PSMOUSE);
 		
 		controllerIcon->activateImage(GX_TEXMAP0);
 //		GX_SetTevColorIn(GX_TEVSTAGE0,GX_CC_ZERO,GX_CC_ZERO,GX_CC_ZERO,GX_CC_RASC);
@@ -480,18 +537,20 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 		GX_SetTevAlphaIn(GX_TEVSTAGE0,GX_CA_ZERO,GX_CA_RASA,GX_CA_TEXA,GX_CA_ZERO);
 		GX_SetTevAlphaOp(GX_TEVSTAGE0,GX_TEV_ADD,GX_TB_ZERO,GX_CS_SCALE_1,GX_TRUE,GX_TEVPREV);
 		gfx.enableBlending(true);
-		if ((lightGun == LIGHTGUN_DISABLE) || !isLightgun)
+		if ((lightGun == LIGHTGUN_DISABLE) || !isLightgun || padLightgun[activePad] == PADLIGHTGUN_DISABLE)
 			gfx.drawImage(0, base_x, base_y, 232, 152, 0, 1, 0, 1);
 		else if (lightGun == LIGHTGUN_GUNCON)
 			gfx.drawImage(0, baseGCon_x, baseGCon_y, 290, 190, 0, 1, 0, 1);
-		else
+		else if (lightGun == LIGHTGUN_JUST)
 			gfx.drawImage(0, baseJust_x, baseJust_y, 280, 180, 0, 1, 0, 1);
+		else
+			gfx.drawImage(0, basePSMouse_x, basePSMouse_y, 144, 256, 0, 1, 0, 1);
 		gfx.setTEV(GX_PASSCLR);
 
 		//Draw lines and circles
 		gfx.setColor(controllerColors[5]);
 		gfx.setLineWidth(1);
-		if ((lightGun == LIGHTGUN_DISABLE) || !isLightgun){
+		if ((lightGun == LIGHTGUN_DISABLE) || !isLightgun || padLightgun[activePad] == PADLIGHTGUN_DISABLE){
 			gfx.drawCircle(115, 300, 60, 33);
 			gfx.drawCircle(525, 300, 60, 33);
 
@@ -505,9 +564,13 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 			for (int i=0; i<3; i++)
 				gfx.drawLine(linesGCon[i][0], linesGCon[i][1], linesGCon[i][2], linesGCon[i][3]);
 		}
-		else{
+		else if (lightGun == LIGHTGUN_JUST){
 			for (int i=0; i<3; i++)
 				gfx.drawLine(linesJust[i][0], linesJust[i][1], linesJust[i][2], linesJust[i][3]);
+		}
+		else{
+			for (int i=0; i<2; i++)
+				gfx.drawLine(linesPSMouse[i][0], linesPSMouse[i][1], linesPSMouse[i][2], linesPSMouse[i][3]);
 		}
 			
 
@@ -800,6 +863,12 @@ void Func_ToggleButtonR3()
 	currentButton = (currentButton+1) %virtualControllers[activePad].control->num_buttons;
 	currentConfig->R3 = &virtualControllers[activePad].control->buttons[currentButton];
 	strcpy(FRAME_STRINGS[25], currentConfig->R3->name);
+}
+
+void Func_ToggleGunMouse()
+{
+	padLightgun[activePad] ^= 1;
+	pMenuContext->getFrame(MenuContext::FRAME_CONFIGUREBUTTONS)->activateSubmenu(activePad);
 }
 
 void Func_ReturnFromConfigureButtonsFrame()

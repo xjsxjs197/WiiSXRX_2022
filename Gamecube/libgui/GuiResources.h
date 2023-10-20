@@ -54,7 +54,8 @@ public:
 		IMAGE_CONTROLLER_WIIMOTE,
 		IMAGE_PSX_CONTROLLER,
 		IMAGE_GCON,
-		IMAGE_JUST
+		IMAGE_JUST,
+		IMAGE_PSMOUSE
 	};
 
 private:
@@ -72,6 +73,7 @@ private:
 	Image *psxControllerImage;
 	Image *GConImage;
 	Image *JustImage;
+	Image *PSMouseImage;
 
 };
 
