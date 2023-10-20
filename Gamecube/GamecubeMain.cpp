@@ -126,6 +126,7 @@ char fileSortMode = 1;
 char padAutoAssign;
 char padType[10];
 char padAssign[10];
+char padLightgun[10];
 char rumbleEnabled;
 char loadButtonSlot;
 char controllerType;
@@ -211,9 +212,19 @@ static struct {
   { "TrapFilter", &trapFilter, TRAPFILTER_DISABLE, TRAPFILTER_ENABLE },
   { "Interlaced", &interlacedMode, INTERLACED_DISABLE, INTERLACED_ENABLE },
   { "DeflickerFilter", &deflickerFilter, DEFLICKER_DISABLE, DEFLICKER_ENABLE },
-  { "LightGun", &lightGun, LIGHTGUN_DISABLE, LIGHTGUN_JUST },
+  { "LightGun", &lightGun, LIGHTGUN_DISABLE, LIGHTGUN_MOUSE },
   { "Memcard0", &memCard[0], MEMCARD_DISABLE, MEMCARD_ENABLE },
-  { "Memcard1", &memCard[1], MEMCARD_DISABLE, MEMCARD_ENABLE }
+  { "Memcard1", &memCard[1], MEMCARD_DISABLE, MEMCARD_ENABLE },
+  { "PadLightgun1", &padLightgun[0], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
+  { "PadLightgun2", &padLightgun[1], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
+  { "PadLightgun3", &padLightgun[2], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
+  { "PadLightgun4", &padLightgun[3], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
+  { "PadLightgun5", &padLightgun[4], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
+  { "PadLightgun6", &padLightgun[5], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
+  { "PadLightgun7", &padLightgun[6], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
+  { "PadLightgun8", &padLightgun[7], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
+  { "PadLightgun9", &padLightgun[8], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
+  { "PadLightgun10", &padLightgun[9], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE }
 };
 void handleConfigPair(char* kv);
 void readConfig(FILE* f);
@@ -248,6 +259,7 @@ void loadSettings(int argc, char *argv[])
 	for (int i = 0; i < 10; i++){
 		padType[i]		 = PADTYPE_NONE;
 		padAssign[i]	 = PADASSIGN_INPUT0;
+		padLightgun[i]	 = PADLIGHTGUN_ENABLE;
 	}
 	padAssign[1]	 = PADASSIGN_INPUT1;
 	memCard[0]		 = MEMCARD_ENABLE;

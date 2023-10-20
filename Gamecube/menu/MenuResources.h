@@ -32,5 +32,6 @@ extern  u8 ControlWiimoteTexture[];
 extern  u8 PsxControllerTexture[];
 extern  u8 GConTexture[];
 extern  u8 JustTexture[];
+extern  u8 PSMouseTexture[];
 
 #endif
