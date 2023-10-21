@@ -1912,7 +1912,8 @@ void LidInterrupt() {
 
     cdr.StatP |= STATUS_SHELLOPEN;
     isShellopen = true;
-    cdr.DriveState = DRIVESTATE_RESCAN_CD;
+    cdr.DriveState = DRIVESTATE_STANDBY;
 
-	cdrLidSeekInterrupt();
+	//cdrLidSeekInterrupt();
+	CDRLID_INT(cdReadTime * 30);
 }
