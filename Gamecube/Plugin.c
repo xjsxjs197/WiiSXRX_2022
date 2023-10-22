@@ -157,7 +157,7 @@ void SignalExit(int sig) {
 	OnFile_Exit();
 }
 
-void SPUirq(void);
+void SPUirq(int);
 
 int NetOpened = 0;
 

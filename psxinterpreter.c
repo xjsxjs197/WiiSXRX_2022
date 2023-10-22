@@ -25,6 +25,9 @@
 #include "r3000a.h"
 #include "gte.h"
 #include "psxhle.h"
+#include "psxinterpreter.h"
+#include <stddef.h>
+#include <assert.h>
 
 int branch = 0;
 int branch2 = 0;
@@ -38,6 +41,15 @@ extern int stop;
 #define debugI() PSXCPU_LOG("%s\n", disR3000AF(psxRegs.code, psxRegs.pc));
 #else
 #define debugI()
+#endif
+
+#ifdef __i386__
+#define INT_ATTR __attribute__((regparm(2)))
+#else
+#define INT_ATTR
+#endif
+#ifndef INVALID_PTR
+#define INVALID_PTR NULL
 #endif
 
 static void execI();
@@ -263,6 +275,18 @@ int psxTestLoadDelay(int reg, u32 tmp) {
 	return 0;
 }
 
+// get an opcode without triggering exceptions or affecting cache
+u32 intFakeFetch(u32 pc)
+{
+	u8 *base = psxMemRLUT[pc >> 16];
+	u32 *code;
+	if (unlikely(base == INVALID_PTR))
+		return 0; // nop
+	code = (u32 *)(base + (pc & 0xfffc));
+	return SWAP32(*code);
+
+}
+
 void psxDelayTest(int reg, u32 bpc) {
 	u32 *code;
 	u32 tmp;
@@ -271,7 +295,7 @@ void psxDelayTest(int reg, u32 bpc) {
 	code = Read_ICache(bpc, TRUE);
 
 	tmp = ((code == NULL) ? 0 : SWAP32(*code));
-	branch = 1;
+	branch = R3000A_BRANCH_TAKEN;
 
 	switch (psxTestLoadDelay(reg, tmp)) {
 		case 1:
@@ -287,6 +311,17 @@ void psxDelayTest(int reg, u32 bpc) {
 	psxRegs.pc = bpc;
 
 	psxBranchTest();
+}
+
+// Make the timing events trigger faster as we are currently assuming everything
+// takes one cycle, which is not the case on real hardware.
+// FIXME: count cache misses, memory latencies, stalls to get rid of this
+static inline void addCycle(psxRegisters *regs)
+{
+	assert(regs->subCycleStep >= 0x10000);
+	regs->subCycle += regs->subCycleStep;
+	regs->cycle += regs->subCycle >> 16;
+	regs->subCycle &= 0xffff;
 }
 
 static u32 psxBranchNoDelay(void) {
@@ -361,7 +396,8 @@ __inline int psxDelayBranchExec(u32 tar) {
 
 	branch = 0;
 	psxRegs.pc = tar;
-	psxRegs.cycle += BIAS;
+	//psxRegs.cycle += BIAS;
+	addCycle(&psxRegs);
 	psxBranchTest();
 	return 1;
 }
@@ -387,7 +423,8 @@ __inline int psxDelayBranchTest(u32 tar1) {
 		return psxDelayBranchExec(tar2);
 	}
 	debugI();
-	psxRegs.cycle += BIAS;
+	//psxRegs.cycle += BIAS;
+	addCycle(&psxRegs);
 
 	/*
 	 * Got a branch at tar1:
@@ -400,7 +437,8 @@ __inline int psxDelayBranchTest(u32 tar1) {
 		return psxDelayBranchExec(tmp1);
 	}
 	debugI();
-	psxRegs.cycle += BIAS;
+	//psxRegs.cycle += BIAS;
+	addCycle(&psxRegs);
 
 	/*
 	 * Got a branch at tar2:
@@ -415,7 +453,7 @@ __inline void doBranch(u32 tar) {
 	u32 *code;
 	u32 tmp;
 
-	branch2 = branch = 1;
+	branch2 = branch = R3000A_BRANCH_TAKEN;
 	branchPC = tar;
 
 	// notaz: check for branch in delay slot
@@ -430,7 +468,8 @@ __inline void doBranch(u32 tar) {
 	debugI();
 
 	psxRegs.pc += 4;
-	psxRegs.cycle += BIAS;
+	//psxRegs.cycle += BIAS;
+	addCycle(&psxRegs);
 
 	// check for load delay
 	tmp = psxRegs.code >> 26;
@@ -611,18 +650,18 @@ void psxMTLO() { _rLo_ = _rRs_; } // Lo = Rs
 *********************************************************/
 void psxBREAK() {
 	psxRegs.pc -= 4;
-	psxException(0x24, branch);
+	psxException(0x24, branch, &psxRegs.CP0);
 }
 
 void psxSYSCALL() {
 	psxRegs.pc -= 4;
-	psxException(0x20, branch);
+	psxException(0x20, branch, &psxRegs.CP0);
 }
 
 void psxRFE() {
 //	SysPrintf("psxRFE\n");
-	psxRegs.CP0.n.Status = (psxRegs.CP0.n.Status & 0xfffffff0) |
-						  ((psxRegs.CP0.n.Status & 0x3c) >> 2);
+	psxRegs.CP0.n.SR = (psxRegs.CP0.n.SR & 0xfffffff0) |
+						  ((psxRegs.CP0.n.SR & 0x3c) >> 2);
 	psxTestSWInts();
 }
 
@@ -801,17 +840,19 @@ void psxMFC0() { if (!_Rt_) return; _i32(_rRt_) = (int)_rFs_; }
 void psxCFC0() { if (!_Rt_) return; _i32(_rRt_) = (int)_rFs_; }
 
 void psxTestSWInts() {
-	if (psxRegs.CP0.n.Cause & psxRegs.CP0.n.Status & 0x0300 &&
-	   psxRegs.CP0.n.Status & 0x1) {
+	if (psxRegs.CP0.n.Cause & psxRegs.CP0.n.SR & 0x0300 &&
+	   psxRegs.CP0.n.SR & 0x1) {
 		psxRegs.CP0.n.Cause &= ~0x7c;
-		psxException(psxRegs.CP0.n.Cause, branch);
+		psxException(psxRegs.CP0.n.Cause, branch, &psxRegs.CP0);
 	}
 }
+
+static void setupCop(u32 sr);
 
 __inline void MTC0(int reg, u32 val) {
 //	SysPrintf("MTC0 %d: %x\n", reg, val);
 	switch (reg) {
-		case 12: // psxRegs.CP0.r[12] = psxRegs.CP0.n.Status
+		case 12: // psxRegs.CP0.r[12] = psxRegs.CP0.n.SR
 			psxRegs.CP0.r[12] = val;
 			psxTestSWInts();
 			//psxRegs.interrupt|= 0x80000000;
@@ -950,7 +991,8 @@ static void execI() {
 	debugI();
 
 	psxRegs.pc += 4;
-	psxRegs.cycle += BIAS;
+	//psxRegs.cycle += BIAS;
+	addCycle(&psxRegs);
 
 	psxBSC[psxRegs.code >> 26]();
 
@@ -977,6 +1019,115 @@ static void intExecuteBlockDbg() {
 }
 
 static void intClear(u32 Addr, u32 Size) {
+}
+
+static void intNotify(enum R3000Anote note, void *data) {
+//	switch (note) {
+//	case R3000ACPU_NOTIFY_BEFORE_SAVE:
+//		dloadFlush(&psxRegs);
+//		break;
+//	case R3000ACPU_NOTIFY_AFTER_LOAD:
+//		dloadClear(&psxRegs);
+//		psxRegs.subCycle = 0;
+//		setupCop(psxRegs.CP0.n.SR);
+//		// fallthrough
+//	case R3000ACPU_NOTIFY_CACHE_ISOLATED: // Armored Core?
+//		memset(&ICache, 0xff, sizeof(ICache));
+//		break;
+//	case R3000ACPU_NOTIFY_CACHE_UNISOLATED:
+//		break;
+//	}
+}
+
+static void setupCop(u32 sr)
+{
+//	if (sr & (1u << 29))
+//		psxBSC[17] = psxCOP1;
+//	else
+//		psxBSC[17] = psxCOPd;
+//	if (sr & (1u << 30))
+//		psxBSC[18] = Config.DisableStalls ? psxCOP2 : psxCOP2_stall;
+//	else
+//		psxBSC[18] = psxCOPd;
+//	if (sr & (1u << 31))
+//		psxBSC[19] = psxCOP3;
+//	else
+//		psxBSC[19] = psxCOPd;
+}
+
+void intApplyConfig() {
+	int cycle_mult;
+
+//	if (Config.DisableStalls) {
+//		psxBSC[18] = psxCOP2;
+//		psxBSC[50] = gteLWC2;
+//		psxBSC[58] = gteSWC2;
+//		psxSPC[16] = psxMFHI;
+//		psxSPC[18] = psxMFLO;
+//		psxSPC[24] = psxMULT;
+//		psxSPC[25] = psxMULTU;
+//		psxSPC[26] = psxDIV;
+//		psxSPC[27] = psxDIVU;
+//	} else {
+//		psxBSC[18] = psxCOP2_stall;
+//		psxBSC[50] = gteLWC2_stall;
+//		psxBSC[58] = gteSWC2_stall;
+//		psxSPC[16] = psxMFHI_stall;
+//		psxSPC[18] = psxMFLO_stall;
+//		psxSPC[24] = psxMULT_stall;
+//		psxSPC[25] = psxMULTU_stall;
+//		psxSPC[26] = psxDIV_stall;
+//		psxSPC[27] = psxDIVU_stall;
+//	}
+//	setupCop(psxRegs.CP0.n.SR);
+//
+//	if (Config.PreciseExceptions) {
+//		psxBSC[0x20] = psxLBe;
+//		psxBSC[0x21] = psxLHe;
+//		psxBSC[0x22] = psxLWLe;
+//		psxBSC[0x23] = psxLWe;
+//		psxBSC[0x24] = psxLBUe;
+//		psxBSC[0x25] = psxLHUe;
+//		psxBSC[0x26] = psxLWRe;
+//		psxBSC[0x28] = psxSBe;
+//		psxBSC[0x29] = psxSHe;
+//		psxBSC[0x2a] = psxSWLe;
+//		psxBSC[0x2b] = psxSWe;
+//		psxBSC[0x2e] = psxSWRe;
+//		psxBSC[0x32] = gteLWC2e_stall;
+//		psxBSC[0x3a] = gteSWC2e_stall;
+//		psxSPC[0x08] = psxJRe;
+//		psxSPC[0x09] = psxJALRe;
+//		psxInt.Execute = intExecuteBp;
+//	} else {
+//		psxBSC[0x20] = psxLB;
+//		psxBSC[0x21] = psxLH;
+//		psxBSC[0x22] = psxLWL;
+//		psxBSC[0x23] = psxLW;
+//		psxBSC[0x24] = psxLBU;
+//		psxBSC[0x25] = psxLHU;
+//		psxBSC[0x26] = psxLWR;
+//		psxBSC[0x28] = psxSB;
+//		psxBSC[0x29] = psxSH;
+//		psxBSC[0x2a] = psxSWL;
+//		psxBSC[0x2b] = psxSW;
+//		psxBSC[0x2e] = psxSWR;
+//		// LWC2, SWC2 handled by Config.DisableStalls
+//		psxSPC[0x08] = psxJR;
+//		psxSPC[0x09] = psxJALR;
+//		psxInt.Execute = intExecute;
+//	}
+//
+//	// the dynarec may occasionally call the interpreter, in such a case the
+//	// cache won't work (cache only works right if all fetches go through it)
+//	if (!Config.icache_emulation || psxCpu != &psxInt)
+//		fetch = fetchNoCache;
+//	else
+//		fetch = fetchICache;
+
+	cycle_mult = Config.cycle_multiplier_override && Config.cycle_multiplier == CYCLE_MULT_DEFAULT
+		? Config.cycle_multiplier_override : Config.cycle_multiplier;
+	psxRegs.subCycleStep = 0x10000 * cycle_mult / 100;
 }
 
 static void intShutdown() {
@@ -1017,6 +1168,8 @@ R3000Acpu psxInt = {
 	intExecute,
 	intExecuteBlock,
 	intClear,
+	intNotify,
+	intApplyConfig,
 	intShutdown
 };
 
@@ -1026,5 +1179,7 @@ R3000Acpu psxIntDbg = {
 	intExecuteDbg,
 	intExecuteBlockDbg,
 	intClear,
+	intNotify,
+	intApplyConfig,
 	intShutdown
 };

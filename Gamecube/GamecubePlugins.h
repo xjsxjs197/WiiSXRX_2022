@@ -76,7 +76,7 @@ long CALLBACK PEOPS_SPUshutdown(void);
 long CALLBACK PEOPS_SPUtest(void);
 long CALLBACK PEOPS_SPUconfigure(void);
 void CALLBACK PEOPS_SPUabout(void);
-void CALLBACK PEOPS_SPUregisterCallback(void (CALLBACK *callback)(void));
+void CALLBACK PEOPS_SPUregisterCallback(void (CALLBACK *callback)(int));
 void CALLBACK PEOPS_SPUregisterCDDAVolume(void (CALLBACK *CDDAVcallback)(unsigned short,unsigned short));
 //registers.c
 void CALLBACK PEOPS_SPUwriteRegister(unsigned long reg, unsigned short val);
@@ -108,7 +108,7 @@ long FRAN_SPU_freeze(unsigned long ulFreezeMode,SPUFreeze_t * pF);
 void FRAN_SPU_setConfigFile(char *cfgfile);
 void FRAN_SPU_About();
 void FRAN_SPU_test();
-void FRAN_SPU_registerCallback(void (*callback)(void));
+void FRAN_SPU_registerCallback(void (*callback)(int));
 void FRAN_SPU_registerCDDAVolume(void (*CDDAVcallback)(unsigned short,unsigned short));
 
 /* dfsound */
@@ -130,7 +130,7 @@ void DF_SPUconfigure(void);
 void DF_SPUabout(void);
 void DF_SPUtest(void);
 long DF_SPUupdate(void);
-void DF_SPUregisterCallback(void (*callback)(void));
+void DF_SPUregisterCallback(void (*callback)(int));
 void DF_SPUregisterCDDAVolume(void (*CDDAVcallback)(unsigned short,unsigned short));
 void DF_SPUregisterScheduleCb(void (*callback)(unsigned int));
 
@@ -511,7 +511,7 @@ unsigned char * CALLBACK Mooby2CDRgetBuffer(void);
 
 #define DFSOUND_PLUGIN \
 	{ "SPU",      \
-	  20,         \
+	  18,         \
 	  { { "SPUinit",  \
 	      (void*)DF_SPUinit}, \
 	    { "SPUshutdown", \
@@ -530,10 +530,6 @@ unsigned char * CALLBACK Mooby2CDRgetBuffer(void);
 	      (void*)DF_SPUwriteRegister}, \
 	    { "SPUreadRegister", \
 	      (void*)DF_SPUreadRegister}, \
-	    { "SPUwriteDMA", \
-	      (void*)DF_SPUwriteDMA}, \
-	    { "SPUreadDMA", \
-	      (void*)DF_SPUreadDMA}, \
 	    { "SPUwriteDMAMem", \
 	      (void*)DF_SPUwriteDMAMem}, \
 	    { "SPUreadDMAMem", \

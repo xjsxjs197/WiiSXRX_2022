@@ -119,8 +119,14 @@ typedef struct
  unsigned int      bFMod:2;                            // freq mod (0=off, 1=sound channel, 2=freq channel)
  unsigned int      prevflags:3;                        // flags from previous block
  unsigned int      bIgnoreLoop:1;                      // Ignore loop
- int               iLeftVolume;                        // left volume
- int               iRightVolume;                       // right volume
+ unsigned int      bNewPitch:1;                        // pitch changed
+ union {
+  struct {
+   int             iLeftVolume;                        // left volume
+   int             iRightVolume;                       // right volume
+  };
+  int              iVolume[2];
+ };
  ADSRInfoEx        ADSRX;
  int               iRawPitch;                          // raw pitch (0...3fff)
 } SPUCHAN;
@@ -194,6 +200,7 @@ typedef struct
  unsigned char * pSpuIrq;
 
  unsigned int    cycles_played;
+ unsigned int    cycles_dma_end;
  int             decode_pos;
  int             decode_dirty_ch;
  unsigned int    bSpuInit:1;
@@ -206,13 +213,10 @@ typedef struct
  unsigned int    dwChannelsAudible;    // not silent channels
  unsigned int    dwChannelDead;        // silent+not useful channels
 
- //unsigned char   spuBuffer[NUM_SPU_BUFFERS][32768] __attribute__((aligned(32)));
- //unsigned int    whichBuffer;
-
  unsigned char * pSpuBuffer;
  short         * pS;
 
- void (CALLBACK *irqCallback)(void);   // func of main emu, called on spu irq
+ void (CALLBACK *irqCallback)(int);
  void (CALLBACK *cddavCallback)(unsigned short,unsigned short);
  void (CALLBACK *scheduleCallback)(unsigned int);
 
@@ -243,7 +247,6 @@ typedef struct
  int           * SB;
  int           * SSumLR;
 
- int             pad[29];
  unsigned short  regArea[0x400];
 } SPUInfo;
 
@@ -260,6 +263,7 @@ extern SPUInfo spu;
 
 int do_samples(unsigned int cycles_to, int do_sync);
 void schedule_next_irq(void);
+void check_irq_io(unsigned int addr);
 
 #define do_samples_if_needed(c, sync) \
  do { \

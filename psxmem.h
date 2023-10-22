@@ -48,6 +48,7 @@
 
 #endif
 
+#define INVALID_PTR NULL
 
 extern s8 *psxM;
 //#define psxMs8(mem)		psxM[(mem) & 0x1fffff]

@@ -21,6 +21,7 @@
 * Miscellaneous functions, including savestates and CD-ROM loading.
 */
 
+#include <assert.h>
 #include "misc.h"
 #include "cdrom.h"
 #include "psxhw.h"
@@ -31,6 +32,7 @@
 #include "Gamecube/fileBrowser/fileBrowser-libfat.h"
 
 #include "dfsound/externals.h"
+#include "database.h"
 
 int Log = 0;
 
@@ -147,26 +149,37 @@ int GetCdromFile(u8 *mdir, u8 *time, char *filename) {
 	return retval;
 }
 
-static const unsigned int gpu_ctl_def[] = {
-	0x00000000, 0x01000000, 0x03000000, 0x04000000,
-	0x05000800, 0x06c60260, 0x0703fc10, 0x08000027,
-};
-
-static const unsigned int gpu_data_def[] = {
-	0xe100360b, 0xe2000000, 0xe3000800, 0xe4077e7f,
-	0xe5001000, 0xe6000000,
-	0x02000000, 0x00000000, 0x01ff03ff,
-};
-
-static void fake_bios_gpu_setup(void)
+static void SetBootRegs(u32 pc, u32 gp, u32 sp)
 {
-	int i;
+	//printf("%s %08x %08x %08x\n", __func__, pc, gp, sp);
+	psxCpu->Notify(R3000ACPU_NOTIFY_BEFORE_SAVE, NULL);
 
-	for (i = 0; i < sizeof(gpu_ctl_def) / sizeof(gpu_ctl_def[0]); i++)
-		GPU_writeStatus(gpu_ctl_def[i]);
+	psxRegs.pc = pc;
+	psxRegs.GPR.n.gp = gp;
+	psxRegs.GPR.n.sp = sp ? sp : 0x801fff00;
+	psxRegs.GPR.n.fp = psxRegs.GPR.n.sp;
 
-	for (i = 0; i < sizeof(gpu_data_def) / sizeof(gpu_data_def[0]); i++)
-		GPU_writeData(gpu_data_def[i]);
+	psxRegs.GPR.n.t0 = psxRegs.GPR.n.sp; // mimic A(43)
+	psxRegs.GPR.n.t3 = pc;
+
+	psxCpu->Notify(R3000ACPU_NOTIFY_AFTER_LOAD, NULL);
+}
+
+void BiosBootBypass() {
+	assert(psxRegs.pc == 0x80030000);
+
+	// skip BIOS logos and region check
+	psxCpu->Notify(R3000ACPU_NOTIFY_BEFORE_SAVE, NULL);
+	psxRegs.pc = psxRegs.GPR.n.ra;
+}
+
+static void getFromCnf(char *buf, const char *key, u32 *val)
+{
+	buf = strstr(buf, key);
+	if (buf)
+		buf = strchr(buf, '=');
+	if (buf)
+		*val = strtol(buf + 1, NULL, 16);
 }
 
 int LoadCdrom() {
@@ -175,18 +188,17 @@ int LoadCdrom() {
 	u8 time[4], *buf;
 	u8 mdir[4096];
 
-    if (!swapIso) {
-        // not the best place to do it, but since BIOS boot logo killer
-	    // is just below, do it here
-	    fake_bios_gpu_setup();
-    } else {
+    // restore swapIso status
+    if (swapIso) {
         swapIso = false;
     }
 
 	if (!Config.HLE) {
-		if(!LoadCdBios)
-  	  psxRegs.pc = psxRegs.GPR.n.ra;
-    return 0;
+		if (psxRegs.pc != 0x80030000) // BiosBootBypass'ed or custom BIOS?
+			return 0;
+		if (!LoadCdBios)
+  	        psxRegs.pc = psxRegs.GPR.n.ra;
+        return 0;
 	}
 
 	time[0] = itob(0); time[1] = itob(2); time[2] = itob(0x10);
@@ -238,16 +250,13 @@ int LoadCdrom() {
 
 	memcpy(&tmpHead, buf + 12, sizeof(EXE_HEADER));
 
-	psxRegs.pc = SWAP32(tmpHead.pc0);
-	psxRegs.GPR.n.gp = SWAP32(tmpHead.gp0);
-	psxRegs.GPR.n.sp = SWAP32(tmpHead.s_addr);
-	if (psxRegs.GPR.n.sp == 0) psxRegs.GPR.n.sp = 0x801fff00;
+	SetBootRegs(SWAP32(tmpHead.pc0), SWAP32(tmpHead.gp0), SWAP32(tmpHead.s_addr));
 
 	tmpHead.t_size = SWAP32(tmpHead.t_size);
 	tmpHead.t_addr = SWAP32(tmpHead.t_addr);
 
 	psxCpu->Clear(tmpHead.t_addr, tmpHead.t_size / 4);
-	psxCpu->Reset();
+	//psxCpu->Reset();
 
 	// Read the rest of the main executable
 	while (tmpHead.t_size & ~2047) {
@@ -295,7 +304,7 @@ int LoadCdromFile(char *filename, EXE_HEADER *head) {
 	addr = head->t_addr;
 
 	psxCpu->Clear(addr, size / 4);
-	psxCpu->Reset();
+	//psxCpu->Reset();
 
 	psxRegs.ICache_valid = FALSE;
 
@@ -420,7 +429,10 @@ int CheckCdrom() {
       CdromId[i]=0;
     }
   }
-    // xjsxjs197 mem too small
+
+	Apply_Hacks_Cdrom();
+
+	// xjsxjs197 mem too small
 	// BuildPPFCache();
 
 	return 0;
@@ -472,11 +484,7 @@ int Load(fileBrowser_file *exe) {
 				isoFile_readFile(exe, &tmpHead, sizeof(EXE_HEADER));
 				isoFile_seekFile(exe, 0x800, FILE_BROWSER_SEEK_SET);
 				isoFile_readFile(exe, (void *)PSXM(SWAP32(tmpHead.t_addr)), SWAP32(tmpHead.t_size));
-				psxRegs.pc = SWAP32(tmpHead.pc0);
-				psxRegs.GPR.n.gp = SWAP32(tmpHead.gp0);
-				psxRegs.GPR.n.sp = SWAP32(tmpHead.s_addr);
-				if (psxRegs.GPR.n.sp == 0)
-					psxRegs.GPR.n.sp = 0x801fff00;
+				SetBootRegs(SWAP32(tmpHead.pc0), SWAP32(tmpHead.gp0), SWAP32(tmpHead.s_addr));
 				retval = 0;
 				break;
 			case CPE_EXE:
@@ -518,9 +526,6 @@ void savestates_select_slot(unsigned int s)
    savestates_slot = s;
 }
 
-void lightrec_plugin_sync_regs_to_pcsx(void);
-void lightrec_plugin_sync_regs_from_pcsx(void);
-
 int SaveState() {
 
   gzFile f;
@@ -547,10 +552,7 @@ int SaveState() {
   	return 0;
 	}
 
-  new_dyna_before_save();
-
-	if (!Config.Cpu)
-		lightrec_plugin_sync_regs_to_pcsx();
+  psxCpu->Notify(R3000ACPU_NOTIFY_BEFORE_SAVE, NULL);
 
   LoadingBar_showBar(0.0f, SAVE_STATE_MSG);
   pauseRemovalThread();
@@ -607,8 +609,6 @@ int SaveState() {
   LoadingBar_showBar(0.99f, SAVE_STATE_MSG);
 	gzclose(f);
 
-	new_dyna_after_save();
-
 	continueRemovalThread();
   LoadingBar_showBar(1.0f, SAVE_STATE_MSG);
 	return 1; //ok
@@ -658,8 +658,7 @@ int LoadState() {
 	gzread(f, (void*)&psxRegs, sizeof(psxRegs));
   LoadingBar_showBar(0.70f, LOAD_STATE_MSG);
 
-	if (!Config.Cpu)
-		lightrec_plugin_sync_regs_from_pcsx();
+	psxCpu->Notify(R3000ACPU_NOTIFY_AFTER_LOAD, NULL);
 
 	if (Config.HLE)
 		psxBiosFreeze(0);
