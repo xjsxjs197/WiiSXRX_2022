@@ -14,12 +14,16 @@
  *   You should have received a copy of the GNU General Public License     *
  *   along with this program; if not, write to the                         *
  *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   51 Franklin Street, Fifth Floor, Boston, MA 02111-1307 USA.           *
  ***************************************************************************/
 
 
 #ifndef _SIO_H_
 #define _SIO_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "psxcommon.h"
 #include "r3000a.h"
@@ -55,6 +59,7 @@ extern unsigned short StatReg;
 extern unsigned short ModeReg;
 extern unsigned short CtrlReg;
 extern unsigned short BaudReg;
+extern char McdDisable[2];
 
 #ifdef HW_RVL
 #include "Gamecube/MEM2.h"
@@ -92,4 +97,7 @@ typedef struct {
 
 extern void GetMcdBlockInfo(int mcd, int block, McdBlock *info);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

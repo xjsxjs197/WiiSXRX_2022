@@ -265,10 +265,8 @@ void loadSettings(int argc, char *argv[])
 	Config.PsxOut = 1;
 	Config.HLE = 1;
 	Config.Xa = 0;  //XA enabled
-	// upd xjsxjs197 start
-	//Config.Cdda = 1; //CDDA disabled
 	Config.Cdda = 0; //CDDA enabled
-	// upd xjsxjs197 end
+	Config.cycle_multiplier = CYCLE_MULT_DEFAULT;
 	iVolume = volume; //Volume="medium" in PEOPSspu
 	Config.PsxAuto = 1; //Autodetect
 	LoadCdBios = BOOTTHRUBIOS_NO;

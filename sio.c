@@ -14,7 +14,7 @@
  *   You should have received a copy of the GNU General Public License     *
  *   along with this program; if not, write to the                         *
  *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   51 Franklin Street, Fifth Floor, Boston, MA 02111-1307 USA.           *
  ***************************************************************************/
 
 /*
@@ -58,6 +58,7 @@ char *Mcd2Data = (char*)MCD2_LO;
 #else
 char Mcd1Data[MCD_SIZE], Mcd2Data[MCD_SIZE];
 #endif
+char McdDisable[2];
 
 // clk cycle byte
 // 4us * 8bits = ((PSXCLK / 1000000) * 32) / BIAS; (linuzappz)
@@ -70,49 +71,6 @@ char Mcd1Data[MCD_SIZE], Mcd2Data[MCD_SIZE];
 		psxRegs.intCycle[PSXINT_SIO].sCycle = psxRegs.cycle; \
 		new_dyna_set_event(PSXINT_SIO, SIO_CYCLES); \
 	} \
-}
-
-unsigned char sioRead8() {
-	unsigned char ret = 0;
-
-	if ((StatReg & RX_RDY)/* && (CtrlReg & RX_PERM)*/) {
-//		StatReg &= ~RX_OVERRUN;
-		ret = buf[parp];
-		if (parp == bufcount) {
-			StatReg &= ~RX_RDY;		// Receive is not Ready now
-			if (mcdst == 5) {
-				mcdst = 0;
-				if (rdwr == 2) {
-					switch (CtrlReg&0x2002) {
-						case 0x0002:
-							memcpy(Mcd1Data + (adrL | (adrH << 8)) * 128, &buf[1], 128);
-							mcd1Written = 1;
-							break;
-						case 0x2002:
-							memcpy(Mcd2Data + (adrL | (adrH << 8)) * 128, &buf[1], 128);
-							mcd2Written = 1;
-							break;
-					}
-				}
-			}
-			if (padst == 2) padst = 0;
-			if (mcdst == 1) {
-				mcdst = 2;
-				StatReg|= RX_RDY;
-			}
-		}
-	}
-
-#ifdef PAD_LOG
-	PAD_LOG("sio read8 ;ret = %x\n", ret);
-#endif
-	return ret;
-}
-
-void netError() {
-	ClosePlugins();
-	SysMessage(_("Connection closed!\n"));
-	SysRunGui();
 }
 
 void sioWrite8(unsigned char value) {
@@ -264,10 +222,10 @@ void sioWrite8(unsigned char value) {
 
 			if (!Config.UseNet) {
 				switch (CtrlReg&0x2002) {
-					case 0x0002: 
+					case 0x0002:
 						if (padType[0]){
 							SSS_SetMultiPad(0, value);
-							buf[0] = PAD1_startPoll(1); 
+							buf[0] = PAD1_startPoll(1);
 							break;
 						}
 						else{
@@ -276,11 +234,11 @@ void sioWrite8(unsigned char value) {
 							bufcount = 0;
 							return;
 						}
-							
-					case 0x2002: 
+
+					case 0x2002:
 						if (padType[1]){
 							SSS_SetMultiPad(1, value);
-							buf[0] = PAD1_startPoll(2); 
+							buf[0] = PAD1_startPoll(2);
 							break;
 						}
 						else{
@@ -333,7 +291,7 @@ void sioWrite8(unsigned char value) {
 		case 0x84: // start memcard
 		switch (CtrlReg&0x2002) {
 			case 0x0002:
-				if (memCard[0]){
+				if (memCard[0] && McdDisable[0] == 0){
 					StatReg |= RX_RDY;
 					memcpy(buf, cardh, 4);
 					parp = 0;
@@ -350,9 +308,9 @@ void sioWrite8(unsigned char value) {
 					bufcount = 0;
 					return;
 				}
-					
+
 			case 0x2002:
-				if (memCard[1]){
+				if (memCard[1] && McdDisable[1] == 0){
 					StatReg |= RX_RDY;
 					memcpy(buf, cardh, 4);
 					parp = 0;
@@ -371,6 +329,53 @@ void sioWrite8(unsigned char value) {
 				}
 		}
 	}
+}
+
+unsigned char sioRead8() {
+	unsigned char ret = 0;
+
+	if ((StatReg & RX_RDY)/* && (CtrlReg & RX_PERM)*/) {
+//		StatReg &= ~RX_OVERRUN;
+		ret = buf[parp];
+		if (parp == bufcount) {
+			StatReg &= ~RX_RDY;		// Receive is not Ready now
+			if (mcdst == 5) {
+				mcdst = 0;
+				if (rdwr == 2) {
+					switch (CtrlReg&0x2002) {
+						case 0x0002:
+							memcpy(Mcd1Data + (adrL | (adrH << 8)) * 128, &buf[1], 128);
+							mcd1Written = 1;
+							break;
+						case 0x2002:
+							memcpy(Mcd2Data + (adrL | (adrH << 8)) * 128, &buf[1], 128);
+							mcd2Written = 1;
+							break;
+					}
+				}
+			}
+			if (padst == 2) padst = 0;
+			if (mcdst == 1) {
+				mcdst = 2;
+				StatReg|= RX_RDY;
+			}
+		}
+	}
+
+#ifdef PAD_LOG
+	PAD_LOG("sio read8 ;ret = %x\n", ret);
+#endif
+	return ret;
+}
+
+void netError() {
+	ClosePlugins();
+	SysMessage(_("Connection closed!\n"));
+
+	CdromId[0] = '\0';
+	CdromLabel[0] = '\0';
+
+	SysRunGui();
 }
 
 void sioWriteCtrl16(unsigned short value) {
