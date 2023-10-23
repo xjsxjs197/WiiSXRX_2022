@@ -200,6 +200,7 @@ unsigned long     lGPUInfoVals[16];
 int               iFakePrimBusy=0;
 int               iRumbleVal=0;
 int               iRumbleTime=0;
+int				  gMouse[4];
 
 ////////////////////////////////////////////////////////////////////////
 // some misc external display funcs
@@ -782,8 +783,11 @@ void PEOPS_GPUupdateLace(void)
  //if(!(dwActFixes&32))                                  // std fps limitation?
   CheckFrameRate();
   
- if(lightGun) 
+ if(lightGun == LIGHTGUN_GUNCON || lightGun == LIGHTGUN_JUST) 
 	 bDoVSyncUpdate=TRUE;
+ 
+ if(bDoVSyncUpdate)
+  memset(gMouse, 0, sizeof(gMouse));
 		
  if(PSXDisplay.Interlaced)                             // interlaced mode?
   {

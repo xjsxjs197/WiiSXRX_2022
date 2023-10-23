@@ -26,6 +26,8 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
 * PS1 Lightguns support! Both Namco GunCon and Konami Justifier lightguns are supported and emulated with the Wiimotes! (Needs to be enabled in emulator settings and calibrate them by using the in-game calibration screen)
 
+* Experimental PS1 Mouse support via the Wiimote IR.
+
 * PS1 Multitap support! With options for enabling them on both Port 1 and Port 2, supports up to 8 players. (Needs to be enabled in emulator settings and controllers need to be set for use the Multitap adequately)
 
 * Support for BIN+CUE, ISO, IMG, and eboot PBP (a compressed format for PS1 games on PSP) formats.
@@ -80,7 +82,7 @@ Any help is appreciated.
 
 WiiStation (formely WiiSXRX_2022) - developed by xjsxjs197 - https://github.com/xjsxjs197/WiiSXRX_2022
 
-240p/Lightgun/Multitap support, some fixes and additional improvements by Jokippo - http://github.com/Jokippo
+240p/Lightgun/Mouse/Multitap support, some fixes and additional improvements by Jokippo - http://github.com/Jokippo
 
 WiiStation icon - made by Dakangel (high quality logo made by saulfabreg)
 

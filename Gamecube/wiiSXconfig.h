@@ -207,6 +207,14 @@ enum padAssign
 	PADASSIGN_INPUT1D,
 };
 
+extern char padLightgun[10];
+enum padLightgun
+{
+	PADLIGHTGUN_DISABLE=0,
+	PADLIGHTGUN_ENABLE,
+	
+};
+
 extern char rumbleEnabled;
 enum rumbleEnabled
 {
@@ -297,6 +305,7 @@ enum lightGun
 	LIGHTGUN_DISABLE=0,
 	LIGHTGUN_GUNCON,
 	LIGHTGUN_JUST,
+	LIGHTGUN_MOUSE,
 };
 
 extern char memCard[2];
