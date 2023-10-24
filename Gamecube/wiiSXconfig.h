@@ -189,7 +189,7 @@ enum padType
 	PADTYPE_GAMECUBE,
 	PADTYPE_WII,
 	PADTYPE_MULTITAP
-	
+
 };
 
 extern char padAssign[10];
@@ -212,7 +212,7 @@ enum padLightgun
 {
 	PADLIGHTGUN_DISABLE=0,
 	PADLIGHTGUN_ENABLE,
-	
+
 };
 
 extern char rumbleEnabled;
@@ -258,9 +258,9 @@ enum lang
 	SPANISH,
 	PORTUGUESE,
 	ITALIAN,
+	GERMAN,
 	TRAD_CHINESE,
 	JAPANESE,
-	GERMAN,
 	FRENCH
 };
 

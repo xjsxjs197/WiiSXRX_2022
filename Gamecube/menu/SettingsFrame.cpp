@@ -265,6 +265,15 @@ static char FRAME_STRINGS[77][24] =
 	  "Enable Memcard"
       };
 
+static char LANG_STRINGS[7][24] =
+	{ "En", // English
+      "Chs", // Simplified Chinese
+      "Kr", // Korean
+      "Es", // SPANISH
+      "Pte", // PORTUGUESE
+      "It", // ITALIAN
+      "De" // GERMAN
+      };
 
 struct ButtonInfo
 {
@@ -311,7 +320,7 @@ struct ButtonInfo
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	420.0,	220.0,	 75.0,	56.0,	19,	23,	20,	20,	Func_FrameSkipOff,		Func_ReturnFromSettingsFrame }, // Frame Skip: Off
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[27],	200.0,	280.0,	 135.0,	56.0,	20,	25,	57,	23,	Func_ScreenMode,		Func_ReturnFromSettingsFrame }, // ScreenMode: 4:3/16:9/Force16:9
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[67],	355.0,	280.0,	 135.0,	56.0,	20,	26,	22,	57,	Func_Interlaced,		Func_ReturnFromSettingsFrame }, // Interlaced Mode
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[68],	440.0,	400.0,	110.0,	56.0,	27,	 1,	29,	28,	Func_DeflickerFilter,	Func_ReturnFromSettingsFrame }, // Filters: Deflicker Filter	
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[68],	440.0,	400.0,	110.0,	56.0,	27,	 1,	29,	28,	Func_DeflickerFilter,	Func_ReturnFromSettingsFrame }, // Filters: Deflicker Filter
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[30],	200.0,	340.0,	 75.0,	56.0,	22,	28,	27,	26,	Func_DitheringNone,		Func_ReturnFromSettingsFrame }, // Dithering: None
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[32],	295.0,	340.0,	110.0,	56.0,	23,	29,	25,	27,	Func_DitheringDefault,	Func_ReturnFromSettingsFrame }, // Dithering: Game Dependent
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[33],	425.0,	340.0,	110.0,	56.0,	23,	24,	26,	25,	Func_DitheringAlways,	Func_ReturnFromSettingsFrame }, // Dithering: Always
@@ -502,7 +511,7 @@ void SettingsFrame::activateSubmenu(int submenu)
 			}
 			FRAME_BUTTONS[54].button->setVisible(true);
             FRAME_BUTTONS[54].button->setActive(canChangeFont == 1);
-            FRAME_BUTTONS[54].buttonString = FRAME_STRINGS[57 + lang];
+            FRAME_BUTTONS[54].buttonString = LANG_STRINGS[lang];
 
             // Fast load
             FRAME_BUTTONS[55].button->setVisible(true);
@@ -540,7 +549,7 @@ void SettingsFrame::activateSubmenu(int submenu)
 			if (interlacedMode == INTERLACED_ENABLE)FRAME_BUTTONS[23].button->setSelected(true);
 			if (deflickerFilter == DEFLICKER_ENABLE)FRAME_BUTTONS[24].button->setSelected(true);
 			FRAME_BUTTONS[22].buttonString = FRAME_STRINGS[27 + screenMode];
-			
+
 			FRAME_BUTTONS[57].button->setVisible(true);
 			FRAME_BUTTONS[57].button->setActive(true);
 
@@ -569,12 +578,12 @@ void SettingsFrame::activateSubmenu(int submenu)
 			if (lightGun != LIGHTGUN_DISABLE)FRAME_BUTTONS[59].button->setSelected(true);
 			else FRAME_BUTTONS[59].button->setSelected(false);
 			FRAME_BUTTONS[59].buttonString = FRAME_STRINGS[70 + lightGun];
-			
+
 			FRAME_BUTTONS[34+rumbleEnabled].button->setSelected(true);
-			
+
 			FRAME_BUTTONS[59].button->setVisible(true);
 			FRAME_BUTTONS[59].button->setActive(true);
-			
+
 			for (int i = 30; i < 39; i++)
 			{
 				FRAME_BUTTONS[i].button->setVisible(true);
@@ -1029,13 +1038,14 @@ void Func_SelectLanguage()
 //	GERMAN,
 //	FRENCH,
 //	ITALIAN
+//	GERMAN
     lang++;
-    if (lang > ITALIAN)
+    if (lang > GERMAN)
     {
         lang = ENGLISH;
     }
     FRAME_BUTTONS[54].button->setSelected(true);
-    FRAME_BUTTONS[54].buttonString = FRAME_STRINGS[57 + lang];
+    FRAME_BUTTONS[54].buttonString = LANG_STRINGS[lang];
 }
 
 extern void writeConfig(FILE* f);
