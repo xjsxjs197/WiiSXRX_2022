@@ -5,7 +5,7 @@ msgid "Current ISO"
 msgstr "Aktuelle ISO"
 
 msgid "Settings"
-msgstr "Einstellungen"
+msgstr "Einst."
 
 msgid "Credits"
 msgstr ""
@@ -53,7 +53,7 @@ msgid "Game Needs Saving"
 msgstr "Spiel muss gespeichert werden"
 
 msgid "General"
-msgstr "Allgemein"
+msgstr "Allg."
 
 msgid "Video"
 msgstr ""
@@ -68,19 +68,19 @@ msgid "Saves"
 msgstr "Spielstände"
 
 msgid "Select CPU Core"
-msgstr "CPU-Kern auswählen"
+msgstr "CPU-Kern"
 
 msgid "Select Bios"
-msgstr "Bios auswählen"
+msgstr "Bios"
 
 msgid "Boot Through Bios"
-msgstr "Durch das Bios starten"
+msgstr "Durch Bios starten"
 
 msgid "Execute Bios"
 msgstr "Bios ausführen"
 
 msgid "Save settings"
-msgstr "Einstellungen speichern"
+msgstr "Einst. speichern"
 
 msgid "Interpreter"
 msgstr ""
@@ -152,16 +152,16 @@ msgid "Disable Rumble"
 msgstr "Rumble deaktivieren"
 
 msgid "Standard"
-msgstr "Standard"
+msgstr ""
 
 msgid "Analog"
-msgstr "Analog"
+msgstr ""
 
 msgid "Save Button Configs"
 msgstr "Tastenbelegung speichern"
 
 msgid "Auto Load Slot:"
-msgstr "Automatisches Laden Slot:"
+msgstr "AutoLoad Slot:"
 
 msgid "Disable Audio"
 msgstr "Audio deaktivieren"
@@ -191,7 +191,7 @@ msgid "Memcard Save Device"
 msgstr ""
 
 msgid "Auto Save Memcards"
-msgstr "Speicherkarten automatisch speichern"
+msgstr ""
 
 msgid "Save States Device"
 msgstr ""
@@ -536,10 +536,10 @@ msgid "Cancel"
 msgstr "Abbrechen"
 
 msgid "Prev"
-msgstr "Vorherige"
+msgstr "Vorher"
 
 msgid "Next"
-msgstr "Nächste"
+msgstr "Weiter"
 
 msgid "En"
 msgstr ""
@@ -563,10 +563,10 @@ msgid "Pte"
 msgstr ""
 
 msgid "Select language"
-msgstr "Sprache auswählen"
+msgstr "Sprache"
 
 msgid "Fast Load"
-msgstr "Schnelles Laden"
+msgstr "FastLoad"
 
 msgid "Because the language has changed, please restart"
 msgstr "Da die Sprache geändert wurde, bitte neu starten"
