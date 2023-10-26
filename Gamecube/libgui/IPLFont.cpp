@@ -154,6 +154,10 @@ FILE* IplFont::getFontFile(char* sdUsb)
             sprintf(fontPathBuf, "%s%s", sdUsb, ":/wiisxrx/fonts/It.dat");
             break;
 
+        case GERMAN:
+            sprintf(fontPathBuf, "%s%s", sdUsb, ":/wiisxrx/fonts/De.dat");
+            break;
+
         default:
             sprintf(fontPathBuf, "%s%s", sdUsb, ":/wiisxrx/fonts/Chs.dat");
             break;
