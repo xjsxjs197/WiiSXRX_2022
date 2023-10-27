@@ -191,7 +191,7 @@ msgid "Memcard Save Device"
 msgstr ""
 
 msgid "Auto Save Memcards"
-msgstr ""
+msgstr "Memcards autom. speichern"
 
 msgid "Save States Device"
 msgstr ""
@@ -224,19 +224,19 @@ msgid "Error opening directory sd:/wiisxr"
 msgstr "Fehler beim Öffnen des Verzeichnisses sd:/wiisxr"
 
 msgid "Saved settings to SD"
-msgstr "Einstellungen auf SD-Karte gespeichert"
+msgstr "Einst. auf SD-Karte gespeichert"
 
 msgid "Error saving settings to SD"
-msgstr "Fehler beim Speichern der Einstellungen auf SD"
+msgstr "Fehler beim Speichern der Einst. auf SD"
 
 msgid "Error opening directory usb:/wiisxr"
 msgstr "Fehler beim Öffnen des Verzeichnisses usb:/wiisxr"
 
 msgid "Saved settings to USB"
-msgstr "Einstellungen auf USB-Gerät gespeichert"
+msgstr "Einst. auf USB-Gerät gespeichert"
 
 msgid "Error saving settings to USB"
-msgstr "Fehler beim Speichern der Einstellungen auf USB"
+msgstr "Fehler beim Speichern der Einst. auf USB"
 
 msgid "Saved Button Configs to SD"
 msgstr "Tastenbelegung auf SD gespeichert"
