@@ -26,16 +26,16 @@ msgid "Are you sure you want to exit to loader?"
 msgstr "Sind Sie sicher, dass Sie zum Loader zurückkehren möchten?"
 
 msgid "Automatically saved to SD card"
-msgstr "Automatisch auf SD-Karte gespeichert"
+msgstr "Autom. auf SD-Karte gespeichert"
 
 msgid "Automatically saved to USB device"
-msgstr "Automatisch auf USB-Gerät gespeichert"
+msgstr "Autom. auf USB-Gerät gespeichert"
 
 msgid "Automatically saved to memcard in Slot A"
-msgstr "Automatisch auf Memory Card in Slot A gespeichert"
+msgstr "Autom. auf Memory Card in Slot A gespeichert"
 
 msgid "Automatically saved to memcard in Slot B"
-msgstr "Automatisch auf Memory Card in Slot B gespeichert"
+msgstr "Autom. auf Memory Card in Slot B gespeichert"
 
 msgid "Failed to save game"
 msgstr "Speichern des Spiels fehlgeschlagen"
@@ -44,7 +44,7 @@ msgid "No ISO Loaded"
 msgstr "Keine ISO geladen"
 
 msgid "AutoSave Enabled"
-msgstr "Automatisches Speichern aktiviert"
+msgstr "Autom. Speichern aktiviert"
 
 msgid "Nothing to Save"
 msgstr "Nichts zu speichern"
@@ -65,7 +65,7 @@ msgid "Audio"
 msgstr ""
 
 msgid "Saves"
-msgstr "Spielstände"
+msgstr "Speicher"
 
 msgid "Select CPU Core"
 msgstr "CPU-Kern"
@@ -161,7 +161,7 @@ msgid "Save Button Configs"
 msgstr "Tastenbelegung speichern"
 
 msgid "Auto Load Slot:"
-msgstr "AutoLoad Slot:"
+msgstr ""
 
 msgid "Disable Audio"
 msgstr "Audio deaktivieren"
@@ -299,7 +299,7 @@ msgid "PSX Pad 4"
 msgstr "PSX-Pad 4"
 
 msgid "Automatic"
-msgstr "Automatisch"
+msgstr "Autom."
 
 msgid "Manual"
 msgstr "Manuell"
@@ -314,7 +314,7 @@ msgid "Wii Pad"
 msgstr "Wii-Pad"
 
 msgid "Auto Assign"
-msgstr "Automatische Zuweisung"
+msgstr "Autom. Zuweisung"
 
 msgid "Next Pad"
 msgstr "Nächstes Pad"
