@@ -34,8 +34,7 @@ psxRegisters psxRegs;
 int psxInit() {
 
 	if (Config.Cpu == DYNACORE_INTERPRETER) {
-		if(Config.Dbg) psxCpu = &psxIntDbg;
-		else 	psxCpu = &psxInt;
+		psxCpu = &psxInt;
 	}
 #if defined(__x86_64__) || defined(__i386__) || defined(__sh__) || defined(__ppc__) || defined(HW_RVL) || defined(HW_DOL)
 	if (Config.Cpu == DYNACORE_DYNAREC)
@@ -173,12 +172,12 @@ void psxBranchTest() {
 				spuInterrupt();
 			}
 		}
-//		if (psxRegs.interrupt & (1 << PSXINT_MDECINDMA)) { // mdec in
-//			if ((psxRegs.cycle - psxRegs.intCycle[PSXINT_MDECINDMA].sCycle) >= psxRegs.intCycle[PSXINT_MDECINDMA].cycle) {
-//				psxRegs.interrupt &= ~(1 << PSXINT_MDECINDMA);
-//				mdec0Interrupt();
-//			}
-//		}
+		if (psxRegs.interrupt & (1 << PSXINT_MDECINDMA)) { // mdec in
+			if ((psxRegs.cycle - psxRegs.intCycle[PSXINT_MDECINDMA].sCycle) >= psxRegs.intCycle[PSXINT_MDECINDMA].cycle) {
+				psxRegs.interrupt &= ~(1 << PSXINT_MDECINDMA);
+				mdec0Interrupt();
+			}
+		}
 		if (psxRegs.interrupt & (1 << PSXINT_GPUOTCDMA)) { // gpu otc
 			if ((psxRegs.cycle - psxRegs.intCycle[PSXINT_GPUOTCDMA].sCycle) >= psxRegs.intCycle[PSXINT_GPUOTCDMA].cycle) {
 				psxRegs.interrupt &= ~(1 << PSXINT_GPUOTCDMA);

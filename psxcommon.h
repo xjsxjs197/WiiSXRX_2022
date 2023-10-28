@@ -87,7 +87,7 @@ typedef uintptr_t uptr;
 extern int Log;
 void __Log(char *fmt, ...);
 
-#define CYCLE_MULT_DEFAULT 175
+#define CYCLE_MULT_DEFAULT 200
 
 typedef struct {
 	char Gpu[256];
@@ -127,6 +127,7 @@ typedef struct {
 	struct {
 		bool cdr_read_timing;
 		bool gpu_slow_list_walking;
+		bool gpu_busy_hack;
 	} hacks;
 } PcsxConfig;
 

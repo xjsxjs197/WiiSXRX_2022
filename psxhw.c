@@ -37,9 +37,11 @@ char debug[256];
 #endif // DISP_DEBUG
 // add xjsxjs197 end
 
+static u32 (*psxHwReadGpuSRptr)(void) = psxHwReadGpuSR;
+
 void psxHwReset() {
-	if (Config.Sio) psxHu32ref(0x1070) |= SWAP32(0x80);
-	if (Config.SpuIrq) psxHu32ref(0x1070) |= SWAP32(0x200);
+	//if (Config.Sio) psxHu32ref(0x1070) |= SWAP32(0x80);
+	//if (Config.SpuIrq) psxHu32ref(0x1070) |= SWAP32(0x200);
 
 	memset(psxH, 0, 0x10000);
 
@@ -47,12 +49,91 @@ void psxHwReset() {
 	cdrReset();
 	psxRcntInit();
 	HW_GPU_STATUS = SWAP32(0x14802000);
+	psxHwReadGpuSRptr = Config.hacks.gpu_busy_hack
+		? psxHwReadGpuSRbusyHack : psxHwReadGpuSR;
+}
+
+void psxHwWriteIstat(u32 value)
+{
+	u32 stat = psxHu16(0x1070) & value;
+	psxHu16ref(0x1070) = SWAPu16(stat);
+
+	psxRegs.CP0.n.Cause &= ~0x400;
+	if (stat & psxHu16(0x1074))
+		psxRegs.CP0.n.Cause |= 0x400;
+}
+
+void psxHwWriteImask(u32 value)
+{
+	u32 stat = psxHu16(0x1070);
+	psxHu16ref(0x1074) = SWAPu16(value);
+	if (stat & value) {
+		//if ((psxRegs.CP0.n.SR & 0x401) == 0x401)
+		//	log_unhandled("irq on unmask @%08x\n", psxRegs.pc);
+		//set_event(PSXINT_NEWDRC_CHECK, 1); TODO
+	}
+	psxRegs.CP0.n.Cause &= ~0x400;
+	if (stat & value)
+		psxRegs.CP0.n.Cause |= 0x400;
+}
+
+void psxHwWriteDmaIcr32(u32 value)
+{
+	u32 tmp = value & 0x00ff803f;
+	tmp |= (SWAPu32(HW_DMA_ICR) & ~value) & 0x7f000000;
+	if ((tmp & HW_DMA_ICR_GLOBAL_ENABLE && tmp & 0x7f000000)
+	    || tmp & HW_DMA_ICR_BUS_ERROR) {
+		if (!(SWAPu32(HW_DMA_ICR) & HW_DMA_ICR_IRQ_SENT))
+			psxHu32ref(0x1070) |= SWAP32(8);
+		tmp |= HW_DMA_ICR_IRQ_SENT;
+	}
+	HW_DMA_ICR = SWAPu32(tmp);
+}
+
+void psxHwWriteGpuSR(u32 value)
+{
+	u32 old_sr = HW_GPU_STATUS, new_sr;
+	GPU_writeStatus(value);
+	gpuSyncPluginSR();
+	new_sr = HW_GPU_STATUS;
+	// "The Next Tetris" seems to rely on the field order after enable
+	if ((old_sr ^ new_sr) & new_sr & SWAP32(PSXGPU_ILACE))
+		frame_counter |= 1;
+}
+
+u32 psxHwReadGpuSR(void)
+{
+	u32 v, c = psxRegs.cycle;
+
+	// meh2, syncing for img bit, might want to avoid it..
+	gpuSyncPluginSR();
+	v = SWAP32(HW_GPU_STATUS);
+	v |= ((s32)(psxRegs.gpuIdleAfter - c) >> 31) & PSXGPU_nBUSY;
+
+	// XXX: because of large timeslices can't use hSyncCount, using rough
+	// approximization instead. Perhaps better use hcounter code here or something.
+	if (hSyncCount < 240 && (v & PSXGPU_ILACE_BITS) != PSXGPU_ILACE_BITS)
+		v |= PSXGPU_LCF & (c << 20);
+	return v;
+}
+
+// a hack due to poor timing of gpu idle bit
+// to get rid of this, GPU draw times, DMAs, cpu timing has to fall within
+// certain timing window or else games like "ToHeart" softlock
+u32 psxHwReadGpuSRbusyHack(void)
+{
+	u32 v = psxHwReadGpuSR();
+	static u32 hack;
+	if (!(hack++ & 3))
+		v &= ~PSXGPU_nBUSY;
+	return v;
 }
 
 u8 psxHwRead8(u32 add) {
 	unsigned char hard;
+	u32 chkAddr = add & 0xffff;
 
-    switch (add & 0xffff) {
+    switch (chkAddr) {
         case 0x1040: hard = sioRead8();break;
       //  case 0x1050: hard = serial_read8(); break;//for use of serial port ignore for now
         case 0x1800: hard = cdrRead0(); break;
@@ -60,6 +141,11 @@ u8 psxHwRead8(u32 add) {
         case 0x1802: hard = cdrRead2(); break;
         case 0x1803: hard = cdrRead3(); break;
         default:
+		    if (chkAddr >= 0x1c00 && chkAddr < 0x2000) {
+                u16 val = SPU_readRegister(add & ~1);
+				hard = (add & 1) ? val >> 8 : val;
+				break;
+            }
             hard = psxHu8(add);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("*Unkwnown 8bit read at address %lx\n", add);
@@ -185,14 +271,10 @@ u16 psxHwRead16(u32 add) {
         //case 0x2040: hard =//dip switches...??
 
         default:
-            chkAddr = add & 0xffff;
             if (chkAddr >= 0x1c00 && chkAddr < 0x1e00) {
                 hard = SPU_readRegister(add);
             } else {
-                // upd xjsxjs197 start
-                //hard = psxHu16(add);
                 hard = LOAD_SWAP16p(psxHAddr(add));
-                // upd xjsxjs197 end
 #ifdef PSXHW_LOG
                 PSXHW_LOG("*Unkwnown 16bit read at address %lx\n", add);
 #endif
@@ -206,9 +288,6 @@ u16 psxHwRead16(u32 add) {
 #endif
     return hard;
 }
-
-// hack for emulating "gpu busy" in some games
-extern unsigned long dwEmuFixes;
 
 u32 psxHwRead32(u32 add) {
 	u32 hard;
@@ -247,27 +326,7 @@ u32 psxHwRead32(u32 add) {
 #endif
             return hard;
         case 0x1814:
-            // hack for emulating "gpu busy" in some games
-            if (dwEmuFixes)
-            {
-                hard = GPU_readStatus();
-                if( (hard & GPUSTATUS_IDLE) == 0 )
-                {
-                    #ifdef SHOW_DEBUG
-                    sprintf(txtbuffer, "Read GPU_STATUS Fake Busy \n");
-                    DEBUG_print(txtbuffer, DBG_CORE2);
-                    //writeLogFile(txtbuffer);
-                    #endif // DISP_DEBUG
-                    hard &= ~GPUSTATUS_READYFORVRAM;
-                }
-            }
-            else
-            {
-                gpuSyncPluginSR();
-                hard = SWAP32(HW_GPU_STATUS);
-            }
-            if (hSyncCount < 240 && (hard & PSXGPU_ILACE_BITS) != PSXGPU_ILACE_BITS)
-                hard |= PSXGPU_LCF & (psxRegs.cycle << 20);
+            hard = psxHwReadGpuSRptr();
 #ifdef PSXHW_LOG
             PSXHW_LOG("GPU STATUS 32bit read %lx\n", hard);
 #endif
@@ -366,10 +425,12 @@ u32 psxHwRead32(u32 add) {
             return hard;
 
 		default:
-            // upd xjsxjs197 start
-			//hard = psxHu32(add);
+            if (chkAddr >= 0x1c00 && chkAddr < 0x1e00) {
+                hard = SPU_readRegister(add);
+				hard |= SPU_readRegister(add + 2) << 16;
+				return hard;
+            }
 			hard = LOAD_SWAP32p(psxHAddr(add));
-			// upd xjsxjs197 end
 #ifdef PSXHW_LOG
 			PSXHW_LOG("*Unkwnown 32bit read at address %lx\n", add);
 #endif
@@ -383,7 +444,8 @@ u32 psxHwRead32(u32 add) {
 }
 
 void psxHwWrite8(u32 add, u8 value) {
-    switch (add & 0xffff) {
+    u32 chkAddr = add & 0xffff;
+    switch (chkAddr) {
         case 0x1040: sioWrite8(value); break;
     //    case 0x1050: serial_write8(value); break;//serial port
         case 0x1800: cdrWrite0(value); break;
@@ -392,11 +454,15 @@ void psxHwWrite8(u32 add, u8 value) {
         case 0x1803: cdrWrite3(value); break;
 
 		default:
+		    if (chkAddr >= 0x1c00 && chkAddr < 0x1e00) {
+                if (!(add & 1))
+					SPU_writeRegister(add, value, psxRegs.cycle);
+				return;
+            }
 			psxHu8(add) = value;
 #ifdef PSXHW_LOG
 			PSXHW_LOG("*Unknown 8bit write at address %lx value %x\n", add, value);
 #endif
-            //PRINT_LOG2("psxHwWrite8 err: 0x%-08x 0x%-08x", add, value);
 			return;
 	}
 	psxHu8(add) = value;
@@ -450,25 +516,26 @@ void psxHwWrite16(u32 add, u16 value) {
 #ifdef PSXHW_LOG
             PSXHW_LOG("IREG 16bit write %x\n", value);
 #endif
-            if (Config.Sio) psxHu16ref(0x1070) |= SWAPu16(0x80);
-            if (Config.SpuIrq) psxHu16ref(0x1070) |= SWAPu16(0x200);
-            // upd xjsxjs197 start
-            //psxHu16ref(0x1070) &= SWAPu16(value);
-            STORE_SWAP16p(tmpAddr16, (value));
+			//psxHwWriteIstat(value);
+			STORE_SWAP16p(tmpAddr16, (value));
             psxHu16ref(0x1070) &= tmpAddr16[0];
-            // upd xjsxjs197 end
-            return;
+			psxRegs.CP0.n.Cause &= ~0x400;
+	        if (*((u32*)psxHAddr(0x1070)) & *((u32*)psxHAddr(0x1074)))
+		        psxRegs.CP0.n.Cause |= 0x400;
+			return;
 
         case 0x1074:
 #ifdef PSXHW_LOG
             PSXHW_LOG("IMASK 16bit write %x\n", value);
 #endif
-            psxHu16ref(0x1074) = SWAPu16(value);
+			//psxHwWriteImask(value);
+			psxHu16ref(0x1074) = SWAPu16(value);
 			if (psxHu16ref(0x1070) & SWAPu16(value))
 				new_dyna_set_event(PSXINT_NEWDRC_CHECK, 1);
-            //STORE_SWAP16p(psxHAddr(0x1074), value);
-            //psxRegs.interrupt|= 0x80000000;
-            return;
+			psxRegs.CP0.n.Cause &= ~0x400;
+	        if (*((u32*)psxHAddr(0x1070)) & *((u32*)psxHAddr(0x1074)))
+		        psxRegs.CP0.n.Cause |= 0x400;
+			return;
 
         case 0x1100:
 #ifdef PSXHW_LOG
@@ -524,36 +591,19 @@ void psxHwWrite16(u32 add, u16 value) {
                 return;
             }
 
-            // upd xjsxjs197 start
-            //psxHu16ref(add) = SWAPu16(value);
             STORE_SWAP16p(psxHAddr(add), value);
-            // upd xjsxjs197 end
 #ifdef PSXHW_LOG
             PSXHW_LOG("*Unknown 16bit write at address %lx value %x\n", add, value);
 #endif
-            //PRINT_LOG2("psxHwWrite16 err: 0x%-08x 0x%-08x", add, value);
             return;
     }
-	// upd xjsxjs197 start
-	//psxHu16ref(add) = SWAPu16(value);
 	STORE_SWAP16p(psxHAddr(add), value);
-	// upd xjsxjs197 end
 #ifdef PSXHW_LOG
 	PSXHW_LOG("*Known 16bit write at address %lx value %x\n", add, value);
 #endif
 }
 
-// upd xjsxjs197 start
-/*#define DmaExec(n) { \
-	if (SWAPu32(HW_DMA##n##_CHCR) & 0x01000000) return; \
-	HW_DMA##n##_CHCR = SWAPu32(value); \
- \
-	if (SWAPu32(HW_DMA##n##_CHCR) & 0x01000000 && SWAPu32(HW_DMA_PCR) & (8 << (n * 4))) { \
-		psxDma##n(SWAPu32(HW_DMA##n##_MADR), SWAPu32(HW_DMA##n##_BCR), SWAPu32(HW_DMA##n##_CHCR)); \
-	} \
-}*/
 #define DmaExec(char, bcr, madr, n) { \
-	/*if (LOAD_SWAP32p(psxHAddr(char)) & 0x01000000) return;*/ \
 	STORE_SWAP32p(psxHAddr(char), value); \
  \
     tmpVal = LOAD_SWAP32p(psxHAddr(char)); \
@@ -561,7 +611,6 @@ void psxHwWrite16(u32 add, u16 value) {
 		psxDma##n(LOAD_SWAP32p(psxHAddr(madr)), LOAD_SWAP32p(psxHAddr(bcr)), tmpVal); \
 	} \
 }
-// upd xjsxjs197 end
 
 void psxHwWrite32(u32 add, u32 value) {
 
@@ -588,23 +637,26 @@ void psxHwWrite32(u32 add, u32 value) {
 #ifdef PSXHW_LOG
             PSXHW_LOG("IREG 32bit write %lx\n", value);
 #endif
-            if (Config.Sio) psxHu32ref(0x1070) |= SWAPu32(0x80);
-            if (Config.SpuIrq) psxHu32ref(0x1070) |= SWAPu32(0x200);
-            // upd xjsxjs197 start
-            //psxHu32ref(0x1070) &= SWAPu32(value);
+            //if (Config.Sio) psxHu32ref(0x1070) |= SWAPu32(0x80);
+            //if (Config.SpuIrq) psxHu32ref(0x1070) |= SWAPu32(0x200);
+            //psxHwWriteIstat(value);
             STORE_SWAP32p(tmpAddr, (value));
             psxHu32ref(0x1070) &= (u32)(tmpAddr[0]);
-            // upd xjsxjs197 end
+            psxRegs.CP0.n.Cause &= ~0x400;
+	        if (*((u32*)psxHAddr(0x1070)) & *((u32*)psxHAddr(0x1074)))
+		        psxRegs.CP0.n.Cause |= 0x400;
             return;
         case 0x1074:
 #ifdef PSXHW_LOG
             PSXHW_LOG("IMASK 32bit write %lx\n", value);
 #endif
-            psxHu32ref(0x1074) = SWAPu32(value);
+            //psxHwWriteImask(value);
+			psxHu32ref(0x1074) = SWAPu32(value);
 			if (psxHu32ref(0x1070) & SWAPu32(value))
 				new_dyna_set_event(PSXINT_NEWDRC_CHECK, 1);
-            //STORE_SWAP32p(psxHAddr(0x1074), value);
-            //psxRegs.interrupt|= 0x80000000;
+			psxRegs.CP0.n.Cause &= ~0x400;
+	        if (*((u32*)psxHAddr(0x1070)) & *((u32*)psxHAddr(0x1074)))
+		        psxRegs.CP0.n.Cause |= 0x400;
             return;
 
 #ifdef PSXHW_LOG
@@ -720,37 +772,8 @@ void psxHwWrite32(u32 add, u32 value) {
 #ifdef PSXHW_LOG
             PSXHW_LOG("DMA ICR 32bit write %lx\n", value);
 #endif
-        {
-            // upd xjsxjs197 start
-            //u32 tmp = (~value) & SWAPu32(HW_DMA_ICR);
-            //HW_DMA_ICR = SWAPu32(((tmp ^ value) & 0xffffff) ^ tmp);
-            //u32 tmp = (~value) & LOAD_SWAP32p(psxHAddr(0x10f4));
-            //STORE_SWAP32p(psxHAddr(0x10f4), (u32)(((tmp ^ value) & 0xffffff) ^ tmp));
-
-            /*u32 tmp = value & 0x00ff803f;
-            tmp |= (SWAPu32(HW_DMA_ICR) & ~value) & 0x7f000000;
-            if ((tmp & HW_DMA_ICR_GLOBAL_ENABLE && tmp & 0x7f000000)
-                || tmp & HW_DMA_ICR_BUS_ERROR) {
-                if (!(SWAPu32(HW_DMA_ICR) & HW_DMA_ICR_IRQ_SENT))
-                    psxHu32ref(0x1070) |= SWAP32(8);
-                tmp |= HW_DMA_ICR_IRQ_SENT;
-            }
-            HW_DMA_ICR = SWAPu32(tmp);*/
-            u32 tmp = value & 0x00ff803f;
-            tmpVal = LOAD_SWAP32p(psxHAddr(0x10f4));
-            tmp |= (tmpVal & ~value) & 0x7f000000;
-            if ((tmp & HW_DMA_ICR_GLOBAL_ENABLE && tmp & 0x7f000000)
-                || tmp & HW_DMA_ICR_BUS_ERROR) {
-                if (!(tmpVal & HW_DMA_ICR_IRQ_SENT)) {
-                    psxHu32ref(0x1070) |= SWAP32(8);
-                    //psxRegs.interrupt |= 0x80000000;
-                }
-                tmp |= HW_DMA_ICR_IRQ_SENT;
-            }
-            STORE_SWAP32p(psxHAddr(0x10f4), tmp);
-            // upd xjsxjs197 end
-            return;
-        }
+			psxHwWriteDmaIcr32(value);
+			return;
 
         case 0x1810:
 #ifdef PSXHW_LOG
@@ -767,8 +790,7 @@ void psxHwWrite32(u32 add, u32 value) {
             {
                 value |= 0x8;
             }
-            GPU_writeStatus(value);
-            gpuSyncPluginSR();
+            psxHwWriteGpuSR(value);
             return;
 
         case 0x1820:
@@ -828,28 +850,21 @@ void psxHwWrite32(u32 add, u32 value) {
             // Dukes of Hazard 2 - car engine noise
             if (chkAddr >= 0x1c00 && chkAddr < 0x1e00) {
                 #ifdef SHOW_DEBUG
-                 sprintf(txtbuffer, "HwWrite32 spu %08x %08x", add, value);
-                 DEBUG_print(txtbuffer, DBG_GPU3);
-                 #endif // DISP_DEBUG
+                sprintf(txtbuffer, "HwWrite32 spu %08x %08x", add, value);
+                DEBUG_print(txtbuffer, DBG_GPU3);
+                #endif // DISP_DEBUG
                 SPU_writeRegister(add, value&0xffff, psxRegs.cycle);
                 SPU_writeRegister(add + 2, value>>16, psxRegs.cycle);
                 return;
             }
 
-            // upd xjsxjs197 start
-            //psxHu32ref(add) = SWAPu32(value);
             STORE_SWAP32p(psxHAddr(add), value);
-            // upd xjsxjs197 end
 #ifdef PSXHW_LOG
             PSXHW_LOG("*Unknown 32bit write at address %lx value %lx\n", add, value);
 #endif
-            //PRINT_LOG2("psxHwWrite32 err: 0x%-08x 0x%-08x", add, value);
             return;
     }
-	// upd xjsxjs197 start
-	//psxHu32ref(add) = SWAPu32(value);
 	STORE_SWAP32p(psxHAddr(add), value);
-	// upd xjsxjs197 end
 #ifdef PSXHW_LOG
 	PSXHW_LOG("*Known 32bit write at address %lx value %lx\n", add, value);
 #endif

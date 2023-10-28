@@ -298,22 +298,9 @@ void Func_PlayGame()
 #endif
 	if (originalMode)
 		backFromMenu = 1;
-	frameLimit[0] = frameLimit[1];
-	GPUsetframelimit(0);
-#ifdef SHOW_DEBUG
-	try {
-#endif // SHOW_DEBUG
+	//frameLimit[0] = frameLimit[1];
+	//GPUsetframelimit(0);
 	go();
-#ifdef SHOW_DEBUG
-	}
-	catch (std::exception exp)
-	{
-	    sprintf(txtbuffer, "exception %s\n", exp.what());
-	    menu::MessageBox::getInstance().fadeMessage(txtbuffer);
-        writeLogFile(txtbuffer);
-	}
-#endif // SHOW_DEBUG
-
 #ifdef DEBUGON
 	_break();
 #endif

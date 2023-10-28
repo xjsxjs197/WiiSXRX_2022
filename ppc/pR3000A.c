@@ -172,14 +172,14 @@ static int GetFreeHWReg()
 		if (HWRegisters[index].usage & HWUSAGE_RESERVED) {
 			//SysPrintf("Error! Trying to map a new register to a reserved register (r%i)",
 			//			HWRegisters[index].code);
-			PRINT_LOG1("Error! Trying to map a new register to a reserved register (r%i)",
-						HWRegisters[index].code);
+			//PRINT_LOG1("Error! Trying to map a new register to a reserved register (r%i)",
+			//			HWRegisters[index].code);
 		}
 		if (HWRegisters[index].usage & HWUSAGE_HARDWIRED) {
 			//SysPrintf("Error! Trying to map a new register to a hardwired register (r%i)",
 			//			HWRegisters[index].code);
-			PRINT_LOG1("Error! Trying to map a new register to a hardwired register (r%i)",
-						HWRegisters[index].code);
+			//PRINT_LOG1("Error! Trying to map a new register to a hardwired register (r%i)",
+			//			HWRegisters[index].code);
 		}
 	}
 	#endif
@@ -224,7 +224,7 @@ static void DisposeHWReg(int index)
 	#ifdef DISP_DEBUG
 	if (HWRegisters[index].usage == HWUSAGE_NONE) {
 		//SysPrintf("Error! not correctly disposing register (r%i)", HWRegisters[index].code);
-		PRINT_LOG1("Error! not correctly disposing register (r%i)", HWRegisters[index].code);
+		//PRINT_LOG1("Error! not correctly disposing register (r%i)", HWRegisters[index].code);
 	}
 	#endif
 
@@ -313,7 +313,7 @@ static int GetHWRegFromCPUReg(int cpureg)
 	}
 
 	//SysPrintf("Error! Register location failure (r%i)", cpureg);
-	PRINT_LOG1("Error! Register location failure (r%i)", cpureg);
+	//PRINT_LOG1("Error! Register location failure (r%i)", cpureg);
 	return 0;
 }
 
@@ -358,7 +358,7 @@ static void MapPsxReg32(int reg)
     #ifdef DISP_DEBUG
     if (iRegs[reg].reg != -1) {
         //SysPrintf("error: double mapped psx register");
-        PRINT_LOG("error: double mapped psx register");
+        //PRINT_LOG("error: double mapped psx register");
     }
     #endif
 
@@ -373,7 +373,7 @@ static void FlushPsxReg32(int hwreg)
     #ifdef DISP_DEBUG
 	if (iRegs[reg].reg == -1) {
 		//SysPrintf("error: flushing unmapped psx register");
-		PRINT_LOG("error: flushing unmapped psx register");
+		//PRINT_LOG("error: flushing unmapped psx register");
 	}
 	#endif
 
@@ -517,7 +517,7 @@ static int GetHWRegSpecial(int which)
 			case PSXREGS:
 			case PSXMEM:
 				//SysPrintf("error! shouldn't be here!\n");
-				PRINT_LOG1("GetHWRegSpecial which:%d : error! shouldn't be here!", which);
+				//PRINT_LOG1("GetHWRegSpecial which:%d : error! shouldn't be here!", which);
 				//HWRegisters[index].flush = NULL;
 				//LIW(HWRegisters[index].code, (u32)&psxRegs);
 				break;
@@ -550,7 +550,7 @@ static int GetHWRegSpecial(int which)
 				break;
 			default:
 			    //SysPrintf("Error: Unknown special register in GetHWRegSpecial()\n");
-				PRINT_LOG1("GetHWRegSpecial which:%d : Error: Unknown special register in GetHWRegSpecial()", which);
+				//PRINT_LOG1("GetHWRegSpecial which:%d : Error: Unknown special register in GetHWRegSpecial()", which);
 				break;
 		}
 		HWRegisters[index].usage &= ~HWUSAGE_RESERVED;
@@ -582,7 +582,7 @@ static int PutHWRegSpecial(int which)
 		case PSXREGS:
 		case TARGETPTR:
             //SysPrintf("Error: Read-only special register in PutHWRegSpecial()\n");
-            PRINT_LOG1("PutHWRegSpecial which:%d : Error: Read-only special register in PutHWRegSpecial()", which);
+            //PRINT_LOG1("PutHWRegSpecial which:%d : Error: Read-only special register in PutHWRegSpecial()", which);
 		case REG_WZERO:
 			if (index >= 0) {
 					if (HWRegisters[index].usage & HWUSAGE_WRITE)

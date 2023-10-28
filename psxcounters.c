@@ -164,9 +164,6 @@ u32 _psxRcntRcount( u32 index )
     return count;
 }
 
-// hack for emulating "gpu busy" in some games
-extern unsigned long dwEmuFixes;
-
 static
 void _psxRcntWmode( u32 index, u32 value )
 {
@@ -321,8 +318,8 @@ static void scheduleRcntBase(void)
 
     if (hSyncCount + hsync_steps == HSyncTotal[Config.PsxType])
     {
-        rcnts[3].cycle = Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
-        //rcnts[3].cycle = FrameCycles[Config.PsxType];
+        //rcnts[3].cycle = Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
+        rcnts[3].cycle = FrameCycles[Config.PsxType];
     }
     else
     {
@@ -420,6 +417,8 @@ void psxRcntUpdate()
             }
             HW_GPU_STATUS = SWAP32(status);
             //GPU_vBlank(0, field);
+            if ((s32)(psxRegs.gpuIdleAfter - psxRegs.cycle) < 0)
+                psxRegs.gpuIdleAfter = psxRegs.cycle - 1; // prevent overflow
 
             if ((rcnts[0].mode & 7) == (RcSyncModeEnable | Rc01UnblankReset) ||
                 (rcnts[0].mode & 7) == (RcSyncModeEnable | Rc01UnblankReset2))
@@ -603,13 +602,11 @@ s32 psxRcntFreeze( gzFile f, s32 Mode )
 
     if (Mode == 0)
     {
-        // don't trust things from a savestate
         rcnts[3].rate = 1;
-        for( i = 0; i < CounterQuantity; ++i )
+        for( i = 0; i < CounterQuantity - 1; ++i )
         {
             _psxRcntWmode( i, rcnts[i].mode );
             count = (psxRegs.cycle - rcnts[i].cycleStart) / rcnts[i].rate;
-            //_psxRcntWcount( i, count );
             if (count > 0x1000)
                 _psxRcntWcount( i, count & 0xffff );
         }

@@ -239,6 +239,10 @@ typedef struct {
 	u8  dloadSel;       /* interp. delay load state */
 	u8  dloadReg[2];
 	u32 dloadVal[2];
+	u32 biosBranchCheck;
+	u32 cpuInRecursion;
+	u32 gpuIdleAfter;
+	u32 reserved[1];
 	// warning: changing anything in psxRegisters requires update of all
 	// asm in libpcsxcore/new_dynarec/
 	u8 ICache_Addr[0x1000];

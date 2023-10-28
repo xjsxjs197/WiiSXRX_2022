@@ -228,8 +228,8 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 		miscButton = DO_CONTROL(Control, GetKeys, (BUTTONS*)&PAD_Data, virtualControllers[Control].config);
 		if (miscButton == 1)
 			stop = 1;
-		else if (Control == 0 || Control == 2)
-			frameLimit[0] = (miscButton == 0 ? frameLimit[1] : 0);
+		//else if (Control == 0 || Control == 2)
+		//	frameLimit[0] = (miscButton == 0 ? frameLimit[1] : 0);
 	}
 	else
 	{	//TODO: Emulate no controller present in this case.
