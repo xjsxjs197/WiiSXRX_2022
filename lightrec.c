@@ -454,10 +454,10 @@ static void schedule_timeslice(void)
 	next_interupt = c + min;
 }
 
-typedef void (irq_func)();
-static void unusedInterrupt()
-{
+static void irqNoOp() {
 }
+
+typedef void (irq_func)();
 
 static irq_func * const irq_funcs[] = {
 	[PSXINT_SIO]	= sioInterrupt,
@@ -469,8 +469,8 @@ static irq_func * const irq_funcs[] = {
 	[PSXINT_MDECINDMA] = mdec0Interrupt,
 	[PSXINT_GPUOTCDMA] = gpuotcInterrupt,
 	[PSXINT_CDRDMA] = cdrDmaInterrupt,
+	[PSXINT_NEWDRC_CHECK] = irqNoOp,
 	[PSXINT_CDRLID] = cdrLidSeekInterrupt,
-	//[PSXINT_CDRPLAY_OLD] = unusedInterrupt,
 	[PSXINT_SPU_UPDATE] = spuUpdate,
 	[PSXINT_SPU_IRQ] = spuDelayedIrq,
 	[PSXINT_RCNT] = psxRcntUpdate,

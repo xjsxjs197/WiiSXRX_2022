@@ -40,9 +40,6 @@ char debug[256];
 static u32 (*psxHwReadGpuSRptr)(void) = psxHwReadGpuSR;
 
 void psxHwReset() {
-	//if (Config.Sio) psxHu32ref(0x1070) |= SWAP32(0x80);
-	//if (Config.SpuIrq) psxHu32ref(0x1070) |= SWAP32(0x200);
-
 	memset(psxH, 0, 0x10000);
 
 	mdecInit(); // initialize mdec decoder
@@ -70,7 +67,7 @@ void psxHwWriteImask(u32 value)
 	if (stat & value) {
 		//if ((psxRegs.CP0.n.SR & 0x401) == 0x401)
 		//	log_unhandled("irq on unmask @%08x\n", psxRegs.pc);
-		//set_event(PSXINT_NEWDRC_CHECK, 1); TODO
+		set_event(PSXINT_NEWDRC_CHECK, 1);
 	}
 	psxRegs.CP0.n.Cause &= ~0x400;
 	if (stat & value)
@@ -271,7 +268,7 @@ u16 psxHwRead16(u32 add) {
         //case 0x2040: hard =//dip switches...??
 
         default:
-            if (chkAddr >= 0x1c00 && chkAddr < 0x1e00) {
+            if (chkAddr >= 0x1c00 && chkAddr < 0x2000) {
                 hard = SPU_readRegister(add);
             } else {
                 hard = LOAD_SWAP16p(psxHAddr(add));
@@ -425,7 +422,7 @@ u32 psxHwRead32(u32 add) {
             return hard;
 
 		default:
-            if (chkAddr >= 0x1c00 && chkAddr < 0x1e00) {
+            if (chkAddr >= 0x1c00 && chkAddr < 0x2000) {
                 hard = SPU_readRegister(add);
 				hard |= SPU_readRegister(add + 2) << 16;
 				return hard;
@@ -454,7 +451,7 @@ void psxHwWrite8(u32 add, u8 value) {
         case 0x1803: cdrWrite3(value); break;
 
 		default:
-		    if (chkAddr >= 0x1c00 && chkAddr < 0x1e00) {
+		    if (chkAddr >= 0x1c00 && chkAddr < 0x2000) {
                 if (!(add & 1))
 					SPU_writeRegister(add, value, psxRegs.cycle);
 				return;
@@ -531,7 +528,7 @@ void psxHwWrite16(u32 add, u16 value) {
 			//psxHwWriteImask(value);
 			psxHu16ref(0x1074) = SWAPu16(value);
 			if (psxHu16ref(0x1070) & SWAPu16(value))
-				new_dyna_set_event(PSXINT_NEWDRC_CHECK, 1);
+				set_event(PSXINT_NEWDRC_CHECK, 1);
 			psxRegs.CP0.n.Cause &= ~0x400;
 	        if (*((u32*)psxHAddr(0x1070)) & *((u32*)psxHAddr(0x1074)))
 		        psxRegs.CP0.n.Cause |= 0x400;
@@ -586,7 +583,7 @@ void psxHwWrite16(u32 add, u16 value) {
             psxRcntWtarget(2, value); return;
 
         default:
-            if (chkAddr >= 0x1c00 && chkAddr < 0x1e00) {
+            if (chkAddr >= 0x1c00 && chkAddr < 0x2000) {
                 SPU_writeRegister(add, value, psxRegs.cycle);
                 return;
             }
@@ -653,7 +650,7 @@ void psxHwWrite32(u32 add, u32 value) {
             //psxHwWriteImask(value);
 			psxHu32ref(0x1074) = SWAPu32(value);
 			if (psxHu32ref(0x1070) & SWAPu32(value))
-				new_dyna_set_event(PSXINT_NEWDRC_CHECK, 1);
+				set_event(PSXINT_NEWDRC_CHECK, 1);
 			psxRegs.CP0.n.Cause &= ~0x400;
 	        if (*((u32*)psxHAddr(0x1070)) & *((u32*)psxHAddr(0x1074)))
 		        psxRegs.CP0.n.Cause |= 0x400;
@@ -848,7 +845,7 @@ void psxHwWrite32(u32 add, u32 value) {
 
         default:
             // Dukes of Hazard 2 - car engine noise
-            if (chkAddr >= 0x1c00 && chkAddr < 0x1e00) {
+            if (chkAddr >= 0x1c00 && chkAddr < 0x2000) {
                 #ifdef SHOW_DEBUG
                 sprintf(txtbuffer, "HwWrite32 spu %08x %08x", add, value);
                 DEBUG_print(txtbuffer, DBG_GPU3);

@@ -238,8 +238,7 @@ void psxRcntSet()
         }
     }
 
-    psxRegs.interrupt |= (1 << PSXINT_RCNT);
-    new_dyna_set_event(PSXINT_RCNT, psxNextCounter);
+    set_event(PSXINT_RCNT, psxNextCounter);
 }
 
 /******************************************************************************/
@@ -390,7 +389,7 @@ void psxRcntUpdate()
 
             if (lightGun == LIGHTGUN_JUST){
                 psxRegs.interrupt |= (1 << PSXINT_LIGHTGUN);
-                new_dyna_set_event(PSXINT_LIGHTGUN, (Config.PsxType ? 2157: 2146)*12);
+                set_event(PSXINT_LIGHTGUN, (Config.PsxType ? 2157: 2146)*12);
                 gLightgun = 5;
             }
 

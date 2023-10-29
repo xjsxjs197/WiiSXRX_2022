@@ -87,7 +87,7 @@ typedef uintptr_t uptr;
 extern int Log;
 void __Log(char *fmt, ...);
 
-#define CYCLE_MULT_DEFAULT 200
+#define CYCLE_MULT_DEFAULT 175
 
 typedef struct {
 	char Gpu[256];

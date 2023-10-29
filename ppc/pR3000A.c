@@ -1129,7 +1129,7 @@ static void recNotify(enum R3000Anote note, void *data) {
 
 static void recApplyConfig() {
     cycleMult = Config.cycle_multiplier_override && Config.cycle_multiplier == CYCLE_MULT_DEFAULT
-        ? Config.cycle_multiplier_override : 200;
+        ? Config.cycle_multiplier_override : CYCLE_MULT_DEFAULT;
 }
 
 static void recShutdown() {

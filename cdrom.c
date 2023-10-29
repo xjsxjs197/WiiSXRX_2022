@@ -327,14 +327,6 @@ static void sec2msf(unsigned int s, u8 *msf) {
 	msf[2] = s;
 }
 
-// cdrInterrupt
-#define CDR_INT(eCycle) { \
-	psxRegs.interrupt |= (1 << PSXINT_CDR); \
-	psxRegs.intCycle[PSXINT_CDR].cycle = eCycle; \
-	psxRegs.intCycle[PSXINT_CDR].sCycle = psxRegs.cycle; \
-	new_dyna_set_event(PSXINT_CDR, eCycle); \
-}
-
 // cdrPlayReadInterrupt
 #define CDRPLAYREAD_INT(eCycle, isFirst) { \
 	u32 e_ = eCycle; \
@@ -344,15 +336,7 @@ static void sec2msf(unsigned int s, u8 *msf) {
 	else \
 		psxRegs.intCycle[PSXINT_CDREAD].sCycle += psxRegs.intCycle[PSXINT_CDREAD].cycle; \
 	psxRegs.intCycle[PSXINT_CDREAD].cycle = e_; \
-	new_dyna_set_event_abs(PSXINT_CDREAD, psxRegs.intCycle[PSXINT_CDREAD].sCycle + e_); \
-}
-
-// cdrLidSeekInterrupt
-#define CDRLID_INT(eCycle) { \
-	psxRegs.interrupt |= (1 << PSXINT_CDRLID); \
-	psxRegs.intCycle[PSXINT_CDRLID].cycle = eCycle; \
-	psxRegs.intCycle[PSXINT_CDRLID].sCycle = psxRegs.cycle; \
-	new_dyna_set_event(PSXINT_CDRLID, eCycle); \
+	set_event_raw_abs(PSXINT_CDREAD, psxRegs.intCycle[PSXINT_CDREAD].sCycle + e_); \
 }
 
 #define StopReading() { \
@@ -416,7 +400,7 @@ void cdrLidSeekInterrupt(void)
 			isShellopen = false;
 			memset(cdr.Prev, 0xff, sizeof(cdr.Prev));
 			cdr.DriveState = DRIVESTATE_LID_OPEN;
-			CDRLID_INT(WaitTime1st);
+			set_event(PSXINT_CDRLID, WaitTime1st);
 		}
 		break;
 
@@ -437,7 +421,7 @@ void cdrLidSeekInterrupt(void)
 			// only sometimes does that
 			// (not done when lots of commands are sent?)
 
-			CDRLID_INT(cdReadTime * 30);
+			set_event(PSXINT_CDRLID, cdReadTime * 30);
 			break;
 		}
 		else if (cdr.StatP & STATUS_ROTATING) {
@@ -451,12 +435,12 @@ void cdrLidSeekInterrupt(void)
 			// and is only cleared by CdlNop
 
 			cdr.DriveState = DRIVESTATE_RESCAN_CD;
-			CDRLID_INT(cdReadTime * 105);
+			set_event(PSXINT_CDRLID, cdReadTime * 105);
 			break;
 		}
 
 		// recheck for close
-		CDRLID_INT(cdReadTime * 3);
+		set_event(PSXINT_CDRLID, cdReadTime * 3);
 		break;
 
 	case DRIVESTATE_RESCAN_CD:
@@ -469,7 +453,7 @@ void cdrLidSeekInterrupt(void)
 
 		// this is very long on real hardware, over 6 seconds
 		// make it a bit faster here...
-		CDRLID_INT(cdReadTime * 150);
+		set_event(PSXINT_CDRLID, cdReadTime * 150);
 		break;
 
 	case DRIVESTATE_PREPARE_CD:
@@ -483,7 +467,7 @@ void cdrLidSeekInterrupt(void)
 		}
 		else {
 			SetPlaySeekRead(cdr.StatP, STATUS_SEEK);
-			CDRLID_INT(cdReadTime * 26);
+			set_event(PSXINT_CDRLID, cdReadTime * 26);
 		}
 		break;
 	}
@@ -1275,7 +1259,7 @@ void cdrInterrupt(void) {
 			// yes, it really sets STATUS_SHELLOPEN
 			cdr.StatP |= STATUS_SHELLOPEN;
 			cdr.DriveState = DRIVESTATE_RESCAN_CD;
-			CDRLID_INT(20480);
+			set_event(PSXINT_CDRLID, 20480);
 			start_rotating = 1;
 			break;
 
@@ -1353,7 +1337,7 @@ void cdrInterrupt(void) {
 
 	if (second_resp_time) {
 		cdr.CmdInProgress = Cmd | 0x100;
-		CDR_INT(second_resp_time);
+		set_event(PSXINT_CDR, second_resp_time);
 	}
 	else if (cdr.Cmd && cdr.Cmd != (Cmd & 0xff)) {
 		cdr.CmdInProgress = cdr.Cmd;
@@ -1610,7 +1594,7 @@ void cdrWrite1(unsigned char rt) {
 	if (!cdr.CmdInProgress) {
 		cdr.CmdInProgress = rt;
 		// should be something like 12k + controller delays
-		CDR_INT(5000);
+		set_event(PSXINT_CDR, 5000);
 	}
 	else {
 		CDR_LOG_I("cmd while busy: %02x, prev %02x, busy %02x\n",
@@ -1691,7 +1675,7 @@ void cdrWrite3(unsigned char rt) {
 					c = 2048 - (psxRegs.cycle - nextCycle);
 					c = MAX_VALUE(c, 512);
 				}
-				CDR_INT(c);
+				set_event(PSXINT_CDR, c);
 			}
 		}
 		cdr.Stat &= ~rt;
@@ -1774,7 +1758,7 @@ void psxDma3(u32 madr, u32 bcr, u32 chcr) {
 			}
 			psxCpu->Clear(madr, cdsize / 4);
 
-			CDRDMA_INT((cdsize/4) * 24);
+			set_event(PSXINT_CDRDMA, (cdsize / 4) * 24);
 
 			HW_DMA3_CHCR &= SWAPu32(~0x10000000);
 			if (chcr & 0x100) {
@@ -1915,5 +1899,5 @@ void LidInterrupt() {
     cdr.DriveState = DRIVESTATE_STANDBY;
 
 	//cdrLidSeekInterrupt();
-	CDRLID_INT(cdReadTime * 30);
+	set_event(PSXINT_CDRLID, cdReadTime * 30);
 }
