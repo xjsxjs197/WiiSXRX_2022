@@ -362,10 +362,6 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 		}
     }
 
-   //reset swap table from GUI/DEBUG
-	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED ,GX_CH_ALPHA);
-	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
-
 	gc_vout_render();
 }
 
@@ -443,6 +439,11 @@ static void gc_vout_flip(const void *vram, int stride, int bgr24,
 		return;
 	}
 	if (menuActive) return;
+
+   //reset swap table from GUI/DEBUG
+	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED ,GX_CH_ALPHA);
+	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
+
 	GX_Flip(w, h, vram, stride*2, bgr24 ? GX_TF_RGBA8 : GX_TF_RGB5A3);
 }
 
