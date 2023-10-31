@@ -23,8 +23,8 @@
 #include "../Gamecube/DEBUG.h"
 #include "../psxcommon.h"
 
-//#define BUFFER_SIZE        22050
-#define BUFFER_SIZE        12000
+#define BUFFER_SIZE        22050
+//#define BUFFER_SIZE        12000
 
 short            *pSndBuffer = NULL;
 volatile int    iReadPos = 0, iWritePos = 0;

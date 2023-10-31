@@ -239,6 +239,10 @@ typedef struct {
 	u8  dloadSel;       /* interp. delay load state */
 	u8  dloadReg[2];
 	u32 dloadVal[2];
+	u32 biosBranchCheck;
+	u32 cpuInRecursion;
+	u32 gpuIdleAfter;
+	u32 reserved[1];
 	// warning: changing anything in psxRegisters requires update of all
 	// asm in libpcsxcore/new_dynarec/
 	u8 ICache_Addr[0x1000];
@@ -329,7 +333,7 @@ extern u32 next_interupt;
 
 void new_dyna_freeze(void *f, int mode);
 
-#define new_dyna_set_event_abs(e, abs) { \
+#define set_event_raw_abs(e, abs) { \
 	u32 abs_ = abs; \
 	s32 di_ = next_interupt - abs_; \
 	event_cycles[e] = abs_; \
@@ -339,8 +343,12 @@ void new_dyna_freeze(void *f, int mode);
 	} \
 }
 
-#define new_dyna_set_event(e, c) \
-	new_dyna_set_event_abs(e, psxRegs.cycle + (c))
+#define set_event(e, c) do { \
+	psxRegs.interrupt |= (1 << (e)); \
+	psxRegs.intCycle[e].cycle = c; \
+	psxRegs.intCycle[e].sCycle = psxRegs.cycle; \
+	set_event_raw_abs(e, psxRegs.cycle + (c)) \
+} while (0)
 
 
 #if defined(HW_RVL) || defined(HW_DOL) || defined(BIG_ENDIAN)

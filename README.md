@@ -6,14 +6,14 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
 ## The following changes have been made to the code based on WiiSXRX.
 
-* Incorporating the CDROM and CDRISO codes from PCSX-ReARMed, the compatibility of the system has been greatly improved.
+* Incorporating the latest CDROM and CDRISO codes from PCSX-ReARMed, the compatibility of the system has been greatly improved.
   Many games that could not be run or had problems before can be run now.
 
 * CDDA (Compact Disc Digital Audio) tracks & multi-tracks support.
 
-* Incorporating the timer codes from PCSX-ReARMed.
+* Incorporating the timer (system timings emulation) codes from PCSX-ReARMed.
 
-* Combined the DFSound module from PCSX-ReARMed and used the SDL library.
+* Combined the latest DFSound module from PCSX-ReARMed and used the SDL library.
   The sound quality of the system has been greatly improved.
 
 * Adding the new, updated PSX dynamic recompiler [Lightrec](https://github.com/pcercuei/lightrec) by pcercuei, the speed/performance of the emulation is greatly improved. The original old (and fixed/improved) PPC dynarec is kept as an option in case compatibility or speed changes much.

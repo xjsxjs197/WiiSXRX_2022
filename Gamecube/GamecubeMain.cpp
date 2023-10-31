@@ -85,8 +85,7 @@ void SysMessage(char *fmt, ...);
 void LidInterrupt();
 }
 
-unsigned int* xfb[2] = { NULL, NULL };	/*** Framebuffers ***/
-int whichfb = 0;        /*** Frame buffer toggle ***/
+u32* xfb[3] = { NULL, NULL, NULL };	/*** Framebuffers ***/
 GXRModeObj *vmode;				/*** Graphics Mode Object ***/
 BOOL hasLoadedISO = FALSE;
 fileBrowser_file isoFile;  //the ISO file
@@ -103,7 +102,7 @@ PcsxConfig Config;
 char dynacore;
 char biosDevice;
 char LoadCdBios=0;
-char frameLimit[2];
+char frameLimit;
 char frameSkip;
 char useDithering;
 extern char audioEnabled;
@@ -173,7 +172,7 @@ static struct {
   { "AutoSave", &autoSave, AUTOSAVE_DISABLE, AUTOSAVE_ENABLE },
   { "BiosDevice", &biosDevice, BIOSDEVICE_HLE, BIOSDEVICE_USB },
   { "BootThruBios", &LoadCdBios, BOOTTHRUBIOS_NO, BOOTTHRUBIOS_YES },
-  { "LimitFrames", &frameLimit[1], FRAMELIMIT_NONE, FRAMELIMIT_AUTO },
+  { "LimitFrames", &frameLimit, FRAMELIMIT_NONE, FRAMELIMIT_AUTO },
   { "SkipFrames", &frameSkip, FRAMESKIP_DISABLE, FRAMESKIP_ENABLE },
   { "Dithering", &useDithering, USEDITHER_NONE, USEDITHER_ALWAYS },
   { "PadAutoAssign", &padAutoAssign, PADAUTOASSIGN_MANUAL, PADAUTOASSIGN_AUTOMATIC },
@@ -243,7 +242,7 @@ void loadSettings(int argc, char *argv[])
 #endif
 	printToScreen    = 1; // Show DEBUG text on screen
 	printToSD        = 0; // Disable SD logging
-	frameLimit[1]		 = 1; // Auto limit FPS
+	frameLimit		 = 1; // Auto limit FPS
 	frameSkip		 = 0; // Disable frame skipping
 	useDithering		 = 1; // Default dithering (set to 0 (disabled) in PEOPSgpu)
 	saveEnabled      = 0; // Don't save game
@@ -399,7 +398,7 @@ void loadSettings(int argc, char *argv[])
 
 	//Synch settings with Config
 	Config.Cpu=dynacore;
-	iUseDither = useDithering;
+	//iUseDither = useDithering;
 	iVolume = volume;
 }
 
@@ -419,11 +418,12 @@ void ShutdownWii()
 }
 #endif
 
-void video_mode_init(GXRModeObj *videomode,unsigned int *fb1, unsigned int *fb2)
+void video_mode_init(GXRModeObj *videomode, u32 *fb1, u32 *fb2, u32 *fb3)
 {
 	vmode = videomode;
 	xfb[0] = fb1;
 	xfb[1] = fb2;
+	xfb[2] = fb3;
 }
 
 // Plugin structure
@@ -832,8 +832,17 @@ int SysInit() {
 	return 0;
 }
 
+extern void pl_timing_prepare(int is_pal_);
+int g_emu_resetting;
+
 void SysReset() {
+    g_emu_resetting = 1;
+	// reset can run code, timing must be set
+	pl_timing_prepare(Config.PsxType);
+
 	psxReset();
+
+	g_emu_resetting = 0;
 }
 
 void SysStartCPU() {
@@ -895,6 +904,11 @@ int framesdone = 0;
 void SysUpdate()
 {
 	framesdone++;
+	// reamed hack
+	{
+		extern void pl_frame_limit(void);
+		pl_frame_limit();
+	}
 #ifdef PROFILE
 	refresh_stat();
 #endif

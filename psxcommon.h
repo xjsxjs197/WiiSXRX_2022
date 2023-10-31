@@ -127,6 +127,7 @@ typedef struct {
 	struct {
 		bool cdr_read_timing;
 		bool gpu_slow_list_walking;
+		bool gpu_busy_hack;
 	} hacks;
 } PcsxConfig;
 

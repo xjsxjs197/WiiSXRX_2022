@@ -139,6 +139,7 @@ extern u8* psxMemRLUT[0x10000] __attribute__((aligned(32)));
 
 int  psxMemInit();
 void psxMemReset();
+void psxMemOnIsolate(int enable);
 void psxMemShutdown();
 
 u8   psxMemRead8 (u32 mem);

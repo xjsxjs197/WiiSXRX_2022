@@ -30,11 +30,8 @@
 #define PSXGPU_DHEIGHT (1u<<19)
 #define PSXGPU_FIELD   (1u<<13)
 
-#define GPUSTATUS_READYFORVRAM        0x08000000
-#define GPUSTATUS_IDLE                0x04000000
-
 // both must be set for interlace to work
-#define PSXGPU_ILACE_BITS (PSXGPU_ILACE | PSXGPU_DHEIGHT | PSXGPU_FIELD)
+#define PSXGPU_ILACE_BITS (PSXGPU_ILACE | PSXGPU_DHEIGHT)
 
 #define HW_GPU_STATUS psxHu32ref(0x1814)
 
@@ -45,5 +42,13 @@
 	HW_GPU_STATUS &= SWAP32(PSXGPU_TIMING_BITS); \
 	HW_GPU_STATUS |= SWAP32(GPU_readStatus() & ~PSXGPU_TIMING_BITS); \
 }
+
+enum psx_gpu_state {
+  PGS_VRAM_TRANSFER_START,
+  PGS_VRAM_TRANSFER_END,
+  PGS_PRIMITIVE_START, // for non-dma only
+};
+
+void gpu_state_change(int what);
 
 #endif /* __GPU_H__ */

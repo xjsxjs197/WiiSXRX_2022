@@ -539,7 +539,7 @@ void SettingsFrame::activateSubmenu(int submenu)
 			FRAME_BUTTONS[1].button->setSelected(true);
 			if (showFPSonScreen == FPS_SHOW)	FRAME_BUTTONS[16].button->setSelected(true);
 			else								FRAME_BUTTONS[17].button->setSelected(true);
-			if (frameLimit[1] == FRAMELIMIT_AUTO)	FRAME_BUTTONS[18].button->setSelected(true);
+			if (frameLimit == FRAMELIMIT_AUTO)	FRAME_BUTTONS[18].button->setSelected(true);
 			else								FRAME_BUTTONS[19].button->setSelected(true);
 			if (frameSkip == FRAMESKIP_ENABLE)	FRAME_BUTTONS[20].button->setSelected(true);
 			else								FRAME_BUTTONS[21].button->setSelected(true);
@@ -553,7 +553,7 @@ void SettingsFrame::activateSubmenu(int submenu)
 			FRAME_BUTTONS[57].button->setVisible(true);
 			FRAME_BUTTONS[57].button->setActive(true);
 
-			FRAME_BUTTONS[25+iUseDither].button->setSelected(true);
+			FRAME_BUTTONS[25+useDithering].button->setSelected(true);
 			for (int i = 16; i < 30; i++)
 			{
 				FRAME_BUTTONS[i].button->setVisible(true);
@@ -1118,16 +1118,15 @@ void Func_ShowFpsOff()
 	showFPSonScreen = FPS_HIDE;
 }
 
-extern "C" void GPUsetframelimit(unsigned long option);
+//extern "C" void GPUsetframelimit(unsigned long option);
 
 void Func_FpsLimitAuto()
 {
 	for (int i = 18; i <= 19; i++)
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[18].button->setSelected(true);
-	frameLimit[0] = FRAMELIMIT_AUTO;
-	frameLimit[1] = FRAMELIMIT_AUTO;
-	GPUsetframelimit(0);
+	frameLimit = FRAMELIMIT_AUTO;
+	//GPUsetframelimit(0);
 }
 
 void Func_FpsLimitOff()
@@ -1135,9 +1134,8 @@ void Func_FpsLimitOff()
 	for (int i = 18; i <= 19; i++)
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[19].button->setSelected(true);
-	frameLimit[0] = FRAMELIMIT_NONE;
-	frameLimit[1] = FRAMELIMIT_NONE;
-	GPUsetframelimit(0);
+	frameLimit = FRAMELIMIT_NONE;
+	//GPUsetframelimit(0);
 }
 
 void Func_FrameSkipOn()
@@ -1146,7 +1144,7 @@ void Func_FrameSkipOn()
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[20].button->setSelected(true);
 	frameSkip = FRAMESKIP_ENABLE;
-	GPUsetframelimit(0);
+	//GPUsetframelimit(0);
 }
 
 void Func_FrameSkipOff()
@@ -1155,7 +1153,7 @@ void Func_FrameSkipOff()
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[21].button->setSelected(true);
 	frameSkip = FRAMESKIP_DISABLE;
-	GPUsetframelimit(0);
+	//GPUsetframelimit(0);
 }
 
 
@@ -1221,9 +1219,7 @@ void Func_DitheringNone()
 	for (int i = 25; i <= 27; i++)
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[25].button->setSelected(true);
-	iUseDither = USEDITHER_NONE;
-	useDithering = iUseDither;
-	GPUsetframelimit(0);
+	useDithering = USEDITHER_NONE;
 }
 
 void Func_DitheringDefault()
@@ -1231,9 +1227,7 @@ void Func_DitheringDefault()
 	for (int i = 25; i <= 27; i++)
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[26].button->setSelected(true);
-	iUseDither = USEDITHER_DEFAULT;
-	useDithering = iUseDither;
-	GPUsetframelimit(0);
+	useDithering = USEDITHER_DEFAULT;
 }
 
 void Func_DitheringAlways()
@@ -1241,9 +1235,7 @@ void Func_DitheringAlways()
 	for (int i = 25; i <= 27; i++)
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[27].button->setSelected(true);
-	iUseDither = USEDITHER_ALWAYS;
-	useDithering = iUseDither;
-	GPUsetframelimit(0);
+	useDithering = USEDITHER_ALWAYS;
 }
 
 void Func_BilinearFilter()

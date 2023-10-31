@@ -27,7 +27,8 @@ TARGET		:=	WiiSXRX_debug
 BUILD		:=	build_debug
 SOURCES		:=	../lang ../fonts \
                 $(CHDLIBDIR)/src/ $(CHDLIBDIR)/deps/lzma-19.00/ $(CHDLIBDIR)/deps/zlib-1.2.13/ \
-                . ./gc_input/ ./libgui/ ./menu/ ./fileBrowser/ .. ../Peops$(GPU)GPU/ \
+                . ./gc_input/ ./libgui/ ./menu/ ./fileBrowser/ .. \
+                ../gpulib/ ../SoftGPU/ \
 				./libgui/gui2 ../dfsound/ ./vm ../ppc
 
 DATA		:=	data

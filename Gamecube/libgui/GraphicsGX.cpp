@@ -53,19 +53,23 @@ GXRModeObj TVMODE_240p =
 	}
 };
 extern "C" unsigned int usleep(unsigned int us);
-void video_mode_init(GXRModeObj *rmode, unsigned int *fb1, unsigned int *fb2);
+void video_mode_init(GXRModeObj *rmode, u32 *fb1, u32 *fb2, u32 *fb3);
 extern "C" void VIDEO_SetTrapFilter(bool enable);
 
 GXRModeObj gvmode;
 GXRModeObj mgvmode;
 
-extern u32* xfb[2];
-extern int whichfb;
+extern u32* xfb[3];
+enum {
+	FB_BACK,
+	FB_NEXT,
+	FB_FRONT,
+};
 
 extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
 	GXRModeObj *rmode;
 	f32 yscale;
-	u32 xfbHeight;	
+	u32 xfbHeight;
     u16 xfbWidth;
 	u32 width = 0;
 	u32 height = 0;
@@ -73,26 +77,26 @@ extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
 	GXColor background = {0, 0, 0, 0xff};
 	if (dWidth <= 320)
 		dWidth *= 2;
-	
+
 	rmode = &mgvmode;
 	if (dWidth > rmode->viWidth)
 		dWidth = rmode->viWidth;
 	if (dHeight > rmode->viHeight)
 		dHeight = rmode->viHeight;
-	
-	
+
+
 	if ((dHeight > 288))
 	{
 		if(!retMenu)
 		{
-			rmode = &gvmode;	
+			rmode = &gvmode;
 			rmode->fbWidth = dWidth;
 			rmode->efbHeight = dHeight;
 			rmode->xfbHeight = dHeight;
 			rmode->viYOrigin = (VI_MAX_HEIGHT_NTSC - dHeight)/2;
 			if ((CONF_GetEuRGB60() == 0) && (CONF_GetVideo() == CONF_VIDEO_PAL))
 				rmode->viYOrigin = (VI_MAX_HEIGHT_PAL - dHeight)/2;
-			
+
 			if (interlacedMode){
 				rmode->viTVMode =	(mgvmode.viTVMode & ~0x03) + VI_INTERLACE;
 				rmode->xfbMode = VI_XFBMODE_DF;
@@ -102,7 +106,7 @@ extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
 				rmode->xfbMode = mgvmode.xfbMode;
 			}
 		}
-		xfbWidth = VIDEO_PadFramebufferWidth(rmode->fbWidth);  
+		xfbWidth = VIDEO_PadFramebufferWidth(rmode->fbWidth);
 		width = xfbWidth;
 	}
 	else
@@ -111,8 +115,8 @@ extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
 		{
 			rmode = &TVMODE_240p;
 			rmode->viTVMode = VI_TVMODE_NTSC_DS;
-			rmode->viYOrigin = (VI_MAX_HEIGHT_NTSC/2 - dHeight)/2;	
-			
+			rmode->viYOrigin = (VI_MAX_HEIGHT_NTSC/2 - dHeight)/2;
+
 		}
 		else if (CONF_GetEuRGB60() > 0)
 		{
@@ -130,50 +134,50 @@ extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
 			rmode = &TVMODE_240p;
 			rmode->viTVMode = VI_TVMODE_PAL_DS;
 			rmode->viXOrigin = (VI_MAX_WIDTH_PAL - 640)/2;
-			rmode->viYOrigin = (VI_MAX_HEIGHT_PAL/2 - dHeight)/2;	
+			rmode->viYOrigin = (VI_MAX_HEIGHT_PAL/2 - dHeight)/2;
 		}
 		rmode->efbHeight = dHeight;
 		rmode->xfbHeight = dHeight;
-		
+
 		rmode->fbWidth = dWidth;
 		width = rmode->fbWidth;
-		
+
 	}
 
 	GX_SetCopyFilter(rmode->aa,rmode->sample_pattern,(deflickerFilter)?GX_TRUE:GX_FALSE,rmode->vfilter);
-	
+
 	VIDEO_Configure (rmode);
 	VIDEO_Flush();
 	if (retMenu){
 		GX_SetCopyFilter(rmode->aa,rmode->sample_pattern,GX_TRUE,rmode->vfilter);
-		VIDEO_ClearFrameBuffer (rmode, xfb[whichfb], COLOR_BLACK);
+		VIDEO_ClearFrameBuffer (rmode, xfb[FB_FRONT], COLOR_BLACK);
 		VIDEO_Flush ();
 	}
-	VIDEO_WaitVSync();	
+	VIDEO_WaitVSync();
 	if(rmode->viTVMode&VI_NON_INTERLACE) VIDEO_WaitVSync();
-	
+
 	GX_SetCopyClear(background, 0x00ffffff);
-	GX_SetViewport(0.0F, 0.0F, rmode->fbWidth, rmode->efbHeight, 0.0F, 1.0F);	
+	GX_SetViewport(0.0F, 0.0F, rmode->fbWidth, rmode->efbHeight, 0.0F, 1.0F);
 	yscale = GX_GetYScaleFactor(rmode->efbHeight,rmode->xfbHeight);
 	xfbHeight = GX_SetDispCopyYScale(yscale);
-	xfbWidth = VIDEO_PadFramebufferWidth(rmode->fbWidth); 
+	xfbWidth = VIDEO_PadFramebufferWidth(rmode->fbWidth);
 	GX_SetScissor(0,0,rmode->fbWidth,rmode->efbHeight);
 	GX_SetPixelFmt(GX_PF_RGB8_Z24, GX_ZC_LINEAR);
 	GX_SetDispCopySrc(0,0,rmode->fbWidth,rmode->efbHeight);
 	GX_SetDispCopyDst(xfbWidth, xfbHeight);
-	GX_SetFieldMode(rmode->field_rendering,((rmode->viHeight==2*rmode->xfbHeight)?GX_ENABLE:GX_DISABLE));	
+	GX_SetFieldMode(rmode->field_rendering,((rmode->viHeight==2*rmode->xfbHeight)?GX_ENABLE:GX_DISABLE));
 	GX_SetCullMode(GX_CULL_NONE);
 	GX_SetDispCopyGamma(GX_GM_1_0);
 	GX_SetNumChans(1);
 	GX_SetNumTexGens(1);
 	GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
 	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
-	GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);	
+	GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
 	height = rmode->efbHeight;
-	guOrtho(perspective,0,height,0,width,0,300);    
+	guOrtho(perspective,0,height,0,width,0,300);
 	GX_LoadProjectionMtx(perspective, GX_ORTHOGRAPHIC);
 	GX_SetDither(GX_FALSE);
-	
+
 }
 
 
@@ -233,11 +237,12 @@ Graphics::Graphics(GXRModeObj *rmode)
 	memcpy( &mgvmode, vmode, sizeof(GXRModeObj));
 	if (trapFilter)
 		VIDEO_SetTrapFilter(1);
-		
+
 	VIDEO_Configure(vmode);
 
 	xfb[0] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(vmode));
 	xfb[1] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(vmode));
+	xfb[2] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(vmode));
 
 	console_init (xfb[0], 20, 64, vmode->fbWidth, vmode->xfbHeight, vmode->fbWidth * 2);
 
@@ -248,7 +253,7 @@ Graphics::Graphics(GXRModeObj *rmode)
 	which_fb ^= 1;
 
 	//Pass vmode, xfb[0] and xfb[1] back to main program
-	video_mode_init(vmode, (unsigned int*)xfb[0], (unsigned int*)xfb[1]);
+	video_mode_init(vmode, (u32*)xfb[0], (u32*)xfb[1], (u32*)xfb[2]);
 
 	//Perform GX init stuff here?
 	//GX_init here or in main?

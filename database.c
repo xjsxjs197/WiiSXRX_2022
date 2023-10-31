@@ -25,17 +25,34 @@ static const char * const cdr_read_hack_db[] =
 
 static const char * const gpu_slow_llist_db[] =
 {
-    /* Bomberman Fantasy Race */
-    "SLES01712", "SLPS01525", "SLPS91138", "SLPM87102",
-    "SLUS00823",
-    /* Crash Bash */
-    "SCES02834", "SCUS94570", "SCUS94616", "SCUS94654",
-    /* Final Fantasy IV */
-    "SCES03840", "SLPM86028", "SLUS01360",
-    /* Spot Goes to Hollywood */
-    "SLES00330", "SLPS00394", "SLUS00014",
-    /* Vampire Hunter D */
-    "SLES02731", "SLPS02477", "SLPS03198", "SLUS01138",
+	/* Bomberman Fantasy Race */
+	"SLES01712", "SLPS01525", "SLPS91138", "SLPM87102",
+	"SLUS00823",
+	/* Crash Bash */
+	"SCES02834", "SCUS94570", "SCUS94616", "SCUS94654",
+	/* Final Fantasy IV */
+	"SCES03840", "SLPM86028", "SLUS01360",
+	/* Spot Goes to Hollywood */
+	"SLES00330", "SLPS00394", "SLUS00014",
+	/* Vampire Hunter D */
+	"SLES02731", "SLPS02477", "SLPS03198", "SLUS01138",
+};
+
+static const char * const gpu_busy_hack_db[] =
+{
+	/* ToHeart (Japan) */
+	"SLPS01919", "SLPS01920",
+	/* Hot Wheels - Turbo Racing */
+	"SLUS00964", "SLES02198",
+	/* FIFA - Road to World Cup '98 */
+	"SLPS01383", "SLPS91150", "SLUS00520", "SLES00914",
+	"SLES00915", "SLES00916", "SLES00917", "SLES00918",
+	/* Ishin no Arashi (Japan) */
+	"SLPS01158", "SLPM86861", "SLPM86235",
+	/* The Dukes of Hazzard - Racing for Home */
+	"SLUS00859", "SLES02343",
+	/* EA Sports F1 2000? (Europe?) */
+	"SLES02723",
 };
 
 #define HACK_ENTRY(var, list) \
@@ -50,8 +67,9 @@ static const struct
 }
 hack_db[] =
 {
-    HACK_ENTRY(cdr_read_timing, cdr_read_hack_db),
-    HACK_ENTRY(gpu_slow_list_walking, gpu_slow_llist_db),
+	HACK_ENTRY(cdr_read_timing, cdr_read_hack_db),
+	HACK_ENTRY(gpu_slow_list_walking, gpu_slow_llist_db),
+	HACK_ENTRY(gpu_busy_hack, gpu_busy_hack_db),
 };
 
 static const struct
@@ -127,6 +145,8 @@ cycle_multiplier_overrides[] =
     /* Digimon World */
     { "SLUS01032", 153 },
     { "SLES02914", 153 },
+	/* Syphon Filter - reportedly hangs under unknown conditions */
+	{ "SCUS94240", 169 },
 };
 
 static const struct
@@ -208,7 +228,7 @@ void Apply_Hacks_Cdrom()
 
     lightrec_hacks = 0;
 
-    for (i = 0; (Config.Cpu == DYNACORE_DYNAREC) && i < ARRAY_SIZE(lightrec_hacks_db); i++) {
+    for (i = 0; i < ARRAY_SIZE(lightrec_hacks_db); i++) {
         if (strcmp(CdromId, lightrec_hacks_db[i].id) == 0)
         {
             lightrec_hacks = lightrec_hacks_db[i].hacks;
