@@ -26,7 +26,8 @@ static const char * const cdr_read_hack_db[] =
 static const char * const gpu_slow_llist_db[] =
 {
 	/* Bomberman Fantasy Race */
-	"SLES01712", "SLPS01525", "SLPS91138", "SLPM87102", "SLUS00823",
+	"SLES01712", "SLPS01525", "SLPS91138", "SLPM87102",
+	"SLUS00823",
 	/* Crash Bash */
 	"SCES02834", "SCUS94570", "SCUS94616", "SCUS94654",
 	/* Final Fantasy IV */
@@ -41,29 +42,17 @@ static const char * const gpu_busy_hack_db[] =
 {
 	/* ToHeart (Japan) */
 	"SLPS01919", "SLPS01920",
-	// Hot Wheels - Turbo Racing
-    "SLUS00964" // NTSC-U
-    ,"SLES02198" // PAL
-	// FIFA: Road to World Cup '98
-    ,"SLPS01383" // NTSC-J - normal version
-    ,"SLPS91150" // NTSC-J - PlayStation The Best version
-    ,"SLUS00520" // NTSC-U
-    ,"SLES00914" // PAL
-    ,"SLES00915" // France
-    ,"SLES00916" // Germany
-    ,"SLES00917" // Italy
-    ,"SLES00918" // Spain
-
-    // Ishin no Arashi (NTSC-J)
-    ,"SLPS01158" // normal version
-    ,"SLPM86861" // Koei Teiban Series version
-    ,"SLPM86235" // Koei The Best version
-
-    // The Dukes of Hazzard: Racing for Home
-    ,"SLUS00859" // NTSC-U
-    ,"SLES02343" // PAL
-
-    ,"SLES02723"
+	/* Hot Wheels - Turbo Racing */
+	"SLUS00964", "SLES02198",
+	/* FIFA - Road to World Cup '98 */
+	"SLPS01383", "SLPS91150", "SLUS00520", "SLES00914",
+	"SLES00915", "SLES00916", "SLES00917", "SLES00918",
+	/* Ishin no Arashi (Japan) */
+	"SLPS01158", "SLPM86861", "SLPM86235",
+	/* The Dukes of Hazzard - Racing for Home */
+	"SLUS00859", "SLES02343",
+	/* EA Sports F1 2000? (Europe?) */
+	"SLES02723",
 };
 
 #define HACK_ENTRY(var, list) \
