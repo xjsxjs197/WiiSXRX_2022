@@ -5,7 +5,7 @@ msgid "Current ISO"
 msgstr "Aktuelle ISO"
 
 msgid "Settings"
-msgstr "Einstellungen"
+msgstr "Einst."
 
 msgid "Credits"
 msgstr ""
@@ -26,16 +26,16 @@ msgid "Are you sure you want to exit to loader?"
 msgstr "Sind Sie sicher, dass Sie zum Loader zurückkehren möchten?"
 
 msgid "Automatically saved to SD card"
-msgstr "Automatisch auf SD-Karte gespeichert"
+msgstr "Autom. auf SD-Karte gespeichert"
 
 msgid "Automatically saved to USB device"
-msgstr "Automatisch auf USB-Gerät gespeichert"
+msgstr "Autom. auf USB-Gerät gespeichert"
 
 msgid "Automatically saved to memcard in Slot A"
-msgstr "Automatisch auf Memory Card in Slot A gespeichert"
+msgstr "Autom. auf Memory Card in Slot A gespeichert"
 
 msgid "Automatically saved to memcard in Slot B"
-msgstr "Automatisch auf Memory Card in Slot B gespeichert"
+msgstr "Autom. auf Memory Card in Slot B gespeichert"
 
 msgid "Failed to save game"
 msgstr "Speichern des Spiels fehlgeschlagen"
@@ -44,7 +44,7 @@ msgid "No ISO Loaded"
 msgstr "Keine ISO geladen"
 
 msgid "AutoSave Enabled"
-msgstr "Automatisches Speichern aktiviert"
+msgstr "Autom. Speichern aktiviert"
 
 msgid "Nothing to Save"
 msgstr "Nichts zu speichern"
@@ -53,7 +53,7 @@ msgid "Game Needs Saving"
 msgstr "Spiel muss gespeichert werden"
 
 msgid "General"
-msgstr "Allgemein"
+msgstr "Allg."
 
 msgid "Video"
 msgstr ""
@@ -65,22 +65,22 @@ msgid "Audio"
 msgstr ""
 
 msgid "Saves"
-msgstr "Spielstände"
+msgstr "Speicher"
 
 msgid "Select CPU Core"
-msgstr "CPU-Kern auswählen"
+msgstr "CPU-Kern"
 
 msgid "Select Bios"
-msgstr "Bios auswählen"
+msgstr "Bios"
 
 msgid "Boot Through Bios"
-msgstr "Durch das Bios starten"
+msgstr "Durch Bios starten"
 
 msgid "Execute Bios"
 msgstr "Bios ausführen"
 
 msgid "Save settings"
-msgstr "Einstellungen speichern"
+msgstr "Einst. speichern"
 
 msgid "Interpreter"
 msgstr ""
@@ -152,16 +152,16 @@ msgid "Disable Rumble"
 msgstr "Rumble deaktivieren"
 
 msgid "Standard"
-msgstr "Standard"
+msgstr ""
 
 msgid "Analog"
-msgstr "Analog"
+msgstr ""
 
 msgid "Save Button Configs"
 msgstr "Tastenbelegung speichern"
 
 msgid "Auto Load Slot:"
-msgstr "Automatisches Laden Slot:"
+msgstr ""
 
 msgid "Disable Audio"
 msgstr "Audio deaktivieren"
@@ -191,7 +191,7 @@ msgid "Memcard Save Device"
 msgstr ""
 
 msgid "Auto Save Memcards"
-msgstr "Speicherkarten automatisch speichern"
+msgstr "Memcards autom. speichern"
 
 msgid "Save States Device"
 msgstr ""
@@ -224,19 +224,19 @@ msgid "Error opening directory sd:/wiisxr"
 msgstr "Fehler beim Öffnen des Verzeichnisses sd:/wiisxr"
 
 msgid "Saved settings to SD"
-msgstr "Einstellungen auf SD-Karte gespeichert"
+msgstr "Einst. auf SD-Karte gespeichert"
 
 msgid "Error saving settings to SD"
-msgstr "Fehler beim Speichern der Einstellungen auf SD"
+msgstr "Fehler beim Speichern der Einst. auf SD"
 
 msgid "Error opening directory usb:/wiisxr"
 msgstr "Fehler beim Öffnen des Verzeichnisses usb:/wiisxr"
 
 msgid "Saved settings to USB"
-msgstr "Einstellungen auf USB-Gerät gespeichert"
+msgstr "Einst. auf USB-Gerät gespeichert"
 
 msgid "Error saving settings to USB"
-msgstr "Fehler beim Speichern der Einstellungen auf USB"
+msgstr "Fehler beim Speichern der Einst. auf USB"
 
 msgid "Saved Button Configs to SD"
 msgstr "Tastenbelegung auf SD gespeichert"
@@ -299,7 +299,7 @@ msgid "PSX Pad 4"
 msgstr "PSX-Pad 4"
 
 msgid "Automatic"
-msgstr "Automatisch"
+msgstr "Autom."
 
 msgid "Manual"
 msgstr "Manuell"
@@ -314,7 +314,7 @@ msgid "Wii Pad"
 msgstr "Wii-Pad"
 
 msgid "Auto Assign"
-msgstr "Automatische Zuweisung"
+msgstr "Autom. Zuweisung"
 
 msgid "Next Pad"
 msgstr "Nächstes Pad"
@@ -536,10 +536,10 @@ msgid "Cancel"
 msgstr "Abbrechen"
 
 msgid "Prev"
-msgstr "Vorherige"
+msgstr "Vorher"
 
 msgid "Next"
-msgstr "Nächste"
+msgstr "Weiter"
 
 msgid "En"
 msgstr ""
@@ -563,10 +563,10 @@ msgid "Pte"
 msgstr ""
 
 msgid "Select language"
-msgstr "Sprache auswählen"
+msgstr "Sprache"
 
 msgid "Fast Load"
-msgstr "Schnelles Laden"
+msgstr "FastLoad"
 
 msgid "Because the language has changed, please restart"
 msgstr "Da die Sprache geändert wurde, bitte neu starten"
