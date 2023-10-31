@@ -546,11 +546,11 @@ static int ReadTrack(const u8 *time)
 	tmp[2] = itob(time[2]);
 	tmp[3] = 0;
 
+	CDR_LOG("ReadTrack *** %02x:%02x:%02x\n", tmp[0], tmp[1], tmp[2]);
+
     if (*((u32*)cdr.Prev) == *((u32*)tmp)) {
 		return 1;
     }
-
-	CDR_LOG("ReadTrack *** %02x:%02x:%02x\n", tmp[0], tmp[1], tmp[2]);
 
 	read_ok = CDR_readTrack(tmp);
     if (read_ok)
@@ -604,14 +604,14 @@ static void cdrPlayInterrupt_Autopause(s16* cddaBuf)
 	u32 i;
 
 	if ((cdr.Mode & MODE_AUTOPAUSE) && cdr.TrackChanged) {
-		//CDR_LOG( "CDDA STOP\n" );
+		CDR_LOG_I("autopause\n");
 
 		// Magic the Gathering
 		// - looping territory cdda
 
 		// ...?
-		//cdr.ResultReady = 1;
-		//cdr.Stat = DataReady;
+		SetResultSize(1);
+		cdr.Result[0] = cdr.StatP;
 		cdr.Stat = DataEnd;
 		setIrq(0x1000); // 0x1000 just for logging purposes
 
@@ -621,6 +621,7 @@ static void cdrPlayInterrupt_Autopause(s16* cddaBuf)
 	else if ((cdr.Mode & MODE_REPORT) && !cdr.ReportDelay &&
 		 ((cdr.subq.Absolute[2] & 0x0f) == 0 || cdr.FastForward || cdr.FastBackward))
 	{
+		SetResultSize(8);
 		cdr.Result[0] = cdr.StatP;
 		cdr.Result[1] = cdr.subq.Track;
 		cdr.Result[2] = cdr.subq.Index;
@@ -645,15 +646,10 @@ static void cdrPlayInterrupt_Autopause(s16* cddaBuf)
 			cdr.Result[4] = cdr.subq.Absolute[1];
 			cdr.Result[5] = cdr.subq.Absolute[2];
 		}
-
 		cdr.Result[6] = abs_lev_max >> 0;
 		cdr.Result[7] = abs_lev_max >> 8;
 
-		// Rayman: Logo freeze (resultready + dataready)
-		cdr.ResultReady = 1;
 		cdr.Stat = DataReady;
-
-		SetResultSize(8);
 		setIrq(0x1001);
 	}
 
@@ -665,14 +661,21 @@ static int cdrSeekTime(unsigned char *target)
 {
 	int diff = msf2sec(cdr.SetSectorPlay) - msf2sec(target);
 	int seekTime = abs(diff) * (cdReadTime / 2000);
+	int cyclesSinceRS = psxRegs.cycle - cdr.LastReadSeekCycles;
 	seekTime = MAX_VALUE(seekTime, 20000);
 
 	// need this stupidly long penalty or else Spyro2 intro desyncs
-	if ((s32)(psxRegs.cycle - cdr.LastReadSeekCycles) > cdReadTime * 8)
+	// note: if misapplied this breaks MGS cutscenes among other things
+	if (cyclesSinceRS > cdReadTime * 50)
 		seekTime += cdReadTime * 25;
+	// Transformers Beast Wars Transmetals does Setloc(x),SeekL,Setloc(x),ReadN
+	// and then wants some slack time
+	else if (cyclesSinceRS < cdReadTime *3/2)
+		seekTime += cdReadTime;
 
 	seekTime = MIN_VALUE(seekTime, PSXCLK * 2 / 3);
-	CDR_LOG("seek: %.2f %.2f\n", (float)seekTime / PSXCLK, (float)seekTime / cdReadTime);
+	CDR_LOG("seek: %.2f %.2f (%.2f)\n", (float)seekTime / PSXCLK,
+		(float)seekTime / cdReadTime, (float)cyclesSinceRS / cdReadTime);
 	return seekTime;
 }
 
@@ -747,8 +750,8 @@ void cdrPlayReadInterrupt(void)
 
 	if (!cdr.Play) return;
 
-	CDR_LOG( "CDDA - %d:%d:%d\n",
-		cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2] );
+	CDR_LOG("CDDA - %02d:%02d:%02d m %02x\n",
+		cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2], cdr.Mode);
 
     SetPlaySeekRead(cdr.StatP, STATUS_PLAY);
 	//if (memcmp(cdr.SetSectorPlay, cdr.SetSectorEnd, 3) == 0) {
@@ -757,6 +760,7 @@ void cdrPlayReadInterrupt(void)
         sprintf(txtbuffer, "cdrom check playCDDA End");
         DEBUG_print(txtbuffer, DBG_CDR4);
         #endif // DISP_DEBUG
+		CDR_LOG_I("end stop\n");
 		StopCdda();
 		SetPlaySeekRead(cdr.StatP, 0);
 		cdr.TrackChanged = TRUE;
@@ -1240,6 +1244,8 @@ void cdrInterrupt(void) {
 					cdr.Result[1] |= 0x80;
 			}
 			cdr.Result[0] |= (cdr.Result[1] >> 4) & 0x08;
+			CDR_LOG_I("CdlID: %02x %02x %02x %02x\n", cdr.Result[0],
+				cdr.Result[1], cdr.Result[2], cdr.Result[3]);
 
 			/* This adds the string "PCSX" in Playstation bios boot screen */
 			//memcpy((char *)&cdr.Result[4], "PCSX", 4);
@@ -1322,11 +1328,11 @@ void cdrInterrupt(void) {
 			// FALLTHROUGH
 
 		set_error:
-			CDR_LOG_I("cmd %02x error %02x\n", Cmd, error);
 			SetResultSize(2);
 			cdr.Result[0] = cdr.StatP | STATUS_ERROR;
 			cdr.Result[1] = not_ready ? ERROR_NOTREADY : error;
 			cdr.Stat = DiskError;
+			CDR_LOG_I("cmd %02x error %02x\n", Cmd, cdr.Result[1]);
 			break;
 	}
 
@@ -1810,7 +1816,13 @@ void cdrReset() {
 	cdr.Reg2 = 0x1f;
 	cdr.Stat = NoIntr;
 	cdr.FifoOffset = DATA_SIZE; // fifo empty
-	if (CdromId[0] == '\0') {
+
+	CDR_getStatus(&stat);
+	if (stat.Status & STATUS_SHELLOPEN) {
+		cdr.DriveState = DRIVESTATE_LID_OPEN;
+		cdr.StatP = STATUS_SHELLOPEN;
+	}
+	else if (CdromId[0] == '\0') {
 		cdr.DriveState = DRIVESTATE_STOPPED;
 		cdr.StatP = 0;
 	}
