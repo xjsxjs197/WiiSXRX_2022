@@ -178,7 +178,7 @@ Auto Save Memcards: Yes; No
 Save States Device: SD; USB
 */
 
-static char FRAME_STRINGS[76][24] =
+static char FRAME_STRINGS[77][24] =
 	{ "General",
 	  "Video",
 	  "Input",
@@ -259,11 +259,21 @@ static char FRAME_STRINGS[76][24] =
 	  "Lightgun ",
 	  "GunCon",
 	  "Justifier ",
+	  "Mouse",
 	  "Memcard 1",
 	  "Memcard 2",
 	  "Enable Memcard"
       };
 
+static char LANG_STRINGS[7][24] =
+	{ "En", // English
+      "Chs", // Simplified Chinese
+      "Kr", // Korean
+      "Es", // SPANISH
+      "Pte", // PORTUGUESE
+      "It", // ITALIAN
+      "De" // GERMAN
+      };
 
 struct ButtonInfo
 {
@@ -310,7 +320,7 @@ struct ButtonInfo
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	420.0,	220.0,	 75.0,	56.0,	19,	23,	20,	20,	Func_FrameSkipOff,		Func_ReturnFromSettingsFrame }, // Frame Skip: Off
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[27],	200.0,	280.0,	 135.0,	56.0,	20,	25,	57,	23,	Func_ScreenMode,		Func_ReturnFromSettingsFrame }, // ScreenMode: 4:3/16:9/Force16:9
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[67],	355.0,	280.0,	 135.0,	56.0,	20,	26,	22,	57,	Func_Interlaced,		Func_ReturnFromSettingsFrame }, // Interlaced Mode
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[68],	440.0,	400.0,	110.0,	56.0,	27,	 1,	29,	28,	Func_DeflickerFilter,	Func_ReturnFromSettingsFrame }, // Filters: Deflicker Filter	
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[68],	440.0,	400.0,	110.0,	56.0,	27,	 1,	29,	28,	Func_DeflickerFilter,	Func_ReturnFromSettingsFrame }, // Filters: Deflicker Filter
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[30],	200.0,	340.0,	 75.0,	56.0,	22,	28,	27,	26,	Func_DitheringNone,		Func_ReturnFromSettingsFrame }, // Dithering: None
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[32],	295.0,	340.0,	110.0,	56.0,	23,	29,	25,	27,	Func_DitheringDefault,	Func_ReturnFromSettingsFrame }, // Dithering: Game Dependent
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[33],	425.0,	340.0,	110.0,	56.0,	23,	24,	26,	25,	Func_DitheringAlways,	Func_ReturnFromSettingsFrame }, // Dithering: Always
@@ -341,8 +351,8 @@ struct ButtonInfo
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[55],	540.0,	100.0,	 90.0,	56.0,	 4,	51,	48,	46,	Func_MemcardSaveCardB,	Func_ReturnFromSettingsFrame }, // Memcard Save: Card B
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[16],	295.0,	170.0,	 75.0,	56.0,	46,	52,	51,	51,	Func_AutoSaveYes,		Func_ReturnFromSettingsFrame }, // Auto Save Memcards: Yes
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[17],	380.0,	170.0,	 75.0,	56.0,	47,	53,	50,	50,	Func_AutoSaveNo,		Func_ReturnFromSettingsFrame }, // Auto Save Memcards: No
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[13],	295.0,	240.0,	 55.0,	56.0,	50,	 4,	53,	53,	Func_SaveStateSD,		Func_ReturnFromSettingsFrame }, // Save State: SD
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[14],	360.0,	240.0,	 70.0,	56.0,	51,	 4,	52,	52,	Func_SaveStateUSB,		Func_ReturnFromSettingsFrame }, // Save State: USB
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[13],	295.0,	240.0,	 55.0,	56.0,	50,	60,	53,	53,	Func_SaveStateSD,		Func_ReturnFromSettingsFrame }, // Save State: SD
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[14],	360.0,	240.0,	 70.0,	56.0,	51,	60,	52,	52,	Func_SaveStateUSB,		Func_ReturnFromSettingsFrame }, // Save State: USB
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[57],	235.0,	310.0,	 90.0,	56.0,	 11,55,	56,	55,	Func_SelectLanguage,	Func_ReturnFromSettingsFrame }, // Select Language: En
     //Buttons for Saves Tab (starts at button[55]) ..was[58]
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[16],	490.0,	310.0,	 75.0,	56.0,	12,	15,	54,	56,	Func_FastloadYes,		Func_ReturnFromSettingsFrame }, // Fast load: Yes
@@ -350,8 +360,8 @@ struct ButtonInfo
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[64],	510.0,	280.0,	 75.0,	56.0,	21,	27,	23,	22,	Func_Screen240p,		Func_ReturnFromSettingsFrame },  // ScreenMode: 240p
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[11],	505.0,	100.0,	130.0,	56.0,	 0,	 9,	 6,	 5,	Func_CpuDynarec,		Func_ReturnFromSettingsFrame },  // CPU: Dynarec
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[70],	510.0,	170.0,	115.0,	56.0,	31,	35,	33,	32,	Func_PsxTypeLightgun,	Func_ReturnFromSettingsFrame },  // PSX Controller Type: Lightgun
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[73],	295.0,	310.0,	155.0,	56.0,	31,	35,	33,	32,	Func_Memcard1,			Func_ReturnFromSettingsFrame },  // Memcard 1 toggle
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[74],	460.0,	310.0,	155.0,	56.0,	31,	35,	33,	32,	Func_Memcard2,			Func_ReturnFromSettingsFrame }  // Memcard 2 toggle
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[74],	295.0,	310.0,	155.0,	56.0,	52,	4,	61,	61,	Func_Memcard1,			Func_ReturnFromSettingsFrame },  // Memcard 1 toggle
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[75],	460.0,	310.0,	155.0,	56.0,	53,	4,	60,	60,	Func_Memcard2,			Func_ReturnFromSettingsFrame }  // Memcard 2 toggle
 };
 
 struct TextBoxInfo
@@ -392,7 +402,7 @@ struct TextBoxInfo
 	{	NULL,	FRAME_STRINGS[53],	150.0,	268.0,	 1.0,	true }, // Save State Device: SD/USB
 	{	NULL,	FRAME_STRINGS[56],	130.0,	338.0,	 1.0,	true }, // Select language: En, Chs, ......
 	{	NULL,	FRAME_STRINGS[63],	405.0,	338.0,	 1.0,	true }, // Fast load
-	{	NULL,	FRAME_STRINGS[75],	150.0,	338.0,	 1.0,	true }, // Memcard enable
+	{	NULL,	FRAME_STRINGS[76],	150.0,	338.0,	 1.0,	true }, // Memcard enable
 };
 
 SettingsFrame::SettingsFrame()
@@ -501,7 +511,7 @@ void SettingsFrame::activateSubmenu(int submenu)
 			}
 			FRAME_BUTTONS[54].button->setVisible(true);
             FRAME_BUTTONS[54].button->setActive(canChangeFont == 1);
-            FRAME_BUTTONS[54].buttonString = FRAME_STRINGS[57 + lang];
+            FRAME_BUTTONS[54].buttonString = LANG_STRINGS[lang];
 
             // Fast load
             FRAME_BUTTONS[55].button->setVisible(true);
@@ -539,7 +549,7 @@ void SettingsFrame::activateSubmenu(int submenu)
 			if (interlacedMode == INTERLACED_ENABLE)FRAME_BUTTONS[23].button->setSelected(true);
 			if (deflickerFilter == DEFLICKER_ENABLE)FRAME_BUTTONS[24].button->setSelected(true);
 			FRAME_BUTTONS[22].buttonString = FRAME_STRINGS[27 + screenMode];
-			
+
 			FRAME_BUTTONS[57].button->setVisible(true);
 			FRAME_BUTTONS[57].button->setActive(true);
 
@@ -568,12 +578,12 @@ void SettingsFrame::activateSubmenu(int submenu)
 			if (lightGun != LIGHTGUN_DISABLE)FRAME_BUTTONS[59].button->setSelected(true);
 			else FRAME_BUTTONS[59].button->setSelected(false);
 			FRAME_BUTTONS[59].buttonString = FRAME_STRINGS[70 + lightGun];
-			
+
 			FRAME_BUTTONS[34+rumbleEnabled].button->setSelected(true);
-			
+
 			FRAME_BUTTONS[59].button->setVisible(true);
 			FRAME_BUTTONS[59].button->setActive(true);
-			
+
 			for (int i = 30; i < 39; i++)
 			{
 				FRAME_BUTTONS[i].button->setVisible(true);
@@ -1028,13 +1038,14 @@ void Func_SelectLanguage()
 //	GERMAN,
 //	FRENCH,
 //	ITALIAN
+//	GERMAN
     lang++;
-    if (lang > ITALIAN)
+    if (lang > GERMAN)
     {
         lang = ENGLISH;
     }
     FRAME_BUTTONS[54].button->setSelected(true);
-    FRAME_BUTTONS[54].buttonString = FRAME_STRINGS[57 + lang];
+    FRAME_BUTTONS[54].buttonString = LANG_STRINGS[lang];
 }
 
 extern void writeConfig(FILE* f);
@@ -1289,7 +1300,7 @@ void Func_PsxTypeLightgun()
 {
     lightGun++;
 	FRAME_BUTTONS[59].button->setSelected(true);
-    if (lightGun > LIGHTGUN_JUST)
+    if (lightGun > LIGHTGUN_MOUSE)
     {
         lightGun = LIGHTGUN_DISABLE;
 		FRAME_BUTTONS[59].button->setSelected(false);

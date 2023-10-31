@@ -474,14 +474,16 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 					case 3: r=0; g=255; b=255;break;
 				}
 				
-				drawCircle(cursorX, cursorY, 20, 10, r, g, b);
 				drawLine(cursorX, cursorY-5, cursorX, cursorY+5, r, g, b);
 				drawLine(cursorX-5, cursorY, cursorX+5, cursorY, r, g, b);
 				
-				drawLine(cursorX+20, cursorY, cursorX+15, cursorY, r, g, b);
-				drawLine(cursorX-20, cursorY, cursorX-15, cursorY, r, g, b);
-				drawLine(cursorX, cursorY+20, cursorX, cursorY+15, r, g, b);
-				drawLine(cursorX, cursorY-20, cursorX, cursorY-15, r, g, b);
+				if (lightGun == LIGHTGUN_GUNCON || lightGun == LIGHTGUN_JUST){
+					drawCircle(cursorX, cursorY, 20, 10, r, g, b);
+					drawLine(cursorX+20, cursorY, cursorX+15, cursorY, r, g, b);
+					drawLine(cursorX-20, cursorY, cursorX-15, cursorY, r, g, b);
+					drawLine(cursorX, cursorY+20, cursorX, cursorY+15, r, g, b);
+					drawLine(cursorX, cursorY-20, cursorX, cursorY-15, r, g, b);
+				}
 			}
 		}
 	}

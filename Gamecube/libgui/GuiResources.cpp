@@ -56,6 +56,7 @@ Resources::Resources()
 	psxControllerImage = new Image(PsxControllerTexture, 232, 152, GX_TF_IA4, GX_CLAMP, GX_CLAMP, GX_FALSE);
 	GConImage = new Image(GConTexture, 250, 179, GX_TF_IA4, GX_CLAMP, GX_CLAMP, GX_FALSE);
 	JustImage = new Image(JustTexture, 250, 179, GX_TF_IA4, GX_CLAMP, GX_CLAMP, GX_FALSE);
+	PSMouseImage = new Image(PSMouseTexture, 144, 256, GX_TF_IA4, GX_CLAMP, GX_CLAMP, GX_FALSE);
 
 }
 
@@ -79,6 +80,7 @@ Resources::~Resources()
 	delete psxControllerImage;
 	delete GConImage;
 	delete JustImage;
+	delete PSMouseImage;
 }
 
 Image* Resources::getImage(int image)
@@ -140,6 +142,9 @@ Image* Resources::getImage(int image)
 	case IMAGE_JUST:
 		returnImage = JustImage;
 		break;
+	case IMAGE_PSMOUSE:
+		returnImage = PSMouseImage;
+		break;	
 	}
 	return returnImage;
 }
