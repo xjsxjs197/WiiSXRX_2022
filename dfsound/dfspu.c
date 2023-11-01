@@ -1063,8 +1063,8 @@ void DF_SPUplayADPCMchannel(xa_decode_t *xap)
  if(!xap)       return;
  if(!xap->freq) return;                                // no xa freq ? bye
 
- //if (is_start)
- // do_samples(cycle, 1);                // catch up to prevent source underflows later
+ if (spu.XAPlay == spu.XAFeed)
+  do_samples(cycle, 1);                // catch up to prevent source underflows later
 
  FeedXA(xap);                          // call main XA feeder
 }
@@ -1075,8 +1075,8 @@ int DF_SPUplayCDDAchannel(short *pcm, int nbytes)
  if (!pcm)      return -1;
  if (nbytes<=0) return -1;
 
- //if (is_start)
- // do_samples(cycle, 1);                // catch up to prevent source underflows later
+ if (spu.CDDAPlay == spu.CDDAFeed)
+  do_samples(cycle, 1);                // catch up to prevent source underflows later
 
  return FeedCDDA((unsigned char *)pcm, nbytes);
 }
