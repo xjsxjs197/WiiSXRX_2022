@@ -158,8 +158,18 @@ void auto_assign_controllers(void)
 
 	// 'Initialize' the unmapped virtual controllers
 	for(; i<2; ++i){
-		unassign_controller(i);
-		padType[i] = PADTYPE_NONE;
+		if(i == 0){
+#ifdef HW_RVL
+			assign_controller(i, &controller_Wiimote, i);
+			padType[i] = PADTYPE_WII;
+#else
+			assign_controller(i, &controller_GC, i);
+			padType[i] = PADTYPE_GAMECUBE;
+#endif
+		} else {
+			unassign_controller(i);
+			padType[i] = PADTYPE_NONE;
+		}
 	}
 }
 
