@@ -53,7 +53,7 @@ void DF_SPUreadDMAMem(unsigned short *pusPSXMem, int iSize,
  //if (irq && (spu.spuCtrl & CTRL_IRQ))
  if ((spu.spuCtrl & CTRL_IRQ) && irq_after < iSize * 2) {
   // log_unhandled("rdma spu irq: %x/%x+%x\n", irq_addr, spu.spuAddr, iSize * 2);
-  spu.irqCallback(irq_after);
+  do_irq_io(irq_after);
  }
  spu.spuAddr = addr;
  set_dma_end(iSize, cycles);
@@ -92,7 +92,7 @@ void DF_SPUwriteDMAMem(unsigned short *pusPSXMem, int iSize,
     irq_addr, spu.spuAddr, iSize * 2, irq_after);*/
   // this should be consistent with psxdma.c timing
   // might also need more delay like in set_dma_end()
-  spu.irqCallback(irq_after);
+  do_irq_io(irq_after);
  }
  spu.spuAddr = addr;
  set_dma_end(iSize, cycles);
