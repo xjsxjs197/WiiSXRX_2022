@@ -37,6 +37,8 @@ public:
 	void drawStringAtOrigin(char *string, float scale);
 	int getStringWidth(char *string, float scale);
 	int getStringHeight(char *string, float scale);
+	void loadFontFile(FILE* fontFile);
+	FILE* getFontFile(char* sdUsb);
 	static IplFont& getInstance()
 	{
 		static IplFont obj;
@@ -52,7 +54,7 @@ private:
     wchar_t* charToWideChar(const char* strChar);
     u8* getCharPngBuf(const wchar_t wChar);
     int getCharCode(const wchar_t wChar);
-    FILE* getFontFile(char* sdUsb);
+    void releaseFontMem(void);
 
 	u16 frameWidth;
 	GXTexObj fontTexObj;

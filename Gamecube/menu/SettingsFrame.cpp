@@ -28,6 +28,7 @@
 #include "../libgui/FocusManager.h"
 #include "../libgui/CursorManager.h"
 #include "../libgui/MessageBox.h"
+#include "../libgui/gui2/gettext.h"
 #include "../wiiSXconfig.h"
 #include "../../psxcommon.h"
 #include "../vm/vm.h"
@@ -134,6 +135,8 @@ void CheckCdrom();
 void LoadCdrom();
 void pauseAudio(void);  void pauseInput(void);
 void resumeAudio(void); void resumeInput(void);
+void IplFont_loadFontFile(FILE* fontFile);
+FILE* IplFont_getFontFile(char* sdUsb);
 }
 
 #define NUM_FRAME_BUTTONS 62
@@ -265,14 +268,20 @@ static char FRAME_STRINGS[77][24] =
 	  "Enable Memcard"
       };
 
-static char LANG_STRINGS[7][24] =
+static char LANG_STRINGS[13][24] =
 	{ "En", // English
       "Chs", // Simplified Chinese
       "Kr", // Korean
       "Es", // SPANISH
       "Pte", // PORTUGUESE
       "It", // ITALIAN
-      "De" // GERMAN
+      "De", // GERMAN
+      "Cht", // TRAD_CHINESE
+      "Jp", // JAPANESE
+      "Fr", // FRENCH
+      "Br", // BRAZILIAN_PORTUGUESE
+      "Ca", // CATALAN
+      "Tu" // TURKISH
       };
 
 struct ButtonInfo
@@ -510,7 +519,7 @@ void SettingsFrame::activateSubmenu(int submenu)
 				FRAME_BUTTONS[i].button->setActive(true);
 			}
 			FRAME_BUTTONS[54].button->setVisible(true);
-            FRAME_BUTTONS[54].button->setActive(canChangeFont == 1);
+			FRAME_BUTTONS[54].button->setActive(true);
             FRAME_BUTTONS[54].buttonString = LANG_STRINGS[lang];
 
             // Fast load
@@ -1029,21 +1038,28 @@ void Func_ExecuteBios()
 
 void Func_SelectLanguage()
 {
-//    ENGLISH = 0,
-//	SIMP_CHINESE,
-//	KOREAN,
-//	SPANISH,
-//	TRAD_CHINESE,
-//	JAPANESE,
-//	GERMAN,
-//	FRENCH,
-//	ITALIAN
-//	GERMAN
-    lang++;
-    if (lang > GERMAN)
-    {
-        lang = ENGLISH;
-    }
+    FILE* fontFile = NULL;
+    do
+	{
+		lang++;
+		if (lang > TURKISH)
+		{
+			lang = ENGLISH;
+		}
+		else
+		{
+			fontFile = IplFont_getFontFile("sd");
+			if (fontFile == NULL)
+			{
+				fontFile = IplFont_getFontFile("usb");
+			}
+		}
+	}
+	while (lang != ENGLISH && fontFile == NULL);
+
+    IplFont_loadFontFile(fontFile);
+    ChangeLanguage();
+
     FRAME_BUTTONS[54].button->setSelected(true);
     FRAME_BUTTONS[54].buttonString = LANG_STRINGS[lang];
 }
@@ -1066,10 +1082,6 @@ void Func_SaveSettingsSD()
 			writeConfig(f);                                   //write out the config
 			fclose(f);
 			menu::MessageBox::getInstance().setMessage("Saved settings to SD");
-			if (oldLang != lang)
-            {
-                menu::MessageBox::getInstance().setMessage("Because the language has changed, please restart");
-			}
 			return;
 		}
 	}
@@ -1092,10 +1104,6 @@ void Func_SaveSettingsUSB()
 			writeConfig(f);                                   //write out the config
 			fclose(f);
 			menu::MessageBox::getInstance().setMessage("Saved settings to USB");
-			if (oldLang != lang)
-            {
-                menu::MessageBox::getInstance().setMessage("Because the language has changed, please restart");
-			}
 			return;
 		}
 	}

@@ -132,8 +132,6 @@ char loadButtonSlot;
 char controllerType;
 char numMultitaps;
 char lang = 0;
-char oldLang = 0;
-char canChangeFont = 0;
 char fastLoad = 0;
 char originalMode = 0;
 char bilinearFilter = 1;
@@ -205,7 +203,7 @@ static struct {
   { "smbpassword", smbPassWord, CONFIG_STRING_TYPE, CONFIG_STRING_TYPE },
   { "smbsharename", smbShareName, CONFIG_STRING_TYPE, CONFIG_STRING_TYPE },
   { "smbipaddr", smbIpAddr, CONFIG_STRING_TYPE, CONFIG_STRING_TYPE },
-  { "lang", &lang, ENGLISH, GERMAN },
+  { "lang", &lang, ENGLISH, TURKISH },
   { "fastLoad", &fastLoad, 0, 1 },
   { "TVMode", &originalMode, ORIGINALMODE_DISABLE, ORIGINALMODE_ENABLE },
   { "BilinearFilter", &bilinearFilter, BILINEARFILTER_DISABLE, BILINEARFILTER_ENABLE },
@@ -391,7 +389,6 @@ void loadSettings(int argc, char *argv[])
 	}
 #endif
 
-    oldLang = lang;
 	//Test for Bios file
 	if(biosDevice != BIOSDEVICE_HLE)
 		if(checkBiosExists((int)biosDevice) == FILE_BROWSER_ERROR_NO_FILE)
@@ -557,6 +554,7 @@ int main(int argc, char *argv[])
 	loadSettings(argc, argv);
 	// added by xjsxjs197 start
 	LoadLanguage();
+	ChangeLanguage();
 	// added by xjsxjs197 end
 
 	MenuContext *menu = new MenuContext(vmode);
@@ -597,6 +595,8 @@ int main(int argc, char *argv[])
 	delete &obj;
 
 	delete menu;
+
+	ReleaseLanguage();
 
 	return 0;
 }

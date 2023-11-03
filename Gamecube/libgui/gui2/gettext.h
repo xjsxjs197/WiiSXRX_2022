@@ -2,6 +2,8 @@
 #define _GETTEXT_H_
 
 bool LoadLanguage();
+void ChangeLanguage();
+void ReleaseLanguage();
 
 /*
  * input msg = a text in ASCII

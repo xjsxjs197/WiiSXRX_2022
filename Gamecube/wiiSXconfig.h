@@ -249,7 +249,6 @@ enum numMultitaps
 };
 
 extern char lang;
-extern char oldLang;
 enum lang
 {
 	ENGLISH = 0,
@@ -261,7 +260,10 @@ enum lang
 	GERMAN,
 	TRAD_CHINESE,
 	JAPANESE,
-	FRENCH
+	FRENCH,
+	BRAZILIAN_PORTUGUESE,
+	CATALAN,
+	TURKISH
 };
 
 extern char originalMode;
@@ -318,6 +320,5 @@ enum memCard
 
 extern const unsigned char En_dat[];
 extern const unsigned int  En_dat_size;
-extern char canChangeFont;
 
 #endif //WIISXCONFIG_H
