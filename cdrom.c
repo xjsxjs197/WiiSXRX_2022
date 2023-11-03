@@ -1090,6 +1090,7 @@ void cdrInterrupt(void) {
 		case CdlSetfilter:
 			cdr.FilterFile = cdr.Param[0];
 			cdr.FilterChannel = cdr.Param[1];
+			cdr.FileChannelSelected = 0;
 			break;
 
 		case CdlSetmode:
