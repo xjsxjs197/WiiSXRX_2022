@@ -784,7 +784,7 @@ void cdrPlayReadInterrupt(void)
         #endif // DISP_DEBUG
     		cdrPrepCdda(read_buf, CD_FRAMESIZE_RAW / 4);
     		cdrAttenuate(read_buf, CD_FRAMESIZE_RAW / 4, 1);
-		SPU_playCDDAchannel(read_buf, CD_FRAMESIZE_RAW, psxRegs.cycle, 0);
+		SPU_playCDDAchannel(read_buf, CD_FRAMESIZE_RAW);
 	}
 
 	msfiAdd(cdr.SetSectorPlay, 1);
@@ -1514,7 +1514,7 @@ static void cdrReadInterrupt(void)
 			break;
 		if (!cdr.Muted && cdr.AdpcmActive) {
 			cdrAttenuate(cdr.Xa.pcm, cdr.Xa.nsamples, cdr.Xa.stereo);
-			SPU_playADPCMchannel(&cdr.Xa, psxRegs.cycle, 0);
+			SPU_playADPCMchannel(&cdr.Xa);
 		}
 		// decode next
 		cdr.AdpcmActive = !xa_decode_sector(&cdr.Xa, buf + 4, !cdr.AdpcmActive);
