@@ -265,9 +265,9 @@ int do_samples(unsigned int cycles_to, int do_sync);
 void schedule_next_irq(void);
 void check_irq_io(unsigned int addr);
 
-#define do_samples_if_needed(c, sync) \
+#define do_samples_if_needed(c, sync, samples) \
  do { \
-  if (sync || (int)((c) - spu.cycles_played) >= 16 * 768) \
+  if (sync || (int)((c) - spu.cycles_played) >= (samples) * 768) \
    do_samples(c, sync); \
  } while (0)
 

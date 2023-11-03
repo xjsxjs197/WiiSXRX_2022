@@ -41,7 +41,7 @@ void DF_SPUreadDMAMem(unsigned short *pusPSXMem, int iSize,
  unsigned int addr = spu.spuAddr, irq_addr = regAreaGet(H_SPUirqAddr) << 3;
  int i, irq_after;
 
- do_samples_if_needed(cycles, 1);
+ do_samples_if_needed(cycles, 1, 2);
  irq_after = (irq_addr - addr) & 0x7ffff;
 
  for(i = 0; i < iSize; i++)
@@ -69,7 +69,7 @@ void DF_SPUwriteDMAMem(unsigned short *pusPSXMem, int iSize,
  unsigned int addr = spu.spuAddr, irq_addr = regAreaGet(H_SPUirqAddr) << 3;
  int i, irq_after;
  
- do_samples_if_needed(cycles, 1);
+ do_samples_if_needed(cycles, 1, 2);
  irq_after = (irq_addr - addr) & 0x7ffff;
  spu.bMemDirty = 1;
 
