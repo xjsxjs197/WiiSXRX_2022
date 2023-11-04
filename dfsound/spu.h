@@ -22,7 +22,9 @@
 #define LE16TOH(x) __builtin_bswap16(x)
 
 void ClearWorkingState(void);
-void CALLBACK DF_SPUplayADPCMchannel(xa_decode_t *xap);
-int  CALLBACK DF_SPUplayCDDAchannel(short *pcm, int bytes);
+void CALLBACK DF_SPUplayADPCMchannel(xa_decode_t *xap, unsigned int cycle, int is_start);
+int  CALLBACK DF_SPUplayCDDAchannel(short *pcm, int bytes, unsigned int cycle, int is_start);
+void FeedXA(const xa_decode_t *xap);
+void FeedCDDA(unsigned char *pcm, int nBytes);
 
 #endif /* __P_SPU_H__ */

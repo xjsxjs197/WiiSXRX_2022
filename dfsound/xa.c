@@ -130,13 +130,13 @@ static unsigned long timeGetTime_spu()
 // FEED XA
 ////////////////////////////////////////////////////////////////////////
 
-INLINE void FeedXA(xa_decode_t *xap)
+void FeedXA(const xa_decode_t *xap)
 {
  int sinc,spos,i,iSize,iPlace,vl,vr;
 
  if(!spu.bSPUIsOpen) return;
 
- spu.xapGlobal = xap;                                  // store info for save states
+ //spu.xapGlobal = xap;                                  // store info for save states
  spu.XARepeat  = 3;                                    // set up repeat
 
 #if 0//def XA_HACK
@@ -402,12 +402,13 @@ INLINE void FeedXA(xa_decode_t *xap)
 // FEED CDDA
 ////////////////////////////////////////////////////////////////////////
 
-INLINE int FeedCDDA(unsigned char *pcm, int nBytes)
+void FeedCDDA(unsigned char *pcm, int nBytes)
 {
  int space;
  space=(spu.CDDAPlay-spu.CDDAFeed-1)*4 & (CDDA_BUFFER_SIZE - 1);
  if(space<nBytes)
-  return 0x7761; // rearmed_wait
+  //return 0x7761; // rearmed_wait
+  return;
 
  while(nBytes>0)
   {
@@ -424,7 +425,7 @@ INLINE int FeedCDDA(unsigned char *pcm, int nBytes)
    pcm+=space;
   }
 
- return 0x676f; // rearmed_go
+ //return 0x676f; // rearmed_go
 }
 
 #endif

@@ -856,7 +856,7 @@ static void do_samples_finish(int *SSumLR, int ns_to,
 // here is the main job handler...
 ////////////////////////////////////////////////////////////////////////
 
-int do_samples(unsigned int cycles_to, int do_direct)
+void do_samples(unsigned int cycles_to, int do_direct)
 {
  unsigned int silentch;
  int cycle_diff;
@@ -1033,14 +1033,14 @@ void schedule_next_irq(void)
 
 void CALLBACK DF_SPUasync(unsigned int cycle, unsigned int flags, unsigned int psxType)
 {
-    int lastBytes;
-    int nsTo = do_samples(cycle, spu_config.iUseFixedUpdates);
+  do_samples(cycle, 0);
 
   if (spu.spuCtrl & CTRL_IRQ)
     schedule_next_irq();
 
  if (flags & 1) {
-  lastBytes = out_current->feed(spu.pSpuBuffer, (unsigned char *)spu.pS - spu.pSpuBuffer);
+  //lastBytes = out_current->feed(spu.pSpuBuffer, (unsigned char *)spu.pS - spu.pSpuBuffer);
+  out_current->feed(spu.pSpuBuffer, (unsigned char *)spu.pS - spu.pSpuBuffer);
   spu.pS = (short *)spu.pSpuBuffer;
 
   //if (spu_config.iTempo) {
@@ -1071,27 +1071,29 @@ void DF_SPUupdate(void)
 
 // XA AUDIO
 
-void DF_SPUplayADPCMchannel(xa_decode_t *xap)
+void DF_SPUplayADPCMchannel(xa_decode_t *xap, unsigned int cycle, int unused)
 {
  if(!xap)       return;
- if(!xap->freq) return;                                // no xa freq ? bye
+ if(!xap->freq) return;                // no xa freq ? bye
 
- //if (spu.XAPlay == spu.XAFeed)
-  //do_samples(cycle, 1);                // catch up to prevent source underflows later
+ if (spu.XAPlay == spu.XAFeed)
+  do_samples(cycle, 1);                // catch up to prevent source underflows later
 
  FeedXA(xap);                          // call main XA feeder
+ spu.xapGlobal = xap;                  // store info for save states
 }
 
 // CDDA AUDIO
-int DF_SPUplayCDDAchannel(short *pcm, int nbytes)
+int DF_SPUplayCDDAchannel(short *pcm, int nbytes, unsigned int cycle, int unused)
 {
  if (!pcm)      return -1;
  if (nbytes<=0) return -1;
 
- //if (spu.CDDAPlay == spu.CDDAFeed)
-  //do_samples(cycle, 1);                // catch up to prevent source underflows later
+ if (spu.CDDAPlay == spu.CDDAFeed)
+  do_samples(cycle, 1);                // catch up to prevent source underflows later
 
- return FeedCDDA((unsigned char *)pcm, nbytes);
+ FeedCDDA((unsigned char *)pcm, nbytes);
+ return 0;
 }
 
 // to be called after state load
@@ -1131,7 +1133,8 @@ static void SetupStreams(void)
 // spu.CDDAStart =                                       // alloc cdda buffer
 //  (uint32_t *)malloc(CDDA_BUFFER_SIZE);
   spu.CDDAStart = (uint32_t *)CDDABuf;
- spu.CDDAEnd   = spu.CDDAStart + CDDA_BUFFER_UNIT;
+ //spu.CDDAEnd   = spu.CDDAStart + CDDA_BUFFER_UNIT; // 16384 is the CDDA_BUFFER_UNIT
+ spu.CDDAEnd   = spu.CDDAStart + CDDA_BUFFER_SIZE / sizeof(uint32_t);
  spu.CDDAPlay  = spu.CDDAStart;
  spu.CDDAFeed  = spu.CDDAStart;
 
