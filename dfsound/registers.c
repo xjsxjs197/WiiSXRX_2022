@@ -205,30 +205,44 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
 */
     //-------------------------------------------------//
     case H_SPUon1:
+      spu.last_keyon_cycles = cycles;
+      do_samples_if_needed(cycles, 0, 2);
       SoundOn(0,16,val);
       break;
     //-------------------------------------------------//
-     case H_SPUon2:
+    case H_SPUon2:
+      spu.last_keyon_cycles = cycles;
+      do_samples_if_needed(cycles, 0, 2);
       SoundOn(16,24,val);
       break;
     //-------------------------------------------------//
     case H_SPUoff1:
+      if (cycles - spu.last_keyon_cycles < 786u) {
+       if (val & regAreaGet(H_SPUon1))
+        log_unhandled("koff1 %04x %d\n", val, cycles - spu.last_keyon_cycles);
+       val &= ~regAreaGet(H_SPUon1);
+      }
       do_samples_if_needed(cycles, 0, 2);
       SoundOff(0,16,val);
       break;
     //-------------------------------------------------//
     case H_SPUoff2:
+      if (cycles - spu.last_keyon_cycles < 786u) {
+       if (val & regAreaGet(H_SPUon1))
+        log_unhandled("koff2 %04x %d\n", val, cycles - spu.last_keyon_cycles);
+       val &= ~regAreaGet(H_SPUon2);
+      }
       do_samples_if_needed(cycles, 0, 2);
       SoundOff(16,24,val);
       break;
     //-------------------------------------------------//
     case H_CDLeft:
       spu.iLeftXAVol=(int16_t)val;
-      if(spu.cddavCallback) spu.cddavCallback(0,(int16_t)val);
+      //if(spu.cddavCallback) spu.cddavCallback(0,(int16_t)val);
       break;
     case H_CDRight:
       spu.iRightXAVol=(int16_t)val;
-      if(spu.cddavCallback) spu.cddavCallback(1,(int16_t)val);
+      //if(spu.cddavCallback) spu.cddavCallback(1,(int16_t)val);
       break;
     //-------------------------------------------------//
     case H_FMod1:
@@ -291,8 +305,8 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
  return;
 
 upd_irq:
- //if (spu.spuCtrl & CTRL_IRQ)
- // schedule_next_irq();
+ if (spu.spuCtrl & CTRL_IRQ)
+  schedule_next_irq();
  return;
 
 rvbd:
