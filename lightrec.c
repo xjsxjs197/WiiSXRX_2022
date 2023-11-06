@@ -1,4 +1,3 @@
-#include <lightrec.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -18,6 +17,7 @@
 #include "psxhle.h"
 #include "Gamecube/MEM2.h"
 #include "Gamecube/PadSSSPSX.h"
+#include "deps/lightrec/lightrec.h"
 
 #define ARRAY_SIZE(x) (sizeof(x) ? sizeof(x) / sizeof((x)[0]) : 0)
 

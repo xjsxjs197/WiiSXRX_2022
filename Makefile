@@ -18,11 +18,23 @@ VERSION = beta2.5
 #	@rm temp.log
 all: Wii Wii_Release
 
-Wii:
+lightrecNoLog.a:
+	@echo " "
+	@echo "Building lightrecNoLog.a library for PPC"
+	@echo " "
+	$(MAKE) -C deps/lightrec -f Makefile.NoLog
+
+lightrecWithLog.a:
+	@echo " "
+	@echo "Building lightrecWithLog.a library for PPC"
+	@echo " "
+	$(MAKE) -C deps/lightrec -f Makefile.WithLog
+
+Wii: lightrecWithLog.a
 	@$(ECHO) "Building Wii..."
 	@$(MAKE) -C Gamecube -f Makefile_Wii
 
-Wii_Release:
+Wii_Release: lightrecNoLog.a
 	@$(ECHO) "Building Wii_Release..."
 	@$(MAKE) -C Gamecube -f Makefile_Wii_Release
 
