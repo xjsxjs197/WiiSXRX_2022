@@ -430,7 +430,7 @@ static inline void GetTextureTransColG(unsigned short * pdest,unsigned short col
 
 ////////////////////////////////////////////////////////////////////////
 
-static inline void GetTextureTransColG_S(unsigned short * pdest,unsigned short color)
+__attribute__ ((always_inline)) void GetTextureTransColG_S(unsigned short * pdest,unsigned short color)
 {
  int32_t r,g,b;unsigned short l;
 
@@ -622,7 +622,7 @@ static inline void GetTextureTransColG32(uint32_t * pdest,uint32_t color)
 
 ////////////////////////////////////////////////////////////////////////
 
-static inline void GetTextureTransColG32_S(uint32_t * pdest,uint32_t color)
+__attribute__ ((always_inline)) void GetTextureTransColG32_S(uint32_t * pdest,uint32_t color)
 {
  int32_t r,g,b;
 
@@ -643,6 +643,34 @@ static inline void GetTextureTransColG32_S(uint32_t * pdest,uint32_t color)
  if((color&0xffff0000)==0) {PUTLE32(pdest, (GETLE32(pdest)&0xffff0000)|(((X32PSXCOL(r,g,b))|lSetMask|(color&0x80008000))&0xffff));return;}
 
  PUTLE32(pdest, (X32PSXCOL(r,g,b))|lSetMask|(color&0x80008000));
+}
+
+// No Clamp
+__attribute__ ((always_inline)) void GetTextureTransColG32_S_NC(unsigned long * pdest,unsigned long color)
+{
+ long r,g,b;
+
+ if(color==0) return;
+
+ r=(((X32COL1(color))* g_m1)&0xFF80FF80)>>7;
+ b=(((X32COL2(color))* g_m2)&0xFF80FF80)>>7;
+ g=(((X32COL3(color))* g_m3)&0xFF80FF80)>>7;
+
+ if((color&0xffff)==0)     {PUTLE32(pdest, (GETLE32(pdest)&0xffff)|(((X32PSXCOL(r,g,b))|lSetMask|(color&0x80008000))&0xffff0000));return;}
+ if((color&0xffff0000)==0) {PUTLE32(pdest, (GETLE32(pdest)&0xffff0000)|(((X32PSXCOL(r,g,b))|lSetMask|(color&0x80008000))&0xffff));return;}
+
+ PUTLE32(pdest, (X32PSXCOL(r,g,b))|lSetMask|(color&0x80008000));
+}
+
+// No Multiply
+__attribute__ ((always_inline)) void GetTextureTransColG32_S_NM(unsigned long * pdest,unsigned long color)
+{
+ if(color==0) return;
+
+ if((color&0xffff)==0)     {PUTLE32(pdest, (GETLE32(pdest)&0xffff)|(((color)|lSetMask)&0xffff0000));return;}
+ if((color&0xffff0000)==0) {PUTLE32(pdest, (GETLE32(pdest)&0xffff0000)|(((color)|lSetMask)&0xffff));return;}
+
+ PUTLE32(pdest, (color)|lSetMask);
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -887,7 +915,7 @@ static inline void GetTextureTransColGX(unsigned short * pdest,unsigned short co
 
 ////////////////////////////////////////////////////////////////////////
 
-static inline void GetTextureTransColGX_S(unsigned short * pdest,unsigned short color,short m1,short m2,short m3)
+__attribute__ ((always_inline)) void GetTextureTransColGX_S(unsigned short * pdest,unsigned short color,short m1,short m2,short m3)
 {
  int32_t r,g,b;
 
@@ -906,7 +934,7 @@ static inline void GetTextureTransColGX_S(unsigned short * pdest,unsigned short 
 
 ////////////////////////////////////////////////////////////////////////
 
-static inline void GetTextureTransColGX32_S(uint32_t * pdest,uint32_t color,short m1,short m2,short m3)
+__attribute__ ((always_inline)) void GetTextureTransColGX32_S(uint32_t * pdest,uint32_t color,short m1,short m2,short m3)
 {
  int32_t r,g,b;
 
@@ -2423,6 +2451,9 @@ static inline void drawPoly3Fi(short x1,short y1,short x2,short y2,short x3,shor
    lcolor = HOST2LE32(lcolor);
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_F()) return;
+	continue;}
      xmin=left_x >> 16;      if(drawX>xmin) xmin=drawX;
      xmax=(right_x >> 16)-1; if(drawW<xmax) xmax=drawW;
 
@@ -2441,6 +2472,9 @@ static inline void drawPoly3Fi(short x1,short y1,short x2,short y2,short x3,shor
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_F()) return;
+	continue;}
    xmin=left_x >> 16;      if(drawX>xmin) xmin=drawX;
    xmax=(right_x >> 16)-1; if(drawW<xmax) xmax=drawW;
 
@@ -2503,6 +2537,9 @@ static void drawPoly4F(int32_t rgb)
    lcolor = HOST2LE32(lcolor);
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_F4()) return;
+	continue;}
      xmin=left_x >> 16;      if(drawX>xmin) xmin=drawX;
      xmax=(right_x >> 16)-1; if(drawW<xmax) xmax=drawW;
 
@@ -2521,6 +2558,9 @@ static void drawPoly4F(int32_t rgb)
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_F4()) return;
+	continue;}
    xmin=left_x >> 16;      if(drawX>xmin) xmin=drawX;
    xmax=(right_x >> 16)-1; if(drawW<xmax) xmax=drawW;
 
@@ -2545,6 +2585,7 @@ static void drawPoly3TEx4(short x1, short y1, short x2, short y2, short x3, shor
  int32_t posX,posY,YAdjust,XAdjust;
  int32_t clutP;
  short tC1,tC2;
+ unsigned char *src;
 
  if(x1>drawW && x2>drawW && x3>drawW) return;
  if(y1>drawH && y2>drawH && y3>drawH) return;
@@ -2563,16 +2604,20 @@ static void drawPoly3TEx4(short x1, short y1, short x2, short y2, short x3, shor
  clutP=(clY<<10)+clX;
 
  YAdjust=((GlobalTextAddrY)<<11)+(GlobalTextAddrX<<1);
+ src = &psxVub[YAdjust];
 
  difX=delta_right_u;difX2=difX<<1;
  difY=delta_right_v;difY2=difY<<1;
 
 #ifdef FASTSOLID
-
- if(!bCheckMask && !DrawSemiTrans)
+if(!bCheckMask && !DrawSemiTrans && (g_m1 == 128) && (g_m2 == 128) && (g_m3 == 128))
   {
    for (i=ymin;i<=ymax;i++)
     {
+	 if (checkInterlace(i)){
+		 if(NextRow_FT()) return;
+	 continue;}
+	 
      xmin=(left_x >> 16);
      xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!
      if(drawW<xmax) xmax=drawW;
@@ -2588,16 +2633,16 @@ static void drawPoly3TEx4(short x1, short y1, short x2, short y2, short x3, shor
        for(j=xmin;j<xmax;j+=2)
         {
          XAdjust=(posX>>16);
-         tC1 = psxVub[((posY>>5)&(int32_t)0xFFFFF800)+YAdjust+(XAdjust>>1)];
+         tC1 = src[((posY>>5)&0xFFFFF800)+(XAdjust>>1)];
          tC1=(tC1>>((XAdjust&1)<<2))&0xf;
          XAdjust=((posX+difX)>>16);
-         tC2 = psxVub[(((posY+difY)>>5)&(int32_t)0xFFFFF800)+YAdjust+
+         tC2 = src[(((posY+difY)>>5)&0xFFFFF800)+
                     (XAdjust>>1)];
          tC2=(tC2>>((XAdjust&1)<<2))&0xf;
 
-         GetTextureTransColG32_S((uint32_t *)&psxVuw[(i<<10)+j],
+         GetTextureTransColG32_S_NM((unsigned long *)&psxVuw[(i<<10)+j],
              GETLE16(&psxVuw[clutP+tC1])|
-             ((int32_t)GETLE16(&psxVuw[clutP+tC2]))<<16);
+             ((long)GETLE16(&psxVuw[clutP+tC2]))<<16);
 
          posX+=difX2;
          posY+=difY2;
@@ -2605,7 +2650,114 @@ static void drawPoly3TEx4(short x1, short y1, short x2, short y2, short x3, shor
        if(j==xmax)
         {
          XAdjust=(posX>>16);
-         tC1 = psxVub[((posY>>5)&(int32_t)0xFFFFF800)+YAdjust+
+         tC1 = src[((posY>>5)&0xFFFFF800)+
+                      (XAdjust>>1)];
+         tC1=(tC1>>((XAdjust&1)<<2))&0xf;
+         GetTextureTransColG_S(&psxVuw[(i<<10)+j],GETLE16(&psxVuw[clutP+tC1]));
+        }
+      }
+     if(NextRow_FT())
+      {
+       return;
+      }
+    }
+   return;
+  }
+  
+ if(!bCheckMask && !DrawSemiTrans && (g_m1 <= 128) && (g_m2 <= 128) && (g_m3 <= 128))
+  {
+   for (i=ymin;i<=ymax;i++)
+    {
+	 if (checkInterlace(i)){
+		 if(NextRow_FT()) return;
+	 continue;}
+	 
+     xmin=(left_x >> 16);
+     xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!
+     if(drawW<xmax) xmax=drawW;
+
+     if(xmax>=xmin)
+      {
+       posX=left_u;
+       posY=left_v;
+
+       if(xmin<drawX)
+        {j=drawX-xmin;xmin=drawX;posX+=j*difX;posY+=j*difY;}
+
+       for(j=xmin;j<xmax;j+=2)
+        {
+         XAdjust=(posX>>16);
+         tC1 = src[((posY>>5)&0xFFFFF800)+(XAdjust>>1)];
+         tC1=(tC1>>((XAdjust&1)<<2))&0xf;
+         XAdjust=((posX+difX)>>16);
+         tC2 = src[(((posY+difY)>>5)&0xFFFFF800)+
+                    (XAdjust>>1)];
+         tC2=(tC2>>((XAdjust&1)<<2))&0xf;
+
+         GetTextureTransColG32_S_NC((unsigned long *)&psxVuw[(i<<10)+j],
+             GETLE16(&psxVuw[clutP+tC1])|
+             ((long)GETLE16(&psxVuw[clutP+tC2]))<<16);
+
+         posX+=difX2;
+         posY+=difY2;
+        }
+       if(j==xmax)
+        {
+         XAdjust=(posX>>16);
+         tC1 = src[((posY>>5)&0xFFFFF800)+
+                      (XAdjust>>1)];
+         tC1=(tC1>>((XAdjust&1)<<2))&0xf;
+         GetTextureTransColG_S(&psxVuw[(i<<10)+j],GETLE16(&psxVuw[clutP+tC1]));
+        }
+      }
+     if(NextRow_FT())
+      {
+       return;
+      }
+    }
+   return;
+  }
+  
+ if(!bCheckMask && !DrawSemiTrans)
+  {
+   for (i=ymin;i<=ymax;i++)
+    {
+	if (checkInterlace(i)){
+		 if(NextRow_FT()) return;
+	 continue;}
+     xmin=(left_x >> 16);
+     xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!
+     if(drawW<xmax) xmax=drawW;
+
+     if(xmax>=xmin)
+      {
+       posX=left_u;
+       posY=left_v;
+
+       if(xmin<drawX)
+        {j=drawX-xmin;xmin=drawX;posX+=j*difX;posY+=j*difY;}
+
+       for(j=xmin;j<xmax;j+=2)
+        {
+         XAdjust=(posX>>16);
+         tC1 = src[((posY>>5)&0xFFFFF800)+(XAdjust>>1)];
+         tC1=(tC1>>((XAdjust&1)<<2))&0xf;
+         XAdjust=((posX+difX)>>16);
+         tC2 = src[(((posY+difY)>>5)&0xFFFFF800)+
+                    (XAdjust>>1)];
+         tC2=(tC2>>((XAdjust&1)<<2))&0xf;
+
+         GetTextureTransColG32_S((unsigned long *)&psxVuw[(i<<10)+j],
+             GETLE16(&psxVuw[clutP+tC1])|
+             ((long)GETLE16(&psxVuw[clutP+tC2]))<<16);
+
+         posX+=difX2;
+         posY+=difY2;
+        }
+       if(j==xmax)
+        {
+         XAdjust=(posX>>16);
+         tC1 = src[((posY>>5)&0xFFFFF800)+
                       (XAdjust>>1)];
          tC1=(tC1>>((XAdjust&1)<<2))&0xf;
          GetTextureTransColG_S(&psxVuw[(i<<10)+j],GETLE16(&psxVuw[clutP+tC1]));
@@ -2623,6 +2775,9 @@ static void drawPoly3TEx4(short x1, short y1, short x2, short y2, short x3, shor
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_FT()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!!!
    if(drawW<xmax) xmax=drawW;
@@ -2638,10 +2793,10 @@ static void drawPoly3TEx4(short x1, short y1, short x2, short y2, short x3, shor
      for(j=xmin;j<xmax;j+=2)
       {
        XAdjust=(posX>>16);
-       tC1 = psxVub[((posY>>5)&(int32_t)0xFFFFF800)+YAdjust+(XAdjust>>1)];
+       tC1 = src[((posY>>5)&0xFFFFF800)+(XAdjust>>1)];
        tC1=(tC1>>((XAdjust&1)<<2))&0xf;
        XAdjust=((posX+difX)>>16);
-       tC2 = psxVub[(((posY+difY)>>5)&(int32_t)0xFFFFF800)+YAdjust+
+       tC2 = src[(((posY+difY)>>5)&0xFFFFF800)+
                     (XAdjust>>1)];
        tC2=(tC2>>((XAdjust&1)<<2))&0xf;
 
@@ -2655,7 +2810,7 @@ static void drawPoly3TEx4(short x1, short y1, short x2, short y2, short x3, shor
      if(j==xmax)
       {
        XAdjust=(posX>>16);
-       tC1 = psxVub[((posY>>5)&(int32_t)0xFFFFF800)+YAdjust+
+       tC1 = src[((posY>>5)&0xFFFFF800)+
                     (XAdjust>>1)];
        tC1=(tC1>>((XAdjust&1)<<2))&0xf;
        GetTextureTransColG(&psxVuw[(i<<10)+j],GETLE16(&psxVuw[clutP+tC1]));
@@ -2706,6 +2861,9 @@ static void drawPoly3TEx4_TW(short x1, short y1, short x2, short y2, short x3, s
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_FT()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16);//-1; //!!!!!!!!!!!!!!!!
      if(xmax>xmin) xmax--;
@@ -2759,6 +2917,9 @@ static void drawPoly3TEx4_TW(short x1, short y1, short x2, short y2, short x3, s
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_FT()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!!!
    if(drawW<xmax) xmax=drawW;
@@ -2849,12 +3010,15 @@ static void drawPoly4TEx4(short x1, short y1, short x2, short y2, short x3, shor
 
  YAdjust=((GlobalTextAddrY)<<11)+(GlobalTextAddrX<<1);
 
-#ifdef FASTSOLID
 
- if(!bCheckMask && !DrawSemiTrans)
+#ifdef FASTSOLID
+if(!bCheckMask && !DrawSemiTrans && (g_m1 == 128) && (g_m2 == 128) && (g_m3 == 128))
   {
    for (i=ymin;i<=ymax;i++)
     {
+	 if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16);
 
@@ -2884,7 +3048,7 @@ static void drawPoly4TEx4(short x1, short y1, short x2, short y2, short x3, shor
                        (XAdjust>>1)];
          tC2=(tC2>>((XAdjust&1)<<2))&0xf;
 
-         GetTextureTransColG32_S((uint32_t *)&psxVuw[(i<<10)+j],
+         GetTextureTransColG32_S_NM((uint32_t *)&psxVuw[(i<<10)+j],
               GETLE16(&psxVuw[clutP+tC1])|
               ((int32_t)GETLE16(&psxVuw[clutP+tC2]))<<16);
          posX+=difX2;
@@ -2904,11 +3068,128 @@ static void drawPoly4TEx4(short x1, short y1, short x2, short y2, short x3, shor
     }
    return;
   }
+  
+ if(!bCheckMask && !DrawSemiTrans && (g_m1 <= 128) && (g_m2 <= 128) && (g_m3 <= 128))
+  {
+   for (i=ymin;i<=ymax;i++)
+    {
+	 if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
+     xmin=(left_x >> 16);
+     xmax=(right_x >> 16);
+
+   if(xmax>=xmin)
+    {
+     posX=left_u;
+     posY=left_v;
+
+     num=(xmax-xmin);
+     if(num==0) num=1;
+     difX=(right_u-posX)/num;
+     difY=(right_v-posY)/num;
+     difX2=difX<<1;
+     difY2=difY<<1;
+
+     if(xmin<drawX)
+      {j=drawX-xmin;xmin=drawX;posX+=j*difX;posY+=j*difY;}
+     xmax--;if(drawW<xmax) xmax=drawW;
+
+       for(j=xmin;j<xmax;j+=2)
+        {
+         XAdjust=(posX>>16);
+         tC1 = psxVub[((posY>>5)&0xFFFFF800)+YAdjust+(XAdjust>>1)];
+         tC1=(tC1>>((XAdjust&1)<<2))&0xf;
+         XAdjust=((posX+difX)>>16);
+         tC2 = psxVub[(((posY+difY)>>5)&0xFFFFF800)+YAdjust+
+                       (XAdjust>>1)];
+         tC2=(tC2>>((XAdjust&1)<<2))&0xf;
+
+         GetTextureTransColG32_S_NC((unsigned long *)&psxVuw[(i<<10)+j],
+              GETLE16(&psxVuw[clutP+tC1])|
+              ((long)GETLE16(&psxVuw[clutP+tC2]))<<16);
+         posX+=difX2;
+         posY+=difY2;
+        }
+       if(j==xmax)
+        {
+         XAdjust=(posX>>16);
+         tC1 = psxVub[((posY>>5)&0xFFFFF800)+YAdjust+
+                      (XAdjust>>1)];
+         tC1=(tC1>>((XAdjust&1)<<2))&0xf;
+         GetTextureTransColG_S(&psxVuw[(i<<10)+j],GETLE16(&psxVuw[clutP+tC1]));
+        }
+
+      }
+     if(NextRow_FT4()) return;
+    }
+   return;
+  }
+
+ if(!bCheckMask && !DrawSemiTrans)
+  {
+   for (i=ymin;i<=ymax;i++)
+    {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
+     xmin=(left_x >> 16);
+     xmax=(right_x >> 16);
+
+     if(xmax>=xmin)
+      {
+       posX=left_u;
+       posY=left_v;
+
+       num=(xmax-xmin);
+       if(num==0) num=1;
+       difX=(right_u-posX)/num;
+       difY=(right_v-posY)/num;
+       difX2=difX<<1;
+       difY2=difY<<1;
+
+       if(xmin<drawX)
+        {j=drawX-xmin;xmin=drawX;posX+=j*difX;posY+=j*difY;}
+       xmax--;if(drawW<xmax) xmax=drawW;
+
+       for(j=xmin;j<xmax;j+=2)
+        {
+         XAdjust=(posX>>16);
+         tC1 = psxVub[((posY>>5)&0xFFFFF800)+YAdjust+(XAdjust>>1)];
+         tC1=(tC1>>((XAdjust&1)<<2))&0xf;
+         XAdjust=((posX+difX)>>16);
+         tC2 = psxVub[(((posY+difY)>>5)&0xFFFFF800)+YAdjust+
+                       (XAdjust>>1)];
+         tC2=(tC2>>((XAdjust&1)<<2))&0xf;
+
+         GetTextureTransColG32_S((unsigned long *)&psxVuw[(i<<10)+j],
+              GETLE16(&psxVuw[clutP+tC1])|
+              ((long)GETLE16(&psxVuw[clutP+tC2]))<<16);
+         posX+=difX2;
+         posY+=difY2;
+        }
+       if(j==xmax)
+        {
+         XAdjust=(posX>>16);
+         tC1 = psxVub[((posY>>5)&0xFFFFF800)+YAdjust+
+                      (XAdjust>>1)];
+         tC1=(tC1>>((XAdjust&1)<<2))&0xf;
+         GetTextureTransColG_S(&psxVuw[(i<<10)+j],GETLE16(&psxVuw[clutP+tC1]));
+        }
+
+      }
+     if(NextRow_FT4()) return;
+    }
+   return;
+  }
 
 #endif
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16);
 
@@ -2931,7 +3212,7 @@ static void drawPoly4TEx4(short x1, short y1, short x2, short y2, short x3, shor
      for(j=xmin;j<xmax;j+=2)
       {
        XAdjust=(posX>>16);
-       tC1 = psxVub[((posY>>5)&(int32_t)0xFFFFF800)+YAdjust+(XAdjust>>1)];
+       tC1 = psxVub[((posY>>5)&0xFFFFF800)+YAdjust+(XAdjust>>1)];
        tC1=(tC1>>((XAdjust&1)<<2))&0xf;
        XAdjust=((posX+difX)>>16);
        tC2 = psxVub[(((posY+difY)>>5)&(int32_t)0xFFFFF800)+YAdjust+
@@ -2992,6 +3273,9 @@ static void drawPoly4TEx4_TW(short x1, short y1, short x2, short y2, short x3, s
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16);
 
@@ -3046,6 +3330,9 @@ static void drawPoly4TEx4_TW(short x1, short y1, short x2, short y2, short x3, s
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16);
 
@@ -3130,6 +3417,9 @@ static void drawPoly4TEx4_TW_S(short x1, short y1, short x2, short y2, short x3,
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16);
 
@@ -3184,6 +3474,9 @@ static void drawPoly4TEx4_TW_S(short x1, short y1, short x2, short y2, short x3,
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16);
 
@@ -3270,6 +3563,9 @@ static void drawPoly3TEx8(short x1, short y1, short x2, short y2, short x3, shor
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_FT()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!
      if(drawW<xmax) xmax=drawW;
@@ -3312,6 +3608,9 @@ static void drawPoly3TEx8(short x1, short y1, short x2, short y2, short x3, shor
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_FT()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!!
    if(drawW<xmax) xmax=drawW;
@@ -3387,6 +3686,9 @@ static void drawPoly3TEx8_TW(short x1, short y1, short x2, short y2, short x3, s
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_FT()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16);//-1; //!!!!!!!!!!!!!!!!
      if(xmax>xmin) xmax--;
@@ -3433,6 +3735,9 @@ static void drawPoly3TEx8_TW(short x1, short y1, short x2, short y2, short x3, s
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_FT()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!!
    if(drawW<xmax) xmax=drawW;
@@ -3524,6 +3829,9 @@ static void drawPoly4TEx8(short x1, short y1, short x2, short y2, short x3, shor
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16);
 
@@ -3569,6 +3877,9 @@ static void drawPoly4TEx8(short x1, short y1, short x2, short y2, short x3, shor
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16);
 
@@ -3644,6 +3955,9 @@ static void drawPoly4TEx8_TW(short x1, short y1, short x2, short y2, short x3, s
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16);
 
@@ -3692,6 +4006,9 @@ static void drawPoly4TEx8_TW(short x1, short y1, short x2, short y2, short x3, s
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16);
 
@@ -3769,6 +4086,9 @@ static void drawPoly4TEx8_TW_S(short x1, short y1, short x2, short y2, short x3,
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16);
 
@@ -3817,6 +4137,9 @@ static void drawPoly4TEx8_TW_S(short x1, short y1, short x2, short y2, short x3,
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16);
 
@@ -3892,6 +4215,9 @@ static void drawPoly3TD(short x1, short y1, short x2, short y2, short x3, short 
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_FT()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!
      if(drawW<xmax) xmax=drawW;
@@ -3929,6 +4255,9 @@ static void drawPoly3TD(short x1, short y1, short x2, short y2, short x3, short 
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_FT()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!
    if(drawW<xmax) xmax=drawW;
@@ -3992,6 +4321,9 @@ static void drawPoly3TD_TW(short x1, short y1, short x2, short y2, short x3, sho
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_FT()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!
      if(drawW<xmax) xmax=drawW;
@@ -4032,6 +4364,9 @@ static void drawPoly3TD_TW(short x1, short y1, short x2, short y2, short x3, sho
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_FT()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!
    if(drawW<xmax) xmax=drawW;
@@ -4111,6 +4446,9 @@ static void drawPoly4TD(short x1, short y1, short x2, short y2, short x3, short 
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16);
 
@@ -4152,6 +4490,9 @@ static void drawPoly4TD(short x1, short y1, short x2, short y2, short x3, short 
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16);
 
@@ -4217,6 +4558,9 @@ static void drawPoly4TD_TW(short x1, short y1, short x2, short y2, short x3, sho
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16);
 
@@ -4261,6 +4605,9 @@ static void drawPoly4TD_TW(short x1, short y1, short x2, short y2, short x3, sho
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16);
 
@@ -4329,6 +4676,9 @@ static void drawPoly4TD_TW_S(short x1, short y1, short x2, short y2, short x3, s
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16);
 
@@ -4373,6 +4723,9 @@ static void drawPoly4TD_TW_S(short x1, short y1, short x2, short y2, short x3, s
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_FT4()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16);
 
@@ -4449,6 +4802,9 @@ static inline void drawPoly3Gi(short x1,short y1,short x2,short y2,short x3,shor
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_G()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16)-1;if(drawW<xmax) xmax=drawW;
 
@@ -4484,6 +4840,9 @@ static inline void drawPoly3Gi(short x1,short y1,short x2,short y2,short x3,shor
  if(iDither==2)
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_G()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16)-1;if(drawW<xmax) xmax=drawW;
 
@@ -4510,6 +4869,9 @@ static inline void drawPoly3Gi(short x1,short y1,short x2,short y2,short x3,shor
  else
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_G()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16)-1;if(drawW<xmax) xmax=drawW;
 
@@ -4600,6 +4962,9 @@ static void drawPoly3TGEx4(short x1, short y1, short x2, short y2, short x3, sho
   {
    for (i=ymin;i<=ymax;i++)
     {
+	 if (checkInterlace(i)){
+		 if(NextRow_GT()) return;
+	 continue;}
      xmin=((left_x) >> 16);
      xmax=((right_x) >> 16)-1; //!!!!!!!!!!!!!
      if(drawW<xmax) xmax=drawW;
@@ -4659,6 +5024,9 @@ static void drawPoly3TGEx4(short x1, short y1, short x2, short y2, short x3, sho
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_GT()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!
    if(drawW<xmax) xmax=drawW;
@@ -4747,6 +5115,9 @@ static void drawPoly3TGEx4_TW(short x1, short y1, short x2, short y2, short x3, 
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_GT()) return;
+	 continue;}
      xmin=((left_x) >> 16);
      xmax=((right_x) >> 16)-1; //!!!!!!!!!!!!!
      if(drawW<xmax) xmax=drawW;
@@ -4807,6 +5178,9 @@ static void drawPoly3TGEx4_TW(short x1, short y1, short x2, short y2, short x3, 
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_GT()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!
    if(drawW<xmax) xmax=drawW;
@@ -4886,7 +5260,7 @@ static void drawPoly4TGEx4(short x1, short y1, short x2, short y2, short x3, sho
  int32_t num;
  int32_t i,j,xmin,xmax,ymin,ymax;
  int32_t cR1,cG1,cB1;
- int32_t difR,difB,difG,difR2,difB2,difG2;
+ int32_t difR,difB,difG, difR2,difB2,difG2;
  int32_t difX, difY, difX2, difY2;
  int32_t posX,posY,YAdjust,clutP,XAdjust;
  short tC1,tC2;
@@ -4916,6 +5290,9 @@ static void drawPoly4TGEx4(short x1, short y1, short x2, short y2, short x3, sho
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_GT4()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16);
 
@@ -4988,6 +5365,9 @@ static void drawPoly4TGEx4(short x1, short y1, short x2, short y2, short x3, sho
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_GT4()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16);
 
@@ -5000,8 +5380,8 @@ static void drawPoly4TGEx4(short x1, short y1, short x2, short y2, short x3, sho
      if(num==0) num=1;
      difX=(right_u-posX)/num;
      difY=(right_v-posY)/num;
-     difX2=difX<<1;
-     difY2=difY<<1;
+     //difX2=difX<<1;
+     //difY2=difY<<1;
 
      cR1=left_R;
      cG1=left_G;
@@ -5009,9 +5389,9 @@ static void drawPoly4TGEx4(short x1, short y1, short x2, short y2, short x3, sho
      difR=(right_R-cR1)/num;
      difG=(right_G-cG1)/num;
      difB=(right_B-cB1)/num;
-     difR2=difR<<1;
-     difG2=difG<<1;
-     difB2=difB<<1;
+     //difR2=difR<<1;
+     //difG2=difG<<1;
+     //difB2=difB<<1;
 
      if(xmin<drawX)
       {j=drawX-xmin;xmin=drawX;posX+=j*difX;posY+=j*difY;cR1+=j*difR;cG1+=j*difG;cB1+=j*difB;}
@@ -5106,6 +5486,9 @@ static void drawPoly3TGEx8(short x1, short y1, short x2, short y2, short x3, sho
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_GT()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16)-1; // !!!!!!!!!!!!!
      if(drawW<xmax) xmax=drawW;
@@ -5158,6 +5541,9 @@ static void drawPoly3TGEx8(short x1, short y1, short x2, short y2, short x3, sho
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_GT()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!!!!!!!!
    if(drawW<xmax) xmax=drawW;
@@ -5243,6 +5629,9 @@ static void drawPoly3TGEx8_TW(short x1, short y1, short x2, short y2, short x3, 
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_GT()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16)-1; // !!!!!!!!!!!!!
      if(drawW<xmax) xmax=drawW;
@@ -5298,6 +5687,9 @@ static void drawPoly3TGEx8_TW(short x1, short y1, short x2, short y2, short x3, 
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_GT()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!!!!!!!!
    if(drawW<xmax) xmax=drawW;
@@ -5399,6 +5791,9 @@ static void drawPoly4TGEx8(short x1, short y1, short x2, short y2, short x3, sho
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_GT4()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16);
 
@@ -5463,6 +5858,9 @@ static void drawPoly4TGEx8(short x1, short y1, short x2, short y2, short x3, sho
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_GT4()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16);
 
@@ -5475,8 +5873,8 @@ static void drawPoly4TGEx8(short x1, short y1, short x2, short y2, short x3, sho
      if(num==0) num=1;
      difX=(right_u-posX)/num;
      difY=(right_v-posY)/num;
-     difX2=difX<<1;
-     difY2=difY<<1;
+     //difX2=difX<<1;
+     //difY2=difY<<1;
 
      cR1=left_R;
      cG1=left_G;
@@ -5484,9 +5882,9 @@ static void drawPoly4TGEx8(short x1, short y1, short x2, short y2, short x3, sho
      difR=(right_R-cR1)/num;
      difG=(right_G-cG1)/num;
      difB=(right_B-cB1)/num;
-     difR2=difR<<1;
-     difG2=difG<<1;
-     difB2=difB<<1;
+     //difR2=difR<<1;
+     //difG2=difG<<1;
+     //difB2=difB<<1;
 
      if(xmin<drawX)
       {j=drawX-xmin;xmin=drawX;posX+=j*difX;posY+=j*difY;cR1+=j*difR;cG1+=j*difG;cB1+=j*difB;}
@@ -5572,6 +5970,9 @@ static void drawPoly3TGD(short x1, short y1, short x2, short y2, short x3, short
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_GT()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!!!!!
      if(drawW<xmax) xmax=drawW;
@@ -5618,6 +6019,9 @@ static void drawPoly3TGD(short x1, short y1, short x2, short y2, short x3, short
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_GT()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!!!
    if(drawW<xmax) xmax=drawW;
@@ -5696,6 +6100,9 @@ static void drawPoly3TGD_TW(short x1, short y1, short x2, short y2, short x3, sh
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_GT()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!!!!!
      if(drawW<xmax) xmax=drawW;
@@ -5745,6 +6152,9 @@ static void drawPoly3TGD_TW(short x1, short y1, short x2, short y2, short x3, sh
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_GT4()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!!!
    if(drawW<xmax) xmax=drawW;
@@ -5833,6 +6243,9 @@ static void drawPoly4TGD(short x1, short y1, short x2, short y2, short x3, short
   {
    for (i=ymin;i<=ymax;i++)
     {
+	if (checkInterlace(i)){
+		 if(NextRow_GT4()) return;
+	 continue;}
      xmin=(left_x >> 16);
      xmax=(right_x >> 16);
 
@@ -5890,6 +6303,9 @@ static void drawPoly4TGD(short x1, short y1, short x2, short y2, short x3, short
 
  for (i=ymin;i<=ymax;i++)
   {
+	if (checkInterlace(i)){
+		 if(NextRow_GT4()) return;
+	 continue;}
    xmin=(left_x >> 16);
    xmax=(right_x >> 16);
 
@@ -5902,8 +6318,8 @@ static void drawPoly4TGD(short x1, short y1, short x2, short y2, short x3, short
      if(num==0) num=1;
      difX=(right_u-posX)/num;
      difY=(right_v-posY)/num;
-     difX2=difX<<1;
-     difY2=difY<<1;
+     //difX2=difX<<1;
+     //difY2=difY<<1;
 
      cR1=left_R;
      cG1=left_G;
@@ -5911,9 +6327,9 @@ static void drawPoly4TGD(short x1, short y1, short x2, short y2, short x3, short
      difR=(right_R-cR1)/num;
      difG=(right_G-cG1)/num;
      difB=(right_B-cB1)/num;
-     difR2=difR<<1;
-     difG2=difG<<1;
-     difB2=difB<<1;
+     //difR2=difR<<1;
+     //difG2=difG<<1;
+     //difB2=difB<<1;
 
      if(xmin<drawX)
       {j=drawX-xmin;xmin=drawX;posX+=j*difX;posY+=j*difY;cR1+=j*difR;cG1+=j*difG;cB1+=j*difB;}
@@ -6335,7 +6751,7 @@ static void DrawSoftwareSpriteMirror(unsigned char * baseAddr,int32_t w,int32_t 
     sprtYa=(sprtY<<10);
     clutP=(clutY0<<10)+clutX0;
     for (sprCY=0;sprCY<sprtH;sprCY++)
-    {
+    {if (checkInterlace(sprtY+sprCY)){continue;}
      for (sprCX=0;sprCX<sprtW;sprCX++)
       {
        tC= psxVub[((textY0+(sprCY*lYDir))<<11) + textX0 +(sprCX*lXDir)];
@@ -6350,7 +6766,7 @@ static void DrawSoftwareSpriteMirror(unsigned char * baseAddr,int32_t w,int32_t 
 
     clutP>>=1;
     for(sprCY=0;sprCY<sprtH;sprCY++)
-    {
+    {if (checkInterlace(sprtY+sprCY)){continue;}
      for(sprCX=0;sprCX<sprtW;sprCX++)
       {
        tC = psxVub[((textY0+(sprCY*lYDir))<<11)+(GlobalTextAddrX<<1) + textX0 + (sprCX*lXDir)] & 0xff;
@@ -6362,7 +6778,7 @@ static void DrawSoftwareSpriteMirror(unsigned char * baseAddr,int32_t w,int32_t 
    case 2:
 
     for (sprCY=0;sprCY<sprtH;sprCY++)
-    {
+    {if (checkInterlace(sprtY+sprCY)){continue;}
      for (sprCX=0;sprCX<sprtW;sprCX++)
       {
        GetTextureTransColG_SPR(&psxVuw[((sprtY+sprCY)<<10)+sprtX+sprCX],
@@ -6447,10 +6863,44 @@ static void DrawSoftwareSprite(unsigned char * baseAddr,short w,short h,int32_t 
 
 #ifdef FASTSOLID
 
+	if(!bCheckMask && !DrawSemiTrans && (g_m1 == 128) && (g_m2 == 128) && (g_m3 == 128) )
+     {
+      for (sprCY=0;sprCY<sprtH;sprCY++)
+       {
+		if (checkInterlace(sprtY+sprCY)){continue;}
+        sprA=sprtYa+(sprCY<<10);
+        pV=&psxVub[(sprCY<<11)+textX0];
+		
+		if(bWS)
+         {
+          tC=*pV++;
+          GetTextureTransColG_S(&psxVuw[sprA++],GETLE16(&psxVuw[clutP+((tC>>4)&0xf)]));
+         }
+		
+        for (sprCX=0;sprCX<sprtW;sprCX++,sprA+=2)
+         {
+          tC=*pV++;
+
+          GetTextureTransColG32_S_NM((unsigned long *)&psxVuw[sprA],
+              (((long)GETLE16(&psxVuw[clutP+((tC>>4)&0xf)]))<<16)|
+              GETLE16(&psxVuw[clutP+(tC&0x0f)]));
+         }
+		 
+		 if(bWT)
+         {
+          tC=*pV;
+          GetTextureTransColG_S(&psxVuw[sprA],GETLE16(&psxVuw[clutP+(tC&0x0f)]));
+         }
+		 
+       }
+      return;
+     }
+
     if(!bCheckMask && !DrawSemiTrans)
      {
       for (sprCY=0;sprCY<sprtH;sprCY++)
        {
+		if (checkInterlace(sprtY+sprCY)){continue;}
         sprA=sprtYa+(sprCY<<10);
         pV=&psxVub[(sprCY<<11)+textX0];
 
@@ -6482,6 +6932,7 @@ static void DrawSoftwareSprite(unsigned char * baseAddr,short w,short h,int32_t 
 
     for (sprCY=0;sprCY<sprtH;sprCY++)
      {
+		if (checkInterlace(sprtY+sprCY)){continue;}
       sprA=sprtYa+(sprCY<<10);
       pV=&psxVub[(sprCY<<11)+textX0];
 
@@ -6514,10 +6965,31 @@ static void DrawSoftwareSprite(unsigned char * baseAddr,short w,short h,int32_t 
 
 #ifdef FASTSOLID
 
+	if(!bCheckMask && !DrawSemiTrans && (g_m1 == 128) && (g_m2 == 128) && (g_m3 == 128))
+     {
+      for(sprCY=0;sprCY<sprtH;sprCY++)
+       {
+		if (checkInterlace(sprtY+sprCY)){continue;}
+        sprA=((sprtY+sprCY)<<10)+sprtX;
+        pV=&psxVub[(sprCY<<11)+textX0];
+        for(sprCX=0;sprCX<sprtW;sprCX+=2,sprA+=2)
+         {
+          tC = *pV++;tC2 = *pV++;
+          GetTextureTransColG32_S_NM((unsigned long *)&psxVuw[sprA],
+              (((long)GETLE16(&psxVuw[clutP+tC2]))<<16)|
+              GETLE16(&psxVuw[clutP+tC]));
+         }
+        if(sprCX==sprtW)
+         GetTextureTransColG_S(&psxVuw[sprA],GETLE16(&psxVuw[clutP+(*pV)]));
+       }
+      return;
+     }
+
     if(!bCheckMask && !DrawSemiTrans)
      {
       for(sprCY=0;sprCY<sprtH;sprCY++)
        {
+		if (checkInterlace(sprtY+sprCY)){continue;}
         sprA=((sprtY+sprCY)<<10)+sprtX;
         pV=&psxVub[(sprCY<<11)+textX0];
         for(sprCX=0;sprCX<sprtW;sprCX+=2,sprA+=2)
@@ -6537,6 +7009,7 @@ static void DrawSoftwareSprite(unsigned char * baseAddr,short w,short h,int32_t 
 
     for(sprCY=0;sprCY<sprtH;sprCY++)
      {
+		if (checkInterlace(sprtY+sprCY)){continue;}
       sprA=((sprtY+sprCY)<<10)+sprtX;
       pV=&psxVub[(sprCY<<11)+textX0];
       for(sprCX=0;sprCX<sprtW;sprCX+=2,sprA+=2)
@@ -6562,6 +7035,7 @@ static void DrawSoftwareSprite(unsigned char * baseAddr,short w,short h,int32_t 
      {
       for (sprCY=0;sprCY<sprtH;sprCY++)
        {
+		if (checkInterlace(sprtY+sprCY)){continue;}
         sprA=((sprtY+sprCY)<<10)+sprtX;
 
         for (sprCX=0;sprCX<sprtW;sprCX+=2,sprA+=2)
@@ -6582,6 +7056,7 @@ static void DrawSoftwareSprite(unsigned char * baseAddr,short w,short h,int32_t 
 
     for (sprCY=0;sprCY<sprtH;sprCY++)
      {
+		if (checkInterlace(sprtY+sprCY)){continue;}
       sprA=((sprtY+sprCY)<<10)+sprtX;
 
       for (sprCX=0;sprCX<sprtW;sprCX+=2,sprA+=2)
