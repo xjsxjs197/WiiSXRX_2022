@@ -164,9 +164,6 @@ u32 _psxRcntRcount( u32 index )
     return count;
 }
 
-// hack for emulating "gpu busy" in some games
-extern unsigned long dwEmuFixes;
-
 static
 void _psxRcntWmode( u32 index, u32 value )
 {
@@ -241,8 +238,7 @@ void psxRcntSet()
         }
     }
 
-    psxRegs.interrupt |= (1 << PSXINT_RCNT);
-    new_dyna_set_event(PSXINT_RCNT, psxNextCounter);
+    set_event(PSXINT_RCNT, psxNextCounter);
 }
 
 /******************************************************************************/
@@ -321,8 +317,8 @@ static void scheduleRcntBase(void)
 
     if (hSyncCount + hsync_steps == HSyncTotal[Config.PsxType])
     {
-        rcnts[3].cycle = Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
-        //rcnts[3].cycle = FrameCycles[Config.PsxType];
+        //rcnts[3].cycle = Config.PsxType ? PSXCLK / 50 : PSXCLK / 60;
+        rcnts[3].cycle = FrameCycles[Config.PsxType];
     }
     else
     {
@@ -393,7 +389,7 @@ void psxRcntUpdate()
 
             if (lightGun == LIGHTGUN_JUST){
                 psxRegs.interrupt |= (1 << PSXINT_LIGHTGUN);
-                new_dyna_set_event(PSXINT_LIGHTGUN, (Config.PsxType ? 2157: 2146)*12);
+                set_event(PSXINT_LIGHTGUN, (Config.PsxType ? 2157: 2146)*12);
                 gLightgun = 5;
             }
 
@@ -420,6 +416,8 @@ void psxRcntUpdate()
             }
             HW_GPU_STATUS = SWAP32(status);
             //GPU_vBlank(0, field);
+            if ((s32)(psxRegs.gpuIdleAfter - psxRegs.cycle) < 0)
+                psxRegs.gpuIdleAfter = psxRegs.cycle - 1; // prevent overflow
 
             if ((rcnts[0].mode & 7) == (RcSyncModeEnable | Rc01UnblankReset) ||
                 (rcnts[0].mode & 7) == (RcSyncModeEnable | Rc01UnblankReset2))

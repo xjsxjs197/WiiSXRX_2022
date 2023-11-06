@@ -56,8 +56,8 @@ typedef void (CALLBACK* GPUwriteData)(uint32_t);
 typedef void (CALLBACK* GPUwriteDataMem)(unsigned long *, int);
 typedef uint32_t (CALLBACK* GPUreadStatus)(void);
 typedef uint32_t (CALLBACK* GPUreadData)(void);
-typedef void (CALLBACK* GPUreadDataMem)(unsigned long *, int);
-typedef long (CALLBACK* GPUdmaChain)(uint32_t *,uint32_t);
+typedef void (CALLBACK* GPUreadDataMem)(uint32_t *, int);
+typedef long (CALLBACK* GPUdmaChain)(uint32_t *,uint32_t, uint32_t *);
 typedef void (CALLBACK* GPUupdateLace)(void);
 typedef long (CALLBACK* GPUconfigure)(void);
 typedef long (CALLBACK* GPUtest)(void);
@@ -120,9 +120,9 @@ typedef long (CALLBACK* CDRplay)(unsigned char *);
 typedef long (CALLBACK* CDRstop)(void);
 typedef long (CALLBACK* CDRsetfilename)(char *);
 struct CdrStat {
-	uint32_t Type;
-	uint32_t Status;
-	unsigned char Time[3];
+	uint32_t Type; // DATA, CDDA
+	uint32_t Status; // same as cdr.StatP
+	unsigned char Time_[3]; // unused
 };
 typedef long (CALLBACK* CDRgetStatus)(struct CdrStat *);
 typedef char* (CALLBACK* CDRgetDriveLetter)(void);
@@ -161,6 +161,8 @@ extern CDRsetfilename        CDR_setfilename;
 extern CDRreadCDDA           CDR_readCDDA;
 extern CDRgetTE              CDR_getTE;
 
+long CALLBACK CDR__getStatus(struct CdrStat *stat);
+
 // SPU Functions
 typedef long (CALLBACK* SPUinit)(void);
 typedef long (CALLBACK* SPUshutdown)(void);
@@ -183,8 +185,8 @@ typedef void (CALLBACK* SPUwriteDMA)(unsigned short);
 typedef unsigned short (CALLBACK* SPUreadDMA)(void);
 typedef void (CALLBACK* SPUwriteDMAMem)(unsigned short *, int, unsigned int);
 typedef void (CALLBACK* SPUreadDMAMem)(unsigned short *, int, unsigned int);
-typedef void (CALLBACK* SPUplayADPCMchannel)(xa_decode_t *);
-typedef int (CALLBACK* SPUplayCDDAchannel)(short *pcm, int nbytes);
+typedef void (CALLBACK* SPUplayADPCMchannel)(xa_decode_t *, unsigned int, int);
+typedef int (CALLBACK* SPUplayCDDAchannel)(short *pcm, int nbytes, unsigned int, int);
 typedef void (CALLBACK* SPUregisterCallback)(void (CALLBACK *callback)(int));
 typedef void (CALLBACK* SPUregisterScheduleCb)(void (CALLBACK *callback)(unsigned int));
 typedef void (CALLBACK* SPUregisterCDDAVolume)(void (*CDDAVcallback)(unsigned short,unsigned short));

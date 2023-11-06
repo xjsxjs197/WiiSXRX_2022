@@ -25,6 +25,7 @@
 #include "../decode_xa.h"
 #include "../psemu_plugin_defs.h"
 #include "../plugins.h"
+#include "../gpulib/gpu.h"
 
 #define SYMS_PER_LIB 32
 typedef struct {
@@ -119,8 +120,8 @@ void DF_SPUreadDMAMem(unsigned short * pusPSXMem,int iSize, unsigned int cycles)
 void DF_SPUwriteDMA(unsigned short val);
 void DF_SPUwriteDMAMem(unsigned short * pusPSXMem,int iSize, unsigned int cycles);
 void DF_SPUasync(unsigned long cycle, unsigned int flags, unsigned int psxType);
-void DF_SPUplayADPCMchannel(xa_decode_t *xap);
-int  DF_SPUplayCDDAchannel(short *pcm, int nbytes);
+void DF_SPUplayADPCMchannel(xa_decode_t *xap, unsigned int cycle, int is_start);
+int  DF_SPUplayCDDAchannel(short *pcm, int nbytes, unsigned int cycle, int is_start);
 long DF_SPUinit(void);
 long DF_SPUopen(void);
 long DF_SPUclose(void);
@@ -177,6 +178,7 @@ long PEOPS_GPUdmaChain(unsigned long *,unsigned long);
 void PEOPS_GPUupdateLace(void);
 void PEOPS_GPUdisplayText(char *);
 long PEOPS_GPUfreeze(unsigned long,GPUFreeze_t *);
+
 
 /* PAD */
 //typedef long (* PADopen)(unsigned long *);
@@ -608,6 +610,41 @@ unsigned char * CALLBACK Mooby2CDRgetBuffer(void);
 	      (void*)PEOPS_GPUupdateLace} \
 	       } }
 
+
+#define GPU_SOFT_PLUGIN \
+	{ "GPU",      \
+	  14,         \
+	  { { "GPUinit",  \
+	      (void*)LIB_GPUinit }, \
+	    { "GPUshutdown", \
+	      (void*)LIB_GPUshutdown}, \
+	    { "GPUopen", \
+	      (void*)LIB_GPUopen}, \
+	    { "GPUclose", \
+	      (void*)LIB_GPUclose}, \
+	    { "GPUwriteStatus", \
+	      (void*)LIB_GPUwriteStatus}, \
+	    { "GPUwriteData", \
+	      (void*)LIB_GPUwriteData}, \
+	    { "GPUwriteDataMem", \
+	      (void*)LIB_GPUwriteDataMem}, \
+	    { "GPUreadStatus", \
+	      (void*)LIB_GPUreadStatus}, \
+	    { "GPUreadData", \
+	      (void*)LIB_GPUreadData}, \
+	    { "GPUreadDataMem", \
+	      (void*)LIB_GPUreadDataMem}, \
+	    { "GPUdmaChain", \
+	      (void*)LIB_GPUdmaChain}, \
+	    { "GPUfreeze", \
+	      (void*)LIB_GPUfreeze}, \
+	    { "GPUupdateLace", \
+	      (void*)LIB_GPUupdateLace}, \
+		{ "GPUrearmedCallbacks", \
+	      (void*)LIB_GPUrearmedCallbacks} \
+	       } }
+
+
 #define PLUGIN_SLOT_0 EMPTY_PLUGIN
 //#define PLUGIN_SLOT_1 PAD1_PLUGIN
 #define PLUGIN_SLOT_1 SSS_PAD1_PLUGIN
@@ -621,7 +658,8 @@ unsigned char * CALLBACK Mooby2CDRgetBuffer(void);
 //#define PLUGIN_SLOT_4 FRANSPU_PLUGIN
 #define PLUGIN_SLOT_4 DFSOUND_PLUGIN
 //#define PLUGIN_SLOT_5 GPU_NULL_PLUGIN
-#define PLUGIN_SLOT_5 GPU_PEOPS_PLUGIN
+//#define PLUGIN_SLOT_5 GPU_PEOPS_PLUGIN
+#define PLUGIN_SLOT_5 GPU_SOFT_PLUGIN
 #define PLUGIN_SLOT_6 EMPTY_PLUGIN
 #define PLUGIN_SLOT_7 EMPTY_PLUGIN
 

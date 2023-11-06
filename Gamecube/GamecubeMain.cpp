@@ -85,8 +85,7 @@ void SysMessage(char *fmt, ...);
 void LidInterrupt();
 }
 
-unsigned int* xfb[2] = { NULL, NULL };	/*** Framebuffers ***/
-int whichfb = 0;        /*** Frame buffer toggle ***/
+u32* xfb[3] = { NULL, NULL, NULL };	/*** Framebuffers ***/
 GXRModeObj *vmode;				/*** Graphics Mode Object ***/
 BOOL hasLoadedISO = FALSE;
 fileBrowser_file isoFile;  //the ISO file
@@ -396,7 +395,7 @@ void loadSettings(int argc, char *argv[])
 
 	//Synch settings with Config
 	Config.Cpu=dynacore;
-	iUseDither = useDithering;
+	//iUseDither = useDithering;
 	iVolume = volume;
 }
 
@@ -416,11 +415,12 @@ void ShutdownWii()
 }
 #endif
 
-void video_mode_init(GXRModeObj *videomode,unsigned int *fb1, unsigned int *fb2)
+void video_mode_init(GXRModeObj *videomode, u32 *fb1, u32 *fb2, u32 *fb3)
 {
 	vmode = videomode;
 	xfb[0] = fb1;
 	xfb[1] = fb2;
+	xfb[2] = fb3;
 }
 
 // Plugin structure
@@ -552,10 +552,9 @@ int main(int argc, char *argv[])
 	control_info_init(); //Perform controller auto assignment at least once at startup.
 
 	loadSettings(argc, argv);
-	// added by xjsxjs197 start
+
 	LoadLanguage();
 	ChangeLanguage();
-	// added by xjsxjs197 end
 
 	MenuContext *menu = new MenuContext(vmode);
 	VIDEO_SetPostRetraceCallback (ScanPADSandReset);
@@ -832,8 +831,17 @@ int SysInit() {
 	return 0;
 }
 
+extern void pl_timing_prepare(int is_pal_);
+int g_emu_resetting;
+
 void SysReset() {
+    g_emu_resetting = 1;
+	// reset can run code, timing must be set
+	pl_timing_prepare(Config.PsxType);
+
 	psxReset();
+
+	g_emu_resetting = 0;
 }
 
 void SysStartCPU() {
@@ -895,6 +903,11 @@ int framesdone = 0;
 void SysUpdate()
 {
 	framesdone++;
+	// reamed hack
+	{
+		extern void pl_frame_limit(void);
+		pl_frame_limit();
+	}
 #ifdef PROFILE
 	refresh_stat();
 #endif

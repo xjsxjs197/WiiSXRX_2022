@@ -220,7 +220,7 @@ typedef struct
  void (CALLBACK *cddavCallback)(unsigned short,unsigned short);
  void (CALLBACK *scheduleCallback)(unsigned int);
 
- xa_decode_t   * xapGlobal;
+ const xa_decode_t * xapGlobal;
  unsigned int  * XAFeed;
  unsigned int  * XAPlay;
  unsigned int  * XAStart;
@@ -239,6 +239,8 @@ typedef struct
 
  int             iLeftXAVol;
  int             iRightXAVol;
+
+ unsigned int    last_keyon_cycles;
 
  SPUCHAN       * s_chan;
  REVERBInfo    * rvb;
@@ -261,13 +263,14 @@ typedef struct
 
 extern SPUInfo spu;
 
-int do_samples(unsigned int cycles_to, int do_sync);
+void do_samples(unsigned int cycles_to, int do_sync);
 void schedule_next_irq(void);
 void check_irq_io(unsigned int addr);
+void do_irq_io(int cycles_after);
 
-#define do_samples_if_needed(c, sync) \
+#define do_samples_if_needed(c, sync, samples) \
  do { \
-  if (sync || (int)((c) - spu.cycles_played) >= 16 * 768) \
+  if (sync || (int)((c) - spu.cycles_played) >= (samples) * 768) \
    do_samples(c, sync); \
  } while (0)
 

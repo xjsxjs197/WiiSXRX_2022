@@ -215,6 +215,23 @@ void psxMemShutdown() {
 
 static int writeok=1;
 
+void psxMemOnIsolate(int enable)
+{
+	if (enable) {
+		memset(psxMemWLUT + 0x0000, (int)(uintptr_t)INVALID_PTR, 0x80 * sizeof(void *));
+		memset(psxMemWLUT + 0x8000, (int)(uintptr_t)INVALID_PTR, 0x80 * sizeof(void *));
+		//memset(psxMemWLUT + 0xa000, (int)(uintptr_t)INVALID_PTR, 0x80 * sizeof(void *));
+	} else {
+		int i;
+		for (i = 0; i < 0x80; i++)
+			psxMemWLUT[i + 0x0000] = (void *)&psxM[(i & 0x1f) << 16];
+		memcpy(psxMemWLUT + 0x8000, psxMemWLUT, 0x80 * sizeof(void *));
+		memcpy(psxMemWLUT + 0xa000, psxMemWLUT, 0x80 * sizeof(void *));
+	}
+	psxCpu->Notify(enable ? R3000ACPU_NOTIFY_CACHE_ISOLATED
+			: R3000ACPU_NOTIFY_CACHE_UNISOLATED, NULL);
+}
+
 u8 psxMemRead8(u32 mem) {
 	u32 t;
 
