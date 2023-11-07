@@ -47,6 +47,8 @@ dist: Wii
 
 clean:
 	@$(ECHO) "Cleaning..."
+	@$(MAKE) -C deps/lightrec clean -f Makefile.NoLog
+	@$(MAKE) -C deps/lightrec clean -f Makefile.WithLog
 	@$(MAKE) -C Gamecube clean -f Makefile_Wii
 	@$(MAKE) -C Gamecube clean -f Makefile_Wii_Release
 
