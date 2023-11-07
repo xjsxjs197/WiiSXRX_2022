@@ -77,19 +77,19 @@ extern int sioFreeze(gzFile f, int Mode);
 
 extern int LoadMcd(int mcd, fileBrowser_file *savepath);
 extern int LoadMcds(fileBrowser_file *mcd1, fileBrowser_file *mcd2);
-// add xjsxjs197 start
+
 extern int SaveMcdByNum(int mcd);
-// add xjsxjs197 end
+
 extern int SaveMcd(int mcd, fileBrowser_file *savepath);
 extern int SaveMcds(fileBrowser_file *mcd1, fileBrowser_file *mcd2);
 extern bool CreateMcd(int slot, fileBrowser_file *mcd);
 extern void ConvertMcd(char *mcd, char *data);
 
 typedef struct {
-	char Title[48];
-	short sTitle[48];
-	char ID[14];
-	char Name[16];
+	char Title[48 + 1]; // Title in ASCII
+	char sTitle[48 * 2 + 1]; // Title in Shift-JIS
+	char ID[12 + 1];
+	char Name[16 + 1];
 	int IconCount;
 	short Icon[16*16*3];
 	unsigned char Flags;

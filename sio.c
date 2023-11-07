@@ -31,10 +31,11 @@
 // *** FOR WORKS ON PADS AND MEMORY CARDS *****
 
 static unsigned char buf[256];
-unsigned char cardh[4] = { 0x00, 0x00, 0x5a, 0x5d };
+static unsigned char cardh1[4] = { 0xff, 0x08, 0x5a, 0x5d };
+static unsigned char cardh2[4] = { 0xff, 0x08, 0x5a, 0x5d };
 
-//static unsigned short StatReg = 0x002b;
 // Transfer Ready and the Buffer is Empty
+// static unsigned short StatReg = 0x002b;
 unsigned short StatReg = TX_RDY | TX_EMPTY;
 unsigned short ModeReg;
 unsigned short CtrlReg;
@@ -42,8 +43,8 @@ unsigned short BaudReg;
 
 static unsigned int bufcount;
 static unsigned int parp;
-static unsigned int mcdst,rdwr;
-static unsigned char adrH,adrL;
+static unsigned int mcdst, rdwr;
+static unsigned char adrH, adrL;
 static unsigned int padst;
 
 char mcd1Written = 0;
@@ -61,10 +62,12 @@ char Mcd1Data[MCD_SIZE], Mcd2Data[MCD_SIZE];
 char McdDisable[2];
 
 // clk cycle byte
-// 4us * 8bits = ((PSXCLK / 1000000) * 32) / BIAS; (linuzappz)
+// 4us * 8bits = (PSXCLK / 1000000) * 32; (linuzappz)
+// TODO: add SioModePrescaler and BaudReg
 #define SIO_CYCLES		535
 
 void sioWrite8(unsigned char value) {
+	int more_data = 0;
 #ifdef PAD_LOG
 	PAD_LOG("sio write8 %x\n", value);
 #endif
@@ -108,11 +111,6 @@ void sioWrite8(unsigned char value) {
 			return;
 		case 2:
 			parp++;
-/*			if (buf[1] == 0x45) {
-				buf[parp] = 0;
-				SIO_INT();
-				return;
-			}*/
 			if (!Config.UseNet) {
 				switch (CtrlReg&0x2002) {
 					case 0x0002: buf[parp] = PAD1_poll(value); break;
@@ -125,9 +123,6 @@ void sioWrite8(unsigned char value) {
 			return;
 	}
 
-    #ifdef DISP_DEBUG
-    //PRINT_LOG3("sioWrite8====%d=%d=%x", mcdst, rdwr, CtrlReg);
-    #endif // DISP_DEBUG*/
 	switch (mcdst) {
 		case 1:
 			set_event(PSXINT_SIO, SIO_CYCLES);
@@ -164,7 +159,7 @@ void sioWrite8(unsigned char value) {
 					buf[1] = 0x5d;
 					buf[2] = adrH;
 					buf[3] = adrL;
-					switch (CtrlReg&0x2002) {
+					switch (CtrlReg & 0x2002) {
 						case 0x0002:
 							memcpy(&buf[4], Mcd1Data + (adrL | (adrH << 8)) * 128, 128);
 							mcd1Written = 1;
@@ -177,8 +172,8 @@ void sioWrite8(unsigned char value) {
 					{
 					char xor = 0;
 					int i;
-					for (i=2;i<128+4;i++)
-						xor^=buf[i];
+					for (i = 2; i < 128 + 4; i++)
+						xor ^= buf[i];
 					buf[132] = xor;
 					}
 					buf[133] = 0x47;
@@ -197,8 +192,16 @@ void sioWrite8(unsigned char value) {
 			return;
 		case 5:
 			parp++;
+			if ((rdwr == 1 && parp == 132) ||
+			    (rdwr == 2 && parp == 129)) {
+				// clear "new card" flags
+				if (CtrlReg & 0x2000)
+					cardh2[1] &= ~8;
+				else
+					cardh1[1] &= ~8;
+			}
 			if (rdwr == 2) {
-				if (parp < 128) buf[parp+1] = value;
+				if (parp < 128) buf[parp + 1] = value;
 			}
 			set_event(PSXINT_SIO, SIO_CYCLES);
 			return;
@@ -280,45 +283,42 @@ void sioWrite8(unsigned char value) {
 		case 0x82: // start memcard
 		case 0x83: // start memcard
 		case 0x84: // start memcard
-		switch (CtrlReg&0x2002) {
-			case 0x0002:
-				if (memCard[0] && McdDisable[0] == 0){
-					StatReg |= RX_RDY;
-					memcpy(buf, cardh, 4);
-					parp = 0;
-					bufcount = 3;
-					mcdst = 1;
-					rdwr = 0;
-					set_event(PSXINT_SIO, SIO_CYCLES);
-					return;
-				}
-				else{
-					StatReg |= RX_RDY;
-					buf[0] = 0xff;
-					parp = 0;
-					bufcount = 0;
-					return;
-				}
+			if (CtrlReg & 0x2000)
+			{
+				if (memCard[1] == MEMCARD_DISABLE || McdDisable[1])
+					goto no_device;
+				memcpy(buf, cardh2, 4);
+			}
+			else
+			{
+				if (memCard[0] == MEMCARD_DISABLE || McdDisable[0])
+					goto no_device;
+				memcpy(buf, cardh1, 4);
+			}
+			StatReg |= RX_RDY;
+			parp = 0;
+			bufcount = 3;
+			mcdst = 1;
+			rdwr = 0;
+			set_event(PSXINT_SIO, SIO_CYCLES);
+			return;
+		default:
+		no_device:
+			StatReg |= RX_RDY;
+			buf[0] = 0xff;
+			parp = 0;
+			bufcount = 0;
+			return;
+	}
+}
 
-			case 0x2002:
-				if (memCard[1] && McdDisable[1] == 0){
-					StatReg |= RX_RDY;
-					memcpy(buf, cardh, 4);
-					parp = 0;
-					bufcount = 3;
-					mcdst = 1;
-					rdwr = 0;
-					set_event(PSXINT_SIO, SIO_CYCLES);
-					return;
-				}
-				else{
-					StatReg |= RX_RDY;
-					buf[0] = 0xff;
-					parp = 0;
-					bufcount = 0;
-					return;
-				}
-		}
+void sioWriteCtrl16(unsigned short value) {
+	CtrlReg = value & ~RESET_ERR;
+	if (value & RESET_ERR) StatReg &= ~IRQ;
+	if ((CtrlReg & SIO_RESET) || !(CtrlReg & DTR)) {
+		padst = 0; mcdst = 0; parp = 0;
+		StatReg = TX_RDY | TX_EMPTY;
+		psxRegs.interrupt &= ~(1 << PSXINT_SIO);
 	}
 }
 
@@ -333,7 +333,7 @@ unsigned char sioRead8() {
 			if (mcdst == 5) {
 				mcdst = 0;
 				if (rdwr == 2) {
-					switch (CtrlReg&0x2002) {
+					switch (CtrlReg & 0x2002) {
 						case 0x0002:
 							memcpy(Mcd1Data + (adrL | (adrH << 8)) * 128, &buf[1], 128);
 							mcd1Written = 1;
@@ -369,26 +369,15 @@ void netError() {
 	SysRunGui();
 }
 
-void sioWriteCtrl16(unsigned short value) {
-	CtrlReg = value & ~RESET_ERR;
-	if (value & RESET_ERR) StatReg &= ~IRQ;
-	if ((CtrlReg & SIO_RESET) || !(CtrlReg & DTR)) {
-		padst = 0; mcdst = 0; parp = 0;
-		StatReg = TX_RDY | TX_EMPTY;
-		psxRegs.interrupt&=~(1 << PSXINT_SIO);
-	}
-}
-
 void sioInterrupt() {
 #ifdef PAD_LOG
 	PAD_LOG("Sio Interrupt (CP0.Status = %x)\n", psxRegs.CP0.n.Status);
 #endif
 //	SysPrintf("Sio Interrupt\n");
-    if (!(StatReg & IRQ)) {
-	    StatReg|= IRQ;
-	    psxHu32ref(0x1070)|= SWAPu32(0x80);
-	    //psxRegs.interrupt|= 0x80000000;
-    }
+	if (!(StatReg & IRQ)) {
+		StatReg |= IRQ;
+		psxHu32ref(0x1070) |= SWAPu32(0x80);
+	}
 }
 
 //call me from menu, takes slot and save path as args
@@ -403,10 +392,12 @@ int LoadMcd(int mcd, fileBrowser_file *savepath) {
 	if(mcd == 1) {
 	  sprintf((char*)saveFile.name,"%s/%s.mcd",savepath->name,CdromId);
 	  data = &Mcd1Data[0];
+	  cardh1[1] |= 8; // mark as new
   }
 	if (mcd == 2) {
   	sprintf((char*)saveFile.name,"%s/slot2.mcd",savepath->name);
   	data = &Mcd2Data[0];
+	cardh2[1] |= 8;
 	}
 
 	if(saveFile_readFile(&saveFile, &temp, 4) == 4) {  //file exists

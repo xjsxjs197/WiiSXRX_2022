@@ -41,7 +41,7 @@ enum hle_op {
 	hleop_exc_padcard1, hleop_exc_padcard2,
 };
 
-extern void (*psxHLEt[256])();
+extern void (* const psxHLEt[24])();
 
 #ifdef __cplusplus
 }

@@ -849,7 +849,7 @@ void psxTestSWInts() {
 
 static void setupCop(u32 sr);
 
-__inline void MTC0(int reg, u32 val) {
+void MTC0(int reg, u32 val) {
 //	SysPrintf("MTC0 %d: %x\n", reg, val);
 	switch (reg) {
 		case 12: // psxRegs.CP0.r[12] = psxRegs.CP0.n.SR
