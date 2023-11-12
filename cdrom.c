@@ -249,7 +249,7 @@ int msf2SectS[] = {
 #define STATUS_READ      (1<<5) // 0x20
 #define STATUS_SHELLOPEN (1<<4) // 0x10
 #define STATUS_UNKNOWN3  (1<<3) // 0x08
-#define STATUS_UNKNOWN2  (1<<2) // 0x04
+#define STATUS_SEEKERROR (1<<2) // 0x04
 #define STATUS_ROTATING  (1<<1) // 0x02
 #define STATUS_ERROR     (1<<0) // 0x01
 
@@ -258,6 +258,7 @@ int msf2SectS[] = {
 #define ERROR_INVALIDCMD (1<<6) // 0x40
 #define ERROR_BAD_ARGNUM (1<<5) // 0x20
 #define ERROR_BAD_ARGVAL (1<<4) // 0x10
+#define ERROR_SHELLOPEN  (1<<3) // 0x08
 
 // 1x = 75 sectors per second
 // PSXCLK = 1 sec in the ps
@@ -398,7 +399,7 @@ void cdrLidSeekInterrupt(void)
         DEBUG_print(txtbuffer, DBG_CDR4);
         #endif // DISP_DEBUG
 		StopCdda();
-		StopReading();
+		//StopReading();
 		SetPlaySeekRead(cdr.StatP, 0);
 
 		if (CDR_getStatus(&stat) == -1)
@@ -427,12 +428,26 @@ void cdrLidSeekInterrupt(void)
 
 		// 02, 12, 10
 		if (!(cdr.StatP & STATUS_SHELLOPEN)) {
-			//StopReading();
+			SetPlaySeekRead(cdr.StatP, 0);
 			cdr.StatP |= STATUS_SHELLOPEN;
 
-			// could generate error irq here, but real hardware
-			// only sometimes does that
-			// (not done when lots of commands are sent?)
+			// IIRC this sometimes doesn't happen on real hw
+			// (when lots of commands are sent?)
+			if (cdr.Reading) {
+				StopReading();
+				SetResultSize(2);
+				cdr.Result[0] = cdr.StatP | STATUS_SEEKERROR;
+				cdr.Result[1] = ERROR_SHELLOPEN;
+				setIrq(DiskError, 0x1006);
+			}
+			if (cdr.CmdInProgress) {
+				psxRegs.interrupt &= ~(1 << PSXINT_CDR);
+				cdr.CmdInProgress = 0;
+				SetResultSize(2);
+				cdr.Result[0] = cdr.StatP | STATUS_ERROR;
+				cdr.Result[1] = ERROR_NOTREADY;
+				setIrq(DiskError, 0x1007);
+			}
 
 			set_event(PSXINT_CDRLID, cdReadTime * 30);
 			break;
@@ -783,9 +798,9 @@ void cdrPlayReadInterrupt(void)
 	if (!cdr.IrqStat && (cdr.Mode & (MODE_AUTOPAUSE|MODE_REPORT)))
 		cdrPlayInterrupt_Autopause(read_buf);
 
-	if (!cdr.Play) return;
+	//if (!cdr.Play) return;
 
-	if (!cdr.Muted && !Config.Cdda) {
+	if (!cdr.Muted && cdr.Play && !Config.Cdda) {
         #ifdef SHOW_DEBUG
         sprintf(txtbuffer, "CDR_readCDDA time %d %d %d", cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2]);
         DEBUG_print(txtbuffer, DBG_CDR2);
@@ -878,7 +893,7 @@ void cdrInterrupt(void) {
 			break;
 
 		case CdlSetloc:
-		case CdlSetloc + CMD_WHILE_NOT_READY:
+		// case CdlSetloc + CMD_WHILE_NOT_READY: // or is it?
 			CDR_LOG("CDROM setloc command (%02X, %02X, %02X)\n", cdr.Param[0], cdr.Param[1], cdr.Param[2]);
 
 			// MM must be BCD, SS must be BCD and <0x60, FF must be BCD and <0x75
