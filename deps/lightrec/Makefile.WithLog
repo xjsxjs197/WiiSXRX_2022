@@ -65,13 +65,13 @@ $(LIB_DIR)/libLightrecWithLog.a: $(LIGHRREC_OBJS)
 	@echo ----
 
 # Compilation flags.
-COMMON_FLAGS	:= -g -O3 -w -Wno-parentheses $(MACHDEP) -mhard-float -mmultiple
+COMMON_FLAGS	:= -g -O3 -w -Wno-parentheses $(MACHDEP)
 INCLUDES		:= -Iinclude -I$(LIBOGC_INC)
 DEFINES			:= -DGEKKO
-CFLAGS			:= $(COMMON_FLAGS) $(INCLUDES) $(INCLUDE) $(DEFINES) -ffast-math --pedantic -D__BIG_ENDIAN -D__powerpc__ -DBIG_ENDIAN -DLOG_LEVEL=3
+CFLAGS			:= $(COMMON_FLAGS) $(INCLUDES) $(INCLUDE) $(DEFINES)--pedantic -D__BIG_ENDIAN -D__powerpc__ -DBIG_ENDIAN -DLOG_LEVEL=3
 
 # Test link flags.
-LDFLAGS			:= $(COMMON_FLAGS) -L$(LIB_DIR) -L$(LIBOGC_LIB) $(PORTLIBS_PATH)/wii/lib -lfat -logc -llightning
+LDFLAGS			:= $(COMMON_FLAGS) -L$(LIB_DIR) -L$(LIBOGC_LIB) $(PORTLIBS_PATH)/wii/lib -llightning
 
 # How to compile C file (SDL library).
 $(LIGHTREC_OBJ_DIR)/%.o: $(LIGHTREC_SRC_DIR)/%.c
