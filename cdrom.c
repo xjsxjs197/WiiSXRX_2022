@@ -1187,7 +1187,14 @@ void cdrInterrupt(void) {
 			StopReading();
 			SetPlaySeekRead(cdr.StatP, STATUS_SEEK | STATUS_ROTATING);
 
-			seekTime = cdrSeekTime(cdr.SetSector);
+			if (fastLoad)
+			{
+				seekTime = WaitTime1st;
+			}
+			else
+			{
+				seekTime = cdrSeekTime(cdr.SetSector);
+			}
 			*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
 			/*
 			Crusaders of Might and Magic = 0.5x-4x
@@ -1333,6 +1340,13 @@ void cdrInterrupt(void) {
 			cdr.sectorsRead = 0;
 
 			cycles = (cdr.Mode & MODE_SPEED) ? cdReadTime : cdReadTime * 2;
+			if (fastLoad)
+			{
+				if (seekTime > MinSeekTime)
+				{
+					seekTime = MinSeekTime;
+				}
+			}
 			cycles += seekTime;
 			if (Config.hacks.cdr_read_timing)
 				cycles = cdrAlignTimingHack(cycles);
@@ -1628,8 +1642,15 @@ void cdrWrite1(unsigned char rt) {
 
 	if (!cdr.CmdInProgress) {
 		cdr.CmdInProgress = rt;
-		// should be something like 12k + controller delays
-		set_event(PSXINT_CDR, 5000);
+		if (rt == CdlPause)
+		{
+			set_event(PSXINT_CDR, 27648);
+		}
+		else
+		{
+			// should be something like 12k + controller delays
+		    set_event(PSXINT_CDR, fastLoad ? WaitTime1st : 5000);
+		}
 	}
 	else {
 		CDR_LOG_I("cmd while busy: %02x, prev %02x, busy %02x\n",
