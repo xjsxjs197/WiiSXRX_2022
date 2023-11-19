@@ -45,7 +45,7 @@ void psxHwReset() {
 	mdecInit(); // initialize mdec decoder
 	cdrReset();
 	psxRcntInit();
-	HW_GPU_STATUS = SWAP32(0x14802000);
+	HW_GPU_STATUS = SWAP32(0x10802000);
 	psxHwReadGpuSRptr = Config.hacks.gpu_busy_hack
 		? psxHwReadGpuSRbusyHack : psxHwReadGpuSR;
 }

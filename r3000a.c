@@ -28,8 +28,11 @@
 #include "mdec.h"
 #include "psxinterpreter.h"
 #include "Gamecube/wiiSXconfig.h"
+#include "Gamecube/DEBUG.h"
+
 R3000Acpu *psxCpu;
 psxRegisters psxRegs;
+extern bool needInitCpu;
 
 int psxInit() {
 
@@ -51,7 +54,14 @@ int psxInit() {
 	int memInitResult = psxMemInit();
 	if (memInitResult != 0) return memInitResult;
 
-	return psxCpu->Init();
+	if (needInitCpu)
+	{
+		return psxCpu->Init();
+	}
+	else
+	{
+		return 0;
+	}
 }
 
 void psxReset() {

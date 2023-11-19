@@ -64,6 +64,7 @@ void Func_ExecuteBios();
 void Func_SelectLanguage();
 void Func_SaveSettingsSD();
 void Func_SaveSettingsUSB();
+void Func_SaveSettingsSeparately();
 
 void Func_ShowFpsOn();
 void Func_ShowFpsOff();
@@ -139,7 +140,7 @@ void IplFont_loadFontFile(FILE* fontFile);
 FILE* IplFont_getFontFile(char* sdUsb);
 }
 
-#define NUM_FRAME_BUTTONS 62
+#define NUM_FRAME_BUTTONS 63
 #define NUM_TAB_BUTTONS 5
 #define FRAME_BUTTONS settingsFrameButtons
 #define FRAME_STRINGS settingsFrameStrings
@@ -181,7 +182,7 @@ Auto Save Memcards: Yes; No
 Save States Device: SD; USB
 */
 
-static char FRAME_STRINGS[77][24] =
+static char FRAME_STRINGS[78][24] =
 	{ "General",
 	  "Video",
 	  "Input",
@@ -251,7 +252,7 @@ static char FRAME_STRINGS[77][24] =
       "Es", // SPANISH
       "Pte", // PORTUGUESE
       "It", // ITALIAN
-      // Strings for display Fast Load (starting at FRAME_STRINGS[63]) ..was[63]
+      // Strings for display Fast Load (starting at FRAME_STRINGS[63]) ..was[77]
       "Fast Load",
 	  "240p",
 	  "Bilinear",
@@ -265,7 +266,8 @@ static char FRAME_STRINGS[77][24] =
 	  "Mouse",
 	  "Memcard 1",
 	  "Memcard 2",
-	  "Enable Memcard"
+	  "Enable Memcard",
+	  "Separately"
       };
 
 static char LANG_STRINGS[13][24] =
@@ -318,8 +320,9 @@ struct ButtonInfo
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[17],	380.0,	240.0,	 75.0,	56.0,	 8,	54,	11,	13,	Func_BootBiosNo,		Func_ReturnFromSettingsFrame }, // Boot Thru Bios: No
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[8],	465.0,	240.0,	180.0,	56.0,	9,	54,	12,	11,	Func_ExecuteBios,		Func_ReturnFromSettingsFrame }, // Execute Bios
 
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[13],	295.0,	380.0,	 55.0,	56.0,	54,	 0,	15,	15,	Func_SaveSettingsSD,	Func_ReturnFromSettingsFrame }, // Save Settings: SD
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[14],	360.0,	380.0,	 70.0,	56.0,	54,	 0,	14,	14,	Func_SaveSettingsUSB,	Func_ReturnFromSettingsFrame }, // Save Settings: USB
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[13],	235.0,	380.0,	 55.0,	56.0,	54,	 0,	62,	15,	Func_SaveSettingsSD,	Func_ReturnFromSettingsFrame }, // Save Settings: SD
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[14],	300.0,	380.0,	 70.0,	56.0,	54,	 0,	14,	62,	Func_SaveSettingsUSB,	Func_ReturnFromSettingsFrame }, // Save Settings: USB
+
 	//Buttons for Video Tab (starts at button[16])
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[24],	325.0,	100.0,	 75.0,	56.0,	 1,	18,	17,	17,	Func_ShowFpsOn,			Func_ReturnFromSettingsFrame }, // Show FPS: On
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	420.0,	100.0,	 75.0,	56.0,	 1,	19,	16,	16,	Func_ShowFpsOff,		Func_ReturnFromSettingsFrame }, // Show FPS: Off
@@ -370,7 +373,9 @@ struct ButtonInfo
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[11],	505.0,	100.0,	130.0,	56.0,	 0,	 9,	 6,	 5,	Func_CpuDynarec,		Func_ReturnFromSettingsFrame },  // CPU: Dynarec
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[70],	510.0,	170.0,	115.0,	56.0,	31,	35,	33,	32,	Func_PsxTypeLightgun,	Func_ReturnFromSettingsFrame },  // PSX Controller Type: Lightgun
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[74],	295.0,	310.0,	155.0,	56.0,	52,	4,	61,	61,	Func_Memcard1,			Func_ReturnFromSettingsFrame },  // Memcard 1 toggle
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[75],	460.0,	310.0,	155.0,	56.0,	53,	4,	60,	60,	Func_Memcard2,			Func_ReturnFromSettingsFrame }  // Memcard 2 toggle
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[75],	460.0,	310.0,	155.0,	56.0,	53,	4,	60,	60,	Func_Memcard2,			Func_ReturnFromSettingsFrame },  // Memcard 2 toggle
+
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[77],	385.0,	380.0,	 140.0,	56.0,	54,	 0,	15,	14,	Func_SaveSettingsSeparately,	Func_ReturnFromSettingsFrame }, // Save Settings: Separately
 };
 
 struct TextBoxInfo
@@ -387,7 +392,7 @@ struct TextBoxInfo
 	{	NULL,	FRAME_STRINGS[5],	105.0,	128.0,	 1.0,	true }, // CPU Core: Pure Interp/Dynarec
 	{	NULL,	FRAME_STRINGS[6],	155.0,	198.0,	 1.0,	true }, // Bios: HLE/SD/USB/DVD
 	{	NULL,	FRAME_STRINGS[7],	155.0,	268.0,	 1.0,	true }, // Boot Thru Bios: Yes/No
-	{	NULL,	FRAME_STRINGS[9],	155.0,	408.0,	 1.0,	true }, // Save settings: SD/USB
+	{	NULL,	FRAME_STRINGS[9],	130.0,	408.0,	 1.0,	true }, // Save settings: SD/USB
 	//TextBoxes for Video Tab (starts at textBox[4])
 	{	NULL,	FRAME_STRINGS[18],	190.0,	128.0,	 1.0,	true }, // Show FPS: On/Off
 	{	NULL,	FRAME_STRINGS[19],	190.0,	188.0,	 1.0,	true }, // Limit FPS: Auto/Off
@@ -533,6 +538,10 @@ void SettingsFrame::activateSubmenu(int submenu)
             // CPU: Dynarec
             FRAME_BUTTONS[58].button->setVisible(true);
             FRAME_BUTTONS[58].button->setActive(true);
+
+            // Save Settings: Separately
+            FRAME_BUTTONS[62].button->setVisible(true);
+            FRAME_BUTTONS[62].button->setActive(hasLoadedISO ? true : false);
 			break;
 		case SUBMENU_VIDEO:
 			setDefaultFocus(FRAME_BUTTONS[1].button);
@@ -1110,6 +1119,51 @@ void Func_SaveSettingsUSB()
 	menu::MessageBox::getInstance().setMessage("Error saving settings to USB");
 }
 
+void Func_SaveSettingsSeparately()
+{
+    struct stat s;
+    char settingPathBuf[256];
+    fileBrowser_file* configFile_file;
+    extern char CdromId[10];
+	if (stat("usb:/wiisxrx/", &s)) {
+		if (stat("sd:/wiisxrx/", &s)) {
+			menu::MessageBox::getInstance().setMessage("Error opening directory sd:/wiisxrx");
+			return;
+		}
+		else
+		{
+			sprintf(settingPathBuf, "%s%s%s", "sd:/wiisxrx/settings/", CdromId, ".cfg");
+			configFile_file = &saveDir_libfat_Default;
+	        int (*configFile_init)(fileBrowser_file*) = fileBrowser_libfat_init;
+	        if(configFile_init(configFile_file)) {                //only if device initialized ok
+				FILE* f = fopen( settingPathBuf, "wb" );  //attempt to open file
+				if(f) {
+					writeConfig(f);                                   //write out the config
+					fclose(f);
+					menu::MessageBox::getInstance().setMessage("Saved settings to SD");
+					return;
+				}
+			}
+			menu::MessageBox::getInstance().setMessage("Error saving settings to SD");
+		}
+	}
+	else
+	{
+		printf(settingPathBuf, "%s%s%s", "usb:/wiisxrx/settings/", CdromId, ".cfg");
+		configFile_file = &saveDir_libfat_USB;
+	    int (*configFile_init)(fileBrowser_file*) = fileBrowser_libfat_init;
+	    if (configFile_init(configFile_file)) {                //only if device initialized ok
+			FILE* f = fopen( settingPathBuf, "wb" ); //attempt to open file
+			if(f) {
+				writeConfig(f);                                   //write out the config
+				fclose(f);
+				menu::MessageBox::getInstance().setMessage("Saved settings to USB");
+				return;
+			}
+		}
+		menu::MessageBox::getInstance().setMessage("Error saving settings to USB");
+	}
+}
 void Func_ShowFpsOn()
 {
 	for (int i = 16; i <= 17; i++)

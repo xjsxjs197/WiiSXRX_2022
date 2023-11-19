@@ -813,11 +813,11 @@ static void iJump(u32 branchPC) {
 	FlushAllHWReg();
 	CALLFunc((u32)psxBranchTest);
 
-	if (!Config.HLE && Config.PsxOut &&
-	    ((branchPC & 0x1fffff) == 0xa0 ||
-	     (branchPC & 0x1fffff) == 0xb0 ||
-	     (branchPC & 0x1fffff) == 0xc0))
-	  CALLFunc((u32)psxJumpTest);
+//	if (!Config.HLE && Config.PsxOut &&
+//	    ((branchPC & 0x1fffff) == 0xa0 ||
+//	     (branchPC & 0x1fffff) == 0xb0 ||
+//	     (branchPC & 0x1fffff) == 0xc0))
+//	  CALLFunc((u32)psxJumpTest);
 
 	// always return for now...
 	//Return();

@@ -687,7 +687,7 @@ void psxJAL() {	_SetLink(31); doBranch(_JumpTarget_); }
 *********************************************************/
 void psxJR()   {
 	doBranch(_u32(_rRs_) & ~3);
-	psxJumpTest();
+	//psxJumpTest();
 }
 
 void psxJALR() {

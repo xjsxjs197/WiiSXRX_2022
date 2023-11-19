@@ -652,6 +652,11 @@ static void CheckGameAutoFix(void)
 
 static void CheckGameR3000AutoFix(void)
 {
+    if (Config.Cpu != DYNACORE_DYNAREC_OLD)
+    {
+        return;
+    }
+
     int autoFixR3000Len = 8;
     char autoFixR3000JR[autoFixR3000Len][10] = {
          "SLES00037" // Alone in the Dark - Jack is Back

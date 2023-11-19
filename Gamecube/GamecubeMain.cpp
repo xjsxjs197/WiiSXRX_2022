@@ -148,6 +148,7 @@ char smbShareName[CONFIG_STRING_SIZE];
 char smbIpAddr[CONFIG_STRING_SIZE];
 
 int stop = 0;
+bool needInitCpu = true;
 
 static struct {
 	const char* key;
@@ -227,6 +228,8 @@ void handleConfigPair(char* kv);
 void readConfig(FILE* f);
 void writeConfig(FILE* f);
 int checkBiosExists(int testDevice);
+void loadSeparatelySetting();
+bool loadSeparatelySettingItem(char* s1, char* s2, bool isUsb);
 
 void loadSettings(int argc, char *argv[])
 {
@@ -530,11 +533,6 @@ int main(int argc, char *argv[])
 		memset(AutobootROM, 0, sizeof(AutobootROM));
 	}
 
-		if (Config.Cpu == DYNACORE_DYNAREC)
-		{
-			VM_Init(1024*1024, 256*1024); // whatever for now, we're not really using this for anything other than mmap on Wii.
-		}
-
 		L2Enhance();
 
         u32 ios = IOS_GetVersion();
@@ -552,6 +550,10 @@ int main(int argc, char *argv[])
 	control_info_init(); //Perform controller auto assignment at least once at startup.
 
 	loadSettings(argc, argv);
+
+	#ifdef HW_RVL
+	VM_Init(1024*1024, 256*1024); // whatever for now, we're not really using this for anything other than mmap on Wii.
+	#endif // HW_RVL
 
 	LoadLanguage();
 	ChangeLanguage();
@@ -600,6 +602,83 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+void psxCpuInit()
+{
+    if (Config.Cpu == DYNACORE_INTERPRETER) {
+		psxCpu = &psxInt;
+	}
+#if defined(__x86_64__) || defined(__i386__) || defined(__sh__) || defined(__ppc__) || defined(HW_RVL) || defined(HW_DOL)
+	if (Config.Cpu == DYNACORE_DYNAREC)
+	{
+		psxCpu = &psxLightrec;
+	}
+	if (Config.Cpu == DYNACORE_DYNAREC_OLD)
+	{
+		psxCpu = &psxRec;
+	}
+#endif
+
+    psxCpu->Init();
+}
+
+bool loadSeparatelySettingItem(char* s1, char* s2, bool isUsb)
+{
+    struct stat s;
+    char settingPathBuf[256];
+    fileBrowser_file* configFile_file;
+    sprintf(settingPathBuf, "%s%s%s", s1, s2, ".cfg");
+    if (stat(settingPathBuf, &s))
+    {
+        return false;
+    }
+
+    configFile_file = isUsb ? &saveDir_libfat_USB : &saveDir_libfat_Default;
+    int (*configFile_init)(fileBrowser_file*) = fileBrowser_libfat_init;
+    if (configFile_init(configFile_file)) {        //only if device initialized ok
+        FILE* f = fopen( settingPathBuf, "r" );   //attempt to open file
+        if (f) {
+            readConfig(f);
+            fclose(f);
+            return true;
+        }
+    }
+    return false;
+}
+
+void loadSeparatelySetting()
+{
+    // first load Separately Setting from usb
+    if (!loadSeparatelySettingItem("usb:/wiisxrx/settings/", CdromId, true))
+    {
+        // load Separately Setting from sd
+        if (!loadSeparatelySettingItem("sd:/wiisxrx/settings/", CdromId, false))
+        {
+            // load common Setting from usb
+            if (!loadSeparatelySettingItem("usb:/wiisxrx/", "settingsRX2022", true))
+            {
+                // load common Setting from sd
+                loadSeparatelySettingItem("sd:/wiisxrx/", "settingsRX2022", false);
+            }
+        }
+    }
+
+    Config.pR3000Fix = 0;
+    Config.Cpu = dynacore;
+    if (biosDevice == BIOSDEVICE_HLE) {
+        Config.HLE = BIOS_HLE;
+    } else {
+        Config.HLE = BIOS_USER_DEFINED;
+    }
+
+    extern bool lightrec_mmap_inited;
+    if (Config.Cpu == DYNACORE_DYNAREC && !lightrec_mmap_inited) // Lightrec
+    {
+        psxMemInit();
+    }
+    psxCpuInit();
+    needInitCpu = true;
+}
+
 // loadISO loads an ISO file as current media to read from.
 int loadISOSwap(fileBrowser_file* file) {
 
@@ -620,6 +699,8 @@ int loadISOSwap(fileBrowser_file* file) {
 		return -1;
 
 	CheckCdrom();
+
+	loadSeparatelySetting();
 
 	swapIso = true;
 	LoadCdrom();
@@ -644,6 +725,7 @@ int loadISO(fileBrowser_file* file)
 		SysClose();
 		hasLoadedISO = FALSE;
 	}
+	needInitCpu = false;
 	if(SysInit() < 0)
 		return -1;
 	hasLoadedISO = TRUE;
@@ -654,14 +736,9 @@ int loadISO(fileBrowser_file* file)
 		Load(file);
 	}
 	else {
-		long lastPsxType = Config.PsxType;
 		CheckCdrom();
-//	    if (Config.PsxType != lastPsxType)
-//		{
-//			SysClose();
-//			SysInit();
-//			CheckCdrom();
-//		}
+
+		loadSeparatelySetting();
 
 		SysReset();
 		LoadCdrom();
