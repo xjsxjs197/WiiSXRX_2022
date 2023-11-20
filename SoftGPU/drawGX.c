@@ -565,7 +565,7 @@ void pl_timing_prepare(int is_pal_)
 	vsync_enable = !is_pal && frameLimit[0] == FRAMELIMIT_AUTO;
 }
 
-void plugin_call_rearmed_cbs(unsigned long autoDwEmuFixes, unsigned long autoDwActFixes, int cfgUseDithering)
+void plugin_call_rearmed_cbs(unsigned long autoDwActFixes, int cfgUseDithering)
 {
 	extern void *hGPUDriver;
 	void (*rearmed_set_cbs)(const struct rearmed_cbs *cbs);
@@ -573,10 +573,6 @@ void plugin_call_rearmed_cbs(unsigned long autoDwEmuFixes, unsigned long autoDwA
 	rearmed_set_cbs = SysLoadSym(hGPUDriver, "GPUrearmedCallbacks");
 	if (rearmed_set_cbs != NULL)
 	{
-		if (autoDwEmuFixes)
-		{
-			autoDwActFixes |= 0x400;
-		}
 		gc_rearmed_cbs.gpu_peops.dwActFixes = autoDwActFixes;
 		gc_rearmed_cbs.gpu_peops.iUseDither = cfgUseDithering;
 

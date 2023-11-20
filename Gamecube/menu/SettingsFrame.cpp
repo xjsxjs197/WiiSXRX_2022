@@ -1284,6 +1284,8 @@ void Func_DitheringNone()
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[25].button->setSelected(true);
 	useDithering = USEDITHER_NONE;
+	// Setting variables directly in the GPU is not good......
+    iUseDither = useDithering;
 	//GPUsetframelimit(0);
 }
 
@@ -1293,6 +1295,8 @@ void Func_DitheringDefault()
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[26].button->setSelected(true);
 	useDithering = USEDITHER_DEFAULT;
+	// Setting variables directly in the GPU is not good......
+    iUseDither = useDithering;
 	//GPUsetframelimit(0);
 }
 
@@ -1302,6 +1306,8 @@ void Func_DitheringAlways()
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[27].button->setSelected(true);
 	useDithering = USEDITHER_ALWAYS;
+	// Setting variables directly in the GPU is not good......
+    iUseDither = useDithering;
 	//GPUsetframelimit(0);
 }
 

@@ -248,13 +248,9 @@ int _OpenPlugins() {
 int OpenPlugins() {
 	int ret;
 
-	// hack for emulating "gpu busy" in some games
-    extern unsigned long dwEmuFixes;
-    // For special game correction
-    extern unsigned long dwActFixes;
     extern char useDithering;
-	extern void plugin_call_rearmed_cbs(unsigned long autoDwEmuFixes, unsigned long autoDwActFixes, int cfgUseDithering);
-	plugin_call_rearmed_cbs(dwEmuFixes, dwActFixes, useDithering);
+	extern void plugin_call_rearmed_cbs(unsigned long autoDwActFixes, int cfgUseDithering);
+	plugin_call_rearmed_cbs(Config.hacks.dwActFixes, useDithering);
 
 	while ((ret = _OpenPlugins()) == -2) {
 		ReleasePlugins();

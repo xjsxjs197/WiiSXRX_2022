@@ -46,8 +46,6 @@ static bool use_lightrec_interpreter = false;
 static bool use_pcsx_interpreter = false;
 static bool block_stepping;
 
-extern u32 lightrec_hacks;
-
 enum my_cp2_opcodes {
 	OP_CP2_RTPS		= 0x01,
 	OP_CP2_NCLIP		= 0x06,
@@ -427,7 +425,7 @@ static int lightrec_plugin_init(void)
 			lightrec_map, ARRAY_SIZE(lightrec_map),
 			&lightrec_ops);
 
-	lightrec_set_unsafe_opt_flags(lightrec_state, lightrec_hacks);
+	lightrec_set_unsafe_opt_flags(lightrec_state, Config.hacks.lightrec_hacks);
 
 	signal(SIGPIPE, exit);
 
@@ -574,7 +572,7 @@ static void lightrec_plugin_execute(void)
 {
 	extern int stop;
 
-	lightrec_set_unsafe_opt_flags(lightrec_state, lightrec_hacks);
+	lightrec_set_unsafe_opt_flags(lightrec_state, Config.hacks.lightrec_hacks);
 
 	while (!stop)
 		lightrec_plugin_execute_internal(false);
@@ -645,7 +643,7 @@ static void lightrec_plugin_reset(void)
 	regs->cp0[12] = 0x10900000; // COP0 enabled | BEV = 1 | TS = 1
 	regs->cp0[15] = 0x00000002; // PRevID = Revision ID, same as R3000A
 
-	lightrec_set_unsafe_opt_flags(lightrec_state, lightrec_hacks);
+	lightrec_set_unsafe_opt_flags(lightrec_state, Config.hacks.lightrec_hacks);
 }
 
 static void lightrec_plugin_sync_regs_from_pcsx(bool need_cp2)

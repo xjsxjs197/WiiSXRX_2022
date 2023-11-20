@@ -677,6 +677,14 @@ void loadSeparatelySetting()
     }
     psxCpuInit();
     needInitCpu = true;
+
+    // Setting the following values in OpenPlugins is incorrect because the CdromId has not been obtained yet
+    // Only after Apply_Hacks_Cdrom was executed , dwActFixes and iUseDither set the correct values
+    // Setting variables directly in the GPU is not good......
+    extern uint32_t dwActFixes;
+    extern int iUseDither;
+    dwActFixes = Config.hacks.dwActFixes;
+    iUseDither = useDithering;
 }
 
 // loadISO loads an ISO file as current media to read from.

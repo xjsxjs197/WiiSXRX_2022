@@ -42,12 +42,6 @@ extern int SaveMcd(int mcd, fileBrowser_file *savepath);
 extern long ISOgetTN(unsigned char *buffer);
 }
 
-extern int PerGameFix_timing; 		// variable for see if game has timing autoFix
-extern int PerGameFix_GPUbusy; 		// variable for see if game has GPU 'Fake Busy States' (dwEmuFixes) autoFix
-extern int PerGameFix_specialCorrect; 	// variable for see if game has special correction (dwActFixes) autoFix
-extern int PerGameFix_pR3000A; 		// variable for see if game has pR3000A autoFix
-extern int PerGameFix_LightrecHacks; 	// variable for see if game uses hacks from Lightrec
-
 void Func_ShowRomInfo();
 void Func_ResetROM();
 void Func_SwapCD();
@@ -159,27 +153,32 @@ void Func_ShowRomInfo()
   sprintf(buffer,"CD-ROM ID: %s\n", CdromId);
 
 	strcat(RomInfo,buffer);
-  if (PerGameFix_timing)
+  if (Config.hacks.gpu_slow_list_walking)
   {
-  	sprintf(buffer, "RCnt2 auto fixed\n");
+  	sprintf(buffer, "GpuSlowListWalking auto fixed\n");
   	strcat(RomInfo,buffer);
   }
-  if (PerGameFix_GPUbusy)
+  if (Config.cycle_multiplier_override)
+  {
+  	sprintf(buffer, "CycleMultiplierOverride fixed\n");
+  	strcat(RomInfo,buffer);
+  }
+  if (Config.hacks.gpu_busy_hack)
   {
   	sprintf(buffer, "GPU 'Fake Busy States' hacked\n");
   	strcat(RomInfo,buffer);
   }
-  if (PerGameFix_specialCorrect)
+  if (Config.hacks.dwActFixes)
   {
   	sprintf(buffer, "Special game auto fixed\n");
   	strcat(RomInfo,buffer);
   }
-  if (PerGameFix_LightrecHacks)
+  if (Config.hacks.lightrec_hacks)
   {
   	sprintf(buffer, "Applied Lightrec hacks\n");
   	strcat(RomInfo,buffer);
   }
-  if (PerGameFix_pR3000A)
+  if (Config.pR3000Fix)
   {
   	sprintf(buffer, "pR3000 auto fixed\n");
   	strcat(RomInfo,buffer);

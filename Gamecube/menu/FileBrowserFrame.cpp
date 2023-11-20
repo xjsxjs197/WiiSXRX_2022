@@ -43,18 +43,6 @@ extern char debugInfo[256];
 
 extern "C" char * JoinString(char *s1, char *s2);
 
-int PerGameFix_timing; 		// variable for see if game has timing autoFix
-int PerGameFix_GPUbusy; 	// variable for see if game has GPU 'Fake Busy States' (dwEmuFixes) autoFix
-int PerGameFix_specialCorrect; 	// variable for see if game has special correction (dwActFixes) autoFix
-int PerGameFix_pR3000A; 	// variable for see if game has pR3000A autoFix
-int PerGameFix_LightrecHacks; 	// variable for see if game uses hacks from Lightrec
-
-/* Corresponds to LIGHTREC_OPT_INV_DMA_ONLY of lightrec.h */
-#define LIGHTREC_HACK_INV_DMA_ONLY (1 << 0)
-
-// define variable for store and handle Lightrec hacks
-//u32 lightrec_hacks;
-
 void Func_PrevPage();
 void Func_NextPage();
 void Func_ReturnFromFileBrowserFrame();
@@ -473,185 +461,15 @@ extern "C" {
 void newCD(fileBrowser_file *file);
 }
 
-// add xjsxjs197 start
-int ChkString(char * str1, char * str2, int len)
-{
-	int tmpIdx = 0;
-	while (str1[tmpIdx] == str2[tmpIdx])
-	{
-		tmpIdx++;
-		if (tmpIdx >= len)
-		{
-			return 1;
-		}
-	}
-
-	return 0;
-}
-// add xjsxjs197 end
-
-// hack for emulating "gpu busy" in some games
-extern unsigned long dwEmuFixes;
 // For special game correction
 extern unsigned long dwActFixes;
+
 // Display bios name
 extern char biosFileName[16];
 
-static void CheckGameAutoFix(void)
-{
-    int autoFixLen = 34;
-    char autoFixGames[autoFixLen][10] = {
-         "SLUS00447" // VANDAL HEARTS
-        ,"SLUS00940" // VANDAL HEARTS II
-
-        ,"SLUS01042" // PARASITE EVE 2(disk1)
-        ,"SLUS01055" // PARASITE EVE 2(disk2 ?)
-
-        ,"SLES00204" // VANDAL HEARTS
-        ,"SLES02469" // VANDAL HEARTS II
-        ,"SLES02496" // VANDAL HEARTS II
-        ,"SLES02497" // VANDAL HEARTS II
-
-        ,"SLES02558" // PARASITE EVE 2(disk1)
-        ,"SLES12558" // PARASITE EVE 2(disk2 ?)
-        ,"SLES02559" // PARASITE EVE 2(disk1)
-        ,"SLES12559" // PARASITE EVE 2(disk2 ?)
-        ,"SLES02560" // PARASITE EVE 2(disk1)
-        ,"SLES12560" // PARASITE EVE 2(disk2 ?)
-        ,"SLES02561" // PARASITE EVE 2(disk1)
-        ,"SLES12561" // PARASITE EVE 2(disk2 ?)
-        ,"SLES02562" // PARASITE EVE 2(disk1)
-        ,"SLES12562" // PARASITE EVE 2(disk2 ?)
-
-        ,"SCPS45183" // VANDAL HEARTS - USHINAWARETA KODAI BUNMEI
-        ,"SLPM86007" // VANDAL HEARTS - USHINAWARETA KODAI BUNMEI
-        ,"SLPM86067" // VANDAL HEARTS - USHINAWARETA KODAI BUNMEI [PLAYSTATION THE BEST]
-        ,"SLPM87278" // VANDAL HEARTS - USHINAWARETA KODAI BUNMEI [PSONE BOOKS]
-        ,"SCPS45415" // VANDAL HEARTS II - TENJOU NO MON
-        ,"SLPM86251" // VANDAL HEARTS II - TENJOU NO MON
-        ,"SLPM86504" // VANDAL HEARTS II - TENJOU NO MON [KONAMI THE BEST]
-        ,"SLPM87279" // VANDAL HEARTS II - TENJOU NO MON [PSONE BOOKS]
-
-        ,"SCPS45467" // PARASITE EVE II [ 2 DISCS ]
-        ,"SCPS45468" // PARASITE EVE II [ 2 DISCS ]
-        ,"SLPS02480" // PARASITE EVE II [ 2 DISCS ]
-        ,"SLPS02481" // PARASITE EVE II [ 2 DISCS ]
-        ,"SLPS91479" // PARASITE EVE II [PSONE BOOKS] [ 2 DISCS ]
-        ,"SLPS91480" // PARASITE EVE II [PSONE BOOKS] [ 2 DISCS ]
-        ,"SLPS02779" // PARASITE EVE II [SQUARESOFT MILLENNIUM COLLECTION]  -  [ 2 DISCS ]
-        ,"SLPS02780" // PARASITE EVE II [SQUARESOFT MILLENNIUM COLLECTION]  -  [ 2 DISCS ]
-
-    };
-
-    Config.RCntFix = 0;
-    PerGameFix_timing = 0;
-    int i;
-    for (i = 0; i < autoFixLen; i++)
-    {
-        if (ChkString(CdromId, autoFixGames[i], strlen(autoFixGames[i]))) {
-            Config.RCntFix = 1;
-	    PerGameFix_timing = 1;
-        }
-    }
-
-    autoFixLen = 17;
-    char gpuBusyAutoFixGames[autoFixLen][10] = {
-        // Hot Wheels - Turbo Racing
-         "SLUS00964" // NTSC-U
-        ,"SLES02198" // PAL
-
-        // To Heart (NTSC-J)
-        ,"SLPS01919" // Disc 1
-        ,"SLPS01920" // Disc 2
-
-        // FIFA: Road to World Cup '98
-        ,"SLPS01383" // NTSC-J - normal version
-        ,"SLPS91150" // NTSC-J - PlayStation The Best version
-        ,"SLUS00520" // NTSC-U
-        ,"SLES00914" // PAL
-	    ,"SLES00915" // France
-        ,"SLES00916" // Germany
-        ,"SLES00917" // Italy
-        ,"SLES00918" // Spain
-
-        // Ishin no Arashi (NTSC-J)
-        ,"SLPS01158" // normal version
-        ,"SLPM86861" // Koei Teiban Series version
-        ,"SLPM86235" // Koei The Best version
-
-        // The Dukes of Hazzard: Racing for Home
-        ,"SLUS00859" // NTSC-U
-        ,"SLES02343" // PAL
-    };
-
-    // hack for emulating "gpu busy" in some games
-    dwEmuFixes = 0;
-    PerGameFix_GPUbusy = 0;
-    for (i = 0; i < autoFixLen; i++)
-    {
-        if (ChkString(CdromId, gpuBusyAutoFixGames[i], strlen(gpuBusyAutoFixGames[i]))) {
-            dwEmuFixes = 0x0001;
-	    PerGameFix_GPUbusy = 1;
-        }
-    }
-
-    // For special game correction
-    autoFixLen = 5;
-    char autoFixSpecialGames[autoFixLen][10] = {
-        // Star Wars - Dark Forces
-         "SLUS00297" // NTSC-U
-        ,"SLPS00685" // NTSC-J
-        ,"SLES00585" // PAL
-        ,"SLES00640" // PAL (Italy)
-        ,"SLES00646" // PAL (Spain)
-    };
-    dwActFixes = 0;
-    PerGameFix_specialCorrect = 0;
-    for (i = 0; i < autoFixLen; i++)
-    {
-        if (ChkString(CdromId, autoFixSpecialGames[i], strlen(autoFixSpecialGames[i]))) {
-            dwActFixes |= 0x100;
-	        PerGameFix_specialCorrect = 1;
-        }
-    }
-
-    // Apply LIGHTREC_HACK_INV_DMA_ONLY hack for some games when in Lightrec
-//    autoFixLen = 13;
-//    char LightrecDMAhackAutoFixGames[autoFixLen][10] = {
-//        // Formula One Arcade
-//         "SCES03886" // PAL
-//
-//        // Formula One '99
-//        ,"SLUS00870" // NTSC-U
-//        ,"SCPS10101" // NTSC-J
-//        ,"SCES01979" // PAL
-//        ,"SLES01979" // PAL
-//
-//        // Formula One 2000
-//        ,"SLUS01134" // NTSC-U
-//        ,"SCES02777" // PAL
-//        ,"SCES02778" // PAL (France, Germany)
-//        ,"SCES02779" // PAL (Italy, Spain)
-//
-//        // Formula One 2001
-//        ,"SCES03404" // PAL
-//        ,"SCES03423" // PAL (France, Germany)
-//        ,"SCES03424" // PAL (Italy, Spain)
-//        ,"SCES03524" // PAL (Russia)
-//    };
-//    lightrec_hacks = 0;
-//    PerGameFix_LightrecHacks = 0;
-//    for (i = 0; i < autoFixLen; i++)
-//    {
-//	if (ChkString(CdromId, LightrecDMAhackAutoFixGames[i], strlen(LightrecDMAhackAutoFixGames[i]))) {
-//		lightrec_hacks = LIGHTREC_HACK_INV_DMA_ONLY;
-//			PerGameFix_LightrecHacks = 1;
-//        }
-//    }
-}
-
 static void CheckGameR3000AutoFix(void)
 {
+    Config.pR3000Fix = 0;
     if (Config.Cpu != DYNACORE_DYNAREC_OLD)
     {
         return;
@@ -670,14 +488,11 @@ static void CheckGameR3000AutoFix(void)
         ,"SLPS91430"
     };
 
-    Config.pR3000Fix = 0;
-    PerGameFix_pR3000A = 0;
     int i;
     for (i = 0; i < autoFixR3000Len; i++)
     {
-        if (ChkString(CdromId, autoFixR3000JR[i], strlen(autoFixR3000JR[i]))) {
+        if (strcmp(CdromId, autoFixR3000JR[i]) == 0) {
             Config.pR3000Fix = 1;
-	        PerGameFix_pR3000A = 1;
             break;
         }
     }
@@ -689,9 +504,8 @@ static void CheckGameR3000AutoFix(void)
     };
     for (i = 0; i < autoFixR3000Len; i++)
     {
-        if (ChkString(CdromId, autoFixR3000LW[i], strlen(autoFixR3000LW[i]))) {
+        if (strcmp(CdromId, autoFixR3000LW[i]) == 0) {
             Config.pR3000Fix = 2;
-	        PerGameFix_pR3000A = 1;
             break;
         }
     }
@@ -704,9 +518,8 @@ static void CheckGameR3000AutoFix(void)
     };
     for (i = 0; i < autoFixR3000Len; i++)
     {
-        if (ChkString(CdromId, autoFixR3000SRA[i], strlen(autoFixR3000SRA[i]))) {
+        if (strcmp(CdromId, autoFixR3000SRA[i]) == 0) {
             Config.pR3000Fix = 3;
-	        PerGameFix_pR3000A = 1;
             break;
         }
     }
@@ -719,9 +532,8 @@ static void CheckGameR3000AutoFix(void)
     };
     for (i = 0; i < autoFixR3000Len; i++)
     {
-        if (ChkString(CdromId, autoFixR3000SLL[i], strlen(autoFixR3000SLL[i]))) {
+        if (strcmp(CdromId, autoFixR3000SLL[i]) == 0) {
             Config.pR3000Fix = 4;
-	        PerGameFix_pR3000A = 1;
             break;
         }
     }
@@ -744,16 +556,11 @@ void fileBrowserFrame_LoadFile(int i)
 
 		if(!ret){	// If the read succeeded.
 			if(Autoboot){
-				// saulfabreg: let's not forget to WiiFlow and SRL (Single ROM Loaders) users
-				// who likes to load PS1 games automatically... so let's call to all autoFix
-				// functions when in autoboot (argument) mode.
-				CheckGameAutoFix(); // call to check per-game autoFix (Vandal Hearts, Parasite Eve II, Hot Wheels Turbo Racing, etc.)
-
 				// Switches for painting textured quads as 2 triangles (small glitches, but better shading!)
                 // This function has been automatically started in soft.c and dwActFixes have been determined in gpu code, so need to set it here
-            	dwActFixes |= 0x200;
+                Config.hacks.dwActFixes |= 0x200;
 
-				CheckGameR3000AutoFix(); // call to check pR3000A autoFix (Supercross 2000, etc.)
+                CheckGameR3000AutoFix(); // call to check pR3000A autoFix (Supercross 2000, etc.)
 
 				// FIXME: The MessageBox is a hacky way to fix input not responding.
 				// No time to improve this...
@@ -773,38 +580,40 @@ void fileBrowserFrame_LoadFile(int i)
 			strcat(RomInfo,feedback_string);
 			sprintf(buffer,"\nCD-ROM Label: %s\n",CdromLabel);
 			strcat(RomInfo,buffer);
-			// add xjsxjs197 start
-			CheckGameAutoFix();
-			// add xjsxjs197 end
 			sprintf(buffer,"CD-ROM ID: %s\n", CdromId);
 			strcat(RomInfo,buffer);
-			if (Config.RCntFix)
+            if (Config.hacks.gpu_slow_list_walking)
             {
-                sprintf(buffer, "RCnt2 auto fixed\n");
+                sprintf(buffer, "GpuSlowListWalking auto fixed\n");
                 strcat(RomInfo,buffer);
             }
-            if (dwEmuFixes)
+            if (Config.cycle_multiplier_override)
+            {
+                sprintf(buffer, "CycleMultiplierOverride fixed\n");
+                strcat(RomInfo,buffer);
+            }
+            if (Config.hacks.gpu_busy_hack)
             {
                 sprintf(buffer, "GPU 'Fake Busy States' hacked\n");
                 strcat(RomInfo,buffer);
             }
-            if (dwActFixes)
+            if (Config.hacks.dwActFixes)
             {
                 sprintf(buffer, "Special game auto fixed\n");
                 strcat(RomInfo,buffer);
             }
-//            if (lightrec_hacks)
-//            {
-//                sprintf(buffer, "Applied Lightrec hacks\n");
-//                strcat(RomInfo,buffer);
-//            }
+            if (Config.hacks.lightrec_hacks)
+            {
+                sprintf(buffer, "Applied Lightrec hacks\n");
+                strcat(RomInfo,buffer);
+            }
             // Switches for painting textured quads as 2 triangles (small glitches, but better shading!)
             // This function has been automatically started in soft.c and dwActFixes have been determined in gpu code, so need to set it here
-            dwActFixes |= 0x200;
+            Config.hacks.dwActFixes |= 0x200;
 
-			// auto recJR => psxJR for some game
-			CheckGameR3000AutoFix();
-			if (Config.pR3000Fix)
+            // auto recJR => psxJR for some game
+            CheckGameR3000AutoFix();
+            if (Config.pR3000Fix)
             {
                 sprintf(buffer, "pR3000 auto fixed\n");
                 strcat(RomInfo,buffer);

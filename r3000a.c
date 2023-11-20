@@ -85,6 +85,10 @@ void psxReset() {
 	psxHwReset();
 	psxBiosInit();
 
+	// The automatic correction of pR3000Fix may have an impact on the execution of Bios,
+	// so we will restore it first
+	long tmpVal = Config.pR3000Fix;
+
 	if (!Config.HLE) {
 		psxExecuteBios();
 		if (psxRegs.pc == 0x80030000 && LoadCdBios == BOOTTHRUBIOS_NO) {
@@ -93,6 +97,9 @@ void psxReset() {
 	}
 	if (Config.HLE || introBypassed)
 		psxBiosSetupBootState();
+
+    // Set the value of pR3000Fix after the completion of BIOS execution
+    Config.pR3000Fix = tmpVal;
 
 #ifdef EMU_LOG
 	EMU_LOG("*BIOS END*\n");

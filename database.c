@@ -8,8 +8,6 @@
 /* Corresponds to LIGHTREC_OPT_INV_DMA_ONLY of lightrec.h */
 #define LIGHTREC_HACK_INV_DMA_ONLY (1 << 0)
 
-u32 lightrec_hacks;
-
 static const char * const MemorycardHack_db[] =
 {
     /* Lifeforce Tenka, also known as Codename Tenka */
@@ -53,6 +51,13 @@ static const char * const gpu_busy_hack_db[] =
 	"SLUS00859", "SLES02343",
 	/* EA Sports F1 2000? (Europe?) */
 	"SLES02723",
+};
+
+// For special game correction
+static const char * const special_game_hack_db[] =
+{
+    /* Star Wars - Dark Forces */
+    "SLUS00297", "SLPS00685", "SLES00585", "SLES00640", "SLES00646",
 };
 
 #define HACK_ENTRY(var, list) \
@@ -226,13 +231,22 @@ void Apply_Hacks_Cdrom()
         }
     }
 
-    lightrec_hacks = 0;
-
+    Config.hacks.lightrec_hacks = 0;
     for (i = 0; i < ARRAY_SIZE(lightrec_hacks_db); i++) {
         if (strcmp(CdromId, lightrec_hacks_db[i].id) == 0)
         {
-            lightrec_hacks = lightrec_hacks_db[i].hacks;
-            SysPrintf("using lightrec_hacks: 0x%x\n", lightrec_hacks);
+            Config.hacks.lightrec_hacks = lightrec_hacks_db[i].hacks;
+            SysPrintf("using lightrec_hacks: 0x%x\n", Config.hacks.lightrec_hacks);
+            break;
+        }
+    }
+
+    // For special game correction
+    Config.hacks.dwActFixes = 0;
+    for (i = 0; i < ARRAY_SIZE(special_game_hack_db); i++) {
+        if (strcmp(CdromId, special_game_hack_db[i]) == 0)
+        {
+            Config.hacks.dwActFixes = 0x100;
             break;
         }
     }
