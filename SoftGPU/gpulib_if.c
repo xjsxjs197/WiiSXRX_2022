@@ -58,53 +58,6 @@
 
 #define GPUSTATUS_READYFORVRAM        0x08000000
 
-// byteswappings
-
-#define SWAP16(x) __builtin_bswap16(x)
-#define SWAP32(x) __builtin_bswap32(x)
-
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-
-// big endian config
-#define HOST2LE32(x) SWAP32(x)
-#define HOST2BE32(x) (x)
-#define LE2HOST32(x) SWAP32(x)
-#define BE2HOST32(x) (x)
-
-#define HOST2LE16(x) SWAP16(x)
-#define HOST2BE16(x) (x)
-#define LE2HOST16(x) SWAP16(x)
-#define BE2HOST16(x) (x)
-
-#else
-
-// little endian config
-#define HOST2LE32(x) (x)
-#define HOST2BE32(x) SWAP32(x)
-#define LE2HOST32(x) (x)
-#define BE2HOST32(x) SWAP32(x)
-
-#define HOST2LE16(x) (x)
-#define HOST2BE16(x) SWAP16(x)
-#define LE2HOST16(x) (x)
-#define BE2HOST16(x) SWAP16(x)
-
-#endif
-
-#define GETLEs16(X) ((int16_t)GETLE16((uint16_t *)(X)))
-
-#define GETLE16(X) LE2HOST16(*(uint16_t *)(X))
-#define GETLE32_(X) LE2HOST32(*(uint32_t *)(X))
-#define PUTLE16(X, Y) do{*((uint16_t *)(X))=HOST2LE16((uint16_t)(Y));}while(0)
-#define PUTLE32_(X, Y) do{*((uint32_t *)(X))=HOST2LE32((uint32_t)(Y));}while(0)
-#if defined(__arm__) && !defined(HAVE_ARMV6)
-// for (very) old ARMs with no unaligned loads?
-#define GETLE32(X) (*(uint16_t *)(X)|((uint32_t)((uint16_t *)(X))[1]<<16))
-#define PUTLE32(X, Y) do{uint16_t *p_=(uint16_t *)(X);uint32_t y_=Y;p_[0]=y_;p_[1]=y_>>16;}while(0)
-#else
-#define GETLE32 GETLE32_
-#define PUTLE32 PUTLE32_
-#endif
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -361,7 +314,7 @@ int do_cmd_list(uint32_t *list, int list_len, int *last_cmd)
             goto breakloop;
           }
 
-          if((*list_position & HOST2LE32(0xf000f000)) == HOST2LE32(0x50005000))
+          if((*list_position & SWAP32_C(0xf000f000)) == SWAP32_C(0x50005000))
             break;
 
           list_position++;
@@ -384,7 +337,7 @@ int do_cmd_list(uint32_t *list, int list_len, int *last_cmd)
             goto breakloop;
           }
 
-          if((*list_position & HOST2LE32(0xf000f000)) == HOST2LE32(0x50005000))
+          if((*list_position & SWAP32_C(0xf000f000)) == SWAP32_C(0x50005000))
             break;
 
           list_position += 2;
@@ -399,8 +352,8 @@ int do_cmd_list(uint32_t *list, int list_len, int *last_cmd)
       case 0xA0:          //  sys -> vid
       {
         short *slist = (void *)list;
-        u32 load_width = LE2HOST32(slist[4]);
-        u32 load_height = LE2HOST32(slist[5]);
+        u32 load_width = SWAP32(slist[4]);
+        u32 load_height = SWAP32(slist[5]);
         u32 load_size = load_width * load_height;
 
         len += load_size / 2;
@@ -424,7 +377,7 @@ void renderer_sync_ecmds(uint32_t *ecmds_)
   // the funcs below expect LE
   uint32_t i, ecmds[8];
   for (i = 1; i <= 6; i++)
-    ecmds[i] = HTOLE32(ecmds_[i]);
+    ecmds[i] = GETLE32(&ecmds_[i]);
 #else
   uint32_t *ecmds = ecmds_;
 #endif

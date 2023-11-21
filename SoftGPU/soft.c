@@ -162,7 +162,7 @@ static inline void GetShadeTransCol_Dither(unsigned short * pdest, int32_t m1, i
 {
  int32_t r,g,b;
 
- if(bCheckMask && (*pdest & HOST2LE16(0x8000))) return;
+ if(bCheckMask && (*pdest & SWAP16_C(0x8000))) return;
 
  if(DrawSemiTrans)
   {
@@ -224,7 +224,7 @@ static inline void GetShadeTransCol_Dither(unsigned short * pdest, int32_t m1, i
 
 static inline void GetShadeTransCol(unsigned short * pdest,unsigned short color)
 {
- if(bCheckMask && (*pdest & HOST2LE16(0x8000))) return;
+ if(bCheckMask && (*pdest & SWAP16_C(0x8000))) return;
 
  if(DrawSemiTrans)
   {
@@ -369,7 +369,7 @@ static inline void GetTextureTransColG(unsigned short * pdest,unsigned short col
 
  if(color==0) return;
 
- if(bCheckMask && (*pdest & HOST2LE16(0x8000))) return;
+ if(bCheckMask && (*pdest & SWAP16_C(0x8000))) return;
 
  l=sSetMask|(color&0x8000);
 
@@ -783,7 +783,7 @@ static inline void GetTextureTransColGX_Dither(unsigned short * pdest,unsigned s
 
  if(color==0) return;
 
- if(bCheckMask && (*pdest & HOST2LE16(0x8000))) return;
+ if(bCheckMask && (*pdest & SWAP16_C(0x8000))) return;
 
  m1=(((XCOL1D(color)))*m1)>>4;
  m2=(((XCOL2D(color)))*m2)>>4;
@@ -854,7 +854,7 @@ static inline void GetTextureTransColGX(unsigned short * pdest,unsigned short co
 
  if(color==0) return;
 
- if(bCheckMask && (*pdest & HOST2LE16(0x8000))) return;
+ if(bCheckMask && (*pdest & SWAP16_C(0x8000))) return;
 
  l=sSetMask|(color&0x8000);
 
@@ -1020,7 +1020,7 @@ static void FillSoftwareAreaTrans(short x0,short y0,short x1, // FILL AREA TRANS
 
    if(!bCheckMask && !DrawSemiTrans)
     {
-     lcol = HOST2LE32(lcol);
+     lcol = SWAP32(lcol);
      for(i=0;i<dy;i++)
       {
        if (checkInterlace(i + y0)){DSTPtr += dx; DSTPtr += LineOffset; continue;}
@@ -1081,7 +1081,7 @@ static void FillSoftwareArea(short x0,short y0,short x1,      // FILL AREA (BLK 
   {
    uint32_t *DSTPtr;
    unsigned short LineOffset;
-   uint32_t lcol = HOST2LE32((((uint32_t)(col)) << 16) | col);
+   uint32_t lcol = SWAP32((((uint32_t)(col)) << 16) | col);
    dx>>=1;
    DSTPtr = (uint32_t *)(psxVuw + (1024*y0) + x0);
    LineOffset = 512 - dx;
@@ -2448,7 +2448,7 @@ static inline void drawPoly3Fi(short x1,short y1,short x2,short y2,short x3,shor
 
  if(!bCheckMask && !DrawSemiTrans)
   {
-   lcolor = HOST2LE32(lcolor);
+   lcolor = SWAP32(lcolor);
    for (i=ymin;i<=ymax;i++)
     {
 	if (checkInterlace(i)){
@@ -2534,7 +2534,7 @@ static void drawPoly4F(int32_t rgb)
 
  if(!bCheckMask && !DrawSemiTrans)
   {
-   lcolor = HOST2LE32(lcolor);
+   lcolor = SWAP32(lcolor);
    for (i=ymin;i<=ymax;i++)
     {
 	if (checkInterlace(i)){
@@ -2617,7 +2617,7 @@ if(!bCheckMask && !DrawSemiTrans && (g_m1 == 128) && (g_m2 == 128) && (g_m3 == 1
 	 if (checkInterlace(i)){
 		 if(NextRow_FT()) return;
 	 continue;}
-	 
+
      xmin=(left_x >> 16);
      xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!
      if(drawW<xmax) xmax=drawW;
@@ -2663,7 +2663,7 @@ if(!bCheckMask && !DrawSemiTrans && (g_m1 == 128) && (g_m2 == 128) && (g_m3 == 1
     }
    return;
   }
-  
+
  if(!bCheckMask && !DrawSemiTrans && (g_m1 <= 128) && (g_m2 <= 128) && (g_m3 <= 128))
   {
    for (i=ymin;i<=ymax;i++)
@@ -2671,7 +2671,7 @@ if(!bCheckMask && !DrawSemiTrans && (g_m1 == 128) && (g_m2 == 128) && (g_m3 == 1
 	 if (checkInterlace(i)){
 		 if(NextRow_FT()) return;
 	 continue;}
-	 
+
      xmin=(left_x >> 16);
      xmax=(right_x >> 16)-1; //!!!!!!!!!!!!!!!!
      if(drawW<xmax) xmax=drawW;
@@ -2717,7 +2717,7 @@ if(!bCheckMask && !DrawSemiTrans && (g_m1 == 128) && (g_m2 == 128) && (g_m3 == 1
     }
    return;
   }
-  
+
  if(!bCheckMask && !DrawSemiTrans)
   {
    for (i=ymin;i<=ymax;i++)
@@ -3068,7 +3068,7 @@ if(!bCheckMask && !DrawSemiTrans && (g_m1 == 128) && (g_m2 == 128) && (g_m3 == 1
     }
    return;
   }
-  
+
  if(!bCheckMask && !DrawSemiTrans && (g_m1 <= 128) && (g_m2 <= 128) && (g_m3 <= 128))
   {
    for (i=ymin;i<=ymax;i++)
@@ -6870,13 +6870,13 @@ static void DrawSoftwareSprite(unsigned char * baseAddr,short w,short h,int32_t 
 		if (checkInterlace(sprtY+sprCY)){continue;}
         sprA=sprtYa+(sprCY<<10);
         pV=&psxVub[(sprCY<<11)+textX0];
-		
+
 		if(bWS)
          {
           tC=*pV++;
           GetTextureTransColG_S(&psxVuw[sprA++],GETLE16(&psxVuw[clutP+((tC>>4)&0xf)]));
          }
-		
+
         for (sprCX=0;sprCX<sprtW;sprCX++,sprA+=2)
          {
           tC=*pV++;
@@ -6885,13 +6885,13 @@ static void DrawSoftwareSprite(unsigned char * baseAddr,short w,short h,int32_t 
               (((long)GETLE16(&psxVuw[clutP+((tC>>4)&0xf)]))<<16)|
               GETLE16(&psxVuw[clutP+(tC&0x0f)]));
          }
-		 
+
 		 if(bWT)
          {
           tC=*pV;
           GetTextureTransColG_S(&psxVuw[sprA],GETLE16(&psxVuw[clutP+(tC&0x0f)]));
          }
-		 
+
        }
       return;
      }

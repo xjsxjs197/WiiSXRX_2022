@@ -482,7 +482,7 @@ static void start_vram_transfer(uint32_t pos_word, uint32_t size_word, int is_re
   if (is_read) {
     gpu.status |= PSX_GPU_STATUS_IMG;
     // XXX: wrong for width 1
-    gpu.gp0 = LE32TOH(*(uint32_t *) VRAM_MEM_XY(gpu.dma.x, gpu.dma.y));
+    gpu.gp0 = GETLE32((uint32_t *) VRAM_MEM_XY(gpu.dma.x, gpu.dma.y));
     gpu.state.last_vram_read_frame = *gpu.state.frame_count;
   }
 
@@ -507,12 +507,12 @@ static void finish_vram_transfer(int is_read)
 
 static void do_vram_copy(const uint32_t *params)
 {
-  const uint32_t sx =  LE32TOH(params[0]) & 0x3FF;
-  const uint32_t sy = (LE32TOH(params[0]) >> 16) & 0x1FF;
-  const uint32_t dx =  LE32TOH(params[1]) & 0x3FF;
-  const uint32_t dy = (LE32TOH(params[1]) >> 16) & 0x1FF;
-  uint32_t w =  ((LE32TOH(params[2]) - 1) & 0x3FF) + 1;
-  uint32_t h = (((LE32TOH(params[2]) >> 16) - 1) & 0x1FF) + 1;
+  const uint32_t sx =  GETLE32(&params[0]) & 0x3FF;
+  const uint32_t sy = (GETLE32(&params[0]) >> 16) & 0x1FF;
+  const uint32_t dx =  GETLE32(&params[1]) & 0x3FF;
+  const uint32_t dy = (GETLE32(&params[1]) >> 16) & 0x1FF;
+  uint32_t w =  ((GETLE32(&params[2]) - 1) & 0x3FF) + 1;
+  uint32_t h = (((GETLE32(&params[2]) >> 16) - 1) & 0x1FF) + 1;
   uint16_t msb = gpu.ex_regs[6] << 15;
   uint16_t lbuf[128];
   uint32_t x, y;
@@ -559,12 +559,12 @@ static noinline int do_cmd_list_skip(uint32_t *data, int count, int *last_cmd)
 
   while (pos < count && skip) {
     uint32_t *list = data + pos;
-    cmd = LE32TOH(list[0]) >> 24;
+    cmd = GETLE32(&list[0]) >> 24;
     len = 1 + cmd_lengths[cmd];
 
     switch (cmd) {
       case 0x02:
-        if ((LE32TOH(list[2]) & 0x3ff) > gpu.screen.w || ((LE32TOH(list[2]) >> 16) & 0x1ff) > gpu.screen.h)
+        if ((GETLE32(&list[2]) & 0x3ff) > gpu.screen.w || ((GETLE32(&list[2]) >> 16) & 0x1ff) > gpu.screen.h)
           // clearing something large, don't skip
           do_cmd_list(list, 3, &dummy);
         else
@@ -575,12 +575,12 @@ static noinline int do_cmd_list_skip(uint32_t *data, int count, int *last_cmd)
       case 0x34 ... 0x37:
       case 0x3c ... 0x3f:
         gpu.ex_regs[1] &= ~0x1ff;
-        gpu.ex_regs[1] |= LE32TOH(list[4 + ((cmd >> 4) & 1)]) & 0x1ff;
+        gpu.ex_regs[1] |= GETLE32(&list[4 + ((cmd >> 4) & 1)]) & 0x1ff;
         break;
       case 0x48 ... 0x4F:
         for (v = 3; pos + v < count; v++)
         {
-          if ((list[v] & HTOLE32(0xf000f000)) == HTOLE32(0x50005000))
+          if ((list[v] & SWAP32_C(0xf000f000)) == SWAP32_C(0x50005000))
             break;
         }
         len += v - 3;
@@ -588,16 +588,16 @@ static noinline int do_cmd_list_skip(uint32_t *data, int count, int *last_cmd)
       case 0x58 ... 0x5F:
         for (v = 4; pos + v < count; v += 2)
         {
-          if ((list[v] & HTOLE32(0xf000f000)) == HTOLE32(0x50005000))
+          if ((list[v] & SWAP32_C(0xf000f000)) == SWAP32_C(0x50005000))
             break;
         }
         len += v - 4;
         break;
       default:
         if (cmd == 0xe3)
-          skip = decide_frameskip_allow(LE32TOH(list[0]));
+          skip = decide_frameskip_allow(GETLE32(&list[0]));
         if ((cmd & 0xf8) == 0xe0)
-          gpu.ex_regs[cmd & 7] = LE32TOH(list[0]);
+          gpu.ex_regs[cmd & 7] = GETLE32(&list[0]);
         break;
     }
 
@@ -632,7 +632,7 @@ static noinline int do_cmd_buffer(uint32_t *data, int count)
         break;
     }
 
-    cmd = LE32TOH(data[pos]) >> 24;
+    cmd = GETLE32(&data[pos]) >> 24;
     if (0xa0 <= cmd && cmd <= 0xdf) {
       if (unlikely((pos+2) >= count)) {
         // incomplete vram write/read cmd, can't consume yet
@@ -641,7 +641,7 @@ static noinline int do_cmd_buffer(uint32_t *data, int count)
       }
 
       // consume vram write/read cmd
-      start_vram_transfer(LE32TOH(data[pos + 1]), LE32TOH(data[pos + 2]), (cmd & 0xe0) == 0xc0);
+      start_vram_transfer(GETLE32(&data[pos + 1]), GETLE32(&data[pos + 2]), (cmd & 0xe0) == 0xc0);
       pos += 3;
       continue;
     }
@@ -657,7 +657,7 @@ static noinline int do_cmd_buffer(uint32_t *data, int count)
     }
 
     // 0xex cmds might affect frameskip.allow, so pass to do_cmd_list_skip
-    if (gpu.frameskip.active && (gpu.frameskip.allow || ((LE32TOH(data[pos]) >> 24) & 0xf0) == 0xe0))
+    if (gpu.frameskip.active && (gpu.frameskip.allow || ((GETLE32(&data[pos]) >> 24) & 0xf0) == 0xe0))
       pos += do_cmd_list_skip(data + pos, count - pos, &cmd);
     else {
       pos += do_cmd_list(data + pos, count - pos, &cmd);
@@ -712,7 +712,7 @@ void LIB_GPUwriteDataMem(uint32_t *mem, int count)
 void LIB_GPUwriteData(uint32_t data)
 {
   log_io("gpu_write %08x\n", data);
-  gpu.cmd_buffer[gpu.cmd_len++] = HTOLE32(data);
+  gpu.cmd_buffer[gpu.cmd_len++] = SWAP32(data);
   if (gpu.cmd_len >= CMD_BUFFER_LEN)
     flush_cmd_buffer();
 }
@@ -733,8 +733,8 @@ long LIB_GPUdmaChain(uint32_t *rambase, uint32_t start_addr, uint32_t *progress_
   for (count = 0; (addr & 0x800000) == 0; count++)
   {
     list = rambase + (addr & 0x1fffff) / 4;
-    len = LE32TOH(list[0]) >> 24;
-    addr = LE32TOH(list[0]) & 0xffffff;
+    len = GETLE32(&list[0]) >> 24;
+    addr = GETLE32(&list[0]) & 0xffffff;
     preload(rambase + (addr & 0x1fffff) / 4);
 
     cpu_cycles += 10;
@@ -777,7 +777,7 @@ long LIB_GPUdmaChain(uint32_t *rambase, uint32_t start_addr, uint32_t *progress_
       // loop detection marker
       // (bit23 set causes DMA error on real machine, so
       //  unlikely to be ever set by the game)
-      list[0] |= HTOLE32(0x800000);
+      list[0] |= SWAP32_C(0x800000);
     }
   }
 
@@ -787,8 +787,8 @@ long LIB_GPUdmaChain(uint32_t *rambase, uint32_t start_addr, uint32_t *progress_
     addr = ld_addr & 0x1fffff;
     while (count-- > 0) {
       list = rambase + addr / 4;
-      addr = LE32TOH(list[0]) & 0x1fffff;
-      list[0] &= HTOLE32(~0x800000);
+      addr = GETLE32(&list[0]) & 0x1fffff;
+      list[0] &= SWAP32_C(~0x800000);
     }
   }
 
@@ -820,9 +820,9 @@ uint32_t LIB_GPUreadData(void)
 
   ret = gpu.gp0;
   if (gpu.dma.h) {
-    ret = HTOLE32(ret);
+    ret = SWAP32(ret);
     do_vram_io(&ret, 1, 1);
-    ret = LE32TOH(ret);
+    ret = SWAP32(ret);
   }
 
   log_io("gpu_read %08x\n", ret);

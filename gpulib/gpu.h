@@ -27,17 +27,60 @@ extern "C" {
 
 #define CMD_BUFFER_LEN          1024
 
+// byteswappings
+
+#define SWAP16(x) __builtin_bswap16(x)
+#define SWAP32(x) __builtin_bswap32(x)
+
+#define SWAP16_C(x) (((x)>>8 & 0xff) | ((x)<<8 & 0xff00))
+#define SWAP32_C(x) (((x)>>24 & 0xfful) | ((x)>>8 & 0xff00ul) | ((x)<<8 & 0xff0000ul) | ((x)<<24 & 0xff000000ul))
+
+
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#define HTOLE32(x) __builtin_bswap32(x)
-#define HTOLE16(x) __builtin_bswap16(x)
-#define LE32TOH(x) __builtin_bswap32(x)
-#define LE16TOH(x) __builtin_bswap16(x)
+
+// big endian config
+#define HOST2LE32(x) SWAP32(x)
+#define LE2HOST32(x) SWAP32(x)
+
+#define HOST2LE16(x) SWAP16(x)
+#define LE2HOST16(x) SWAP16(x)
+
+inline unsigned short GETLE16(unsigned short *ptr) {
+    unsigned short ret; __asm__ ("lhbrx %0, 0, %1" : "=r" (ret) : "r" (ptr));
+    return ret;
+}
+inline unsigned long GETLE32(unsigned long *ptr) {
+    unsigned long ret; __asm__ ("lwbrx %0, 0, %1" : "=r" (ret) : "r" (ptr));
+    return ret;
+}
+
+inline void PUTLE16(unsigned short *ptr, unsigned short val) {
+    __asm__ ("sthbrx %0, 0, %1" : : "r" (val), "r" (ptr) : "memory");
+}
+inline void PUTLE32(unsigned long *ptr, unsigned long val) {
+    __asm__ ("stwbrx %0, 0, %1" : : "r" (val), "r" (ptr) : "memory");
+}
+
 #else
-#define HTOLE32(x) (x)
-#define HTOLE16(x) (x)
-#define LE32TOH(x) (x)
-#define LE16TOH(x) (x)
+
+// little endian config
+#define HOST2LE32(x) (x)
+#define LE2HOST32(x) (x)
+
+#define HOST2LE16(x) (x)
+#define LE2HOST16(x) (x)
+
+#define GETLE16(X) ((unsigned short *)X)
+#define GETLE32(X) ((unsigned long *)X)
+
+#define PUTLE16(X, Y) {((unsigned short *)X)=(unsigned short)X}
+#define PUTLE32(X, Y) {((unsigned long *)X)=(unsigned long)X}
+
 #endif
+
+#define GETLEs16(X) ((short)GETLE16((unsigned short *)X))
+#define GETLEs32(X) ((long)GETLE32((unsigned long *)X))
+
 
 #define BIT(x) (1 << (x))
 

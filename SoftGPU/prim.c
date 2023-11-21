@@ -549,9 +549,9 @@ static void primMoveImage(unsigned char * baseAddr)
  short *sgpuData = ((short *) baseAddr);
 
  short imageY0,imageX0,imageY1,imageX1,imageSX,imageSY,i,j;
- 
- long setMask32 = SWAP32(lSetMask);
- short setMask16 = SWAP16(sSetMask);
+
+ long setMask32 = GETLEs32(&lSetMask);
+ short setMask16 = GETLEs16(&sSetMask);
 
  imageX0 = GETLEs16(&sgpuData[2])&0x03ff;
  imageY0 = GETLEs16(&sgpuData[3])&511;
@@ -1090,9 +1090,9 @@ static void primPolyGT3(unsigned char *baseAddr)
 
  if(SHADETEXBIT(GETLE32(&gpuData[0])))
   {
-   gpuData[0] = (gpuData[0]&HOST2LE32(0xff000000))|HOST2LE32(0x00808080);
-   gpuData[3] = (gpuData[3]&HOST2LE32(0xff000000))|HOST2LE32(0x00808080);
-   gpuData[6] = (gpuData[6]&HOST2LE32(0xff000000))|HOST2LE32(0x00808080);
+   gpuData[0] = (gpuData[0]&SWAP32_C(0xff000000))|SWAP32_C(0x00808080);
+   gpuData[3] = (gpuData[3]&SWAP32_C(0xff000000))|SWAP32_C(0x00808080);
+   gpuData[6] = (gpuData[6]&SWAP32_C(0xff000000))|SWAP32_C(0x00808080);
   }
 
  drawPoly3GT(baseAddr);
@@ -1162,10 +1162,10 @@ static void primPolyGT4(unsigned char *baseAddr)
 
  if(SHADETEXBIT(GETLE32(&gpuData[0])))
   {
-   gpuData[0] = (gpuData[0]&HOST2LE32(0xff000000))|HOST2LE32(0x00808080);
-   gpuData[3] = (gpuData[3]&HOST2LE32(0xff000000))|HOST2LE32(0x00808080);
-   gpuData[6] = (gpuData[6]&HOST2LE32(0xff000000))|HOST2LE32(0x00808080);
-   gpuData[9] = (gpuData[9]&HOST2LE32(0xff000000))|HOST2LE32(0x00808080);
+   gpuData[0] = (gpuData[0]&SWAP32_C(0xff000000))|SWAP32_C(0x00808080);
+   gpuData[3] = (gpuData[3]&SWAP32_C(0xff000000))|SWAP32_C(0x00808080);
+   gpuData[6] = (gpuData[6]&SWAP32_C(0xff000000))|SWAP32_C(0x00808080);
+   gpuData[9] = (gpuData[9]&SWAP32_C(0xff000000))|SWAP32_C(0x00808080);
   }
 
  drawPoly4GT(baseAddr);
