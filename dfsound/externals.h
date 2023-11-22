@@ -268,10 +268,15 @@ void schedule_next_irq(void);
 void check_irq_io(unsigned int addr);
 void do_irq_io(int cycles_after);
 
-#define do_samples_if_needed(c, sync, samples) \
- do { \
-  if (sync || (int)((c) - spu.cycles_played) >= (samples) * 768) \
-   do_samples(c, sync); \
- } while (0)
+// WiiStation handles audio at a frequency of 4800 on the SPU,
+// and the operation of the SPU accelerator is also different. Therefore, this processing is not required here.
+// Otherwise, the sound of some games may not be smooth enough.
+#define do_samples_if_needed(c, sync, samples)
+
+//#define do_samples_if_needed(c, sync, samples) \
+// do { \
+//  if (sync || (int)((c) - spu.cycles_played) >= (samples) * 768) \
+//   do_samples(c, sync); \
+// } while (0)
 
 #endif /* __P_SOUND_EXTERNALS_H__ */
