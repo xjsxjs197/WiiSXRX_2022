@@ -429,7 +429,7 @@ void psxBranchTest();
 void psxExecuteBios();
 int  psxTestLoadDelay(int reg, u32 tmp);
 void psxDelayTest(int reg, u32 bpc);
-void psxTestSWInts();
+void psxTestSWInts(int step);
 void psxJumpTest();
 
 

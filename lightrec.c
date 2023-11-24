@@ -476,7 +476,7 @@ static irq_func * const irq_funcs[] = {
 };
 
 /* local dupe of psxBranchTest, using event_cycles */
-static void irq_test(psxCP0Regs *cp0)
+void irq_test(psxCP0Regs *cp0)
 {
 	u32 cycle = psxRegs.cycle;
 	u32 irq, irq_bits;

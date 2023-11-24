@@ -29,6 +29,8 @@
 #include <stddef.h>
 #include <assert.h>
 
+#include "Gamecube/DEBUG.h"
+
 int branch = 0;
 int branch2 = 0;
 u32 branchPC;
@@ -662,7 +664,7 @@ void psxRFE() {
 //	SysPrintf("psxRFE\n");
 	psxRegs.CP0.n.SR = (psxRegs.CP0.n.SR & 0xfffffff0) |
 						  ((psxRegs.CP0.n.SR & 0x3c) >> 2);
-	psxTestSWInts();
+	psxTestSWInts(0);
 }
 
 /*********************************************************
@@ -839,9 +841,20 @@ void psxSWR() {
 void psxMFC0() { if (!_Rt_) return; _i32(_rRt_) = (int)_rFs_; }
 void psxCFC0() { if (!_Rt_) return; _i32(_rRt_) = (int)_rFs_; }
 
-void psxTestSWInts() {
+// interpreter execution
+static void execI_NoCache() {
+	psxRegs.code = intFakeFetch(psxRegs.pc);
+	psxRegs.pc += 4;
+	addCycle(&psxRegs);
+
+	psxBSC[psxRegs.code >> 26]();
+}
+
+void psxTestSWInts(int step) {
 	if (psxRegs.CP0.n.Cause & psxRegs.CP0.n.SR & 0x0300 &&
 	   psxRegs.CP0.n.SR & 0x1) {
+		if (step)
+			execI_NoCache();
 		psxRegs.CP0.n.Cause &= ~0x7c;
 		psxException(psxRegs.CP0.n.Cause, branch, &psxRegs.CP0);
 	}
@@ -853,18 +866,20 @@ void MTC0(int reg, u32 val) {
 //	SysPrintf("MTC0 %d: %x\n", reg, val);
 	switch (reg) {
 		case 12: // psxRegs.CP0.r[12] = psxRegs.CP0.n.SR
+			#ifdef DISP_DEBUG
+			sprintf(txtbuffer, "MTC0 12 %08x %08x ", psxRegs.CP0.n.SR, val);
+			DEBUG_print(txtbuffer, DBG_CDR4);
+			#endif // DISP_DEBUG
+			if (unlikely((psxRegs.CP0.n.SR ^ val) & (1 << 16)))
+				psxMemOnIsolate((val >> 16) & 1);
 			psxRegs.CP0.r[12] = val;
-			psxTestSWInts();
-			//psxRegs.interrupt|= 0x80000000;
+			psxTestSWInts(1);
 			break;
 
 		case 13: // psxRegs.CP0.r[13] = psxRegs.CP0.n.Cause
-		    // upd xjsxjs197 start
-			//psxRegs.CP0.n.Cause = val & ~(0xfc00);
 			psxRegs.CP0.n.Cause &= ~0x0300;
 			psxRegs.CP0.n.Cause |= val & 0x0300;
-			// upd xjsxjs197 end
-			psxTestSWInts();
+			psxTestSWInts(0);
 			break;
 
 		default:
@@ -985,7 +1000,7 @@ static void intReset() {
 
 // interpreter execution
 static void execI() {
-	u32 *code = Read_ICache(psxRegs.pc, TRUE);
+	u32 *code = Read_ICache(psxRegs.pc, FALSE);
 	psxRegs.code = ((code == NULL) ? 0 : SWAP32(*code));
 
 	debugI();

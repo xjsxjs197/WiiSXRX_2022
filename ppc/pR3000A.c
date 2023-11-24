@@ -109,9 +109,11 @@ __inline static void recRecompile();
 static void recRecompileInit();
 static void recError();
 
+#ifdef DISP_DEBUG
 // used in debug.c for dynarec free space printing
 u32 dyna_used = 0;
 u32 dyna_total = RECMEM_SIZE;
+#endif // DISP_DEBUG
 
 /* --- Generic register mapping --- */
 
@@ -1111,6 +1113,8 @@ static int recInit() {
 }
 
 static void recReset() {
+	psxRegs.ICache_valid = FALSE;
+
 	memset(recRAM, 0, 0x200000);
 	memset(recROM, 0, 0x080000);
 
@@ -1124,12 +1128,22 @@ static void recReset() {
 }
 
 static void recNotify(enum R3000Anote note, void *data) {
-
+	switch (note) {
+	case R3000ACPU_NOTIFY_BEFORE_SAVE:
+		break;
+	case R3000ACPU_NOTIFY_AFTER_LOAD:
+		break;
+	case R3000ACPU_NOTIFY_CACHE_ISOLATED:
+		psxRegs.ICache_valid = FALSE;
+		break;
+	case R3000ACPU_NOTIFY_CACHE_UNISOLATED:
+		break;
+	}
 }
 
 static void recApplyConfig() {
     cycleMult = Config.cycle_multiplier_override && Config.cycle_multiplier == CYCLE_MULT_DEFAULT
-        ? Config.cycle_multiplier_override : CYCLE_MULT_DEFAULT;
+        ? Config.cycle_multiplier_override : 200;
 }
 
 static void recShutdown() {
@@ -3222,6 +3236,7 @@ static void recCFC0() {
 }
 
 //REC_FUNC(MTC0);
+void MTC0(int reg, u32 val);
 static void recMTC0() {
 // Cop0->Rd = Rt
 
@@ -3242,9 +3257,10 @@ static void recMTC0() {
 		}
 	} else*/ {
 		switch (_Rd_) {
+			case 12:
 			case 13:
-				RLWINM(0,GetHWReg32(_Rt_),0,22,15); // & ~(0xfc00)
-				STW(0, OFFSET(&psxRegs, &psxRegs.CP0.r[_Rd_]), GetHWRegSpecial(PSXREGS));
+				//RLWINM(0,GetHWReg32(_Rt_),0,22,15); // & ~(0xfc00)
+				//STW(0, OFFSET(&psxRegs, &psxRegs.CP0.r[_Rd_]), GetHWRegSpecial(PSXREGS));
 				break;
 			default:
 				STW(GetHWReg32(_Rt_), OFFSET(&psxRegs, &psxRegs.CP0.r[_Rd_]), GetHWRegSpecial(PSXREGS));
@@ -3255,13 +3271,15 @@ static void recMTC0() {
 	if (_Rd_ == 12 || _Rd_ == 13) {
 		iFlushRegs(0);
 		LIW(PutHWRegSpecial(PSXPC), (u32)pc);
+		LIW(PutHWRegSpecial(ARG1), _Rd_);
+		MR(PutHWRegSpecial(ARG2), GetHWReg32(_Rt_));
 		FlushAllHWReg();
-		CALLFunc((u32)psxTestSWInts);
-		if(_Rd_ == 12) {
-		  LWZ(0, OFFSET(&psxRegs, &psxRegs.interrupt), GetHWRegSpecial(PSXREGS));
-		  ORIS(0, 0, 0x8000);
-		  STW(0, OFFSET(&psxRegs, &psxRegs.interrupt), GetHWRegSpecial(PSXREGS));
-		}
+		CALLFunc((u32)MTC0);
+//		if(_Rd_ == 12) {
+//		  LWZ(0, OFFSET(&psxRegs, &psxRegs.interrupt), GetHWRegSpecial(PSXREGS));
+//		  ORIS(0, 0, 0x8000);
+//		  STW(0, OFFSET(&psxRegs, &psxRegs.interrupt), GetHWRegSpecial(PSXREGS));
+//		}
 		branch = 2;
 		iRet();
 	}
@@ -3309,6 +3327,10 @@ CP2_FUNCNC(NCCT);
 static void recHLE() {
 	iFlushRegs(0);
 	FlushAllHWReg();
+	#ifdef DISP_DEBUG
+	sprintf(txtbuffer, "recHLE ");
+	DEBUG_print(txtbuffer, DBG_SPU3);
+	#endif // DISP_DEBUG
 
     uint32_t hleCode = psxRegs.code & 0x03ffffff;
     if (hleCode >= (sizeof(psxHLEt) / sizeof(psxHLEt[0]))) {
@@ -3510,24 +3532,18 @@ __inline static void recRecompile() {
 	  iRet();
   }
 
-  // upd xjsxjs197 start
-  //DCFlushRange((u8*)ptr,(u32)(u8*)ppcPtr-(u32)(u8*)ptr);
-  //ICInvalidateRange((u8*)ptr,(u32)(u8*)ppcPtr-(u32)(u8*)ptr);
   u32 endRange = (u32)(u8*)ppcPtr-(u32)(u8*)ptr;
   DCFlushRange((void*)ptr, endRange);
   ICInvalidateRange((void*)ptr, endRange);
-  // upd xjsxjs197 nd
 
 #ifdef TAG_CODE
 	sprintf((char *)ppcPtr, "PC=%08x", pcold);  //causes misalignment
 	ppcPtr += strlen((char *)ppcPtr);
 #endif
-  // upd xjsxjs197 start
+
   #ifdef DISP_DEBUG
-  //dyna_used = ((u32)ppcPtr - (u32)recMem)/1024;
   dyna_used = ((u32)ppcPtr - (u32)recMem) >> 10;
   #endif // DISP_DEBUG
-  // upd xjsxjs197 end
 }
 
 

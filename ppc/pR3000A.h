@@ -34,13 +34,13 @@
 #include "../r3000a.h"
 #include "../psxhle.h"
 #include "../Gamecube/DEBUG.h"
+#include "../Gamecube/MEM2.h"
 
 /* defines */
 #ifdef HW_DOL
 #define RECMEM_SIZE		(6*1024*1024)
 #elif HW_RVL
-//#define RECMEM_SIZE		(7*1024*1024 - 512*1024)
-#define RECMEM_SIZE		(20*1024*1024)  // mem2
+#define RECMEM_SIZE		RECMEM2_SIZE  // mem2
 #endif
 #define NUM_REGISTERS	34
 #undef _Op_

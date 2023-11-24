@@ -23,14 +23,16 @@ extern u32 dyna_total;
 #ifdef SHOW_DEBUG
 char txtbuffer[1024];
 long long texttimes[DEBUG_TEXT_HEIGHT];
+extern u32 dyna_used;
+extern u32 dyna_total;
 extern long long gettime();
 extern unsigned int diff_sec(long long start,long long end);
 static void check_heap_space(void){
-	sprintf(txtbuffer,"%dKB MEM1 available", SYS_GetArena1Size()/1024);
-	DEBUG_print(txtbuffer,DBG_MEMFREEINFO);
+	sprintf(txtbuffer,"%dKB MEM1 available", SYS_GetArena1Size() >> 10);
+	DEBUG_print(txtbuffer, DBG_MEMFREEINFO);
 
-	//sprintf(txtbuffer,"Dynarec (KB) %04d/%04d",dyna_used,dyna_total/1024);
-	//DEBUG_print(txtbuffer,DBG_CORE1);
+	sprintf(txtbuffer,"Dynarec (KB) %05d/%05d", dyna_used, dyna_total >> 10);
+	DEBUG_print(txtbuffer, DBG_CORE1);
 
 	//sprintf(txtbuffer,"DSP is at %f%%",AESND_GetDSPProcessUsage());
 	//DEBUG_print(txtbuffer,DBG_CORE2);
