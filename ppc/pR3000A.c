@@ -1135,6 +1135,11 @@ static void recNotify(enum R3000Anote note, void *data) {
 		break;
 	case R3000ACPU_NOTIFY_CACHE_ISOLATED:
 		psxRegs.ICache_valid = FALSE;
+		#ifdef DISP_DEBUG
+		sprintf(txtbuffer, "recNotify Clear Cache ");
+		DEBUG_print(txtbuffer, DBG_CORE2);
+		#endif // DISP_DEBUG
+
 		break;
 	case R3000ACPU_NOTIFY_CACHE_UNISOLATED:
 		break;
@@ -1143,7 +1148,7 @@ static void recNotify(enum R3000Anote note, void *data) {
 
 static void recApplyConfig() {
     cycleMult = Config.cycle_multiplier_override && Config.cycle_multiplier == CYCLE_MULT_DEFAULT
-        ? Config.cycle_multiplier_override : 200;
+        ? Config.cycle_multiplier_override : CYCLE_MULT_DEFAULT;
 }
 
 static void recShutdown() {
@@ -1165,15 +1170,26 @@ __inline static void execute() {
 	/*if (p != NULL)*/
 	/*else { recError(); return; }*/
 
-	if (*p == 0) {
-		recRecompile();
-	}
-	else if (psxRegs.ICache_valid == FALSE) { // Xenogears: fixes memory card access with original BIOS (0a_44_FlushCache issue)
+	if (psxRegs.ICache_valid == FALSE) { // Xenogears: fixes memory card access with original BIOS (0a_44_FlushCache issue)
+		#ifdef DISP_DEBUG
+		sprintf(txtbuffer, "execute Clear Cache2 ");
+	    DEBUG_print(txtbuffer, DBG_GPU2);
+		#endif // DISP_DEBUG
 		//psxCpu->Clear(0x0, 0x20000);
 		memset(recRAM, 0, 0x200000);
 		recRecompile();
 		p = (char*)PC_REC(psxRegs.pc);
 		psxRegs.ICache_valid = TRUE;
+	}
+	else if (*p == 0) {
+		recRecompile();
+		#ifdef DISP_DEBUG
+		if (psxRegs.ICache_valid == FALSE)
+		{
+			sprintf(txtbuffer, "execute Clear Cache1 ");
+		    DEBUG_print(txtbuffer, DBG_GPU3);
+		}
+		#endif // DISP_DEBUG
 	}
 	recFunc = (void (**)()) (u32)p;
 
@@ -1181,31 +1197,20 @@ __inline static void execute() {
 }
 
 static void recExecute() {
-    #ifdef SHOW_DEBUG
-	openLogFile();
-	#endif // SHOW_DEBUG
 
-    // added xjsxjs197 start
     recRecompileInit();
-    // added xjsxjs197 end
 
-	while(!stop) execute();
-
-	#ifdef SHOW_DEBUG
-	closeLogFile();
-	#endif // SHOW_DEBUG
+    while(!stop) execute();
 }
 
 static void recExecuteBlock(enum blockExecCaller caller) {
-    // added xjsxjs197 start
     recRecompileInit();
-    // added xjsxjs197 end
 
-	execute();
+    execute();
 }
 
 static void recClear(u32 Addr, u32 Size) {
-	memset((void*)PC_REC(Addr), 0, Size * 4);
+    memset((void*)PC_REC(Addr), 0, Size * 4);
 }
 
 static void recNULL() {
