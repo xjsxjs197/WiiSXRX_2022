@@ -1125,9 +1125,9 @@ void Func_SaveSettingsSeparately()
     char settingPathBuf[256];
     fileBrowser_file* configFile_file;
     extern char CdromId[10];
-	if (stat("usb:/wiisxrx/", &s)) {
-		if (stat("sd:/wiisxrx/", &s)) {
-			menu::MessageBox::getInstance().setMessage("Error opening directory sd:/wiisxrx");
+	if (stat("usb:/wiisxrx/settings/", &s)) {
+		if (stat("sd:/wiisxrx/settings/", &s)) {
+			menu::MessageBox::getInstance().setMessage("Error opening directory sd:/wiisxrx/settings/");
 			return;
 		}
 		else
@@ -1149,7 +1149,7 @@ void Func_SaveSettingsSeparately()
 	}
 	else
 	{
-		printf(settingPathBuf, "%s%s%s", "usb:/wiisxrx/settings/", CdromId, ".cfg");
+		sprintf(settingPathBuf, "%s%s%s", "usb:/wiisxrx/settings/", CdromId, ".cfg");
 		configFile_file = &saveDir_libfat_USB;
 	    int (*configFile_init)(fileBrowser_file*) = fileBrowser_libfat_init;
 	    if (configFile_init(configFile_file)) {                //only if device initialized ok
