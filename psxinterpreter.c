@@ -853,8 +853,8 @@ static void execI_NoCache() {
 void psxTestSWInts(int step) {
 	if (psxRegs.CP0.n.Cause & psxRegs.CP0.n.SR & 0x0300 &&
 	   psxRegs.CP0.n.SR & 0x1) {
-		if (step)
-			execI_NoCache();
+		//if (step)
+		//	execI_NoCache();
 		psxRegs.CP0.n.Cause &= ~0x7c;
 		psxException(psxRegs.CP0.n.Cause, branch, &psxRegs.CP0);
 	}
@@ -869,6 +869,11 @@ void MTC0(int reg, u32 val) {
 			#ifdef DISP_DEBUG
 			sprintf(txtbuffer, "MTC0 12 %08x %08x ", psxRegs.CP0.n.SR, val);
 			DEBUG_print(txtbuffer, DBG_CDR4);
+			if ((val >> 16) & 1)
+			{
+			    sprintf(txtbuffer, "MTC0 Clear Cache ");
+			    DEBUG_print(txtbuffer, DBG_CDR3);
+			}
 			#endif // DISP_DEBUG
 			if (unlikely((psxRegs.CP0.n.SR ^ val) & (1 << 16)))
 				psxMemOnIsolate((val >> 16) & 1);
@@ -1037,21 +1042,22 @@ static void intClear(u32 Addr, u32 Size) {
 }
 
 static void intNotify(enum R3000Anote note, void *data) {
-//	switch (note) {
-//	case R3000ACPU_NOTIFY_BEFORE_SAVE:
-//		dloadFlush(&psxRegs);
-//		break;
-//	case R3000ACPU_NOTIFY_AFTER_LOAD:
-//		dloadClear(&psxRegs);
-//		psxRegs.subCycle = 0;
-//		setupCop(psxRegs.CP0.n.SR);
-//		// fallthrough
-//	case R3000ACPU_NOTIFY_CACHE_ISOLATED: // Armored Core?
-//		memset(&ICache, 0xff, sizeof(ICache));
-//		break;
-//	case R3000ACPU_NOTIFY_CACHE_UNISOLATED:
-//		break;
-//	}
+	switch (note) {
+	case R3000ACPU_NOTIFY_BEFORE_SAVE:
+		//dloadFlush(&psxRegs);
+		break;
+	case R3000ACPU_NOTIFY_AFTER_LOAD:
+		//dloadClear(&psxRegs);
+		//psxRegs.subCycle = 0;
+		//setupCop(psxRegs.CP0.n.SR);
+		// fallthrough
+	case R3000ACPU_NOTIFY_CACHE_ISOLATED: // Armored Core?
+		psxRegs.ICache_valid = FALSE;
+		//memset(&ICache, 0xff, sizeof(ICache));
+		break;
+	case R3000ACPU_NOTIFY_CACHE_UNISOLATED:
+		break;
+	}
 }
 
 static void setupCop(u32 sr)

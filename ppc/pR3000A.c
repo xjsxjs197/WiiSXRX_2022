@@ -1148,7 +1148,7 @@ static void recNotify(enum R3000Anote note, void *data) {
 
 static void recApplyConfig() {
     cycleMult = Config.cycle_multiplier_override && Config.cycle_multiplier == CYCLE_MULT_DEFAULT
-        ? Config.cycle_multiplier_override : CYCLE_MULT_DEFAULT;
+        ? Config.cycle_multiplier_override : 200;
 }
 
 static void recShutdown() {
@@ -1170,7 +1170,7 @@ __inline static void execute() {
 	/*if (p != NULL)*/
 	/*else { recError(); return; }*/
 
-	if (psxRegs.ICache_valid == FALSE) { // Xenogears: fixes memory card access with original BIOS (0a_44_FlushCache issue)
+	if (unlikely(psxRegs.ICache_valid == FALSE)) { // Xenogears: fixes memory card access with original BIOS (0a_44_FlushCache issue)
 		#ifdef DISP_DEBUG
 		sprintf(txtbuffer, "execute Clear Cache2 ");
 	    DEBUG_print(txtbuffer, DBG_GPU2);
