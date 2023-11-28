@@ -31,8 +31,8 @@ static void check_heap_space(void){
 	sprintf(txtbuffer,"%dKB MEM1 available", SYS_GetArena1Size() >> 10);
 	DEBUG_print(txtbuffer, DBG_MEMFREEINFO);
 
-	sprintf(txtbuffer,"Dynarec (KB) %05d/%05d", dyna_used, dyna_total >> 10);
-	DEBUG_print(txtbuffer, DBG_CORE1);
+	//sprintf(txtbuffer,"Dynarec (KB) %05d/%05d", dyna_used, dyna_total >> 10);
+	//DEBUG_print(txtbuffer, DBG_CORE1);
 
 	//sprintf(txtbuffer,"DSP is at %f%%",AESND_GetDSPProcessUsage());
 	//DEBUG_print(txtbuffer,DBG_CORE2);

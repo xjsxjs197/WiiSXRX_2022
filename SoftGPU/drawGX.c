@@ -416,8 +416,9 @@ static void gc_vout_flip(const void *vram, int stride, int bgr24,
 		memset(GXtexture,0,sizeof(GXtexture));
 		if (menuActive) return;
 
+		#ifdef DISP_DEBUG
 		// clear the screen, and flush it
-		DEBUG_print("gc_vout_flip_null_vram",DBG_GPU1);
+		//DEBUG_print("gc_vout_flip_null_vram",DBG_GPU1);
 
 		//Write menu/debug text on screen
 		GXColor fontColor = {150,255,150,255};
@@ -429,6 +430,7 @@ static void gc_vout_flip(const void *vram, int stride, int bgr24,
 		DEBUG_update();
 		for (i=0;i<DEBUG_TEXT_HEIGHT;i++)
 			IplFont_drawString(10,(24*i+60),text[i], 0.5, false);
+		#endif // DISP_DEBUG
 
 	   //reset swap table from GUI/DEBUG
 		GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_RED, GX_CH_GREEN, GX_CH_BLUE, GX_CH_ALPHA);
