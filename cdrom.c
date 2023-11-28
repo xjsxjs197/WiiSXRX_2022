@@ -120,6 +120,8 @@ static struct {
 	u8 AttenuatorRightToRight, AttenuatorRightToLeft;
 	u8 AttenuatorLeftToLeftT, AttenuatorLeftToRightT;
 	u8 AttenuatorRightToRightT, AttenuatorRightToLeftT;
+
+	unsigned char SetSectorPlayBak[4];
 } cdr;
 
 //cdrStruct cdr;
@@ -600,22 +602,38 @@ static void UpdateSubq(const u8 *time)
 		{
 			crc = calcCrc((u8 *)subq + 12, 10);
 			if (crc == (((u16)subq->CRC[0] << 8) | subq->CRC[1])) {
+				#ifdef DISP_DEBUG
+				sprintf(txtbuffer, "UpdateSubq1 ");
+				DEBUG_print(txtbuffer, DBG_CDR1);
+				#endif // DISP_DEBUG
 				cdr.subq.Track = subq->TrackNumber;
 				cdr.subq.Index = subq->IndexNumber;
 				memcpy(cdr.subq.Relative, subq->TrackRelativeAddress, 3);
 				memcpy(cdr.subq.Absolute, subq->AbsoluteAddress, 3);
 			}
 			else {
+				#ifdef DISP_DEBUG
+				sprintf(txtbuffer, "UpdateSubq2 ");
+				DEBUG_print(txtbuffer, DBG_CDR1);
+				#endif // DISP_DEBUG
 				CDR_LOG_I("subq bad crc @%02x:%02x:%02x\n",
 					tmp[0], tmp[1], tmp[2]);
 			}
 		}
 		else
 		{
+			#ifdef DISP_DEBUG
+			sprintf(txtbuffer, "UpdateSubq3 ");
+			DEBUG_print(txtbuffer, DBG_CDR1);
+			#endif // DISP_DEBUG
 			generate_subq(time);
 		}
 	}
 	else {
+		#ifdef DISP_DEBUG
+		sprintf(txtbuffer, "UpdateSubq4 ");
+		DEBUG_print(txtbuffer, DBG_CDR1);
+		#endif // DISP_DEBUG
 		generate_subq(time);
 	}
 
@@ -782,10 +800,6 @@ void cdrPlayReadInterrupt(void)
     SetPlaySeekRead(cdr.StatP, STATUS_PLAY);
 	//if (memcmp(cdr.SetSectorPlay, cdr.SetSectorEnd, 3) == 0) {
 	if (*(u32 *)cdr.SetSectorPlay >= *(u32 *)cdr.SetSectorEnd) {
-        #ifdef SHOW_DEBUG
-        sprintf(txtbuffer, "cdrom check playCDDA End");
-        DEBUG_print(txtbuffer, DBG_CDR4);
-        #endif // DISP_DEBUG
 		CDR_LOG_I("end stop\n");
 		StopCdda();
 		SetPlaySeekRead(cdr.StatP, 0);
@@ -796,24 +810,22 @@ void cdrPlayReadInterrupt(void)
 	}
 
 	if (!cdr.IrqStat && (cdr.Mode & (MODE_AUTOPAUSE|MODE_REPORT)))
-		cdrPlayInterrupt_Autopause(read_buf);
+	{
+		// update for CdlGetlocP/autopause
+	    generate_subq(cdr.SetSectorPlay);
+
+	    cdrPlayInterrupt_Autopause(read_buf);
+	}
 
 	//if (!cdr.Play) return;
 
 	if (!cdr.Muted && cdr.Play && !Config.Cdda) {
-        #ifdef SHOW_DEBUG
-        sprintf(txtbuffer, "CDR_readCDDA time %d %d %d", cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2]);
-        DEBUG_print(txtbuffer, DBG_CDR2);
-        #endif // DISP_DEBUG
     		cdrPrepCdda(read_buf, CD_FRAMESIZE_RAW / 4);
     		cdrAttenuate(read_buf, CD_FRAMESIZE_RAW / 4, 1);
 		SPU_playCDDAchannel(read_buf, CD_FRAMESIZE_RAW, psxRegs.cycle, 0);
 	}
 
 	msfiAdd(cdr.SetSectorPlay, 1);
-
-	// update for CdlGetlocP/autopause
-	generate_subq(cdr.SetSectorPlay);
 
 	CDRPLAYREAD_INT(cdReadTime, 0);
 }
@@ -865,6 +877,17 @@ void cdrInterrupt(void) {
 		cdr.Ctrl &= ~0x80;
 		cdr.ParamC = 0;
 		cdr.Cmd = 0;
+		#ifdef DISP_DEBUG
+		//sprintf(txtbuffer, "cdrInterrupt1  %s ", CmdName[Cmd]);
+		//DEBUG_print(txtbuffer, DBG_CDR1);
+		#endif // DISP_DEBUG
+	}
+	else
+	{
+		#ifdef DISP_DEBUG
+		//sprintf(txtbuffer, "cdrInterrupt2  %s ", CmdName[Cmd - CMD_PART2]);
+		//DEBUG_print(txtbuffer, DBG_CDR2);
+		#endif // DISP_DEBUG
 	}
 
 	switch (cdr.DriveState) {
@@ -907,10 +930,11 @@ void cdrInterrupt(void) {
 			}
 			else
 			{
-				for (i = 0; i < 3; i++)
-					set_loc[i] = btoi(cdr.Param[i]);
-				memcpy(cdr.SetSector, set_loc, 3);
-				cdr.SetSector[3] = 0;
+				set_loc[0] = btoi(cdr.Param[0]);
+				set_loc[1] = btoi(cdr.Param[1]);
+				set_loc[2] = btoi(cdr.Param[2]);
+				set_loc[3] = 0;
+				*((u32*)cdr.SetSector) = *((u32*)set_loc);
 				cdr.SetlocPending = 1;
 				cdr.errorRetryhack = 0;
 			}
@@ -1142,8 +1166,13 @@ void cdrInterrupt(void) {
 			break;
 
 		case CdlGetlocP:
+			#ifdef DISP_DEBUG
+			sprintf(txtbuffer, "CdlGetlocP ");
+			DEBUG_print(txtbuffer, DBG_CDR2);
+			#endif // DISP_DEBUG
 			SetResultSize(8);
 			//memcpy(&cdr.Result, &cdr.subq, 8);
+			UpdateSubq(cdr.SetSectorPlayBak);
 			*(long long int *)(&cdr.Result) = *(long long int *)(&cdr.subq);
 			if (!cdr.Play && !cdr.Reading)
 				cdr.Result[1] = 0; // HACK?
@@ -1224,7 +1253,8 @@ void cdrInterrupt(void) {
 			if (read_ok && (buf = CDR_getBuffer()))
 				//memcpy(cdr.LocL, buf, 8);
 				*(long long int *)(&cdr.LocL) = *(long long int *)(buf);
-			UpdateSubq(cdr.SetSectorPlay);
+			//UpdateSubq(cdr.SetSectorPlay);
+			*((u32*)cdr.SetSectorPlayBak) = *((u32*)cdr.SetSectorPlay);
 			cdr.TrackChanged = FALSE;
 			cdr.LastReadSeekCycles = psxRegs.cycle;
 			break;
@@ -1314,7 +1344,9 @@ void cdrInterrupt(void) {
 		case CdlReadN:
 		case CdlReadS:
 			if (cdr.Reading && !cdr.SetlocPending)
+			{
 				break;
+			}
 
 			Find_CurTrack(cdr.SetlocPending ? cdr.SetSector : cdr.SetSectorPlay);
 
@@ -1334,7 +1366,8 @@ void cdrInterrupt(void) {
 
 			// Fighting Force 2 - update subq time immediately
 			// - fixes new game
-			UpdateSubq(cdr.SetSectorPlay);
+			//UpdateSubq(cdr.SetSectorPlay);
+			*((u32*)cdr.SetSectorPlayBak) = *((u32*)cdr.SetSectorPlay);
 			cdr.LocL[0] = LOCL_INVALID;
 			cdr.SubqForwardSectors = 1;
 			cdr.sectorsRead = 0;
@@ -1479,12 +1512,13 @@ static void cdrReadInterrupt(void)
 	const struct { u8 file, chan, mode, coding; } *subhdr;
 	const u8 *buf = NULL;
 	int deliver_data = 1;
-	u8 subqPos[3];
+	u8 subqPos[4];
 	int read_ok;
 
-	memcpy(subqPos, cdr.SetSectorPlay, sizeof(subqPos));
+	*((u32*)subqPos) = *((u32*)cdr.SetSectorPlay);
 	msfiAdd(subqPos, cdr.SubqForwardSectors);
-	UpdateSubq(subqPos);
+	//UpdateSubq(subqPos);
+	*((u32*)cdr.SetSectorPlayBak) = *((u32*)subqPos);
 	if (cdr.SubqForwardSectors < SUBQ_FORWARD_SECTORS) {
 		cdr.SubqForwardSectors++;
 		CDRPLAYREAD_INT((cdr.Mode & MODE_SPEED) ? (cdReadTime / 2) : cdReadTime, 0);
