@@ -1062,7 +1062,7 @@ static int cdread_normal(FILE *f, unsigned int base, void *dest, int sector)
 	int ret;
 	if (fseek(f, base + sector * CD_FRAMESIZE_RAW, SEEK_SET))
 		goto fail_io;
-	ret = fread(dest, 16, CD_FRAMESIZE_RAW / 16, f);
+	ret = fread(dest, 1, CD_FRAMESIZE_RAW, f);
 	if (ret <= 0)
 		goto fail_io;
 	return ret;
