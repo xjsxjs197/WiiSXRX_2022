@@ -24,14 +24,17 @@ static const char * const cdr_read_hack_db[] =
 static const char * const gpu_slow_llist_db[] =
 {
 	/* Bomberman Fantasy Race */
-	"SLES01712", "SLPS01525", "SLPS91138", "SLPM87102",
-	"SLUS00823",
+	"SLES01712", "SLPS01525", "SLPS91138", "SLPM87102", "SLUS00823",
 	/* Crash Bash */
 	"SCES02834", "SCUS94570", "SCUS94616", "SCUS94654",
 	/* Final Fantasy IV */
 	"SCES03840", "SLPM86028", "SLUS01360",
+	/* Simple 1500 Series Vol. 57: The Meiro */
+	"SLPM86715",
 	/* Spot Goes to Hollywood */
 	"SLES00330", "SLPS00394", "SLUS00014",
+	/* Tiny Tank */
+	"SCES01338", "SCES02072", "SCES02072", "SCES02072", "SCES02072", "SCUS94427",
 	/* Vampire Hunter D */
 	"SLES02731", "SLPS02477", "SLPS03198", "SLUS01138",
 };
