@@ -1945,7 +1945,7 @@ struct lightrec_state * lightrec_init(char *argv0,
 	else
 		lut_size = CODE_LUT_SIZE * sizeof(void *);
 
-	//init_jit_with_debug(argv0, stdout);
+	init_jit_with_debug(argv0, stdout);
 
 	state = calloc(1, sizeof(*state) + lut_size);
 	if (!state)
