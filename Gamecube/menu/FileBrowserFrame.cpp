@@ -37,6 +37,7 @@ extern "C" {
 #include "../fileBrowser/fileBrowser-DVD.h"
 #include "../fileBrowser/fileBrowser-CARD.h"
 #include "../fileBrowser/fileBrowser-SMB.h"
+#include "../../database.h"
 extern long ISOgetTN(unsigned char *buffer);
 extern char debugInfo[256];
 }
@@ -582,6 +583,11 @@ void fileBrowserFrame_LoadFile(int i)
 			strcat(RomInfo,buffer);
 			sprintf(buffer,"CD-ROM ID: %s\n", CdromId);
 			strcat(RomInfo,buffer);
+            if (check_unsatisfied_libcrypt())
+            {
+                sprintf(buffer, "LibCrypt protected game with missing SBI\n");
+                strcat(RomInfo,buffer);
+            }
             if (Config.hacks.gpu_slow_list_walking)
             {
                 sprintf(buffer, "GpuSlowListWalking auto fixed\n");
