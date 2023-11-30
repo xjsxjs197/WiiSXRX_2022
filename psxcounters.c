@@ -122,11 +122,7 @@ static inline void setIrq( u32 irq )
 static inline
 void _psxRcntWcount( u32 index, u32 value )
 {
-    //if( value > 0xffff )
-    {
-        //verboseLog( 1, "[RCNT %i] wcount > 0xffff: %x\n", index, value );
-        value &= 0xffff;
-    }
+    value &= 0xffff;
 
     rcnts[index].cycleStart  = psxRegs.cycle;
     rcnts[index].cycleStart -= value * rcnts[index].rate;
@@ -373,12 +369,6 @@ void psxRcntUpdate()
         // VSync irq.
         if( hSyncCount == VBlankStart )
         {
-            //#ifdef SHOW_DEBUG
-            //sprintf(txtbuffer, "DispHeight %d rcnt0 rate %f dwEmuFixes %d \n", dispHeight, rcnts[0].rateF, dwEmuFixes);
-            //DEBUG_print(txtbuffer, DBG_CORE1);
-            //writeLogFile(txtbuffer);
-            //#endif // DISP_DEBUG
-
             HW_GPU_STATUS &= SWAP32(~PSXGPU_LCF);
             gInterlaceLine = !((frame_counter+1) & 0x1);
             //GPU_vBlank( 1, 0 );
@@ -509,19 +499,6 @@ u32 psxRcntRcount( u32 index )
         count = _psxRcntRcount( index );
     }
 
-    // cycle_multiplier_overrides
-//    if ( Config.RCntFix )
-//    {
-//        if ( index == 2 )
-//        {
-//            if( rcnts[index].counterState == CountToTarget )
-//            {
-//                //count /= BIAS;
-//                count = count >> 1;
-//            }
-//        }
-//    }
-
     //verboseLog( 2, "[RCNT %i] rcount: %x\n", index, count );
 
     return count;
@@ -601,13 +578,25 @@ s32 psxRcntFreeze( gzFile f, s32 Mode )
 
     if (Mode == 0)
     {
-        // don't trust things from a savestate
+        // rcnt base.
         rcnts[3].rate = 1;
+        // spu timer
+        rcnts[4].rate = 768 * FrameRate[Config.PsxType];
+        rcnts[4].target = 1;
+        rcnts[4].mode = 0x58;
         for( i = 0; i < CounterQuantity; ++i )
         {
+            if (i == 3) continue; // rcnt base No need for restore ?
             _psxRcntWmode( i, rcnts[i].mode );
             count = (psxRegs.cycle - rcnts[i].cycleStart) / rcnts[i].rate;
-            _psxRcntWcount( i, count );
+            if (i <= 2 && count > 0x1000)
+            {
+                _psxRcntWcount( i, count & 0xffff );
+            }
+            else
+            {
+                _psxRcntWcount( i, count );
+            }
         }
         scheduleRcntBase();
         psxRcntSet();

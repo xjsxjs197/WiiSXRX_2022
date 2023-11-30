@@ -847,7 +847,9 @@ struct GPUFreeze
   uint32_t ulFreezeVersion;      // should be always 1 for now (set by main emu)
   uint32_t ulStatus;             // current gpu status
   uint32_t ulControl[256];       // latest control register values
-  unsigned char psxVRam[1024*1024*2]; // current VRam image (full 2 MB for ZN)
+  // When using the lightrec core at that time, the memory of WiiStation was already less than 2MB
+  // so the VRAM data was directly saved to file
+  //unsigned char psxVRam[1024*1024*2]; // current VRam image (full 2 MB for ZN)
 };
 
 long LIB_GPUfreeze(uint32_t type, struct GPUFreeze *freeze)
@@ -860,14 +862,14 @@ long LIB_GPUfreeze(uint32_t type, struct GPUFreeze *freeze)
         flush_cmd_buffer();
 
       renderer_sync();
-      memcpy(freeze->psxVRam, gpu.vram, 1024 * 512 * 2);
+      //memcpy(freeze->psxVRam, gpu.vram, 1024 * 512 * 2);
       memcpy(freeze->ulControl, gpu.regs, sizeof(gpu.regs));
       memcpy(freeze->ulControl + 0xe0, gpu.ex_regs, sizeof(gpu.ex_regs));
       freeze->ulStatus = gpu.status;
       break;
     case 0: // load
       renderer_sync();
-      memcpy(gpu.vram, freeze->psxVRam, 1024 * 512 * 2);
+      //memcpy(gpu.vram, freeze->psxVRam, 1024 * 512 * 2);
       memcpy(gpu.regs, freeze->ulControl, sizeof(gpu.regs));
       memcpy(gpu.ex_regs, freeze->ulControl + 0xe0, sizeof(gpu.ex_regs));
       gpu.status = freeze->ulStatus;

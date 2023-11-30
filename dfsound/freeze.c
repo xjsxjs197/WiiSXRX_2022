@@ -131,6 +131,14 @@ typedef struct
 
  SPUCHAN_orig s_chan[MAXCHAN];
 
+ uint32_t   cycles_dma_end;
+ uint32_t   decode_dirty_ch;
+ uint32_t   dwNoiseVal;
+ uint32_t   dwNoiseCount;
+ uint32_t   XARepeat;
+ uint32_t   XALastVal;
+ uint32_t   last_keyon_cycles;
+
 } SPUOSSFreeze_t;
 
 ////////////////////////////////////////////////////////////////////////
@@ -252,6 +260,8 @@ long CALLBACK DF_SPUfreeze(unsigned long ulFreezeMode, SPUFreeze_t * pF,
 
    if(ulFreezeMode==2) return 1;                       // info mode? ok, bye
                                                        // save mode:
+   regAreaGet(H_SPUctrl) = spu.spuCtrl;
+   regAreaGet(H_SPUstat) = spu.spuStat;
    memcpy(pF->cSPURam,spu.spuMem,0x80000);             // copy common infos
    memcpy(pF->cSPUPort,spu.regArea,0x200);
 
@@ -295,6 +305,13 @@ long CALLBACK DF_SPUfreeze(unsigned long ulFreezeMode, SPUFreeze_t * pF,
    pFO->xa_left = xa_left;
    pFO->cdda_left = cdda_left;
    pFO->cycles_played = spu.cycles_played;
+   pFO->cycles_dma_end = spu.cycles_dma_end;
+   pFO->decode_dirty_ch = spu.decode_dirty_ch;
+   pFO->dwNoiseVal = spu.dwNoiseVal;
+   pFO->dwNoiseCount = spu.dwNoiseCount;
+   pFO->XARepeat = spu.XARepeat;
+   pFO->XALastVal = spu.XALastVal;
+   pFO->last_keyon_cycles = spu.last_keyon_cycles;
 
    for(i=0;i<MAXCHAN;i++)
     {
@@ -314,6 +331,8 @@ long CALLBACK DF_SPUfreeze(unsigned long ulFreezeMode, SPUFreeze_t * pF,
  memcpy(spu.spuMem,pF->cSPURam,0x80000);               // get ram
  memcpy(spu.regArea,pF->cSPUPort,0x200);
  spu.bMemDirty = 1;
+ spu.spuCtrl = regAreaGet(H_SPUctrl);
+ spu.spuStat = regAreaGet(H_SPUstat);
 
  if (!strcmp(pF->szSPUName,"PBOSS") && pF->ulFreezeVersion==5)
    pFO = LoadStateV5(pF, cycles);
@@ -331,22 +350,39 @@ long CALLBACK DF_SPUfreeze(unsigned long ulFreezeMode, SPUFreeze_t * pF,
   FeedCDDA((void *)pF->xaS.pcm, pFO->cdda_left * 4);
  }
 
+ // not in old savestates
+ spu.cycles_dma_end = 0;
+ spu.decode_dirty_ch = spu.dwChannelsAudible & 0x0a;
+ spu.dwNoiseVal = 0;
+ spu.dwNoiseCount = 0;
+ spu.XARepeat = 0;
+ spu.XALastVal = 0;
+ spu.last_keyon_cycles = cycles - 16*786u;
+ if (pFO && pF->ulFreezeSize >= sizeof(*pF) + sizeof(*pFO)) {
+  spu.cycles_dma_end = pFO->cycles_dma_end;
+  spu.decode_dirty_ch = pFO->decode_dirty_ch;
+  spu.dwNoiseVal = pFO->dwNoiseVal;
+  spu.dwNoiseCount = pFO->dwNoiseCount;
+  spu.XARepeat = pFO->XARepeat;
+  spu.XALastVal = pFO->XALastVal;
+  spu.last_keyon_cycles = pFO->last_keyon_cycles;
+ }
+
  // repair some globals
  for(i=0;i<=62;i+=2)
   load_register(H_Reverb+i, cycles);
  load_register(H_SPUReverbAddr, cycles);
  load_register(H_SPUrvolL, cycles);
  load_register(H_SPUrvolR, cycles);
-
- load_register(H_SPUctrl, cycles);
- load_register(H_SPUstat, cycles);
  load_register(H_CDLeft, cycles);
  load_register(H_CDRight, cycles);
 
+ // reverb
+ spu.rvb->StartAddr = regAreaGet(H_SPUReverbAddr) << 2;
  if (spu.rvb->CurrAddr < spu.rvb->StartAddr)
   spu.rvb->CurrAddr = spu.rvb->StartAddr;
  // fix to prevent new interpolations from crashing
- for(i=0;i<MAXCHAN;i++) spu.SB[i * SB_SIZE + 28]=0;
+ spu.interpolation = 1;
 
  ClearWorkingState();
 
@@ -382,9 +418,10 @@ static SPUOSSFreeze_t * LoadStateV5(SPUFreeze_t * pF, uint32_t cycles)
   {
    load_channel(&spu.s_chan[i],&pFO->s_chan[i],i);
 
-   spu.s_chan[i].pCurr+=(unsigned long)spu.spuMemC;
-   spu.s_chan[i].pLoop+=(unsigned long)spu.spuMemC;
+   spu.s_chan[i].pCurr+=(uintptr_t)spu.spuMemC;
+   spu.s_chan[i].pLoop+=(uintptr_t)spu.spuMemC;
   }
+
  return pFO;
 }
 

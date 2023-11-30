@@ -193,11 +193,6 @@ typedef struct
  unsigned short  spuStat;
 
  unsigned int    spuAddr;
- union {
-  unsigned char  *spuMemC;
-  unsigned short *spuMem;
- };
- unsigned char * pSpuIrq;
 
  unsigned int    cycles_played;
  unsigned int    cycles_dma_end;
@@ -213,8 +208,31 @@ typedef struct
  unsigned int    dwChannelsAudible;    // not silent channels
  unsigned int    dwChannelDead;        // silent+not useful channels
 
+ unsigned int    XARepeat;
+ unsigned int    XALastVal;
+
+ int             iLeftXAVol;
+ int             iRightXAVol;
+
+ struct {                              // channel volume in the cd controller
+  unsigned char  ll, lr, rl, rr;       // see cdr.Attenuator* in cdrom.c
+ } cdv;                                // applied on spu side for easier emulation
+
+ unsigned int    last_keyon_cycles;
+
+ union {
+  unsigned char  *spuMemC;
+  unsigned short *spuMem;
+ };
+ unsigned char * pSpuIrq;
+
  unsigned char * pSpuBuffer;
  short         * pS;
+
+ SPUCHAN       * s_chan;
+ REVERBInfo    * rvb;
+
+ int           * SSumLR;
 
  void (CALLBACK *irqCallback)(int);
  void (CALLBACK *cddavCallback)(unsigned short,unsigned short);
@@ -231,25 +249,11 @@ typedef struct
  unsigned int  * CDDAStart;
  unsigned int  * CDDAEnd;
 
- unsigned int    XARepeat;
- unsigned int    XALastVal;
-
- unsigned int    CDDARepeat;
- unsigned int    CDDALastVal;
-
- int             iLeftXAVol;
- int             iRightXAVol;
-
- unsigned int    last_keyon_cycles;
-
- SPUCHAN       * s_chan;
- REVERBInfo    * rvb;
-
  // buffers
  int           * SB;
- int           * SSumLR;
 
  unsigned short  regArea[0x400];
+ int             interpolation;
 } SPUInfo;
 
 #define regAreaGet(offset) \

@@ -1132,6 +1132,7 @@ static void recNotify(enum R3000Anote note, void *data) {
 	case R3000ACPU_NOTIFY_BEFORE_SAVE:
 		break;
 	case R3000ACPU_NOTIFY_AFTER_LOAD:
+		psxRegs.ICache_valid = FALSE;
 		break;
 	case R3000ACPU_NOTIFY_CACHE_ISOLATED:
 		psxRegs.ICache_valid = FALSE;

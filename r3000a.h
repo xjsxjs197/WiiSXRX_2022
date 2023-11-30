@@ -230,6 +230,11 @@ typedef struct {
 	u32 cycle;
 	u32 interrupt;
 	struct { u32 sCycle, cycle; } intCycle[32];
+	// warning: changing anything in psxRegisters requires update of all
+	// asm in libpcsxcore/new_dynarec/
+	u8 ICache_Addr[0x1000];
+	u8 ICache_Code[0x1000];
+	bool ICache_valid;
 	u32 gteBusyCycle;
 	u32 muldivBusyCycle;
 	u32 subCycle;       /* interpreter cycle counting */
@@ -243,12 +248,6 @@ typedef struct {
 	u32 cpuInRecursion;
 	u32 gpuIdleAfter;
 	u32 reserved[1];
-	// warning: changing anything in psxRegisters requires update of all
-	// asm in libpcsxcore/new_dynarec/
-	u8 ICache_Addr[0x1000];
-	u8 ICache_Code[0x1000];
-	bool ICache_valid;
-	u32 io_cycle_counter;
 } psxRegisters;
 
 extern psxRegisters psxRegs;
