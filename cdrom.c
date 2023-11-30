@@ -267,10 +267,6 @@ int msf2SectS[] = {
 // so (PSXCLK / 75) = cdr read time (linuzappz)
 #define cdReadTime         (PSXCLK / 75)  // OK
 #define WaitTime1st        (0x800)
-#define WaitTime1stInit    (0x13cce)
-#define WaitTime1stRead    cdReadTime   // OK
-#define WaitTime2ndGetID   (0x4a00)  // OK
-#define WaitTime2ndPause   (cdReadTime * 3) // OK
 
 #define MinSeekTime        50000
 
@@ -278,11 +274,14 @@ int msf2SectS[] = {
 #define SUBQ_FORWARD_SECTORS 2u
 
 enum drive_state {
-	DRIVESTATE_STANDBY = 0, // pause, play, read
+	DRIVESTATE_STANDBY = 0, // different from paused
 	DRIVESTATE_LID_OPEN,
 	DRIVESTATE_RESCAN_CD,
 	DRIVESTATE_PREPARE_CD,
 	DRIVESTATE_STOPPED,
+	DRIVESTATE_PAUSED,
+	DRIVESTATE_PLAY_READ,
+	DRIVESTATE_SEEK,
 };
 
 static struct CdrStat stat;
@@ -602,38 +601,22 @@ static void UpdateSubq(const u8 *time)
 		{
 			crc = calcCrc((u8 *)subq + 12, 10);
 			if (crc == (((u16)subq->CRC[0] << 8) | subq->CRC[1])) {
-				#ifdef DISP_DEBUG
-				sprintf(txtbuffer, "UpdateSubq1 ");
-				DEBUG_print(txtbuffer, DBG_CDR1);
-				#endif // DISP_DEBUG
 				cdr.subq.Track = subq->TrackNumber;
 				cdr.subq.Index = subq->IndexNumber;
 				memcpy(cdr.subq.Relative, subq->TrackRelativeAddress, 3);
 				memcpy(cdr.subq.Absolute, subq->AbsoluteAddress, 3);
 			}
 			else {
-				#ifdef DISP_DEBUG
-				sprintf(txtbuffer, "UpdateSubq2 ");
-				DEBUG_print(txtbuffer, DBG_CDR1);
-				#endif // DISP_DEBUG
 				CDR_LOG_I("subq bad crc @%02x:%02x:%02x\n",
 					tmp[0], tmp[1], tmp[2]);
 			}
 		}
 		else
 		{
-			#ifdef DISP_DEBUG
-			sprintf(txtbuffer, "UpdateSubq3 ");
-			DEBUG_print(txtbuffer, DBG_CDR1);
-			#endif // DISP_DEBUG
 			generate_subq(time);
 		}
 	}
 	else {
-		#ifdef DISP_DEBUG
-		sprintf(txtbuffer, "UpdateSubq4 ");
-		DEBUG_print(txtbuffer, DBG_CDR1);
-		#endif // DISP_DEBUG
 		generate_subq(time);
 	}
 
@@ -662,6 +645,7 @@ static void cdrPlayInterrupt_Autopause(s16* cddaBuf)
 
 		StopCdda();
 		SetPlaySeekRead(cdr.StatP, 0);
+		cdr.DriveState = DRIVESTATE_PAUSED;
 	}
 	else if ((cdr.Mode & MODE_REPORT) && !cdr.ReportDelay &&
 		 ((cdr.subq.Absolute[2] & 0x0f) == 0 || cdr.FastForward || cdr.FastBackward))
@@ -710,16 +694,17 @@ static int cdrSeekTime(unsigned char *target)
 
 	// need this stupidly long penalty or else Spyro2 intro desyncs
 	// note: if misapplied this breaks MGS cutscenes among other things
-	if (cyclesSinceRS > cdReadTime * 50)
+	if (cdr.DriveState == DRIVESTATE_PAUSED && cyclesSinceRS > cdReadTime * 50)
 		seekTime += cdReadTime * 25;
 	// Transformers Beast Wars Transmetals does Setloc(x),SeekL,Setloc(x),ReadN
 	// and then wants some slack time
-	else if (cyclesSinceRS < cdReadTime *3/2)
+	else if (cdr.DriveState == DRIVESTATE_PAUSED || cyclesSinceRS < cdReadTime *3/2)
 		seekTime += cdReadTime;
 
 	seekTime = MIN_VALUE(seekTime, PSXCLK * 2 / 3);
-	CDR_LOG("seek: %.2f %.2f (%.2f)\n", (float)seekTime / PSXCLK,
-		(float)seekTime / cdReadTime, (float)cyclesSinceRS / cdReadTime);
+	CDR_LOG("seek: %.2f %.2f (%.2f) st %d\n", (float)seekTime / PSXCLK,
+		(float)seekTime / cdReadTime, (float)cyclesSinceRS / cdReadTime,
+		cdr.DriveState);
 	return seekTime;
 }
 
@@ -797,6 +782,7 @@ void cdrPlayReadInterrupt(void)
 	CDR_LOG("CDDA - %02d:%02d:%02d m %02x\n",
 		cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2], cdr.Mode);
 
+	cdr.DriveState = DRIVESTATE_PLAY_READ;
     SetPlaySeekRead(cdr.StatP, STATUS_PLAY);
 	//if (memcmp(cdr.SetSectorPlay, cdr.SetSectorEnd, 3) == 0) {
 	if (*(u32 *)cdr.SetSectorPlay >= *(u32 *)cdr.SetSectorEnd) {
@@ -804,6 +790,7 @@ void cdrPlayReadInterrupt(void)
 		StopCdda();
 		SetPlaySeekRead(cdr.StatP, 0);
 		cdr.TrackChanged = TRUE;
+		cdr.DriveState = DRIVESTATE_PAUSED;
 	}
 	else {
 		CDR_readCDDA(cdr.SetSectorPlay[0], cdr.SetSectorPlay[1], cdr.SetSectorPlay[2], (u8 *)read_buf);
@@ -827,6 +814,9 @@ void cdrPlayReadInterrupt(void)
 
 	msfiAdd(cdr.SetSectorPlay, 1);
 
+	// Backup location information for CdlGetlocP
+	*((u32*)cdr.SetSectorPlayBak) = *((u32*)cdr.SetSectorPlay);
+
 	CDRPLAYREAD_INT(cdReadTime, 0);
 }
 
@@ -844,6 +834,7 @@ void cdrInterrupt(void) {
 	int read_ok;
 	u16 not_ready = 0;
 	u8 IrqStat = Acknowledge;
+	u8 DriveStateOld;
 	u16 Cmd;
 	int i;
 
@@ -1007,6 +998,7 @@ void cdrInterrupt(void) {
 
 			// BIOS player - set flag again
 			cdr.Play = TRUE;
+			cdr.DriveState = DRIVESTATE_PLAY_READ;
 
 			CDRPLAYREAD_INT(cdReadTime + seekTime, 1);
 			start_rotating = 1;
@@ -1034,6 +1026,7 @@ void cdrInterrupt(void) {
 				error = ERROR_BAD_ARGNUM;
 				goto set_error;
 			}
+			cdr.DriveState = DRIVESTATE_STANDBY;
 			second_resp_time = cdReadTime * 125 / 2;
 			start_rotating = 1;
 			break;
@@ -1059,7 +1052,7 @@ void cdrInterrupt(void) {
 			cdr.LocL[0] = LOCL_INVALID;
 
 			second_resp_time = 0x800;
-			if (cdr.DriveState == DRIVESTATE_STANDBY)
+			if (cdr.DriveState != DRIVESTATE_STOPPED)
 				second_resp_time = cdReadTime * 30 / 2;
 
 			cdr.DriveState = DRIVESTATE_STOPPED;
@@ -1099,9 +1092,26 @@ void cdrInterrupt(void) {
 			}
 			else
 			{
-				second_resp_time = (((cdr.Mode & MODE_SPEED) ? 1 : 2) * 1097107);
+				if (fastLoad)
+				{
+					second_resp_time = cdReadTime;
+				}
+				else
+				{
+					second_resp_time = (((cdr.Mode & MODE_SPEED) ? 1 : 2) * 1097107);
+				}
 			}
 			SetPlaySeekRead(cdr.StatP, 0);
+			DriveStateOld = cdr.DriveState;
+			cdr.DriveState = DRIVESTATE_PAUSED;
+			if (DriveStateOld == DRIVESTATE_SEEK) {
+				// According to Duckstation this fails, but the
+				// exact conditions and effects are not clear.
+				// Moto Racer World Tour seems to rely on this.
+				// For now assume pause works anyway, just errors out.
+				error = ERROR_NOTREADY;
+				goto set_error;
+			}
 			break;
 
 		case CdlPause + CMD_PART2:
@@ -1114,8 +1124,9 @@ void cdrInterrupt(void) {
 			StopReading();
 			SetPlaySeekRead(cdr.StatP, 0);
 			cdr.LocL[0] = LOCL_INVALID;
-			cdr.Muted = FALSE;
 			cdr.Mode = MODE_SIZE_2340; /* This fixes This is Football 2, Pooh's Party lockups */
+			cdr.DriveState = DRIVESTATE_PAUSED;
+			cdr.Muted = FALSE;
 			second_resp_time = not_ready ? 70000 : 4100000;
 			start_rotating = 1;
 			break;
@@ -1167,10 +1178,10 @@ void cdrInterrupt(void) {
 
 		case CdlGetlocP:
 			#ifdef DISP_DEBUG
-			sprintf(txtbuffer, "CdlGetlocP ");
-			DEBUG_print(txtbuffer, DBG_CDR2);
+			//sprintf(txtbuffer, "CdlGetlocP ");
+			//DEBUG_print(txtbuffer, DBG_CDR2);
 			#endif // DISP_DEBUG
-			SetResultSize(8);
+			SetResultSize_(8);
 			//memcpy(&cdr.Result, &cdr.subq, 8);
 			UpdateSubq(cdr.SetSectorPlayBak);
 			*(long long int *)(&cdr.Result) = *(long long int *)(&cdr.subq);
@@ -1189,9 +1200,9 @@ void cdrInterrupt(void) {
 			break;
 
 		case CdlGetTN:
-			if (CDR_getTN(cdr.ResultTN) == -1) {
-				assert(0);
-			}
+			//if (CDR_getTN(cdr.ResultTN) == -1) {
+			//	assert(0);
+			//}
 			SetResultSize_(3);
 			cdr.Result[1] = itob(cdr.ResultTN[0]);
 			cdr.Result[2] = itob(cdr.ResultTN[1]);
@@ -1225,6 +1236,7 @@ void cdrInterrupt(void) {
 				seekTime = cdrSeekTime(cdr.SetSector);
 			}
 			*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
+			cdr.DriveState = DRIVESTATE_SEEK;
 			/*
 			Crusaders of Might and Magic = 0.5x-4x
 			- fix cutscene speech start
@@ -1255,6 +1267,7 @@ void cdrInterrupt(void) {
 				*(long long int *)(&cdr.LocL) = *(long long int *)(buf);
 			//UpdateSubq(cdr.SetSectorPlay);
 			*((u32*)cdr.SetSectorPlayBak) = *((u32*)cdr.SetSectorPlay);
+			cdr.DriveState = DRIVESTATE_STANDBY;
 			cdr.TrackChanged = FALSE;
 			cdr.LastReadSeekCycles = psxRegs.cycle;
 			break;
@@ -1356,6 +1369,11 @@ void cdrInterrupt(void) {
 
 			StopCdda();
 			if (cdr.SetlocPending) {
+				#ifdef DISP_DEBUG
+				//static int cdrSeekTimeCnt = 0;
+				//sprintf(txtbuffer, "CdlRead cdrSeekTime %d ", cdrSeekTimeCnt++);
+				//DEBUG_print(txtbuffer, DBG_CDR1);
+				#endif // DISP_DEBUG
 				seekTime = cdrSeekTime(cdr.SetSector);
 				*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
 				cdr.SetlocPending = 0;
@@ -1371,6 +1389,7 @@ void cdrInterrupt(void) {
 			cdr.LocL[0] = LOCL_INVALID;
 			cdr.SubqForwardSectors = 1;
 			cdr.sectorsRead = 0;
+			cdr.DriveState = DRIVESTATE_SEEK;
 
 			cycles = (cdr.Mode & MODE_SPEED) ? cdReadTime : cdReadTime * 2;
 			if (fastLoad)
@@ -1395,7 +1414,7 @@ void cdrInterrupt(void) {
 			// FALLTHROUGH
 
 		set_error:
-			SetResultSize(2);
+			SetResultSize_(2);
 			cdr.Result[0] = cdr.StatP | STATUS_ERROR;
 			cdr.Result[1] = not_ready ? ERROR_NOTREADY : error;
 			IrqStat = DiskError;
@@ -1527,6 +1546,7 @@ static void cdrReadInterrupt(void)
 
 	// note: CdlGetlocL should work as soon as STATUS_READ is indicated
 	SetPlaySeekRead(cdr.StatP, STATUS_READ | STATUS_ROTATING);
+	cdr.DriveState = DRIVESTATE_PLAY_READ;
 	cdr.sectorsRead++;
 
 	read_ok = ReadTrack(cdr.SetSectorPlay);
@@ -1538,6 +1558,7 @@ static void cdrReadInterrupt(void)
 	if (!read_ok) {
 		CDR_LOG_I("cdrReadInterrupt() Log: err\n");
 		cdrReadInterruptSetResult(cdr.StatP | STATUS_ERROR);
+		cdr.DriveState = DRIVESTATE_PAUSED; // ?
 		return;
 	}
 	//memcpy(cdr.LocL, buf, 8);
@@ -1675,6 +1696,11 @@ void cdrWrite1(unsigned char rt) {
 	cdr.Ctrl |= 0x80;
 
 	if (!cdr.CmdInProgress) {
+		#ifdef DISP_DEBUG
+		sprintf(txtbuffer, "cdrCmd1 %s \r\n", CmdName[rt]);
+		DEBUG_print(txtbuffer, DBG_CDR1);
+		writeLogFile(txtbuffer);
+		#endif // DISP_DEBUG
 		cdr.CmdInProgress = rt;
 		if (rt == CdlPause)
 		{
@@ -1689,6 +1715,11 @@ void cdrWrite1(unsigned char rt) {
 	else {
 		CDR_LOG_I("cmd while busy: %02x, prev %02x, busy %02x\n",
 			rt, cdr.Cmd, cdr.CmdInProgress);
+		#ifdef DISP_DEBUG
+		sprintf(txtbuffer, "cdrCmd2 %s %s \r\n", CmdName[rt], CmdName[cdr.CmdInProgress < 0x100 ? cdr.CmdInProgress : cdr.CmdInProgress - CMD_PART2]);
+		DEBUG_print(txtbuffer, DBG_CDR2);
+		writeLogFile(txtbuffer);
+		#endif // DISP_DEBUG
 		if (cdr.CmdInProgress < 0x100) // no pending 2nd response
 			cdr.CmdInProgress = rt;
 	}
