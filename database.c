@@ -152,11 +152,23 @@ cycle_multiplier_overrides[] =
     /* Digimon World */
     { "SLUS01032", 153 },
     { "SLES02914", 153 },
-	/* Syphon Filter - reportedly hangs under unknown conditions */
-	{ "SCUS94240", 169 },
-	/* Hot Wheels - Turbo Racing for old dynamic compilation core */
-	{ "SLUS00964", 175 },
-	{ "SLES02198", 175 },
+    /* Syphon Filter - reportedly hangs under unknown conditions */
+    { "SCUS94240", 169 },
+    /* Hot Wheels - Turbo Racing - for old dynamic compilation core */
+    { "SLUS00964", 175 },
+    { "SLES02198", 175 },
+    /* Psychic Detective - some weird race condition in the game's cdrom code */
+    { "SLUS00165", 222 },
+    { "SLUS00166", 222 },
+    { "SLUS00167", 222 },
+    { "SLES00070", 222 },
+    { "SLES10070", 222 },
+    { "SLES20070", 222 },
+    /* Zero Divide - sometimes too fast */
+    { "SLUS00183", 200 },
+    { "SLES00159", 200 },
+    { "SLPS00083", 200 },
+    { "SLPM80008", 200 },
 };
 
 static const struct
