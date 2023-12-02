@@ -352,11 +352,14 @@ void Func_SaveGame()
 
 void Func_LoadState()
 {
-  if(LoadState()) {
-    menu::MessageBox::getInstance().setMessage("Save State Loaded Successfully");
-  } else {
-    menu::MessageBox::getInstance().setMessage("Save doesn't exist");
-  }
+    int status = LoadState();
+    if (status == 1) {
+        menu::MessageBox::getInstance().setMessage("Save State Loaded Successfully");
+    } else if (status == -1) {
+        menu::MessageBox::getInstance().setMessage("Unable to read different versions of Save State");
+    } else {
+        menu::MessageBox::getInstance().setMessage("Save doesn't exist");
+    }
 }
 
 void Func_SaveState()

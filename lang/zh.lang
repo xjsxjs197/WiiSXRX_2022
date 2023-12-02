@@ -577,3 +577,6 @@ msgstr "因为语言变更了，请重新启动"
 
 msgid "Separately"
 msgstr "单独保存"
+
+msgid "Unable to read different versions of Save State"
+msgstr "无法读取不同版本的即时存档"
