@@ -44,6 +44,8 @@ static const char * const gpu_busy_hack_db[] =
 {
 	/* ToHeart (Japan) */
 	"SLPS01919", "SLPS01920",
+
+	/*** Database which WiiStation uses for make these games to work with this hack ***/
 	/* Hot Wheels - Turbo Racing */
 	"SLUS00964", "SLES02198",
 	/* FIFA - Road to World Cup '98 */
@@ -53,6 +55,12 @@ static const char * const gpu_busy_hack_db[] =
 	"SLPS01158", "SLPM86861", "SLPM86235",
 	/* The Dukes of Hazzard - Racing for Home */
 	"SLUS00859", "SLES02343",
+};
+
+static const char * const dualshock_timing1024_hack_db[] =
+{
+	/* Judge Dredd - could also be poor cdrom+mdec+dma timing */
+	"SLUS00630", "SLES00755",
 };
 
 // For special game correction
@@ -77,6 +85,7 @@ hack_db[] =
 	HACK_ENTRY(cdr_read_timing, cdr_read_hack_db),
 	HACK_ENTRY(gpu_slow_list_walking, gpu_slow_llist_db),
 	HACK_ENTRY(gpu_busy_hack, gpu_busy_hack_db),
+	HACK_ENTRY(gpu_timing1024, dualshock_timing1024_hack_db),
 };
 
 static const struct
@@ -146,9 +155,6 @@ cycle_multiplier_overrides[] =
     { "SLES01549", 222 },
     { "SLES02063", 222 },
     { "SLES02064", 222 },
-    /* Judge Dredd - could also be poor MDEC timing */
-    { "SLUS00630", 128 },
-    { "SLES00755", 128 },
     /* Digimon World */
     { "SLUS01032", 153 },
     { "SLES02914", 153 },

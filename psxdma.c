@@ -204,10 +204,10 @@ void psxDma2(u32 madr, u32 bcr, u32 chcr) { // GPU
 
 			HW_DMA2_MADR = SWAPu32(madr_next);
 
-			// Tekken 3 = use 1.0 only (not 1.5x)
+			// a hack for Judge Dredd which is annoyingly sensitive to timing
+			if (Config.hacks.gpu_timing1024)
+				size = 1024;
 
-			// Einhander = parse linked list in pieces (todo)
-			// Rebel Assault 2 = parse linked list in pieces (todo)
 			psxRegs.gpuIdleAfter = psxRegs.cycle + size + 16;
 			set_event(PSXINT_GPUDMA, size);
 			return;
