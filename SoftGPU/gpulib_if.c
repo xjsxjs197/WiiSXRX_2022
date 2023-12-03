@@ -266,8 +266,15 @@ void renderer_finish(void)
 {
 }
 
-void renderer_notify_res_change(void)
+void renderer_notify_res_change(uint32_t gdata)
 {
+    if (gdata == 0xffffffff)
+    {
+        return;
+    }
+    PSXDisplay.PAL           = (gdata & 0x08)?TRUE:FALSE; // if 1 - PAL mode, else NTSC
+    PSXDisplay.RGB24      = (gdata & 0x10)?TRUE:FALSE; // if 1 - TrueColor
+    PSXDisplay.Interlaced = ((gdata & 0x24) ^ 0x24)?FALSE:TRUE; // if 0 - Interlace
 }
 
 void renderer_notify_scanout_x_change(int x, int w)
