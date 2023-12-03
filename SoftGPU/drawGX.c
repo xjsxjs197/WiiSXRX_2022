@@ -78,6 +78,8 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt);
 void drawLine(float x1, float y1, float x2, float y2, char r, char g, char b);
 void drawCircle(int x, int y, int radius, int numSegments, char r, char g, char b);
 
+void switchToTVMode(short dWidth, short dHeight, bool retMenu);
+
 static int vsync_enable;
 static int new_frame;
 
@@ -446,6 +448,16 @@ static void gc_vout_flip(const void *vram, int stride, int bgr24,
 	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
 
 	GX_Flip(w, h, vram, stride*2, bgr24 ? GX_TF_RGBA8 : GX_TF_RGB5A3);
+
+	// Check if TVMode needs to be changed (240 or 480 lines)
+	if (originalMode == ORIGINALMODE_ENABLE)
+	{
+		if(backFromMenu)
+		{
+			backFromMenu = 0;
+			switchToTVMode(w, h, 0);
+		}
+	}
 }
 
 static void gc_vout_set_mode(int w, int h, int raw_w, int raw_h, int bpp) {SysPrintf("gc_vout_set_mode\r\n");}

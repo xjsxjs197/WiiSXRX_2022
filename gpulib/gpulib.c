@@ -71,7 +71,7 @@ static noinline void do_reset(void)
   gpu.screen.vres = gpu.screen.h = 240;
   gpu.screen.x = gpu.screen.y = 0;
   renderer_sync_ecmds(gpu.ex_regs);
-  renderer_notify_res_change();
+  renderer_notify_res_change(0xffffffff);
 }
 
 static noinline void update_width(void)
@@ -318,11 +318,14 @@ void LIB_GPUwriteStatus(uint32_t data)
   switch (cmd) {
     case 0x00:
       do_reset();
+      PSXDisplay.Disabled=1;
       break;
     case 0x01:
       do_cmd_reset();
       break;
+    // dis/enable display
     case 0x03:
+      PSXDisplay.Disabled = (data & 1);
       if (data & 1) {
         gpu.status |= PSX_GPU_STATUS_BLANKING;
         gpu.state.dims_changed = 1; // for hud clearing
@@ -330,10 +333,12 @@ void LIB_GPUwriteStatus(uint32_t data)
       else
         gpu.status &= ~PSX_GPU_STATUS_BLANKING;
       break;
+    // setting transfer mode
     case 0x04:
       gpu.status &= ~PSX_GPU_STATUS_DMA_MASK;
       gpu.status |= PSX_GPU_STATUS_DMA(data & 3);
       break;
+    // setting display position
     case 0x05:
       gpu.screen.src_x = data & 0x3ff;
       gpu.screen.src_y = (data >> 10) & 0x1ff;
@@ -346,21 +351,24 @@ void LIB_GPUwriteStatus(uint32_t data)
         }
       }
       break;
+    // setting width
     case 0x06:
       gpu.screen.x1 = data & 0xfff;
       gpu.screen.x2 = (data >> 12) & 0xfff;
       update_width();
       break;
+    // setting height
     case 0x07:
       gpu.screen.y1 = data & 0x3ff;
       gpu.screen.y2 = (data >> 10) & 0x3ff;
       update_height();
       break;
+    // setting display infos
     case 0x08:
       gpu.status = (gpu.status & ~0x7f0000) | ((data & 0x3F) << 17) | ((data & 0x40) << 10);
       update_width();
       update_height();
-      renderer_notify_res_change();
+      renderer_notify_res_change(data);
       break;
     default:
       if ((cmd & 0xf0) == 0x10)
