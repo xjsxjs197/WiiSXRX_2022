@@ -160,9 +160,6 @@ cycle_multiplier_overrides[] =
     { "SLES02914", 153 },
     /* Syphon Filter - reportedly hangs under unknown conditions */
     { "SCUS94240", 169 },
-    /* Hot Wheels - Turbo Racing - for old dynamic compilation core */
-    { "SLUS00964", 175 },
-    { "SLES02198", 175 },
     /* Psychic Detective - some weird race condition in the game's cdrom code */
     { "SLUS00165", 222 },
     { "SLUS00166", 222 },

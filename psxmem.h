@@ -142,11 +142,11 @@ void psxMemReset();
 void psxMemOnIsolate(int enable);
 void psxMemShutdown();
 
-u8   psxMemRead8 (u32 mem);
-u16  psxMemRead16(u32 mem);
-u32  psxMemRead32(u32 mem);
-void psxMemWrite8 (u32 mem, u8 value);
-void psxMemWrite16(u32 mem, u16 value);
+u8 psxMemRead8 (u32 mem);
+u16 psxMemRead16(u32 mem);
+u32 psxMemRead32(u32 mem);
+void psxMemWrite8 (u32 mem, u32 value);
+void psxMemWrite16(u32 mem, u32 value);
 void psxMemWrite32(u32 mem, u32 value);
 void *psxMemPointer(u32 mem);
 

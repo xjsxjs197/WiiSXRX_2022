@@ -312,7 +312,7 @@ u32 psxMemRead32(u32 mem) {
 	}
 }
 
-void psxMemWrite8(u32 mem, u8 value) {
+void psxMemWrite8(u32 mem, u32 value) {
 	u32 t;
 
 	t = mem >> 16;
@@ -336,7 +336,7 @@ void psxMemWrite8(u32 mem, u8 value) {
 	}
 }
 
-void psxMemWrite16(u32 mem, u16 value) {
+void psxMemWrite16(u32 mem, u32 value) {
 	u32 t;
 
 	t = mem >> 16;

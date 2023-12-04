@@ -61,7 +61,8 @@ static u32 cop2readypc = 0;
 static u32 idlecyclecount = 0;
 static iRegisters iRegs[34];
 static iRegisters iRegsTmp[34];
-static s32 cycleMult;
+//static s32 cycleMult;
+#define cycleMult CYCLE_MULT_DEFAULT
 
 int psxCP2time[64] = {
         2 , 16, 1 , 1 , 1 , 1 , 8 , 1 , // 00
@@ -1148,8 +1149,10 @@ static void recNotify(enum R3000Anote note, void *data) {
 }
 
 static void recApplyConfig() {
-    cycleMult = Config.cycle_multiplier_override && Config.cycle_multiplier == CYCLE_MULT_DEFAULT
-        ? Config.cycle_multiplier_override : 200;
+    // For the old dynamic compilation core, use fixed Cycles (CYCLE_MULT_DEFAULT)
+    // and multipliers_override hack is applied to the timer 2
+    //cycleMult = Config.cycle_multiplier_override && Config.cycle_multiplier == CYCLE_MULT_DEFAULT
+    //    ? Config.cycle_multiplier_override : CYCLE_MULT_DEFAULT;
 }
 
 static void recShutdown() {
@@ -2110,15 +2113,16 @@ static void preMemWrite(int size)
 	if (rs != 3 || _Imm_ != 0) {
 		ADDI(PutHWRegSpecial(ARG1), rs, _Imm_);
 	}
-	if (size == 1) {
-		RLWINM(PutHWRegSpecial(ARG2), GetHWReg32(_Rt_), 0, 24, 31);
-		//ANDI_(PutHWRegSpecial(ARG2), GetHWReg32(_Rt_), 0xff);
-	} else if (size == 2) {
-		RLWINM(PutHWRegSpecial(ARG2), GetHWReg32(_Rt_), 0, 16, 31);
-		//ANDI_(PutHWRegSpecial(ARG2), GetHWReg32(_Rt_), 0xffff);
-	} else {
-		MR(PutHWRegSpecial(ARG2), GetHWReg32(_Rt_));
-	}
+//	if (size == 1) {
+//		RLWINM(PutHWRegSpecial(ARG2), GetHWReg32(_Rt_), 0, 24, 31);
+//		//ANDI_(PutHWRegSpecial(ARG2), GetHWReg32(_Rt_), 0xff);
+//	} else if (size == 2) {
+//		RLWINM(PutHWRegSpecial(ARG2), GetHWReg32(_Rt_), 0, 16, 31);
+//		//ANDI_(PutHWRegSpecial(ARG2), GetHWReg32(_Rt_), 0xffff);
+//	} else {
+//		MR(PutHWRegSpecial(ARG2), GetHWReg32(_Rt_));
+//	}
+    MR(PutHWRegSpecial(ARG2), GetHWReg32(_Rt_));
 
 	InvalidateCPURegs();
 	//FlushAllHWReg();

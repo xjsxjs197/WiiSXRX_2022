@@ -132,7 +132,7 @@ u8 psxHwRead8(u32 add) {
         case 0x1802: hard = cdrRead2(); break;
         case 0x1803: hard = cdrRead3(); break;
         default:
-            if (chkAddr >= 0x1c00 && chkAddr < 0x2000) {
+            if (0x1f801c00 <= add && add < 0x1f802000) {
                 u16 val = SPU_readRegister(add & ~1);
                 hard = (add & 1) ? val >> 8 : val;
                 break;
@@ -262,7 +262,7 @@ u16 psxHwRead16(u32 add) {
         //case 0x2040: hard =//dip switches...??
 
         default:
-            if (chkAddr >= 0x1c00 && chkAddr < 0x2000) {
+            if (0x1f801c00 <= add && add < 0x1f802000) {
                 hard = SPU_readRegister(add);
             } else {
                 hard = LOAD_SWAP16p(psxHAddr(add));
@@ -416,7 +416,7 @@ u32 psxHwRead32(u32 add) {
             return hard;
 
         default:
-            if (chkAddr >= 0x1c00 && chkAddr < 0x2000) {
+            if (0x1f801c00 <= add && add < 0x1f802000) {
                 hard = SPU_readRegister(add);
                 hard |= SPU_readRegister(add + 2) << 16;
                 return hard;
@@ -434,7 +434,7 @@ u32 psxHwRead32(u32 add) {
     return hard;
 }
 
-void psxHwWrite8(u32 add, u8 value) {
+void psxHwWrite8(u32 add, u32 value) {
     u32 chkAddr = add & 0xffff;
     switch (chkAddr) {
         case 0x1040: sioWrite8(value); break;
@@ -445,7 +445,7 @@ void psxHwWrite8(u32 add, u8 value) {
         case 0x1803: cdrWrite3(value); break;
 
         default:
-            if (chkAddr >= 0x1c00 && chkAddr < 0x2000) {
+            if (0x1f801c00 <= add && add < 0x1f802000) {
                 if (!(add & 1))
                     SPU_writeRegister(add, value, psxRegs.cycle);
                 return;
@@ -462,7 +462,7 @@ void psxHwWrite8(u32 add, u8 value) {
 #endif
 }
 
-void psxHwWrite16(u32 add, u16 value) {
+void psxHwWrite16(u32 add, u32 value) {
 
     u32 chkAddr = add & 0xffff;
     u16 tmpVal;
@@ -509,6 +509,11 @@ void psxHwWrite16(u32 add, u16 value) {
             PSXHW_LOG("IREG 16bit write %x\n", value);
 #endif
             //psxHwWriteIstat(value);
+            #ifdef DISP_DEBUG
+            sprintf(txtbuffer, "W1070_16 %08x \r\n", value);
+            DEBUG_print(txtbuffer, DBG_GPU1);
+            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
             tmpVal = LOAD_SWAP16p(psxHAddr(0x1070));
             tmpVal &= value;
             STORE_SWAP16p(psxHAddr(0x1070), tmpVal);
@@ -522,6 +527,11 @@ void psxHwWrite16(u32 add, u16 value) {
             PSXHW_LOG("IMASK 16bit write %x\n", value);
 #endif
             //psxHwWriteImask(value);
+            #ifdef DISP_DEBUG
+            sprintf(txtbuffer, "W1074_16 %08x \r\n", value);
+            DEBUG_print(txtbuffer, DBG_GPU2);
+            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
             psxHu16ref(0x1074) = SWAPu16(value);
             if (psxHu16ref(0x1070) & SWAPu16(value))
                 set_event(PSXINT_NEWDRC_CHECK, 1);
@@ -579,7 +589,7 @@ void psxHwWrite16(u32 add, u16 value) {
             psxRcntWtarget(2, value); return;
 
         default:
-            if (chkAddr >= 0x1c00 && chkAddr < 0x2000) {
+            if (0x1f801c00 <= add && add < 0x1f802000) {
                 SPU_writeRegister(add, value, psxRegs.cycle);
                 return;
             }
@@ -634,6 +644,11 @@ void psxHwWrite32(u32 add, u32 value) {
             //if (Config.Sio) psxHu32ref(0x1070) |= SWAPu32(0x80);
             //if (Config.SpuIrq) psxHu32ref(0x1070) |= SWAPu32(0x200);
             //psxHwWriteIstat(value);
+            #ifdef DISP_DEBUG
+            sprintf(txtbuffer, "W1070_32 %08x \r\n", value);
+            DEBUG_print(txtbuffer, DBG_GPU1);
+            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
             tmpVal = LOAD_SWAP32p(psxHAddr(0x1070));
             tmpVal &= value;
             STORE_SWAP32p(psxHAddr(0x1070), tmpVal);
@@ -646,6 +661,11 @@ void psxHwWrite32(u32 add, u32 value) {
             PSXHW_LOG("IMASK 32bit write %lx\n", value);
 #endif
             //psxHwWriteImask(value);
+            #ifdef DISP_DEBUG
+            sprintf(txtbuffer, "W1074_32 %08x \r\n", value);
+            DEBUG_print(txtbuffer, DBG_GPU2);
+            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
             psxHu32ref(0x1074) = SWAPu32(value);
             if (psxHu32ref(0x1070) & SWAPu32(value))
                 set_event(PSXINT_NEWDRC_CHECK, 1);
@@ -842,8 +862,7 @@ void psxHwWrite32(u32 add, u32 value) {
             psxRcntWtarget(2, value & 0xffff); return;
 
         default:
-            // Dukes of Hazard 2 - car engine noise
-            if (chkAddr >= 0x1c00 && chkAddr < 0x2000) {
+            if (0x1f801c00 <= add && add < 0x1f802000) {
                 #ifdef SHOW_DEBUG
                 sprintf(txtbuffer, "HwWrite32 spu %08x %08x", add, value);
                 DEBUG_print(txtbuffer, DBG_GPU3);

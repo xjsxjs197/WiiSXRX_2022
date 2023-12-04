@@ -497,6 +497,14 @@ u32 psxRcntRcount( u32 index )
     else
     {
         count = _psxRcntRcount( index );
+        // For the old dynamic compilation core,
+        // and multipliers_override hack is applied to the timer 2
+        if (Config.Cpu == DYNACORE_DYNAREC_OLD
+            && index == 2 && rcnts[2].counterState == CountToTarget
+            && Config.cycle_multiplier_override)
+        {
+            count = count * Config.cycle_multiplier_override / 200;
+        }
     }
 
     //verboseLog( 2, "[RCNT %i] rcount: %x\n", index, count );
