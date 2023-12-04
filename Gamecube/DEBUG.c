@@ -28,29 +28,29 @@ extern u32 dyna_total;
 extern long long gettime();
 extern unsigned int diff_sec(long long start,long long end);
 static void check_heap_space(void){
-	sprintf(txtbuffer,"%dKB MEM1 available", SYS_GetArena1Size() >> 10);
-	DEBUG_print(txtbuffer, DBG_MEMFREEINFO);
+    sprintf(txtbuffer,"%dKB MEM1 available", SYS_GetArena1Size() >> 10);
+    DEBUG_print(txtbuffer, DBG_MEMFREEINFO);
 
-	//sprintf(txtbuffer,"Dynarec (KB) %05d/%05d", dyna_used, dyna_total >> 10);
-	//DEBUG_print(txtbuffer, DBG_CORE1);
+    //sprintf(txtbuffer,"Dynarec (KB) %05d/%05d", dyna_used, dyna_total >> 10);
+    //DEBUG_print(txtbuffer, DBG_CORE1);
 
-	//sprintf(txtbuffer,"DSP is at %f%%",AESND_GetDSPProcessUsage());
-	//DEBUG_print(txtbuffer,DBG_CORE2);
+    //sprintf(txtbuffer,"DSP is at %f%%",AESND_GetDSPProcessUsage());
+    //DEBUG_print(txtbuffer,DBG_CORE2);
 }
 #endif
 
 void DEBUG_update() {
-	#ifdef SHOW_DEBUG
-	int i;
-	long long nowTick = gettime();
-	for(i=0; i<DEBUG_TEXT_HEIGHT; i++){
-		if(diff_sec(texttimes[i],nowTick)>=DEBUG_STRING_LIFE)
-		{
-			memset(text[i],0,DEBUG_TEXT_WIDTH);
-		}
-	}
-	check_heap_space();
-	#endif
+    #ifdef SHOW_DEBUG
+    int i;
+    long long nowTick = gettime();
+    for(i=0; i<DEBUG_TEXT_HEIGHT; i++){
+        if(diff_sec(texttimes[i],nowTick)>=DEBUG_STRING_LIFE)
+        {
+            memset(text[i],0,DEBUG_TEXT_WIDTH);
+        }
+    }
+    check_heap_space();
+    #endif
 }
 
 int flushed = 0;
@@ -62,15 +62,17 @@ FILE* fdebug = NULL;
 
 static FILE* fdebugLog = NULL;
 static char *debugLogFile = "sd:/wiisxrx/debugLog.txt";
-static bool canWriteLog = true;
+bool canWriteLog = false;
 
 void openLogFile() {
+    if (!canWriteLog) return;
     if (!fdebugLog) {
         fdebugLog = fopen(debugLogFile, "a+");
     }
 }
 
 void closeLogFile() {
+    if (!canWriteLog) return;
     if (fdebugLog) {
         fclose(fdebugLog);
         fdebugLog = NULL;
@@ -78,6 +80,8 @@ void closeLogFile() {
 }
 
 void writeLogFile(char* string) {
+    if (!canWriteLog) return;
+
     closeLogFile();
 
     openLogFile();
@@ -96,53 +100,53 @@ void printFunctionName() {
 
 void DEBUG_print(char* string,int pos){
 
-	#ifdef SHOW_DEBUG
-		if(pos == DBG_USBGECKO) {
-			#ifdef PRINTGECKO
-			if(!flushed){
-				usb_flush(1);
-				flushed = 1;
-			}
-			int size = strlen(string);
-			usb_sendbuffer_safe(1, &size,4);
-			usb_sendbuffer_safe(1, string,size);
-			#endif
-		}
-		else if(pos == DBG_SDGECKOOPEN) {
+    #ifdef SHOW_DEBUG
+        if(pos == DBG_USBGECKO) {
+            #ifdef PRINTGECKO
+            if(!flushed){
+                usb_flush(1);
+                flushed = 1;
+            }
+            int size = strlen(string);
+            usb_sendbuffer_safe(1, &size,4);
+            usb_sendbuffer_safe(1, string,size);
+            #endif
+        }
+        else if(pos == DBG_SDGECKOOPEN) {
 #ifdef SDPRINT
-			if(!f && printToSD)
-				fdebug = fopen( dump_filename, "wb" );
+            if(!f && printToSD)
+                fdebug = fopen( dump_filename, "wb" );
 #endif
-		}
-		else if(pos == DBG_SDGECKOAPPEND) {
+        }
+        else if(pos == DBG_SDGECKOAPPEND) {
 #ifdef SDPRINT
-			if(!fdebug && printToSD)
-				fdebug = fopen( dump_filename, "ab" );
+            if(!fdebug && printToSD)
+                fdebug = fopen( dump_filename, "ab" );
 #endif
-		}
-		else if(pos == DBG_SDGECKOCLOSE) {
+        }
+        else if(pos == DBG_SDGECKOCLOSE) {
 #ifdef SDPRINT
-			if(fdebug)
-			{
-				fclose(fdebug);
-				fdebug = NULL;
-			}
+            if(fdebug)
+            {
+                fclose(fdebug);
+                fdebug = NULL;
+            }
 #endif
-		}
-		else if(pos == DBG_SDGECKOPRINT) {
+        }
+        else if(pos == DBG_SDGECKOPRINT) {
 #ifdef SDPRINT
-			if(!f || (printToSD == 0))
-				return;
-			fwrite(string, 1, strlen(string), f);
+            if(!f || (printToSD == 0))
+                return;
+            fwrite(string, 1, strlen(string), f);
 #endif
-		}
-		else {
-			memset(text[pos],0,DEBUG_TEXT_WIDTH);
-			strncpy(text[pos], string, DEBUG_TEXT_WIDTH);
-			memset(text[DEBUG_TEXT_WIDTH-1],0,1);
-			texttimes[pos] = gettime();
-		}
-	#endif
+        }
+        else {
+            memset(text[pos],0,DEBUG_TEXT_WIDTH);
+            strncpy(text[pos], string, DEBUG_TEXT_WIDTH);
+            memset(text[DEBUG_TEXT_WIDTH-1],0,1);
+            texttimes[pos] = gettime();
+        }
+    #endif
 
 }
 
@@ -152,28 +156,28 @@ unsigned int stats_buffer[MAX_STATS];
 unsigned int avge_counter[MAX_STATS];
 void DEBUG_stats(int stats_id, char *info, unsigned int stats_type, unsigned int adjustment_value)
 {
-	#ifdef SHOW_DEBUG
-	switch(stats_type)
-	{
-		case STAT_TYPE_ACCUM:	//accumulate
-			stats_buffer[stats_id] += adjustment_value;
-			break;
-		case STAT_TYPE_AVGE:	//average
-			avge_counter[stats_id] += 1;
-			stats_buffer[stats_id] += adjustment_value;
-			break;
-		case STAT_TYPE_CLEAR:
-			if(stats_type & STAT_TYPE_AVGE)
-				avge_counter[stats_id] = 0;
-			stats_buffer[stats_id] = 0;
-			break;
+    #ifdef SHOW_DEBUG
+    switch(stats_type)
+    {
+        case STAT_TYPE_ACCUM:    //accumulate
+            stats_buffer[stats_id] += adjustment_value;
+            break;
+        case STAT_TYPE_AVGE:    //average
+            avge_counter[stats_id] += 1;
+            stats_buffer[stats_id] += adjustment_value;
+            break;
+        case STAT_TYPE_CLEAR:
+            if(stats_type & STAT_TYPE_AVGE)
+                avge_counter[stats_id] = 0;
+            stats_buffer[stats_id] = 0;
+            break;
 
-	}
-	unsigned int value = stats_buffer[stats_id];
-	if(stats_type == STAT_TYPE_AVGE) value /= avge_counter[stats_id];
+    }
+    unsigned int value = stats_buffer[stats_id];
+    if(stats_type == STAT_TYPE_AVGE) value /= avge_counter[stats_id];
 
-	sprintf(txtbuffer,"%s [ %u ]", info, value);
-	DEBUG_print(txtbuffer,DBG_STATSBASE+stats_id);
-	#endif
+    sprintf(txtbuffer,"%s [ %u ]", info, value);
+    DEBUG_print(txtbuffer,DBG_STATSBASE+stats_id);
+    #endif
 }
 
