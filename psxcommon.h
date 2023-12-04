@@ -128,6 +128,7 @@ typedef struct {
 		bool cdr_read_timing;
 		bool gpu_slow_list_walking;
 		bool gpu_busy_hack;
+		bool gpu_timing1024;
 		// variable for see if game has special correction (dwActFixes) autoFix
 		unsigned long dwActFixes;
 		// variable for see if game uses hacks from Lightrec
