@@ -1181,8 +1181,6 @@ void cdrInterrupt(void) {
 			//memcpy(&cdr.Result, &cdr.subq, 8);
 			UpdateSubq(cdr.SetSectorPlayBak);
 			*(long long int *)(&cdr.Result) = *(long long int *)(&cdr.subq);
-			if (!cdr.Play && !cdr.Reading)
-				cdr.Result[1] = 0; // HACK?
 			break;
 
 		case CdlReadT: // SetSession?
@@ -1196,9 +1194,9 @@ void cdrInterrupt(void) {
 			break;
 
 		case CdlGetTN:
-			//if (CDR_getTN(cdr.ResultTN) == -1) {
-			//	assert(0);
-			//}
+			if (CDR_getTN(cdr.ResultTN) == -1) {
+				assert(0);
+			}
 			SetResultSize_(3);
 			cdr.Result[1] = itob(cdr.ResultTN[0]);
 			cdr.Result[2] = itob(cdr.ResultTN[1]);
