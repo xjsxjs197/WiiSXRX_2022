@@ -235,7 +235,7 @@ typedef struct
  int           * SSumLR;
 
  void (CALLBACK *irqCallback)(int);
- void (CALLBACK *cddavCallback)(unsigned short,unsigned short);
+ //void (CALLBACK *cddavCallback)(short, short);
  void (CALLBACK *scheduleCallback)(unsigned int);
 
  const xa_decode_t * xapGlobal;

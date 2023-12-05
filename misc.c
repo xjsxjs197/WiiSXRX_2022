@@ -206,11 +206,6 @@ int LoadCdrom() {
 	u8 time[4], *buf;
 	u8 mdir[4096];
 
-    // restore swapIso status
-    if (swapIso) {
-        swapIso = false;
-    }
-
 	if (!Config.HLE) {
 		if (psxRegs.pc != 0x80030000) // BiosBootBypass'ed or custom BIOS?
 			return 0;

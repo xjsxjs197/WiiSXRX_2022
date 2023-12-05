@@ -20,6 +20,10 @@
 #ifndef __PLUGINS_H__
 #define __PLUGINS_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "psxcommon.h"
 #include "spu.h"
 
@@ -47,21 +51,18 @@ typedef unsigned long (CALLBACK* PSEgetLibType)(void);
 typedef unsigned long (CALLBACK* PSEgetLibVersion)(void);
 typedef char *(CALLBACK* PSEgetLibName)(void);
 
-///GPU PLUGIN STUFF
+// GPU Functions
 typedef long (CALLBACK* GPUinit)(void);
 typedef long (CALLBACK* GPUshutdown)(void);
 typedef long (CALLBACK* GPUclose)(void);
 typedef void (CALLBACK* GPUwriteStatus)(uint32_t);
 typedef void (CALLBACK* GPUwriteData)(uint32_t);
-typedef void (CALLBACK* GPUwriteDataMem)(unsigned long *, int);
+typedef void (CALLBACK* GPUwriteDataMem)(uint32_t *, int);
 typedef uint32_t (CALLBACK* GPUreadStatus)(void);
 typedef uint32_t (CALLBACK* GPUreadData)(void);
 typedef void (CALLBACK* GPUreadDataMem)(uint32_t *, int);
 typedef long (CALLBACK* GPUdmaChain)(uint32_t *,uint32_t, uint32_t *);
 typedef void (CALLBACK* GPUupdateLace)(void);
-typedef long (CALLBACK* GPUconfigure)(void);
-typedef long (CALLBACK* GPUtest)(void);
-typedef void (CALLBACK* GPUabout)(void);
 typedef void (CALLBACK* GPUmakeSnapshot)(void);
 typedef void (CALLBACK* GPUkeypressed)(int);
 typedef void (CALLBACK* GPUdisplayText)(char *);
@@ -75,16 +76,13 @@ typedef struct GPUFREEZETAG
 typedef long (CALLBACK* GPUfreeze)(uint32_t, GPUFreeze_t *);
 typedef long (CALLBACK* GPUgetScreenPic)(unsigned char *);
 typedef long (CALLBACK* GPUshowScreenPic)(unsigned char *);
-typedef void (CALLBACK* GPUclearDynarec)(void (CALLBACK *callback)(void));
 typedef void (CALLBACK* GPUvBlank)(int, int);
+typedef void (CALLBACK* GPUgetScreenInfo)(int *, int *);
 
 // GPU function pointers
 extern GPUupdateLace    GPU_updateLace;
 extern GPUinit          GPU_init;
 extern GPUshutdown      GPU_shutdown; 
-extern GPUconfigure     GPU_configure;
-extern GPUtest          GPU_test;
-extern GPUabout         GPU_about;
 extern GPUopen          GPU_open;
 extern GPUclose         GPU_close;
 extern GPUreadStatus    GPU_readStatus;
@@ -100,8 +98,8 @@ extern GPUmakeSnapshot  GPU_makeSnapshot;
 extern GPUfreeze        GPU_freeze;
 extern GPUgetScreenPic  GPU_getScreenPic;
 extern GPUshowScreenPic GPU_showScreenPic;
-extern GPUclearDynarec  GPU_clearDynarec;
 extern GPUvBlank        GPU_vBlank;
+extern GPUgetScreenInfo GPU_getScreenInfo;
 
 // CD-ROM Functions
 typedef long (CALLBACK* CDRinit)(void);
@@ -167,32 +165,13 @@ long CALLBACK CDR__getStatus(struct CdrStat *stat);
 typedef long (CALLBACK* SPUinit)(void);
 typedef long (CALLBACK* SPUshutdown)(void);
 typedef long (CALLBACK* SPUclose)(void);
-typedef void (CALLBACK* SPUplaySample)(unsigned char);
-typedef void (CALLBACK* SPUstartChannels1)(unsigned short);
-typedef void (CALLBACK* SPUstartChannels2)(unsigned short);
-typedef void (CALLBACK* SPUstopChannels1)(unsigned short);
-typedef void (CALLBACK* SPUstopChannels2)(unsigned short);
-typedef void (CALLBACK* SPUputOne)(uint32_t,unsigned short);
-typedef unsigned short (CALLBACK* SPUgetOne)(uint32_t);
-typedef void (CALLBACK* SPUsetAddr)(unsigned char, unsigned short);
-typedef void (CALLBACK* SPUsetPitch)(unsigned char, unsigned short);
-typedef void (CALLBACK* SPUsetVolumeL)(unsigned char, short );
-typedef void (CALLBACK* SPUsetVolumeR)(unsigned char, short );
-//psemu pro 2 functions from now..
 typedef void (CALLBACK* SPUwriteRegister)(unsigned long, unsigned short, unsigned int);
 typedef unsigned short (CALLBACK* SPUreadRegister)(unsigned long);
-typedef void (CALLBACK* SPUwriteDMA)(unsigned short);
-typedef unsigned short (CALLBACK* SPUreadDMA)(void);
 typedef void (CALLBACK* SPUwriteDMAMem)(unsigned short *, int, unsigned int);
 typedef void (CALLBACK* SPUreadDMAMem)(unsigned short *, int, unsigned int);
 typedef void (CALLBACK* SPUplayADPCMchannel)(xa_decode_t *, unsigned int, int);
-typedef int (CALLBACK* SPUplayCDDAchannel)(short *pcm, int nbytes, unsigned int, int);
 typedef void (CALLBACK* SPUregisterCallback)(void (CALLBACK *callback)(int));
 typedef void (CALLBACK* SPUregisterScheduleCb)(void (CALLBACK *callback)(unsigned int));
-typedef void (CALLBACK* SPUregisterCDDAVolume)(void (*CDDAVcallback)(unsigned short,unsigned short));
-typedef long (CALLBACK* SPUconfigure)(void);
-typedef long (CALLBACK* SPUtest)(void);
-typedef void (CALLBACK* SPUabout)(void);
 typedef struct
 {
  char          szSPUName[8];
@@ -204,20 +183,16 @@ typedef struct
 } SPUFreeze_t;
 typedef long (CALLBACK* SPUfreeze)(uint32_t, SPUFreeze_t *, uint32_t);
 typedef void (CALLBACK* SPUasync)(uint32_t, uint32_t, uint32_t);
+typedef int  (CALLBACK* SPUplayCDDAchannel)(short *, int, unsigned int, int);
+typedef void (CALLBACK* SPUsetCDvol)(unsigned char, unsigned char, unsigned char, unsigned char, unsigned int);
 
 // SPU function pointers
-extern SPUconfigure        SPU_configure;
-extern SPUabout            SPU_about;
 extern SPUinit             SPU_init;
 extern SPUshutdown         SPU_shutdown;
-extern SPUtest             SPU_test;
 extern SPUopen             SPU_open;
 extern SPUclose            SPU_close;
-extern SPUplaySample       SPU_playSample;
 extern SPUwriteRegister    SPU_writeRegister;
 extern SPUreadRegister     SPU_readRegister;
-extern SPUwriteDMA         SPU_writeDMA;
-extern SPUreadDMA          SPU_readDMA;
 extern SPUwriteDMAMem      SPU_writeDMAMem;
 extern SPUreadDMAMem       SPU_readDMAMem;
 extern SPUplayADPCMchannel SPU_playADPCMchannel;
@@ -226,6 +201,7 @@ extern SPUregisterCallback SPU_registerCallback;
 extern SPUregisterScheduleCb SPU_registerScheduleCb;
 extern SPUasync            SPU_async;
 extern SPUplayCDDAchannel  SPU_playCDDAchannel;
+extern SPUsetCDvol         SPU_setCDvol;
 
 // PAD Functions
 typedef long (CALLBACK* PADconfigure)(void);
@@ -334,5 +310,8 @@ int LoadNETplugin(char *NETdll);
 
 void CALLBACK clearDynarec(void);
 
-#endif /* __PLUGINS_H__ */
+#ifdef __cplusplus
+}
+#endif
+#endif
 

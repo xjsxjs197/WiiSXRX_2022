@@ -69,7 +69,7 @@ void psxDma4(u32 madr, u32 bcr, u32 chcr) { // SPU
 			// This should be much slower, like 12+ cycles/byte, it's like
 			// that because the CPU runs too fast and fifo is not emulated.
 			// See also set_dma_end().
-			set_event(PSXINT_SPUDMA, words * 4);
+			set_event(PSXINT_SPUDMA, words * 4 * 4);
 			return;
 
 		case 0x01000200: //spu to cpu transfer
@@ -81,7 +81,7 @@ void psxDma4(u32 madr, u32 bcr, u32 chcr) { // SPU
 
 			//HW_DMA4_MADR = SWAPu32(madr + words_copy * 4);
 			STORE_SWAP32p(psxHAddr(0x10c0), madr + (words << 2));
-			set_event(PSXINT_SPUDMA, words * 4);
+			set_event(PSXINT_SPUDMA, words * 4 * 4);
 			return;
 
 		default:

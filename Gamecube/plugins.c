@@ -40,16 +40,13 @@ static signed long long cdOpenCaseTime = 0;
 
 GPUupdateLace         GPU_updateLace;
 GPUinit               GPU_init;
-GPUshutdown           GPU_shutdown; 
-GPUconfigure          GPU_configure;
-GPUtest               GPU_test;
-GPUabout              GPU_about;
+GPUshutdown           GPU_shutdown;
 GPUopen               GPU_open;
 GPUclose              GPU_close;
 GPUreadStatus         GPU_readStatus;
 GPUreadData           GPU_readData;
 GPUreadDataMem        GPU_readDataMem;
-GPUwriteStatus        GPU_writeStatus; 
+GPUwriteStatus        GPU_writeStatus;
 GPUwriteData          GPU_writeData;
 GPUwriteDataMem       GPU_writeDataMem;
 GPUdmaChain           GPU_dmaChain;
@@ -59,13 +56,13 @@ GPUmakeSnapshot       GPU_makeSnapshot;
 GPUfreeze             GPU_freeze;
 GPUgetScreenPic       GPU_getScreenPic;
 GPUshowScreenPic      GPU_showScreenPic;
-GPUclearDynarec       GPU_clearDynarec;
 GPUvBlank             GPU_vBlank;
+GPUgetScreenInfo      GPU_getScreenInfo;
 
 CDRinit               CDR_init;
 CDRshutdown           CDR_shutdown;
 CDRopen               CDR_open;
-CDRclose              CDR_close; 
+CDRclose              CDR_close;
 CDRtest               CDR_test;
 CDRgetTN              CDR_getTN;
 CDRgetTD              CDR_getTD;
@@ -82,18 +79,12 @@ CDRsetfilename        CDR_setfilename;
 CDRreadCDDA           CDR_readCDDA;
 CDRgetTE              CDR_getTE;
 
-SPUconfigure          SPU_configure;
-SPUabout              SPU_about;
 SPUinit               SPU_init;
 SPUshutdown           SPU_shutdown;
-SPUtest               SPU_test;
 SPUopen               SPU_open;
 SPUclose              SPU_close;
-SPUplaySample         SPU_playSample;
 SPUwriteRegister      SPU_writeRegister;
 SPUreadRegister       SPU_readRegister;
-SPUwriteDMA           SPU_writeDMA;
-SPUreadDMA            SPU_readDMA;
 SPUwriteDMAMem        SPU_writeDMAMem;
 SPUreadDMAMem         SPU_readDMAMem;
 SPUplayADPCMchannel   SPU_playADPCMchannel;
@@ -102,6 +93,7 @@ SPUregisterCallback   SPU_registerCallback;
 SPUregisterScheduleCb SPU_registerScheduleCb;
 SPUasync              SPU_async;
 SPUplayCDDAchannel    SPU_playCDDAchannel;
+SPUsetCDvol           SPU_setCDvol;
 
 PADconfigure          PAD1_configure;
 PADabout              PAD1_about;
@@ -134,7 +126,7 @@ PADsetSensitive       PAD2_setSensitive;
 NETinit               NET_init;
 NETshutdown           NET_shutdown;
 NETopen               NET_open;
-NETclose              NET_close; 
+NETclose              NET_close;
 NETtest               NET_test;
 NETconfigure          NET_configure;
 NETabout              NET_about;
@@ -176,14 +168,12 @@ void CALLBACK GPU__displayText(char *pText) {
 }
 #endif
 
-long CALLBACK GPU__configure(void) { return 0; }
-long CALLBACK GPU__test(void) { return 0; }
-void CALLBACK GPU__about(void) {}
 void CALLBACK GPU__makeSnapshot(void) {}
 void CALLBACK GPU__keypressed(int key) {}
 long CALLBACK GPU__getScreenPic(unsigned char *pMem) { return -1; }
 long CALLBACK GPU__showScreenPic(unsigned char *pMem) { return -1; }
-void CALLBACK GPU__clearDynarec(void (CALLBACK *callback)(void)) { }
+void CALLBACK GPU__vBlank(int val) {}
+void CALLBACK GPU__getScreenInfo(int *y, int *base_hres) {}
 
 #define LoadGpuSym1(dest, name) \
 	LoadSym(GPU_##dest, GPU##dest, name, 1);
@@ -200,7 +190,6 @@ int LoadGPUplugin(char *GPUdll) {
 
 	hGPUDriver = SysLoadLibrary(GPUdll);
 	if (hGPUDriver == NULL) {
-		GPU_configure = NULL;
 		SysPrintf ("Could Not Load GPU Plugin %s\n", GPUdll); return -1;
 	}
 //	SysPrintf ("hGPUDriver = %d\n", hGPUDriver);
@@ -223,10 +212,6 @@ int LoadGPUplugin(char *GPUdll) {
 	LoadGpuSym1(freeze, "GPUfreeze");
 	LoadGpuSym0(getScreenPic, "GPUgetScreenPic");
 	LoadGpuSym0(showScreenPic, "GPUshowScreenPic");
-	LoadGpuSym0(clearDynarec, "GPUclearDynarec");
-	LoadGpuSym0(configure, "GPUconfigure");
-	LoadGpuSym0(test, "GPUtest");
-	LoadGpuSym0(about, "GPUabout");
 
 	return 0;
 }
@@ -276,11 +261,8 @@ long CALLBACK CDR__getStatus(struct CdrStat *stat) {
 
 	return 0;
 }
+
 char* CALLBACK CDR__getDriveLetter(void) { return NULL; }
-//unsigned char* CALLBACK CDR__getBufferSub(void) { return NULL; }
-long CALLBACK CDR__configure(void) { return 0; }
-long CALLBACK CDR__test(void) { return 0; }
-void CALLBACK CDR__about(void) {}
 
 #define LoadCdrSym1(dest, name) \
 	LoadSym(CDR_##dest, CDR##dest, name, 1);
@@ -302,7 +284,6 @@ int LoadCDRplugin(char *CDRdll) {
 
 	hCDRDriver = SysLoadLibrary(CDRdll);
 	if (hCDRDriver == NULL) {
-		CDR_configure = NULL;
 		SysPrintf ("Could Not load CDR plugin %s\n", CDRdll);  return -1;
 	}
 	drv = hCDRDriver;
@@ -314,23 +295,17 @@ int LoadCDRplugin(char *CDRdll) {
 	LoadCdrSym1(getTD, "CDRgetTD");
 	LoadCdrSym1(readTrack, "CDRreadTrack");
 	LoadCdrSym1(getBuffer, "CDRgetBuffer");
-	LoadCdrSym1(play, "CDRplay");
-	LoadCdrSym1(stop, "CDRstop");
-	LoadCdrSym1(getStatus, "CDRgetStatus");
-	LoadCdrSym0(getDriveLetter, "CDRgetDriveLetter");
 	LoadCdrSym1(getBufferSub, "CDRgetBufferSub");
-	LoadCdrSym0(configure, "CDRconfigure");
-	LoadCdrSym0(test, "CDRtest");
-	LoadCdrSym0(about, "CDRabout");
+	LoadCdrSym0(play, "CDRplay");
+	LoadCdrSym0(stop, "CDRstop");
+	LoadCdrSym0(getStatus, "CDRgetStatus");
+	LoadCdrSym0(getDriveLetter, "CDRgetDriveLetter");
+    LoadCdrSymN(readCDDA, "CDRreadCDDA");
 
 	return 0;
 }
 
 void *hSPUDriver;
-
-long CALLBACK SPU__configure(void) { return 0; }
-void CALLBACK SPU__about(void) {}
-long CALLBACK SPU__test(void) { return 0; }
 
 #define LoadSpuSym1(dest, name) \
 	LoadSym(SPU_##dest, SPU##dest, name, 1);
@@ -354,7 +329,6 @@ int LoadSPUplugin(char *SPUdll) {
 
 	hSPUDriver = SysLoadLibrary(SPUdll);
 	if (hSPUDriver == NULL) {
-		SPU_configure = NULL;
 		SysPrintf ("Could not open SPU plugin %s\n", SPUdll); return -1;
 	}
 	drv = hSPUDriver;
@@ -362,23 +336,18 @@ int LoadSPUplugin(char *SPUdll) {
 	LoadSpuSym1(shutdown, "SPUshutdown");
 	LoadSpuSym1(open, "SPUopen");
 	LoadSpuSym1(close, "SPUclose");
-	LoadSpuSym0(configure, "SPUconfigure");
-	LoadSpuSym0(about, "SPUabout");
-	LoadSpuSym0(test, "SPUtest");
 	errval = 0;
 	LoadSpuSym1(writeRegister, "SPUwriteRegister");
 	LoadSpuSym1(readRegister, "SPUreadRegister");
-	LoadSpuSym1(writeDMA, "SPUwriteDMA");
-	LoadSpuSym1(readDMA, "SPUreadDMA");
 	LoadSpuSym1(writeDMAMem, "SPUwriteDMAMem");
 	LoadSpuSym1(readDMAMem, "SPUreadDMAMem");
 	LoadSpuSym1(playADPCMchannel, "SPUplayADPCMchannel");
 	LoadSpuSym1(freeze, "SPUfreeze");
-	LoadSpuSym1(async, "SPUasync");
 	LoadSpuSym1(registerCallback, "SPUregisterCallback");
 	LoadSpuSym1(registerScheduleCb, "SPUregisterScheduleCb");
-	//LoadSpuSym1(registerCDDAVolume, "SPUregisterCDDAVolume");
+	LoadSpuSymN(async, "SPUasync");
 	LoadSpuSymN(playCDDAchannel, "SPUplayCDDAchannel");
+	LoadSpuSym1(setCDvol, "SPUsetCDvol");
 
 	return 0;
 }

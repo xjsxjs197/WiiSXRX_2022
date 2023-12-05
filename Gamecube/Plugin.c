@@ -174,7 +174,6 @@ int _OpenPlugins() {
 /*	signal(SIGINT, SignalExit);
 	signal(SIGPIPE, SignalExit);*/
 
-	GPU_clearDynarec(clearDynarec);
 	ret = CDR_open();
 	if (ret < 0) { SysPrintf("Error Opening CDR Plugin\n"); return -1; }
 	ret = SPU_open();

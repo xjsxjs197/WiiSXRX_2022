@@ -416,14 +416,16 @@ static void decode_block_data(int *dest, const unsigned char *src, int predict_n
 
   fa = s >> shift_factor;
   fa += ((s_1 * f[predict_nr][0])>>6) + ((s_2 * f[predict_nr][1])>>6);
-  s_2=s_1;s_1=fa;
+  ssat32_to_16(fa);
+  s_2 = s_1; s_1 = fa;
 
   dest[nSample++] = fa;
 
   s = (int)(signed short)((d & 0xf0) << 8);
   fa = s >> shift_factor;
   fa += ((s_1 * f[predict_nr][0])>>6) + ((s_2 * f[predict_nr][1])>>6);
-  s_2=s_1;s_1=fa;
+  ssat32_to_16(fa);
+  s_2 = s_1; s_1 = fa;
 
   dest[nSample++] = fa;
  }
@@ -835,7 +837,7 @@ static void do_channels(int ns_to)
     mix_chan(spu.SSumLR, ns_to, s_chan->iLeftVolume, s_chan->iRightVolume);
   }
 
-  MixXA(spu.SSumLR, RVB, ns_to, spu.decode_pos);
+  MixCD(spu.SSumLR, RVB, ns_to, spu.decode_pos);
 
   if (spu.rvb->StartAddr) {
    if (do_rvb)
@@ -1071,11 +1073,13 @@ void DF_SPUupdate(void)
 
 // XA AUDIO
 
-void DF_SPUplayADPCMchannel(xa_decode_t *xap, unsigned int cycle, int unused)
+void DF_SPUplayADPCMchannel(xa_decode_t *xap, unsigned int cycle, int is_start)
 {
  if(!xap)       return;
  if(!xap->freq) return;                // no xa freq ? bye
 
+ if (is_start)
+  spu.XAPlay = spu.XAFeed = spu.XAStart;
  if (spu.XAPlay == spu.XAFeed)
   do_samples(cycle, 1);                // catch up to prevent source underflows later
 
@@ -1094,6 +1098,17 @@ int DF_SPUplayCDDAchannel(short *pcm, int nbytes, unsigned int cycle, int unused
 
  FeedCDDA((unsigned char *)pcm, nbytes);
  return 0;
+}
+
+void DF_SPUsetCDvol(unsigned char ll, unsigned char lr,
+  unsigned char rl, unsigned char rr, unsigned int cycle)
+{
+ if (spu.XAPlay != spu.XAFeed || spu.CDDAPlay != spu.CDDAFeed)
+  do_samples(cycle, 1);
+ spu.cdv.ll = ll;
+ spu.cdv.lr = lr;
+ spu.cdv.rl = rl;
+ spu.cdv.rr = rr;
 }
 
 // to be called after state load
@@ -1269,44 +1284,12 @@ long DF_SPUshutdown(void)
     return 0;
 }
 
-// SPUTEST: we don't test, we are always fine ;)
-long DF_SPUtest(void)
-{
- return 0;
-}
-
-// SPUCONFIGURE: call config dialog
-long DF_SPUconfigure(void)
-{
-#ifdef _MACOSX
- DoConfiguration();
-#else
-// StartCfgTool("CFG");
-#endif
- return 0;
-}
-
-// SPUABOUT: show about window
-void DF_SPUabout(void)
-{
-#ifdef _MACOSX
- DoAbout();
-#else
-// StartCfgTool("ABOUT");
-#endif
-}
-
 // SETUP CALLBACKS
 // this functions will be called once,
 // passes a callback that should be called on SPU-IRQ/cdda volume change
 void DF_SPUregisterCallback(void (CALLBACK *callback)(int))
 {
  spu.irqCallback = callback;
-}
-
-void DF_SPUregisterCDDAVolume(void (CALLBACK *CDDAVcallback)(unsigned short,unsigned short))
-{
- spu.cddavCallback = CDDAVcallback;
 }
 
 void DF_SPUregisterScheduleCb(void (CALLBACK *callback)(unsigned int))

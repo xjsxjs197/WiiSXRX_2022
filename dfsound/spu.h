@@ -24,6 +24,8 @@
 void ClearWorkingState(void);
 void CALLBACK DF_SPUplayADPCMchannel(xa_decode_t *xap, unsigned int cycle, int is_start);
 int  CALLBACK DF_SPUplayCDDAchannel(short *pcm, int bytes, unsigned int cycle, int is_start);
+void CALLBACK DF_SPUsetCDvol(unsigned char ll, unsigned char lr,
+		unsigned char rl, unsigned char rr, unsigned int cycle);
 void FeedXA(const xa_decode_t *xap);
 void FeedCDDA(unsigned char *pcm, int nBytes);
 
