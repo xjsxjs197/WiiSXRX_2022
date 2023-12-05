@@ -107,7 +107,7 @@ extern s8 *psxH;
 //#define psxHs32(mem)	(SWAP32(*(s32*)&psxH[(mem) & 0xffff]))
 
 #define psxHu8(mem)		(*(u8*) &psxH[(mem) & 0xffff])
-#define psxHu16(mem)	(LOAD_SWAP16p(psxH[(mem) & 0xffff]))
+#define psxHu16(mem)	(LOAD_SWAP16p(psxH + ((mem) & 0xffff)))
 //#define psxHu32(mem)	(SWAP32(*(u32*)&psxH[(mem) & 0xffff]))
 #define psxHu32(mem)	(LOAD_SWAP32p(psxH + ((mem) & 0xffff)))
 

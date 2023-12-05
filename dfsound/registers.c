@@ -150,10 +150,11 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
       break;
     //-------------------------------------------------//
     case H_SPUctrl:
+      spu.spuStat = (spu.spuStat & ~0x3f) | (val & 0x3f);
       spu.spuStat &= ~STAT_IRQ | val;
       if (!(spu.spuCtrl & CTRL_IRQ)) {
-        //if (val & CTRL_IRQ)
-        // schedule_next_irq();
+        if (val & CTRL_IRQ)
+         schedule_next_irq();
       }
       spu.spuCtrl=val;
       break;
@@ -320,7 +321,7 @@ rvbd:
 unsigned short CALLBACK DF_SPUreadRegister(unsigned long reg)
 {
  const unsigned long r = reg & 0xffe;
-        
+
  if(r>=0x0c00 && r<0x0d80)
   {
    switch(r&0x0f)
@@ -358,8 +359,8 @@ unsigned short CALLBACK DF_SPUreadRegister(unsigned long reg)
      return spu.spuCtrl;
 
     case H_SPUstat:
-     return (spu.spuStat & ~0x3F) | (spu.spuCtrl & 0x3F);
-        
+     return spu.spuStat;
+
     case H_SPUaddr:
      return (unsigned short)(spu.spuAddr>>3);
 
@@ -419,7 +420,7 @@ static void SoundOff(int start,int end,unsigned short val)
      // Jungle Book - Rhythm 'n Groove
      // - turns off buzzing sound (loop hangs)
      spu.dwNewChannel &= ~(1<<ch);
-    }                                                  
+    }
   }
 }
 
