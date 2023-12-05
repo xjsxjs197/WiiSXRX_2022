@@ -228,8 +228,9 @@ void handleConfigPair(char* kv);
 void readConfig(FILE* f);
 void writeConfig(FILE* f);
 int checkBiosExists(int testDevice);
-void loadSeparatelySetting();
-bool loadSeparatelySettingItem(char* s1, char* s2, bool isUsb);
+static void loadSeparatelySetting();
+static bool loadSeparatelySettingItem(char* s1, char* s2, bool isUsb);
+static void biosFileInit();
 
 void loadSettings(int argc, char *argv[])
 {
@@ -621,7 +622,32 @@ void psxCpuInit()
     psxCpu->Init();
 }
 
-bool loadSeparatelySettingItem(char* s1, char* s2, bool isUsb)
+static void biosFileInit()
+{
+	biosFile_dir = &biosDir_libfat_Default;
+	if (biosDevice != BIOSDEVICE_HLE) {
+		Config.HLE = BIOS_USER_DEFINED;
+		biosFile_dir = (biosDevice == BIOSDEVICE_SD) ? &biosDir_libfat_Default : &biosDir_libfat_USB;
+	} else {
+		Config.HLE = BIOS_HLE;
+	}
+
+	// Even in HLE mode, the corresponding BIOS file needs to be loaded for games
+	// that have modified the BIOS font library
+	biosFile_readFile  = fileBrowser_libfat_readFile;
+	biosFile_open      = fileBrowser_libfat_open;
+	biosFile_init      = fileBrowser_libfat_init;
+	biosFile_deinit    = fileBrowser_libfat_deinit;
+	if (biosFile) {
+		free(biosFile);
+ 	}
+	biosFile = (fileBrowser_file*)memalign(32,sizeof(fileBrowser_file));
+	memcpy(biosFile,biosFile_dir,sizeof(fileBrowser_file));
+	strcat(biosFile->name, GetGameBios(biosFile->name, filenameFromAbsPath(isoFile.name), strlen(isoFile.name)));
+	biosFile_init(biosFile);  //initialize the bios device (it might not be the same as ISO device)
+}
+
+static bool loadSeparatelySettingItem(char* s1, char* s2, bool isUsb)
 {
     struct stat s;
     char settingPathBuf[256];
@@ -645,7 +671,7 @@ bool loadSeparatelySettingItem(char* s1, char* s2, bool isUsb)
     return false;
 }
 
-void loadSeparatelySetting()
+static void loadSeparatelySetting()
 {
     // first load Separately Setting from usb
     if (!loadSeparatelySettingItem("usb:/wiisxrx/settings/", CdromId, true))
@@ -664,11 +690,9 @@ void loadSeparatelySetting()
 
     Config.pR3000Fix = 0;
     Config.Cpu = dynacore;
-    if (biosDevice == BIOSDEVICE_HLE) {
-        Config.HLE = BIOS_HLE;
-    } else {
-        Config.HLE = BIOS_USER_DEFINED;
-    }
+
+    // Init biosFile pointers and stuff
+    biosFileInit();
 
     extern bool lightrec_mmap_inited;
     if (Config.Cpu == DYNACORE_DYNAREC && !lightrec_mmap_inited) // Lightrec
@@ -871,47 +895,6 @@ int SysInit() {
 	LoadPlugins();
 	if(OpenPlugins() < 0)
 		return -1;
-
-	//Init biosFile pointers and stuff
-	// upd xjsxjs197 start
-	/*if(biosDevice != BIOSDEVICE_HLE) {
-		biosFile_dir = (biosDevice == BIOSDEVICE_SD) ? &biosDir_libfat_Default : &biosDir_libfat_USB;
-		biosFile_readFile  = fileBrowser_libfat_readFile;
-		biosFile_open      = fileBrowser_libfat_open;
-		biosFile_init      = fileBrowser_libfat_init;
-		biosFile_deinit    = fileBrowser_libfat_deinit;
-		if(biosFile) {
-    		free(biosFile);
-	 	}
-		biosFile = (fileBrowser_file*)memalign(32,sizeof(fileBrowser_file));
-		memcpy(biosFile,biosFile_dir,sizeof(fileBrowser_file));
-		strcat(biosFile->name, "/SCPH1001.BIN");
-		biosFile_init(biosFile);  //initialize the bios device (it might not be the same as ISO device)
-		Config.HLE = BIOS_USER_DEFINED;
-	} else {
-		Config.HLE = BIOS_HLE;
-	}*/
-
-	biosFile_dir = &biosDir_libfat_Default;
-	if(biosDevice != BIOSDEVICE_HLE) {
-		Config.HLE = BIOS_USER_DEFINED;
-		biosFile_dir = (biosDevice == BIOSDEVICE_SD) ? &biosDir_libfat_Default : &biosDir_libfat_USB;
-	} else {
-		Config.HLE = BIOS_HLE;
-	}
-
-	biosFile_readFile  = fileBrowser_libfat_readFile;
-	biosFile_open      = fileBrowser_libfat_open;
-	biosFile_init      = fileBrowser_libfat_init;
-	biosFile_deinit    = fileBrowser_libfat_deinit;
-	if(biosFile) {
-		free(biosFile);
- 	}
-	biosFile = (fileBrowser_file*)memalign(32,sizeof(fileBrowser_file));
-	memcpy(biosFile,biosFile_dir,sizeof(fileBrowser_file));
-	strcat(biosFile->name, GetGameBios(biosFile->name, filenameFromAbsPath(isoFile.name), strlen(isoFile.name)));
-	biosFile_init(biosFile);  //initialize the bios device (it might not be the same as ISO device)
-	// upd xjsxjs197 end
 
 	return 0;
 }

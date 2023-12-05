@@ -383,15 +383,7 @@ void psxHwWrite32(u32 add, u32 value) {
         case 0x10f4: psxHwWriteDmaIcr32(value); return;
 
         case 0x1810: GPU_writeData(value); return;
-        case 0x1814:
-            // Fix the PAL game sound issue when NTSC Bios starts
-            // setting display infos
-            if (Config.PsxType == PSX_TYPE_PAL && (value >> 24) == 0x08)
-            {
-                value |= 0x8;
-            }
-            psxHwWriteGpuSR(value);
-            return;
+        case 0x1814: psxHwWriteGpuSR(value); return;
         case 0x1820: mdecWrite0(value); break;
         case 0x1824: mdecWrite1(value); break;
 

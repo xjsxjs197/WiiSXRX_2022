@@ -3280,7 +3280,7 @@ static void setup_tt(u32 tcb_cnt, u32 evcb_cnt, u32 stack)
 	storeRam32(A_CONF_SP, stack);
 }
 
-static const u32 gpu_ctl_def[] = {
+static u32 gpu_ctl_def[] = {
 	0x00000000, 0x01000000, 0x03000000, 0x04000000,
 	0x05000800, 0x06c60260, 0x0703fc10, 0x08000027
 };
@@ -3349,6 +3349,13 @@ void psxBiosSetupBootState(void)
 		psxRcntWmode(0, 0);
 		psxRcntWmode(1, 0);
 		psxRcntWmode(2, 0);
+	}
+
+	// Fix the PAL game sound issue when NTSC Bios starts
+	// setting display infos
+	if (Config.PsxType == PSX_TYPE_PAL)
+	{
+		gpu_ctl_def[7] |= 0x8;
 	}
 
 	// gpu
