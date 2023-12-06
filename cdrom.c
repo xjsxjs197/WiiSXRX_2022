@@ -1558,7 +1558,7 @@ static void cdrReadInterrupt(void)
 			break;
 		is_start = !cdr.AdpcmActive;
 		cdr.AdpcmActive = !xa_decode_sector(&cdr.Xa, buf + 4, is_start);
-		if (cdr.AdpcmActive)
+		if (!cdr.Muted && cdr.AdpcmActive)
 			SPU_playADPCMchannel(&cdr.Xa, psxRegs.cycle, is_start);
 	} while (0);
 
@@ -1777,8 +1777,7 @@ void cdrWrite3(unsigned char rt) {
 			    rl == cdr.AttenuatorRightToLeft &&
 			    rr == cdr.AttenuatorRightToRight)
 				return;
-			cdr.AttenuatorLeftToLeftT = ll; cdr.AttenuatorLeftToRightT = lr;
-			cdr.AttenuatorRightToLeftT = rl; cdr.AttenuatorRightToRightT = rr;
+			*((u32*)&cdr.AttenuatorLeftToLeft) = *((u32*)&cdr.AttenuatorLeftToLeftT);
 			CDR_LOG_I("CD-XA Volume: %02x %02x | %02x %02x\n", ll, lr, rl, rr);
 			SPU_setCDvol(ll, lr, rl, rr, psxRegs.cycle);
 		}
