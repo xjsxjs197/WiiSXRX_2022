@@ -13,6 +13,8 @@
 #include "gpu.h"
 #include "plugin_lib.h"
 
+extern int backFromMenu;
+
 static const struct rearmed_cbs *cbs;
 
 int vout_init(void)
@@ -55,8 +57,10 @@ static void check_mode_change(int force)
 
   // width|rgb24 change?
   if (force || (gpu.status ^ gpu.state.status_vo_old) & ((7<<16)|(1<<21))
-      || w_out != gpu.state.w_out_old || h_out != gpu.state.h_out_old)
+      || w_out != gpu.state.w_out_old || h_out != gpu.state.h_out_old
+      || backFromMenu)
   {
+    backFromMenu = 0;
     gpu.state.status_vo_old = gpu.status;
     gpu.state.w_out_old = w_out;
     gpu.state.h_out_old = h_out;

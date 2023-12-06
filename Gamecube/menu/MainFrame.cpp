@@ -236,7 +236,7 @@ void go(void);
 
 //void control_info_init();
 
-extern bool backFromMenu;
+extern int backFromMenu;
 extern char menuActive;
 extern char autoSave;
 extern "C" char mcd1Written;

@@ -55,7 +55,7 @@ int            iDebugMode=0;
 int            iFVDisplay=0;
 PSXPoint_t     ptCursorPoint[8];
 unsigned short usCursorActive=0;
-bool 		   backFromMenu=0;
+int            backFromMenu=0;
 
 //Some GX specific variables
 #define RESX_MAX 1024	//Vmem width
@@ -448,19 +448,19 @@ static void gc_vout_flip(const void *vram, int stride, int bgr24,
 	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
 
 	GX_Flip(w, h, vram, stride*2, bgr24 ? GX_TF_RGBA8 : GX_TF_RGB5A3);
-
-	// Check if TVMode needs to be changed (240 or 480 lines)
-	if (originalMode == ORIGINALMODE_ENABLE)
-	{
-		if(backFromMenu)
-		{
-			backFromMenu = 0;
-			switchToTVMode(w, h, 0);
-		}
-	}
 }
 
-static void gc_vout_set_mode(int w, int h, int raw_w, int raw_h, int bpp) {SysPrintf("gc_vout_set_mode\r\n");}
+static void gc_vout_set_mode(int w, int h, int raw_w, int raw_h, int bpp)
+{
+    if (menuActive) return;
+
+    // Check if TVMode needs to be changed (240 or 480 lines)
+    if (originalMode == ORIGINALMODE_ENABLE)
+    {
+        backFromMenu = 0;
+        switchToTVMode(w, h, 0);
+    }
+}
 
 extern u32 hSyncCount;
 extern u32 frame_counter;
