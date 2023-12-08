@@ -21,6 +21,7 @@
 #include <malloc.h>
 #include <time.h>
 #include <ogc/lwp_watchdog.h>
+#include <ogc/machine/processor.h>
 #include <wiiuse/wpad.h>
 #include "../coredebug.h"
 #include "stdafx.h"
@@ -58,23 +59,18 @@ unsigned short usCursorActive=0;
 int            backFromMenu=0;
 
 //Some GX specific variables
-#define RESX_MAX 1024	//Vmem width
-#define RESY_MAX 512	//Vmem height
-#define GXRESX_MAX 1366	//1024 * 1.33 for ARGB
-//int	iResX_Max=640;	//Max FB Width
-int		iResX_Max=RESX_MAX;
-int		iResY_Max=RESY_MAX;
-static unsigned char	GXtexture[GXRESX_MAX*RESY_MAX*2] __attribute__((aligned(32)));
+#define FB_MAX_SIZE (640 * 528 * 4)
+static unsigned char	GXtexture[FB_MAX_SIZE] __attribute__((aligned(32)));
+extern u32* xfb[3];	/*** Framebuffers ***/
 char *	pCaptionText;
 
-extern u32* xfb[3];	/*** Framebuffers ***/
 extern char text[DEBUG_TEXT_HEIGHT][DEBUG_TEXT_WIDTH]; /*** DEBUG textbuffer ***/
 extern char menuActive;
 extern char screenMode;
 static char fpsInfo[32];
 
 // prototypes
-void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt);
+void GX_Flip(int width, int height, const void* buffer, int pitch, u8 fmt);
 void drawLine(float x1, float y1, float x2, float y2, char r, char g, char b);
 void drawCircle(int x, int y, int radius, int numSegments, char r, char g, char b);
 
@@ -129,7 +125,7 @@ static void gc_vout_render(void)
 }
 
 ////////////////////////////////////////////////////////////////////////
-void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
+void GX_Flip(int width, int height, const void* buffer, int pitch, u8 fmt)
 {
 	int h, w, i;
 	char r, g, b;
@@ -150,7 +146,7 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 		oldwidth = width;
 		oldheight = height;
 		oldformat = fmt;
-		memset(GXtexture,0,GXRESX_MAX*iResY_Max*2);
+		memset(GXtexture,0,sizeof(GXtexture));
 		GX_InitTexObj(&GXtexobj, GXtexture, width, height, fmt, GX_CLAMP, GX_CLAMP, GX_FALSE);
 	}
 
