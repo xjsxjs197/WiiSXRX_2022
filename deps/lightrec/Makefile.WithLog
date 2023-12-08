@@ -65,7 +65,7 @@ $(LIB_DIR)/libLightrecWithLog.a: $(LIGHRREC_OBJS)
 	@echo ----
 
 # Compilation flags.
-COMMON_FLAGS	:= -g -O3 -w -Wno-parentheses $(MACHDEP)
+COMMON_FLAGS	:= -g -O2 -w $(MACHDEP) -fvisibility=hidden
 INCLUDES		:= -Iinclude -I$(LIBOGC_INC)
 DEFINES			:= -DGEKKO
 CFLAGS			:= $(COMMON_FLAGS) $(INCLUDES) $(INCLUDE) $(DEFINES)--pedantic -D__BIG_ENDIAN -D__powerpc__ -DBIG_ENDIAN -DLOG_LEVEL=3
