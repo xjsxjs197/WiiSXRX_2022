@@ -1558,7 +1558,7 @@ static void cdrReadInterrupt(void)
 			break;
 		is_start = !cdr.AdpcmActive;
 		cdr.AdpcmActive = !xa_decode_sector(&cdr.Xa, buf + 4, is_start);
-		if (!cdr.Muted && cdr.AdpcmActive)
+		if (cdr.AdpcmActive)
 			SPU_playADPCMchannel(&cdr.Xa, psxRegs.cycle, is_start);
 	} while (0);
 
@@ -1657,7 +1657,7 @@ void cdrWrite1(unsigned char rt) {
 		#ifdef DISP_DEBUG
 		sprintf(txtbuffer, "cdrCmd1 %s \r\n", CmdName[rt]);
 		DEBUG_print(txtbuffer, DBG_CDR1);
-		writeLogFile(txtbuffer);
+		//writeLogFile(txtbuffer);
 		#endif // DISP_DEBUG
 		cdr.CmdInProgress = rt;
 		if (rt == CdlPause)
@@ -1676,7 +1676,7 @@ void cdrWrite1(unsigned char rt) {
 		#ifdef DISP_DEBUG
 		sprintf(txtbuffer, "cdrCmd2 %s %s \r\n", CmdName[rt], CmdName[cdr.CmdInProgress < 0x100 ? cdr.CmdInProgress : cdr.CmdInProgress - CMD_PART2]);
 		DEBUG_print(txtbuffer, DBG_CDR2);
-		writeLogFile(txtbuffer);
+		//writeLogFile(txtbuffer);
 		#endif // DISP_DEBUG
 		if (cdr.CmdInProgress < 0x100) // no pending 2nd response
 			cdr.CmdInProgress = rt;
