@@ -73,10 +73,8 @@ extern "C" {
 int SysInit();
 void SysReset();
 void SysClose();
-void SysPrintf(const char *fmt, ...);
 void *SysLoadLibrary(char *lib);
 void *SysLoadSym(void *lib, char *sym);
-char *SysLibError();
 void SysCloseLibrary(void *lib);
 void SysUpdate();
 void SysRunGui();
