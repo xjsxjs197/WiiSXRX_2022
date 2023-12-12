@@ -70,7 +70,8 @@ extern char screenMode;
 static char fpsInfo[32];
 
 // prototypes
-void GX_Flip(int width, int height, const void* buffer, int pitch, u8 fmt);
+static void GX_Flip(const void *buffer, int pitch, u8 fmt,
+		    int x, int y, int width, int height);
 void drawLine(float x1, float y1, float x2, float y2, char r, char g, char b);
 void drawCircle(int x, int y, int radius, int numSegments, char r, char g, char b);
 
