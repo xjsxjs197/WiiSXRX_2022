@@ -290,6 +290,15 @@ static struct lightrec_mem_map lightrec_map[] = {
 		.length = 0x200000,
 		.mirror_of = &lightrec_map[PSX_MAP_KERNEL_USER_RAM],
 	},
+
+	/* Mirror of the parallel port. Only used by the PS2/PS3 BIOS */
+	[PSX_MAP_PPORT_MIRROR] = {
+		.pc = 0x1fa00000,
+		.length = 0x10000,
+		.mirror_of = &lightrec_map[PSX_MAP_PARALLEL_PORT],
+	},
+
+	/* Code buffer */
 	[PSX_MAP_CODE_BUFFER] = {
 		.length = BUF_SIZE, //sizeof(code_buffer),
 	},
@@ -305,6 +314,14 @@ static void lightrec_enable_ram(struct lightrec_state *state, bool enable)
 
 static bool lightrec_can_hw_direct(u32 kaddr, bool is_write, u8 size)
 {
+	if (is_write && size != 32) {
+		// force32 so must go through handlers
+		if (0x1f801000 <= kaddr && kaddr < 0x1f801024)
+			return false;
+		if ((kaddr & 0x1fffff80) == 0x1f801080) // dma
+			return false;
+	}
+
 	switch (size) {
 	case 8:
 		switch (kaddr) {
@@ -316,7 +333,7 @@ static bool lightrec_can_hw_direct(u32 kaddr, bool is_write, u8 size)
 		case 0x1f801803:
 			return false;
 		default:
-			return true;
+			return kaddr < 0x1f801c00 || kaddr >= 0x1f802000;
 		}
 	case 16:
 		switch (kaddr) {
@@ -343,7 +360,7 @@ static bool lightrec_can_hw_direct(u32 kaddr, bool is_write, u8 size)
 		case 0x1f801074:
 			return !is_write;
 		default:
-			return kaddr < 0x1f801c00 || kaddr >= 0x1f801e00;
+			return kaddr < 0x1f801c00 || kaddr >= 0x1f802000;
 		}
 	default:
 		switch (kaddr) {
@@ -366,15 +383,21 @@ static bool lightrec_can_hw_direct(u32 kaddr, bool is_write, u8 size)
 		case 0x1f801070:
 		case 0x1f801074:
 		case 0x1f801088:
+		case 0x1f80108c:
 		case 0x1f801098:
+		case 0x1f80109c:
 		case 0x1f8010a8:
+		case 0x1f8010ac:
 		case 0x1f8010b8:
+		case 0x1f8010bc:
 		case 0x1f8010c8:
+		case 0x1f8010cc:
 		case 0x1f8010e8:
+		case 0x1f8010ec:
 		case 0x1f8010f4:
 			return !is_write;
 		default:
-			return !is_write || kaddr < 0x1f801c00 || kaddr >= 0x1f801e00;
+			return kaddr < 0x1f801c00 || kaddr >= 0x1f802000;
 		}
 	}
 }
@@ -401,8 +424,8 @@ static int lightrec_plugin_init(void)
 	lightrec_map[PSX_MAP_KERNEL_USER_RAM].address = psxM;
 	lightrec_map[PSX_MAP_BIOS].address = psxR;
 	lightrec_map[PSX_MAP_SCRATCH_PAD].address = psxH;
-	lightrec_map[PSX_MAP_PARALLEL_PORT].address = psxP;
 	lightrec_map[PSX_MAP_HW_REGISTERS].address = psxH + 0x1000;
+	lightrec_map[PSX_MAP_PARALLEL_PORT].address = psxP;
 	lightrec_map[PSX_MAP_CODE_BUFFER].address = code_buffer;
 	/*
 	lightrec_map[PSX_MAP_MIRROR1].address = psxM + 0x200000;
@@ -418,6 +441,7 @@ static int lightrec_plugin_init(void)
 	lightrec_map[PSX_MAP_BIOS].address = (void *)0x1fc00000;
 	lightrec_map[PSX_MAP_SCRATCH_PAD].address = (void *)0x1f800000;
 	lightrec_map[PSX_MAP_HW_REGISTERS].address = (void *)0x1f801000;
+	lightrec_map[PSX_MAP_PARALLEL_PORT].address = psxP;
 	lightrec_map[PSX_MAP_CODE_BUFFER].address = code_buffer; // RECMEM2_LO;
 #endif
 
