@@ -670,19 +670,20 @@ static bool loadSeparatelySettingItem(char* s1, char* s2, bool isUsb)
 
 static void loadSeparatelySetting()
 {
-    // first load Separately Setting from usb
+    // First, we have to load the common (global) settings.
+    // Load common (global) settings from USB device
+    if (!loadSeparatelySettingItem("usb:/wiisxrx/", "settingsRX2022", true))
+    {
+        // Load common (global) settings from SD card
+        loadSeparatelySettingItem("sd:/wiisxrx/", "settingsRX2022", false);
+    }
+
+    // Then, we can load separately game settings.
+    // Load separately game settings from USB device
     if (!loadSeparatelySettingItem("usb:/wiisxrx/settings/", CdromId, true))
     {
-        // load Separately Setting from sd
-        if (!loadSeparatelySettingItem("sd:/wiisxrx/settings/", CdromId, false))
-        {
-            // load common Setting from usb
-            if (!loadSeparatelySettingItem("usb:/wiisxrx/", "settingsRX2022", true))
-            {
-                // load common Setting from sd
-                loadSeparatelySettingItem("sd:/wiisxrx/", "settingsRX2022", false);
-            }
-        }
+        // Load separately game settings from SD card
+        if (!loadSeparatelySettingItem("sd:/wiisxrx/settings/", CdromId, false)){}
     }
 
     Config.pR3000Fix = 0;
