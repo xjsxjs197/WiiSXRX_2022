@@ -3,7 +3,7 @@
  * Copyright (C) 2007, 2008, 2009 Mike Slegeir
  * Copyright (C) 2007, 2008, 2009, 2010 sepp256
  * Copyright (C) 2007, 2008, 2009 emu_kidid
- * 
+ *
  * Basic Analog PAD plugin for WiiSX
  *
  * WiiSX homepage: http://www.emulatemii.com
@@ -61,6 +61,7 @@ controller_t* controller_ts[num_controller_t] =
 	  &controller_Wiimote,
 	  &controller_WiiUPro,
 	  &controller_WiiUGamepad,
+	  &controller_HidGC,
 	 };
 #else
 	{ &controller_GC,
@@ -145,7 +146,19 @@ void auto_assign_controllers(void)
 			if(w == 4) continue;
 
 			assign_controller(i, type, w);
-			padType[i] = type == &controller_GC ? PADTYPE_GAMECUBE : PADTYPE_WII;
+			//padType[i] = type == &controller_GC ? PADTYPE_GAMECUBE : PADTYPE_WII;
+			if (type == &controller_GC)
+			{
+				padType[i] = PADTYPE_GAMECUBE;
+			}
+			else if (type == &controller_HidGC)
+			{
+				padType[i] = PADTYPE_HID;
+			}
+			else
+			{
+				padType[i] = PADTYPE_WII;
+			}
 			padAssign[i] = w;
 
 			// Don't assign the next type over this one or the same controller

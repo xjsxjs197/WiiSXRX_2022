@@ -159,6 +159,19 @@ void InputStatusBar::drawComponent(Graphics& gfx)
 //			sprintf (statusText, "Pad%d: GC%d", i+1, padAssign[i]+1);
 			break;
 #ifdef HW_RVL
+        case PADTYPE_HID:
+			if (controller_HidGC.available[i])
+			{
+				gfx.setColor(activeColor);
+				IplFont::getInstance().drawInit(activeColor);
+			}
+			else
+			{
+				gfx.setColor(inactiveColor);
+				IplFont::getInstance().drawInit(inactiveColor);
+			}
+			statusIcon = Resources::getInstance().getImage(Resources::IMAGE_CONTROLLER_HID_GAMECUBE);
+			break;
 		case PADTYPE_WII:
 			u32 type;
 			s32 err;
@@ -423,4 +436,4 @@ Component* InputStatusBar::updateFocus(int direction, int buttonsPressed)
 	return NULL;
 }
 
-} //namespace menu 
+} //namespace menu

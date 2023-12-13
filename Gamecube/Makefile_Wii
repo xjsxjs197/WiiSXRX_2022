@@ -25,13 +25,13 @@ GPU = Soft
 #---------------------------------------------------------------------------------
 TARGET		:=	WiiSXRX_debug
 BUILD		:=	build_debug
-SOURCES		:=	../lang ../fonts \
+SOURCES		:=	../lang ../fonts ../Nintendont \
                 $(CHDLIBDIR)/src/ $(CHDLIBDIR)/deps/lzma-19.00/ $(CHDLIBDIR)/deps/zlib-1.2.13/ \
                 . ./gc_input/ ./libgui/ ./menu/ ./fileBrowser/ .. \
                 ../gpulib/ ../SoftGPU/ \
 				./libgui/gui2 ../dfsound/ ./vm ../ppc
 
-DATA		:=	data
+DATA		:=	../Nintendont
 
 INCLUDES	:=
 
@@ -52,7 +52,7 @@ LDFLAGS	=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map,-wrap,wiiuse_register
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS	:=	-ldi -liso9660 -lm -lSDL -lfat -ldb -lwiiuse -lwupc -lwiidrc -lbte -logc -lz -ltinysmb -lwiikeyboard -llightrecWithLog -llightning
+LIBS	:=	-ldi -liso9660 -lm -lSDL -lfat -ldb -lwiiuse -lwupc -lwiidrc -lbte -logc -lz -ltinysmb -lwiikeyboard -llightrecWithLog -llightning -lfatfs-ppc
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
@@ -83,7 +83,7 @@ CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
 CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
 sFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.S)))
-BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
+BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.bin)))
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
@@ -95,6 +95,7 @@ else
 endif
 
 export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
+                    $(BINFILES:.bin=.bin.o) \
                     $(FONTFILES:.dat=.dat.o) \
                     $(LANGFILES:.lang=.lang.o) \
 					$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) \
@@ -113,7 +114,6 @@ export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 #---------------------------------------------------------------------------------
 export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
 					-L$(LIBOGC_LIB) \
-					-L$(DEVKITPRO)/libogc/lib/wii, -L$(DEVKITPRO)/libfat/libogc/lib/wii \
 					-L../../deps/lightrec/lib
 
 export OUTPUT	:=	$(CURDIR)/$(TARGET)
@@ -153,6 +153,10 @@ $(OUTPUT).elf: $(OFILES)
 	$(bin2o)
 
 %.dat.o : %.dat
+	@echo $(notdir $<)
+	$(bin2o)
+
+%.bin.o : %.bin
 	@echo $(notdir $<)
 	$(bin2o)
 

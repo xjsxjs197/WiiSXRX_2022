@@ -21,6 +21,7 @@
 #include <malloc.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 
 #include <unistd.h>
@@ -31,6 +32,7 @@
 #include <fat.h>
 #include <aesndlib.h>
 #include <sys/iosupport.h>
+#include <wiidrc/wiidrc.h>
 
 #ifdef DEBUGON
 # include <debug.h>
@@ -41,6 +43,10 @@
 #include "menu/MenuContext.h"
 #include "libgui/IPLFont.h"
 #include "libgui/MessageBox.h"
+
+#include "PADReadGC_bin.h"
+#include "kernel_bin.h"
+#include "kernelboot_bin.h"
 
 extern char * GetGameBios(char * biosPath, char * fileName, int isoFileNameLen);
 extern char* filenameFromAbsPath(char* absPath);
@@ -67,6 +73,65 @@ extern "C" {
 #include <di/di.h>
 }
 #endif //WII
+
+#ifdef HW_RVL
+
+extern "C" {
+    #include "../Nintendont/HID.h"
+    #include "../Nintendont/Patches.h"
+    #include "../Nintendont/global.h"
+}
+
+static ioctlv IOCTL_Buf[2] ALIGNED(32);
+static u32 (*const PADRead)(u32) = (void*)0x93000000;
+#define STATUS			((void*)0x90004100)
+#define STATUS_LOADING	(*(volatile unsigned int*)(0x90004100))
+#define MEM_PROT		0xD8B420A
+#define C_NOT_SET	(0<<0)
+#define WPAD_MAX_WIIMOTES 4
+
+static unsigned char ESBootPatch[] =
+{
+    0x48, 0x03, 0x49, 0x04, 0x47, 0x78, 0x46, 0xC0, 0xE6, 0x00, 0x08, 0x70, 0xE1, 0x2F, 0xFF, 0x1E,
+    0x10, 0x10, 0x00, 0x00, 0x00, 0x00, 0x0D, 0x25,
+};
+/*static const unsigned char AHBAccessPattern[] =
+{
+	0x68, 0x5B, 0x22, 0xEC, 0x00, 0x52, 0x18, 0x9B, 0x68, 0x1B, 0x46, 0x98, 0x07, 0xDB,
+};
+static const unsigned char AHBAccessPatch[] =
+{
+	0x68, 0x5B, 0x22, 0xEC, 0x00, 0x52, 0x18, 0x9B, 0x23, 0x01, 0x46, 0x98, 0x07, 0xDB,
+};*/
+static const unsigned char FSAccessPattern[] =
+{
+    0x9B, 0x05, 0x40, 0x03, 0x99, 0x05, 0x42, 0x8B,
+};
+static const unsigned char FSAccessPatch[] =
+{
+    0x9B, 0x05, 0x40, 0x03, 0x1C, 0x0B, 0x42, 0x8B,
+};
+
+static char dev_es[] ATTRIBUTE_ALIGN(32) = "/dev/es";
+struct BTPadCont {
+	u32 used;
+	s16 xAxisL;
+	s16 xAxisR;
+	s16 yAxisL;
+	s16 yAxisR;
+	u32 button;
+	u8 triggerL;
+	u8 triggerR;
+	s16 xAccel;
+	s16 yAccel;
+	s16 zAccel;
+} __attribute__((aligned(32)));
+
+extern vu32 FoundVersion;
+
+static bool patchIOS58();
+
+#endif // HW_RVL
 
 /* function prototypes */
 extern "C" {
@@ -111,6 +176,7 @@ char saveEnabled;
 char creditsScrolling;
 char padNeedScan=1;
 char wpadNeedScan=1;
+char hidPadNeedScan = 1;
 char shutdown = 0;
 char nativeSaveDevice;
 char saveStateDevice;
@@ -404,6 +470,7 @@ void ScanPADSandReset(u32 dummy)
 {
 //	PAD_ScanPads();
 	padNeedScan = wpadNeedScan = 1;
+	hidPadNeedScan = 1;
 	if(!((*(u32*)0xCC003000)>>16))
 		stop = 1;
 }
@@ -414,6 +481,93 @@ void ShutdownWii()
 	shutdown = 1;
 	stop = 1;
 }
+
+static void memWrite16(u32 addr, u16 data)
+{
+	//__asm__ volatile ("strh\t%0, [%1]" : : "l" (data), "l" (addr));
+	__asm__("sth %0,0(%1) ; eieio" : : "r"(data), "b"(0xc0000000 | addr));
+}
+
+static bool patchIOS58()
+{
+    printf("patchIOS58 1111111 \r\n");
+    RAMInit();
+	//tell devkitPPC r29 that we use UTF-8
+	setlocale(LC_ALL,"C.UTF-8");
+
+	// for BT.c
+	printf("patchIOS58 222222 \r\n");
+	CONF_Init();
+	CONF_GetPadDevices((conf_pads*)0x932C0000);
+	DCFlushRange((void*)0x932C0000, sizeof(conf_pads));
+	*(vu32*)0x932C0490 = CONF_GetIRSensitivity();
+	*(vu32*)0x932C0494 = CONF_GetSensorBarPosition();
+	DCFlushRange((void*)0x932C0490, 8);
+
+	printf("patchIOS58 333333 \r\n");
+	WiiDRC_Init();
+	isWiiVC = WiiDRC_Inited();
+
+	s32 fd;
+	/* Wii VC fw.img is pre-patched but Wii/vWii isnt, so we
+		still have to reload IOS on those with a patched kernel */
+	if(!isWiiVC)
+	{
+	    u32 u;
+		//Disables MEMPROT for patches
+		memWrite16(MEM_PROT, 0);
+		//Patches FS access
+		for( u = 0x93A00000; u < 0x94000000 - sizeof(FSAccessPattern); u+=2 )
+		{
+			if( memcmp( (void*)(u), FSAccessPattern, sizeof(FSAccessPattern) ) == 0 )
+			{
+				//gprintf("FSAccessPatch:%08X\r\n", u );
+				memcpy( (void*)u, FSAccessPatch, sizeof(FSAccessPatch) );
+				DCFlushRange((void*)u, sizeof(FSAccessPatch));
+				break;
+			}
+		}
+
+		// Load and patch IOS58.
+		printf("patchIOS58 44444 \r\n");
+		if (LoadKernel() >= 0)
+		{
+		    printf("patchIOS58 5555 \r\n");
+		    PatchKernel(isWiiVC);
+		    printf("patchIOS58 666666 \r\n");
+            u32 v = FoundVersion;
+            //this ensures all IOS modules get loaded in ES on reload
+            memcpy( ESBootPatch+0x14, &v, 4 );
+            DCInvalidateRange( (void*)0x939F0348, sizeof(ESBootPatch) );
+            memcpy( (void*)0x939F0348, ESBootPatch, sizeof(ESBootPatch) );
+            DCFlushRange( (void*)0x939F0348, sizeof(ESBootPatch) );
+            printf("patchIOS58 77777 \r\n");
+
+            //libogc still has that, lets close it
+            __ES_Close();
+            fd = IOS_Open( dev_es, 0 );
+            printf("patchIOS58 8888 \r\n");
+
+            irq_handler_t irq_handler = BeforeIOSReload();
+            printf("patchIOS58 9999 \r\n");
+            IOS_IoctlvAsync( fd, 0x25, 0, 0, IOCTL_Buf, NULL, NULL );
+            printf("patchIOS58 aaaaa \r\n");
+            sleep(1); //wait this time at least
+            AfterIOSReload( irq_handler, v );
+            //Disables MEMPROT for patches
+            memWrite16(MEM_PROT, 0);
+            printf("patchIOS58 bbbbb \r\n");
+		}
+		else
+        {
+            printf("patchIOS58 00000 \r\n");
+            return false;
+        }
+	}
+
+	return true;
+}
+
 #endif
 
 void video_mode_init(GXRModeObj *videomode, u32 *fb1, u32 *fb2, u32 *fb3)
@@ -450,64 +604,6 @@ bool SupportedIOS(u32 ios)
         return false;
 }
 
-bool SaneIOS(u32 ios)
-{
-        bool res = false;
-        u32 num_titles=0;
-        u32 tmd_size;
-
-        if(ios > 200)
-                return false;
-
-        if (ES_GetNumTitles(&num_titles) < 0)
-                return false;
-
-        if(num_titles < 1)
-                return false;
-
-        u64 *titles = (u64 *)memalign(32, num_titles * sizeof(u64) + 32);
-
-        if(!titles)
-                return false;
-
-        if (ES_GetTitles(titles, num_titles) < 0)
-        {
-                free(titles);
-                return false;
-        }
-
-        u32 *tmdbuffer = (u32 *)memalign(32, MAX_SIGNED_TMD_SIZE);
-
-        if(!tmdbuffer)
-        {
-                free(titles);
-                return false;
-        }
-
-        for(u32 n=0; n < num_titles; n++)
-        {
-                if((titles[n] & 0xFFFFFFFF) != ios)
-                        continue;
-
-                if (ES_GetStoredTMDSize(titles[n], &tmd_size) < 0)
-                        break;
-
-                if (tmd_size > 4096)
-                        break;
-
-                if (ES_GetStoredTMD(titles[n], (signed_blob *)tmdbuffer, tmd_size) < 0)
-                        break;
-
-                if (tmdbuffer[1] || tmdbuffer[2])
-                {
-                        res = true;
-                        break;
-                }
-        }
-        free(tmdbuffer);
-    free(titles);
-        return res;
-}
 #endif
 
 bool Autoboot;
@@ -531,17 +627,21 @@ int main(int argc, char *argv[])
 		memset(AutobootROM, 0, sizeof(AutobootROM));
 	}
 
-		L2Enhance();
+    L2Enhance();
 
+    // HID ios58 check
+    bool hidIos58Ok = patchIOS58();
+    if (!hidIos58Ok)
+    {
+        // HID check error, use default processing
         u32 ios = IOS_GetVersion();
-
-        if(!SupportedIOS(ios))
+        if (!SupportedIOS(ios))
         {
-                s32 preferred = IOS_GetPreferredVersion();
-
-                if(SupportedIOS(preferred))
-                        IOS_ReloadIOS(preferred);
+            s32 preferred = IOS_GetPreferredVersion();
+            if (SupportedIOS(preferred))
+                IOS_ReloadIOS(preferred);
         }
+    }
 
 	#endif
 

@@ -68,7 +68,7 @@ void Func_ReturnFromConfigureInputFrame();
 #define NUM_FRAME_TEXTBOXES 5
 #define FRAME_TEXTBOXES configureInputFrameTextBoxes
 
-static char FRAME_STRINGS[17][15] =
+static char FRAME_STRINGS[18][15] =
 	{ "Pad Assignment",
 	  "PSX Pad 1",
 	  "PSX Pad 2",
@@ -86,7 +86,8 @@ static char FRAME_STRINGS[17][15] =
 	  "1",
 	  "2",
 	  "3",
-	  "4"};
+	  "4",
+	  "HID Pad"};
 
 struct ButtonInfo
 {
@@ -227,7 +228,14 @@ void ConfigureInputFrame::activateSubmenu(int submenu)
 		for (int i = 0; i < 10; i++)
 		{
 			FRAME_BUTTONS[i+2].button->setActive(true);
-			FRAME_BUTTONS[i+2].buttonString = FRAME_STRINGS[padType[i]+7];
+			if (padType[i] == PADTYPE_HID)
+			{
+			    FRAME_BUTTONS[i+2].buttonString = FRAME_STRINGS[17];
+			}
+			else
+			{
+			    FRAME_BUTTONS[i+2].buttonString = FRAME_STRINGS[padType[i]+7];
+			}
 			FRAME_BUTTONS[i+12].button->setActive(true);
 			FRAME_BUTTONS[i+12].buttonString = FRAME_STRINGS[padAssign[i]+13];
 		}
@@ -277,6 +285,10 @@ void Func_AssignPad(int i)
 		type = &controller_GC;
 		break;
 #ifdef HW_RVL
+    case PADTYPE_HID:
+    	type = &controller_HidGC;
+		break;
+
 	case PADTYPE_WII:
 		if (controller_WiiUPro.available[(int)padAssign[i]])
 			type = &controller_WiiUPro;
@@ -300,9 +312,9 @@ void Func_TogglePad0Type()
 {
 	int i = PADASSIGN_INPUT0;
 #ifdef HW_RVL
-	padType[i] = (padType[i]+1) %4;
+	padType[i] = (padType[i]+1) & 3;
 #else
-	padType[i] = (padType[i]+1) %3;
+	padType[i] = (padType[i]+1) & 1;
 #endif
 
 	if (padType[i] == PADTYPE_MULTITAP){ 
@@ -320,9 +332,9 @@ void Func_TogglePad1Type()
 {
 	int i = PADASSIGN_INPUT1;
 #ifdef HW_RVL
-	padType[i] = (padType[i]+1) %4;
+	padType[i] = (padType[i]+1) & 3;
 #else
-	padType[i] = (padType[i]+1) %3;
+	padType[i] = (padType[i]+1) & 1;
 #endif
 	
 	if (padType[i] == PADTYPE_MULTITAP){ 
