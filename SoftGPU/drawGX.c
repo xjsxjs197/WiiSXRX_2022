@@ -21,6 +21,7 @@
 #include <malloc.h>
 #include <time.h>
 #include <ogc/lwp_watchdog.h>
+#include <ogc/machine/processor.h>
 #include <wiiuse/wpad.h>
 #include "../coredebug.h"
 #include "stdafx.h"
@@ -58,23 +59,19 @@ unsigned short usCursorActive=0;
 int            backFromMenu=0;
 
 //Some GX specific variables
-#define RESX_MAX 1024	//Vmem width
-#define RESY_MAX 512	//Vmem height
-#define GXRESX_MAX 1366	//1024 * 1.33 for ARGB
-//int	iResX_Max=640;	//Max FB Width
-int		iResX_Max=RESX_MAX;
-int		iResY_Max=RESY_MAX;
-static unsigned char	GXtexture[GXRESX_MAX*RESY_MAX*2] __attribute__((aligned(32)));
+#define FB_MAX_SIZE (640 * 528 * 4)
+static unsigned char	GXtexture[FB_MAX_SIZE] __attribute__((aligned(32)));
+extern u32* xfb[3];	/*** Framebuffers ***/
 char *	pCaptionText;
 
-extern u32* xfb[3];	/*** Framebuffers ***/
 extern char text[DEBUG_TEXT_HEIGHT][DEBUG_TEXT_WIDTH]; /*** DEBUG textbuffer ***/
 extern char menuActive;
 extern char screenMode;
 static char fpsInfo[32];
 
 // prototypes
-void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt);
+static void GX_Flip(const void *buffer, int pitch, u8 fmt,
+		    int x, int y, int width, int height);
 void drawLine(float x1, float y1, float x2, float y2, char r, char g, char b);
 void drawCircle(int x, int y, int radius, int numSegments, char r, char g, char b);
 
@@ -129,7 +126,10 @@ static void gc_vout_render(void)
 }
 
 ////////////////////////////////////////////////////////////////////////
-void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
+static int screen_w, screen_h;
+
+static void GX_Flip(const void *buffer, int pitch, u8 fmt,
+		    int x, int y, int width, int height)
 {
 	int h, w, i;
 	char r, g, b;
@@ -150,7 +150,7 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 		oldwidth = width;
 		oldheight = height;
 		oldformat = fmt;
-		memset(GXtexture,0,GXRESX_MAX*iResY_Max*2);
+		memset(GXtexture,0,sizeof(GXtexture));
 		GX_InitTexObj(&GXtexobj, GXtexture, width, height, fmt, GX_CLAMP, GX_CLAMP, GX_FALSE);
 	}
 
@@ -292,21 +292,27 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 	GX_SetNumTexGens(1);
 	GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
 
-	float xcoord = 1.0;
-	float ycoord = 1.0;
-	if(screenMode == SCREENMODE_16x9_PILLARBOX) xcoord = 640.0/848.0;
+	float ymin = 1.0f - (float)((y + height) * 2) / (float)screen_h;
+	float ymax = 1.0f - (float)y / (float)screen_h;
+	float xmin = (float)x / (float)screen_w - 1.0f;
+	float xmax = (float)((x + width) * 2) / (float)screen_w - 1.0f;
+
+	if(screenMode == SCREENMODE_16x9_PILLARBOX) {
+		xmin *= 640.0f / 848.0f;
+		xmax *= 640.0f / 848.0f;
+	}
 
 	GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
-	  GX_Position2f32(-xcoord, ycoord);
+	  GX_Position2f32(xmin, ymax);
 	  GX_TexCoord2f32( 0.0, 0.0);
-	  GX_Position2f32( xcoord, ycoord);
+	  GX_Position2f32(xmax, ymax);
 	  GX_TexCoord2f32( 1.0, 0.0);
-	  GX_Position2f32( xcoord,-ycoord);
+	  GX_Position2f32(xmax, ymin);
 	  GX_TexCoord2f32( 1.0, 1.0);
-	  GX_Position2f32(-xcoord,-ycoord);
+	  GX_Position2f32(xmin, ymin);
 	  GX_TexCoord2f32( 0.0, 1.0);
 	GX_End();
-
+	
 	if (lightGun){
 
 	GX_InvVtxCache();
@@ -434,24 +440,22 @@ static void gc_vout_flip(const void *vram, int stride, int bgr24,
 			IplFont_drawString(10,(24*i+60),text[i], 0.5, false);
 		#endif // DISP_DEBUG
 
-	   //reset swap table from GUI/DEBUG
-		GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_RED, GX_CH_GREEN, GX_CH_BLUE, GX_CH_ALPHA);
-		GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
-
 		gc_vout_render();
 		return;
 	}
 	if (menuActive) return;
 
-   //reset swap table from GUI/DEBUG
+	//reset swap table from GUI/DEBUG
 	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED ,GX_CH_ALPHA);
 	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
 
-	GX_Flip(w, h, vram, stride*2, bgr24 ? GX_TF_RGBA8 : GX_TF_RGB5A3);
+	GX_Flip(vram, stride * 2, bgr24 ? GX_TF_RGBA8 : GX_TF_RGB5A3, x, y, w, h);
 }
 
-static void gc_vout_set_mode(int w, int h, int raw_w, int raw_h, int bpp)
-{
+static void gc_vout_set_mode(int w, int h, int raw_w, int raw_h, int bpp) {
+    screen_w = raw_w;
+    screen_h = raw_h;
+
     if (menuActive) return;
 
     // Check if TVMode needs to be changed (240 or 480 lines)
