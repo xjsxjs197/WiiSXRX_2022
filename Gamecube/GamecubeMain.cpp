@@ -229,6 +229,85 @@ static void loadSeparatelySetting();
 static bool loadSeparatelySettingItem(char* s1, char* s2, bool isUsb);
 static void biosFileInit();
 
+static bool loadControllerMapping(char* usbSd)
+{
+    char settingPathBuf[256];
+    FILE* f;
+    bool loadRet = true;
+
+    sprintf(settingPathBuf, "%s:/wiisxrx/controlG.cfg", usbSd);
+    f = fopen(settingPathBuf, "rb" );  //attempt to open file
+    if (f) {
+        load_configurations(f, &controller_GC);					//read in GC controller mappings
+        fclose(f);
+    }
+    else
+    {
+        loadRet = false;
+    }
+
+    #ifdef HW_RVL
+
+    sprintf(settingPathBuf, "%s:/wiisxrx/controlC.cfg", usbSd);
+    f = fopen(settingPathBuf, "rb" );  //attempt to open file
+    if(f) {
+        load_configurations(f, &controller_Classic);			//read in Classic controller mappings
+        fclose(f);
+    }
+    else
+    {
+        loadRet = false;
+    }
+
+    sprintf(settingPathBuf, "%s:/wiisxrx/controlN.cfg", usbSd);
+    f = fopen(settingPathBuf, "rb" );  //attempt to open file
+    if(f) {
+        load_configurations(f, &controller_WiimoteNunchuk);		//read in WM+NC controller mappings
+        fclose(f);
+    }
+    else
+    {
+        loadRet = false;
+    }
+
+    sprintf(settingPathBuf, "%s:/wiisxrx/controlW.cfg", usbSd);
+    f = fopen(settingPathBuf, "rb" );  //attempt to open file
+    if(f) {
+        load_configurations(f, &controller_Wiimote);			//read in Wiimote controller mappings
+        fclose(f);
+    }
+    else
+    {
+        loadRet = false;
+    }
+
+    sprintf(settingPathBuf, "%s:/wiisxrx/controlP.cfg", usbSd);
+    f = fopen(settingPathBuf, "rb" );  //attempt to open file
+    if (f) {
+        load_configurations(f, &controller_WiiUPro);			//read in Wii U Pro controller mappings
+        fclose(f);
+    }
+    else
+    {
+        loadRet = false;
+    }
+
+    sprintf(settingPathBuf, "%s:/wiisxrx/controlD.cfg", usbSd);
+    f = fopen(settingPathBuf, "rb" );  //attempt to open file
+    if (f) {
+        load_configurations(f, &controller_WiiUGamepad);		//read in Wii U Gamepad controller mappings
+        fclose(f);
+    }
+    else
+    {
+        loadRet = false;
+    }
+
+    #endif // HW_RVL
+
+    return loadRet;
+}
+
 void loadSettings(int argc, char *argv[])
 {
 	// Default Settings
@@ -290,47 +369,14 @@ void loadSettings(int argc, char *argv[])
 	if(argc && argv[0][0] == 'u') {  //assume USB
 		fileBrowser_file* configFile_file = &saveDir_libfat_USB;
 		if(configFile_init(configFile_file)) {                //only if device initialized ok
-            // add xjsxjs197 start
             memset(Config.PatchesDir, '\0', sizeof(Config.PatchesDir));
             strcpy(Config.PatchesDir, "usb:/wiisxrx/ppf/");
-            // add xjsxjs197 end
 			FILE* f = fopen( "usb:/wiisxrx/settingsRX2022.cfg", "r" );  //attempt to open file
 			if(f) {        //open ok, read it
 				readConfig(f);
 				fclose(f);
 			}
-			f = fopen( "usb:/wiisxrx/controlG.cfg", "rb" );  //attempt to open file
-			if(f) {
-				load_configurations(f, &controller_GC);					//read in GC controller mappings
-				fclose(f);
-			}
-#ifdef HW_RVL
-			f = fopen( "usb:/wiisxrx/controlC.cfg", "rb" );  //attempt to open file
-			if(f) {
-				load_configurations(f, &controller_Classic);			//read in Classic controller mappings
-				fclose(f);
-			}
-			f = fopen( "usb:/wiisxrx/controlN.cfg", "rb" );  //attempt to open file
-			if(f) {
-				load_configurations(f, &controller_WiimoteNunchuk);		//read in WM+NC controller mappings
-				fclose(f);
-			}
-			f = fopen( "usb:/wiisxrx/controlW.cfg", "rb" );  //attempt to open file
-			if(f) {
-				load_configurations(f, &controller_Wiimote);			//read in Wiimote controller mappings
-				fclose(f);
-			}
-			f = fopen("usb:/wiisxrx/controlP.cfg", "rb");  //attempt to open file
-			if (f) {
-				load_configurations(f, &controller_WiiUPro);			//read in Wii U Pro controller mappings
-				fclose(f);
-			}
-			f = fopen("usb:/wiisxrx/controlD.cfg", "rb");  //attempt to open file
-			if (f) {
-				load_configurations(f, &controller_WiiUGamepad);		//read in Wii U Gamepad controller mappings
-				fclose(f);
-			}
-#endif //HW_RVL
+			loadControllerMapping("usb");
 		}
 	}
 	else /*if((argv[0][0]=='s') || (argv[0][0]=='/'))*/
@@ -347,38 +393,8 @@ void loadSettings(int argc, char *argv[])
 				readConfig(f);
 				fclose(f);
 			}
-			f = fopen( "sd:/wiisxrx/controlG.cfg", "rb" );  //attempt to open file
-			if(f) {
-				load_configurations(f, &controller_GC);					//read in GC controller mappings
-				fclose(f);
-			}
-#ifdef HW_RVL
-			f = fopen( "sd:/wiisxrx/controlC.cfg", "rb" );  //attempt to open file
-			if(f) {
-				load_configurations(f, &controller_Classic);			//read in Classic controller mappings
-				fclose(f);
-			}
-			f = fopen( "sd:/wiisxrx/controlN.cfg", "rb" );  //attempt to open file
-			if(f) {
-				load_configurations(f, &controller_WiimoteNunchuk);		//read in WM+NC controller mappings
-				fclose(f);
-			}
-			f = fopen( "sd:/wiisxrx/controlW.cfg", "rb" );  //attempt to open file
-			if(f) {
-				load_configurations(f, &controller_Wiimote);			//read in Wiimote controller mappings
-				fclose(f);
-			}
-			f = fopen("sd:/wiisxrx/controlP.cfg", "rb");  //attempt to open file
-			if (f) {
-				load_configurations(f, &controller_WiiUPro);			//read in Wii U Pro controller mappings
-				fclose(f);
-			}
-			f = fopen("sd:/wiisxrx/controlD.cfg", "rb");  //attempt to open file
-			if (f) {
-				load_configurations(f, &controller_WiiUGamepad);		//read in Wii U Gamepad controller mappings
-				fclose(f);
-			}
-#endif //HW_RVL
+
+			loadControllerMapping("sd");
 		}
 	}
 #ifdef HW_RVL
@@ -670,20 +686,38 @@ static bool loadSeparatelySettingItem(char* s1, char* s2, bool isUsb)
 
 static void loadSeparatelySetting()
 {
-    // First, we have to load the common (global) settings.
-    // Load common (global) settings from USB device
-    if (!loadSeparatelySettingItem("usb:/wiisxrx/", "settingsRX2022", true))
-    {
-        // Load common (global) settings from SD card
-        loadSeparatelySettingItem("sd:/wiisxrx/", "settingsRX2022", false);
-    }
+    char oldLoadButtonSlot = loadButtonSlot;
 
-    // Then, we can load separately game settings.
+    // First, we load separately game settings.
     // Load separately game settings from USB device
     if (!loadSeparatelySettingItem("usb:/wiisxrx/settings/", CdromId, true))
     {
+        // If there is no separate setting for USB
         // Load separately game settings from SD card
-        if (!loadSeparatelySettingItem("sd:/wiisxrx/settings/", CdromId, false)){}
+        if (!loadSeparatelySettingItem("sd:/wiisxrx/settings/", CdromId, false))
+        {
+            // If there is no separate setting
+            // we load the common (global) settings.
+            // Load common (global) settings from USB device
+            if (!loadSeparatelySettingItem("usb:/wiisxrx/", "settingsRX2022", true))
+            {
+                // If there is no common (global) settings for USB
+                // Load common (global) settings from SD card
+                loadSeparatelySettingItem("sd:/wiisxrx/", "settingsRX2022", false);
+            }
+        }
+    }
+
+    // If the loadButton Slot changes, reload the key mapping
+    if (oldLoadButtonSlot != loadButtonSlot)
+    {
+        // Load button mapping from USB
+        if (!loadControllerMapping("usb"))
+        {
+            // If the key mapping in USB does not exist
+            // Load button mapping from SD
+            loadControllerMapping("sd");
+        }
     }
 
     Config.pR3000Fix = 0;
