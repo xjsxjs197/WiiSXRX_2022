@@ -261,9 +261,10 @@ static void StartSoundMain(int ch)
  StartADSR(ch);
  StartREVERB(ch);
 
- s_chan->prevflags=2;
- s_chan->iSBPos=27;
- s_chan->spos=0;
+ s_chan->prevflags = 2;
+ s_chan->iSBPos = 27;
+ s_chan->spos = 0;
+ s_chan->bStarting = 1;
 
  s_chan->pCurr = spu.spuMemC + ((regAreaGetCh(ch, 6) & ~1) << 3);
 
@@ -466,6 +467,7 @@ static int decode_block(void *unused, int ch, int *SB)
 
  s_chan->pCurr = start;                    // store values for next cycle
  s_chan->prevflags = flags;
+ s_chan->bStarting = 0;
 
  return ret;
 }
@@ -495,6 +497,7 @@ static int skip_block(int ch)
 
  s_chan->pCurr = start;
  s_chan->prevflags = flags;
+ s_chan->bStarting = 0;
 
  return ret;
 }
@@ -795,9 +798,9 @@ static void do_channels(int ns_to)
    s_chan = &spu.s_chan[ch];
    SB = spu.SB + ch * SB_SIZE;
    sinc = s_chan->sinc;
-   if (spu.s_chan[ch].bNewPitch)
-    SB[32] = 1;                                    // reset interpolation
-   spu.s_chan[ch].bNewPitch = 0;
+   //if (spu.s_chan[ch].bNewPitch)
+   // SB[32] = 1;                                    // reset interpolation
+   //spu.s_chan[ch].bNewPitch = 0;
 
    if (s_chan->bNoise)
     d = do_samples_noise(ch, ns_to);
@@ -812,13 +815,15 @@ static void do_channels(int ns_to)
     d = do_samples_default(decode_block, NULL, ch, ns_to,
           SB, sinc, &s_chan->spos, &s_chan->iSBPos);
 
-   d = MixADSR(&s_chan->ADSRX, d);
-   if (d < ns_to) {
-    spu.dwChannelsAudible &= ~(1 << ch);
-    s_chan->ADSRX.State = ADSR_RELEASE;
-    s_chan->ADSRX.EnvelopeVol = 0;
-    s_chan->ADSRX.EnvelopeCounter = 0;
-    memset(&ChanBuf[d], 0, (ns_to - d) * sizeof(ChanBuf[0]));
+   if (!s_chan->bStarting) {
+    d = MixADSR(&s_chan->ADSRX, d);
+    if (d < ns_to) {
+     spu.dwChannelsAudible &= ~(1 << ch);
+     s_chan->ADSRX.State = ADSR_RELEASE;
+     s_chan->ADSRX.EnvelopeVol = 0;
+     s_chan->ADSRX.EnvelopeCounter = 0;
+     memset(&ChanBuf[d], 0, (ns_to - d) * sizeof(ChanBuf[0]));
+    }
    }
 
    if (ch == 1 || ch == 3)
@@ -882,7 +887,7 @@ void do_samples(unsigned int cycles_to, int do_direct)
      return 0;
  }
 
- ns_to = (cycle_diff / 768 + 1) & ~3;
+ ns_to = (cycle_diff / 768 + 3) & ~3;
  if (ns_to > NSSIZE) {
   // should never happen
   //xprintf("ns_to oflow %d %d\n", ns_to, NSSIZE);
@@ -1049,11 +1054,11 @@ void CALLBACK DF_SPUasync(unsigned int cycle, unsigned int flags, unsigned int p
    if (!out_current->busy()) {
     // cause more samples to be generated
     // (and break some games because of bad sync)
-    if (psxType) {
-        spu.cycles_played -= PS_SPU_FREQ / 50 / 2 * 768;  // Config.PsxType = 1, PAL 50Fps/1s
-    } else {
+    //if (psxType) {
+    //    spu.cycles_played -= PS_SPU_FREQ / 50 / 2 * 768;  // Config.PsxType = 1, PAL 50Fps/1s
+    //} else {
         spu.cycles_played -= PS_SPU_FREQ / 60 / 2 * 768;  // Config.PsxType = 0, PAL 60Fps/1s
-    }
+    //}
    }
  }
 }

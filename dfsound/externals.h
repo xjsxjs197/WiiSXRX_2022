@@ -119,7 +119,7 @@ typedef struct
  unsigned int      bFMod:2;                            // freq mod (0=off, 1=sound channel, 2=freq channel)
  unsigned int      prevflags:3;                        // flags from previous block
  unsigned int      bIgnoreLoop:1;                      // Ignore loop
- unsigned int      bNewPitch:1;                        // pitch changed
+ unsigned int      bStarting:1;                        // starting after keyon
  union {
   struct {
    int             iLeftVolume;                        // left volume
@@ -257,9 +257,9 @@ typedef struct
 } SPUInfo;
 
 #define regAreaGet(offset) \
-  spu.regArea[((offset) - 0xc00)>>1]
+  spu.regArea[((offset) - 0xc00) >> 1]
 #define regAreaGetCh(ch, offset) \
-  spu.regArea[((ch<<4)|(offset))>>1]
+  spu.regArea[(((ch) << 4) | (offset)) >> 1]
 
 ///////////////////////////////////////////////////////////
 // SPU.C globals
@@ -275,12 +275,12 @@ void do_irq_io(int cycles_after);
 // WiiStation handles audio at a frequency of 4800 on the SPU,
 // and the operation of the SPU accelerator is also different. Therefore, this processing is not required here.
 // Otherwise, the sound of some games may not be smooth enough.
-#define do_samples_if_needed(c, sync, samples)
+//#define do_samples_if_needed(c, sync, samples)
 
-//#define do_samples_if_needed(c, sync, samples) \
-// do { \
-//  if (sync || (int)((c) - spu.cycles_played) >= (samples) * 768) \
-//   do_samples(c, sync); \
-// } while (0)
+#define do_samples_if_needed(c, sync, samples) \
+ do { \
+  if (sync || (int)((c) - spu.cycles_played) >= (samples) * 768) \
+   do_samples(c, sync); \
+ } while (0)
 
 #endif /* __P_SOUND_EXTERNALS_H__ */

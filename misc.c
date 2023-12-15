@@ -345,6 +345,19 @@ int LoadCdromFile(char *filename, EXE_HEADER *head) {
 	return 0;
 }
 
+void CheckPsxType()
+{
+	if (
+		/* Make sure Wild Arms SCUS-94608 is not detected as a PAL game. */
+		((CdromId[0] == 's' || CdromId[0] == 'S') && (CdromId[2] == 'e' || CdromId[2] == 'E')) ||
+		!strncmp(CdromId, "DTLS3035", 8) ||
+		!strncmp(CdromId, "PBPX95001", 9) || // according to redump.org, these PAL
+		!strncmp(CdromId, "PBPX95007", 9) || // discs have a non-standard ID;
+		!strncmp(CdromId, "PBPX95008", 9))   // add more serials if they are discovered.
+		Config.PsxType = PSX_TYPE_PAL; // pal
+	else Config.PsxType = PSX_TYPE_NTSC; // ntsc
+}
+
 int CheckCdrom() {
 	struct iso_directory_record *dir;
 	unsigned char time[4];
@@ -424,16 +437,11 @@ int CheckCdrom() {
 	if (CdromId[0] == '\0')
 		strcpy(CdromId, "SLUS99999");
 
-	if (Config.PsxAuto) { // autodetect system (pal or ntsc)
-		if (
-			/* Make sure Wild Arms SCUS-94608 is not detected as a PAL game. */
-			((CdromId[0] == 's' || CdromId[0] == 'S') && (CdromId[2] == 'e' || CdromId[2] == 'E')) ||
-			!strncmp(CdromId, "DTLS3035", 8) ||
-			!strncmp(CdromId, "PBPX95001", 9) || // according to redump.org, these PAL
-			!strncmp(CdromId, "PBPX95007", 9) || // discs have a non-standard ID;
-			!strncmp(CdromId, "PBPX95008", 9))   // add more serials if they are discovered.
-			Config.PsxType = PSX_TYPE_PAL; // pal
-		else Config.PsxType = PSX_TYPE_NTSC; // ntsc
+	if (forceNTSC){
+		Config.PsxType = PSX_TYPE_NTSC;
+	}
+	else if (Config.PsxAuto) { // autodetect system (pal or ntsc)
+		CheckPsxType();
 	}
 
 	if (CdromLabel[0] == ' ') {

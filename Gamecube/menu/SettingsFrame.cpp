@@ -83,6 +83,7 @@ void Func_DitheringDefault();
 void Func_DitheringAlways();
 void Func_ScalingNone();
 void Func_Scaling2xSai();
+void Func_ForceNTSC();
 
 void Func_ConfigureInput();
 void Func_ConfigureButtons();
@@ -133,6 +134,7 @@ int SysInit();
 void SysClose();
 void SysStartCPU();
 void CheckCdrom();
+void CheckPsxType();
 void LoadCdrom();
 void pauseAudio(void);  void pauseInput(void);
 void resumeAudio(void); void resumeInput(void);
@@ -140,7 +142,7 @@ void IplFont_loadFontFile(FILE* fontFile);
 FILE* IplFont_getFontFile(char* sdUsb);
 }
 
-#define NUM_FRAME_BUTTONS 63
+#define NUM_FRAME_BUTTONS 64
 #define NUM_TAB_BUTTONS 5
 #define FRAME_BUTTONS settingsFrameButtons
 #define FRAME_STRINGS settingsFrameStrings
@@ -182,7 +184,7 @@ Auto Save Memcards: Yes; No
 Save States Device: SD; USB
 */
 
-static char FRAME_STRINGS[78][24] =
+static char FRAME_STRINGS[79][24] =
 	{ "General",
 	  "Video",
 	  "Input",
@@ -252,7 +254,7 @@ static char FRAME_STRINGS[78][24] =
       "Es", // SPANISH
       "Pte", // PORTUGUESE
       "It", // ITALIAN
-      // Strings for display Fast Load (starting at FRAME_STRINGS[63]) ..was[77]
+      // Strings for display Fast Load (starting at FRAME_STRINGS[63]) ..was[78]
       "Fast Load",
 	  "240p",
 	  "Bilinear",
@@ -267,7 +269,8 @@ static char FRAME_STRINGS[78][24] =
 	  "Memcard 1",
 	  "Memcard 2",
 	  "Enable Memcard",
-	  "Separately"
+	  "Separately",
+	  "Force NTSC"
       };
 
 static char LANG_STRINGS[13][24] =
@@ -324,12 +327,12 @@ struct ButtonInfo
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[14],	300.0,	380.0,	 70.0,	56.0,	54,	 0,	14,	62,	Func_SaveSettingsUSB,	Func_ReturnFromSettingsFrame }, // Save Settings: USB
 
 	//Buttons for Video Tab (starts at button[16])
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[24],	325.0,	100.0,	 75.0,	56.0,	 1,	18,	17,	17,	Func_ShowFpsOn,			Func_ReturnFromSettingsFrame }, // Show FPS: On
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	420.0,	100.0,	 75.0,	56.0,	 1,	19,	16,	16,	Func_ShowFpsOff,		Func_ReturnFromSettingsFrame }, // Show FPS: Off
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[26],	325.0,	160.0,	 75.0,	56.0,	16,	20,	19,	19,	Func_FpsLimitAuto,		Func_ReturnFromSettingsFrame }, // FPS Limit: Auto
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	420.0,	160.0,	 75.0,	56.0,	17,	21,	18,	18,	Func_FpsLimitOff,		Func_ReturnFromSettingsFrame }, // FPS Limit: Off
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[24],	325.0,	220.0,	 75.0,	56.0,	18,	23,	21,	21,	Func_FrameSkipOn,		Func_ReturnFromSettingsFrame }, // Frame Skip: On
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	420.0,	220.0,	 75.0,	56.0,	19,	23,	20,	20,	Func_FrameSkipOff,		Func_ReturnFromSettingsFrame }, // Frame Skip: Off
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[24],	200.0,	100.0,	 75.0,	56.0,	 1,	18,	17,	17,	Func_ShowFpsOn,			Func_ReturnFromSettingsFrame }, // Show FPS: On
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	295.0,	100.0,	 75.0,	56.0,	 1,	19,	16,	16,	Func_ShowFpsOff,		Func_ReturnFromSettingsFrame }, // Show FPS: Off
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[26],	200.0,	160.0,	 75.0,	56.0,	16,	20,	63,	19,	Func_FpsLimitAuto,		Func_ReturnFromSettingsFrame }, // FPS Limit: Auto
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	295.0,	160.0,	 75.0,	56.0,	17,	21,	18,	63,	Func_FpsLimitOff,		Func_ReturnFromSettingsFrame }, // FPS Limit: Off
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[24],	200.0,	220.0,	 75.0,	56.0,	18,	23,	21,	21,	Func_FrameSkipOn,		Func_ReturnFromSettingsFrame }, // Frame Skip: On
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	295.0,	220.0,	 75.0,	56.0,	19,	23,	20,	20,	Func_FrameSkipOff,		Func_ReturnFromSettingsFrame }, // Frame Skip: Off
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[27],	200.0,	280.0,	 135.0,	56.0,	20,	25,	57,	23,	Func_ScreenMode,		Func_ReturnFromSettingsFrame }, // ScreenMode: 4:3/16:9/Force16:9
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[67],	355.0,	280.0,	 135.0,	56.0,	20,	26,	22,	57,	Func_Interlaced,		Func_ReturnFromSettingsFrame }, // Interlaced Mode
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[68],	440.0,	400.0,	110.0,	56.0,	27,	 1,	29,	28,	Func_DeflickerFilter,	Func_ReturnFromSettingsFrame }, // Filters: Deflicker Filter
@@ -366,7 +369,7 @@ struct ButtonInfo
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[13],	295.0,	240.0,	 55.0,	56.0,	50,	60,	53,	53,	Func_SaveStateSD,		Func_ReturnFromSettingsFrame }, // Save State: SD
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[14],	360.0,	240.0,	 70.0,	56.0,	51,	60,	52,	52,	Func_SaveStateUSB,		Func_ReturnFromSettingsFrame }, // Save State: USB
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[57],	235.0,	310.0,	 90.0,	56.0,	 11,55,	56,	55,	Func_SelectLanguage,	Func_ReturnFromSettingsFrame }, // Select Language: En
-    //Buttons for Saves Tab (starts at button[55]) ..was[58]
+    //Buttons for Saves Tab (starts at button[55]) ..was[61]
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[16],	490.0,	310.0,	 75.0,	56.0,	12,	15,	54,	56,	Func_FastloadYes,		Func_ReturnFromSettingsFrame }, // Fast load: Yes
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[17],	570.0,	310.0,	 75.0,	56.0,	13,	15,	55,	54,	Func_FastloadNo,		Func_ReturnFromSettingsFrame }, // Fast load: No
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[64],	510.0,	280.0,	 75.0,	56.0,	21,	27,	23,	22,	Func_Screen240p,		Func_ReturnFromSettingsFrame },  // ScreenMode: 240p
@@ -375,7 +378,9 @@ struct ButtonInfo
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[74],	295.0,	310.0,	155.0,	56.0,	52,	4,	61,	61,	Func_Memcard1,			Func_ReturnFromSettingsFrame },  // Memcard 1 toggle
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[75],	460.0,	310.0,	155.0,	56.0,	53,	4,	60,	60,	Func_Memcard2,			Func_ReturnFromSettingsFrame },  // Memcard 2 toggle
 
+	//Buttons for ... (starts at button[62]) ..was[63]
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[77],	385.0,	380.0,	 140.0,	56.0,	54,	 0,	15,	14,	Func_SaveSettingsSeparately,	Func_ReturnFromSettingsFrame }, // Save Settings: Separately
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[78],	390.0,	170.0,	160.0,	56.0,	17,	21,	19,	18,	Func_ForceNTSC,			Func_ReturnFromSettingsFrame }  // Force NTSC toggle
 };
 
 struct TextBoxInfo
@@ -394,9 +399,9 @@ struct TextBoxInfo
 	{	NULL,	FRAME_STRINGS[7],	155.0,	268.0,	 1.0,	true }, // Boot Thru Bios: Yes/No
 	{	NULL,	FRAME_STRINGS[9],	130.0,	408.0,	 1.0,	true }, // Save settings: SD/USB
 	//TextBoxes for Video Tab (starts at textBox[4])
-	{	NULL,	FRAME_STRINGS[18],	190.0,	128.0,	 1.0,	true }, // Show FPS: On/Off
-	{	NULL,	FRAME_STRINGS[19],	190.0,	188.0,	 1.0,	true }, // Limit FPS: Auto/Off
-	{	NULL,	FRAME_STRINGS[20],	190.0,	248.0,	 1.0,	true }, // Frame Skip: On/Off
+	{	NULL,	FRAME_STRINGS[18],	110.0,	128.0,	 1.0,	true }, // Show FPS: On/Off
+	{	NULL,	FRAME_STRINGS[19],	110.0,	188.0,	 1.0,	true }, // Limit FPS: Auto/Off
+	{	NULL,	FRAME_STRINGS[20],	110.0,	248.0,	 1.0,	true }, // Frame Skip: On/Off
 	{	NULL,	FRAME_STRINGS[21],	90.0,	308.0,	 1.0,	true }, // ScreenMode: 4x3/16x9/Force16x9/Interlaced/240p
 	{	NULL,	FRAME_STRINGS[22],	115.0,	368.0,	 1.0,	true }, // Dithering: None/Game Dependent/Always
 	{	NULL,	FRAME_STRINGS[23],	130.0,	428.0,	 1.0,	true }, // Filters
@@ -577,6 +582,12 @@ void SettingsFrame::activateSubmenu(int submenu)
 				FRAME_BUTTONS[i].button->setVisible(true);
 				FRAME_BUTTONS[i].button->setActive(true);
 			}
+
+			// force NTSC
+            if (forceNTSC == FORCENTSC_ENABLE)FRAME_BUTTONS[63].button->setSelected(true);
+            FRAME_BUTTONS[63].button->setVisible(true);
+			FRAME_BUTTONS[63].button->setActive(true);
+
 			break;
 		case SUBMENU_INPUT:
 			Func_SetButtonLoad();
@@ -1338,6 +1349,25 @@ void Func_TrapFilter()
 		FRAME_BUTTONS[29].button->setSelected(true);
 		trapFilter = TRAPFILTER_ENABLE;
 		VIDEO_SetTrapFilter(1);
+	}
+}
+
+void Func_ForceNTSC()
+{
+	if(forceNTSC == FORCENTSC_ENABLE)
+	{
+		FRAME_BUTTONS[63].button->setSelected(false);
+		forceNTSC = FORCENTSC_DISABLE;
+		if (hasLoadedISO)
+		{
+			CheckPsxType();
+		}
+	}
+	else
+	{
+		FRAME_BUTTONS[63].button->setSelected(true);
+		forceNTSC = FORCENTSC_ENABLE;
+		Config.PsxType = PSX_TYPE_NTSC;
 	}
 }
 
