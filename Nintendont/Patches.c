@@ -298,27 +298,27 @@ int LoadKernel(void)
 	DCFlushRange(Path, 32);
 
 	// Open the actual IOS58 kernel file.
-	int kfd = IOS_Open(Path, 1);
-	if (kfd < 0)
-	{
-		gprintf("IOS_Open(\"%s\") failed: %d\r\n", Path, kfd);
-		//PrintLoadKernelError(LKERR_IOS_Open_IOS58_kernel, kfd);
-		return kfd;
-	}
-
-	KernelSize = IOS_Seek( kfd, 0, SEEK_END );
-	IOS_Seek( kfd, 0, 0);
-
-	gprintf("KernelSize:%u\r\n", KernelSize );
-	DCInvalidateRange(KernelReadBuf, KernelSize);
-	if (IOS_Read(kfd, KernelReadBuf, KernelSize) != KernelSize)
-	{
-		gprintf("IOS_Read() failed\r\n");
-		//PrintLoadKernelError(LKERR_IOS_Read_IOS58_kernel, kfd);
-		IOS_Close(kfd);
-		return -1;
-	}
-
-	IOS_Close(kfd);
+//	int kfd = IOS_Open(Path, 1);
+//	if (kfd < 0)
+//	{
+//		gprintf("IOS_Open(\"%s\") failed: %d\r\n", Path, kfd);
+//		//PrintLoadKernelError(LKERR_IOS_Open_IOS58_kernel, kfd);
+//		return kfd;
+//	}
+//
+//	KernelSize = IOS_Seek( kfd, 0, SEEK_END );
+//	IOS_Seek( kfd, 0, 0);
+//
+//	gprintf("KernelSize:%u\r\n", KernelSize );
+//	DCInvalidateRange(KernelReadBuf, KernelSize);
+//	if (IOS_Read(kfd, KernelReadBuf, KernelSize) != KernelSize)
+//	{
+//		gprintf("IOS_Read() failed\r\n");
+//		//PrintLoadKernelError(LKERR_IOS_Read_IOS58_kernel, kfd);
+//		IOS_Close(kfd);
+//		return -1;
+//	}
+//
+//	IOS_Close(kfd);
 	return 0;
 }

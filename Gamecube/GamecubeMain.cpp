@@ -482,21 +482,13 @@ void ShutdownWii()
 	stop = 1;
 }
 
-static void memWrite16(u32 addr, u16 data)
+static bool checkIOS58()
 {
-	//__asm__ volatile ("strh\t%0, [%1]" : : "l" (data), "l" (addr));
-	__asm__("sth %0,0(%1) ; eieio" : : "r"(data), "b"(0xc0000000 | addr));
-}
-
-static bool patchIOS58()
-{
-    printf("patchIOS58 1111111 \r\n");
     RAMInit();
 	//tell devkitPPC r29 that we use UTF-8
 	setlocale(LC_ALL,"C.UTF-8");
 
 	// for BT.c
-	printf("patchIOS58 222222 \r\n");
 	CONF_Init();
 	CONF_GetPadDevices((conf_pads*)0x932C0000);
 	DCFlushRange((void*)0x932C0000, sizeof(conf_pads));
@@ -504,68 +496,65 @@ static bool patchIOS58()
 	*(vu32*)0x932C0494 = CONF_GetSensorBarPosition();
 	DCFlushRange((void*)0x932C0490, 8);
 
-	printf("patchIOS58 333333 \r\n");
 	WiiDRC_Init();
 	isWiiVC = WiiDRC_Inited();
 
-	s32 fd;
-	/* Wii VC fw.img is pre-patched but Wii/vWii isnt, so we
-		still have to reload IOS on those with a patched kernel */
-	if(!isWiiVC)
-	{
-	    u32 u;
-		//Disables MEMPROT for patches
-		memWrite16(MEM_PROT, 0);
-		//Patches FS access
-		for( u = 0x93A00000; u < 0x94000000 - sizeof(FSAccessPattern); u+=2 )
-		{
-			if( memcmp( (void*)(u), FSAccessPattern, sizeof(FSAccessPattern) ) == 0 )
-			{
-				//gprintf("FSAccessPatch:%08X\r\n", u );
-				memcpy( (void*)u, FSAccessPatch, sizeof(FSAccessPatch) );
-				DCFlushRange((void*)u, sizeof(FSAccessPatch));
-				break;
-			}
-		}
+//	s32 fd;
+//	/* Wii VC fw.img is pre-patched but Wii/vWii isnt, so we
+//		still have to reload IOS on those with a patched kernel */
+//	if(!isWiiVC)
+//	{
+//	    u32 u;
+//		//Disables MEMPROT for patches
+//		write16(MEM_PROT, 0);
+//		//Patches FS access
+//		for( u = 0x93A00000; u < 0x94000000 - sizeof(FSAccessPattern); u+=2 )
+//		{
+//			if( memcmp( (void*)(u), FSAccessPattern, sizeof(FSAccessPattern) ) == 0 )
+//			{
+//				//gprintf("FSAccessPatch:%08X\r\n", u );
+//				memcpy( (void*)u, FSAccessPatch, sizeof(FSAccessPatch) );
+//				DCFlushRange((void*)u, sizeof(FSAccessPatch));
+//				break;
+//			}
+//		}
+//
+//		// Load and patch IOS58.
+//		printf("patchIOS58 44444 \r\n");
+//		if (LoadKernel() >= 0)
+//		{
+//		    PatchKernel(isWiiVC);
+//            u32 v = FoundVersion;
+//            //this ensures all IOS modules get loaded in ES on reload
+//            memcpy( ESBootPatch+0x14, &v, 4 );
+//            DCInvalidateRange( (void*)0x939F0348, sizeof(ESBootPatch) );
+//            memcpy( (void*)0x939F0348, ESBootPatch, sizeof(ESBootPatch) );
+//            DCFlushRange( (void*)0x939F0348, sizeof(ESBootPatch) );
+//
+//            //libogc still has that, lets close it
+//            __ES_Close();
+//            fd = IOS_Open( dev_es, 0 );
+//
+//            irq_handler_t irq_handler = BeforeIOSReload();
+//            IOS_IoctlvAsync( fd, 0x25, 0, 0, IOCTL_Buf, NULL, NULL );
+//            sleep(1); //wait this time at least
+//            AfterIOSReload( irq_handler, v );
+//            //Disables MEMPROT for patches
+//            memWrite16(MEM_PROT, 0);
+//		}
+//		else
+//        {
+//            return false;
+//        }
+//	}
 
-		// Load and patch IOS58.
-		printf("patchIOS58 44444 \r\n");
-		if (LoadKernel() >= 0)
-		{
-		    printf("patchIOS58 5555 \r\n");
-		    PatchKernel(isWiiVC);
-		    printf("patchIOS58 666666 \r\n");
-            u32 v = FoundVersion;
-            //this ensures all IOS modules get loaded in ES on reload
-            memcpy( ESBootPatch+0x14, &v, 4 );
-            DCInvalidateRange( (void*)0x939F0348, sizeof(ESBootPatch) );
-            memcpy( (void*)0x939F0348, ESBootPatch, sizeof(ESBootPatch) );
-            DCFlushRange( (void*)0x939F0348, sizeof(ESBootPatch) );
-            printf("patchIOS58 77777 \r\n");
+	// Check IOS58 exist.
+	if (LoadKernel() >= 0)
+    {
+        return true;
+    }
 
-            //libogc still has that, lets close it
-            __ES_Close();
-            fd = IOS_Open( dev_es, 0 );
-            printf("patchIOS58 8888 \r\n");
-
-            irq_handler_t irq_handler = BeforeIOSReload();
-            printf("patchIOS58 9999 \r\n");
-            IOS_IoctlvAsync( fd, 0x25, 0, 0, IOCTL_Buf, NULL, NULL );
-            printf("patchIOS58 aaaaa \r\n");
-            sleep(1); //wait this time at least
-            AfterIOSReload( irq_handler, v );
-            //Disables MEMPROT for patches
-            memWrite16(MEM_PROT, 0);
-            printf("patchIOS58 bbbbb \r\n");
-		}
-		else
-        {
-            printf("patchIOS58 00000 \r\n");
-            return false;
-        }
-	}
-
-	return true;
+	return false;
 }
 
 #endif
@@ -630,8 +619,12 @@ int main(int argc, char *argv[])
     L2Enhance();
 
     // HID ios58 check
-    bool hidIos58Ok = patchIOS58();
-    if (!hidIos58Ok)
+    bool ios58Exists = checkIOS58();
+    if (ios58Exists)
+    {
+        IOS_ReloadIOS(58);
+    }
+    else
     {
         // HID check error, use default processing
         u32 ios = IOS_GetVersion();
@@ -642,6 +635,7 @@ int main(int argc, char *argv[])
                 IOS_ReloadIOS(preferred);
         }
     }
+
 
 	#endif
 

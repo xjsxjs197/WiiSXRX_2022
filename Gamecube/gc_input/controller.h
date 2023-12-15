@@ -87,6 +87,19 @@ typedef struct {
 	button_tp fastf;
 } controller_config_t;
 
+typedef struct HidController
+{
+	u32 VID;
+	u32 PID;
+	u32 Polltype;
+	u32 DPAD;
+	u32 DPADMask;
+	u32 DigitalLR;
+	u32 MultiIn;
+	u32 MultiInValue;
+
+} hidController;
+
 typedef struct {
 	// Identifier used in configuration file names
 	char identifier;

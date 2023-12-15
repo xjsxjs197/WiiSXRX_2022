@@ -181,8 +181,8 @@ void Input::refreshInput()
 
 	if (hidPadNeedScan)
 	{
-	    static u32* HID_STATUS = (u32*)0xD3003440;
-		hidGcConnected = ((*HID_STATUS == 0) ? 0 : 1);
+	    static volatile hidController *HID_CTRL = (volatile hidController*)0x93005000;
+		hidGcConnected = ((HID_CTRL->VID != 0 && HID_CTRL->PID != 0) ? 1 : 0);
 	    hidPadNeedScan = 0;
 	}
 	HIDUpdateRegisters();

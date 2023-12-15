@@ -135,7 +135,7 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 	c->btns.All = 0xFFFF;
 	c->leftStickX = c->leftStickY = c->rightStickX = c->rightStickY = 128;
 
-	if (!controller_HidGC.available[Control]) return 0;
+	//if (!controller_HidGC.available[Control]) return 0;
 
     PAD_Pressed = 0;
 	PAD_Stick_Y = 0;
@@ -208,7 +208,7 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 	// Return 1 if exit, 2 if fastforward
 	if (!isHeld(config->exit)) return 1;
 	if (!isHeld(config->fastf)) return 2;
-	else 
+	else
 		return 0;
 }
 
@@ -274,11 +274,11 @@ controller_t controller_HidGC =
 	  }
 	 };
 
-static u32* HID_STATUS = (u32*)0xD3003440;
+static volatile hidController *HID_CTRL = (volatile hidController*)0x93005000;
 static void refreshAvailable(void){
 	if (hidPadNeedScan)
 	{
-		hidGcConnected = ((*HID_STATUS == 0) ? 0 : 1);
+		hidGcConnected = ((HID_CTRL->VID != 0 && HID_CTRL->PID != 0) ? 1 : 0);
 	    hidPadNeedScan = 0;
 	}
 	controller_HidGC.available[0] = hidGcConnected;
