@@ -56,7 +56,7 @@ enum
     RcUnknown15       = 0x8000, // 15   ? (always zero)
 };
 
-#define CounterQuantity           ( 4 )
+#define CounterQuantity           ( 5 )
 //static const u32 CounterQuantity  = 4;
 
 static const u32 CountToOverflow  = 0;
@@ -385,7 +385,7 @@ void psxRcntUpdate()
 
 //            if( SPU_async )
 //            {
-                SPU_async( cycle, 1 , Config.PsxType);
+//                SPU_async( cycle, 1 , Config.PsxType);
 //            }
         }
 
@@ -430,10 +430,10 @@ void psxRcntUpdate()
         scheduleRcntBase();
     }
 
-//    if ((cycle - rcnts[4].cycleStart) >= rcnts[4].cycle) {
-//        SPU_async(cycle, 1, Config.PsxType);
-//        psxRcntReset(4);
-//    }
+    if ((cycle - rcnts[4].cycleStart) >= rcnts[4].cycle) {
+        SPU_async(cycle, 1, Config.PsxType);
+        psxRcntReset(4);
+    }
 
     psxRcntSet();
 
@@ -533,6 +533,16 @@ u32 psxRcntRtarget( u32 index )
 
 /******************************************************************************/
 
+void psxResetRcntRate()
+{
+    if (rcnts[1].rate > 1)
+    {
+        rcnts[1].rate = lineCycles();
+    }
+
+    rcnts[4].rate = 768 * FrameRate[Config.PsxType];
+}
+
 void psxRcntInit()
 {
     s32 i;
@@ -554,9 +564,9 @@ void psxRcntInit()
 
 
     // spu timer
-//    rcnts[4].rate = 768 * FrameRate[Config.PsxType];
-//    rcnts[4].target = 1;
-//    rcnts[4].mode = 0x58;
+    rcnts[4].rate = 768 * FrameRate[Config.PsxType];
+    rcnts[4].target = 1;
+    rcnts[4].mode = 0x58;
 
     for( i = 0; i < CounterQuantity; ++i )
     {

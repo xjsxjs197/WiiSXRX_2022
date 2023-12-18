@@ -140,6 +140,8 @@ void pauseAudio(void);  void pauseInput(void);
 void resumeAudio(void); void resumeInput(void);
 void IplFont_loadFontFile(FILE* fontFile);
 FILE* IplFont_getFontFile(char* sdUsb);
+void changePsxType();
+void psxResetRcntRate();
 }
 
 #define NUM_FRAME_BUTTONS 64
@@ -380,7 +382,7 @@ struct ButtonInfo
 
 	//Buttons for ... (starts at button[62]) ..was[63]
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[77],	385.0,	380.0,	 140.0,	56.0,	54,	 0,	15,	14,	Func_SaveSettingsSeparately,	Func_ReturnFromSettingsFrame }, // Save Settings: Separately
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[78],	390.0,	170.0,	160.0,	56.0,	17,	21,	19,	18,	Func_ForceNTSC,			Func_ReturnFromSettingsFrame }  // Force NTSC toggle
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[78],	390.0,	160.0,	160.0,	56.0,	17,	21,	19,	18,	Func_ForceNTSC,			Func_ReturnFromSettingsFrame }  // Force NTSC toggle
 };
 
 struct TextBoxInfo
@@ -1368,6 +1370,11 @@ void Func_ForceNTSC()
 		FRAME_BUTTONS[63].button->setSelected(true);
 		forceNTSC = FORCENTSC_ENABLE;
 		Config.PsxType = PSX_TYPE_NTSC;
+	}
+	psxResetRcntRate();
+	if (hasLoadedISO)
+	{
+		changePsxType();
 	}
 }
 

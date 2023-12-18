@@ -80,6 +80,8 @@ void SysUpdate();
 void SysRunGui();
 void SysMessage(char *fmt, ...);
 void LidInterrupt();
+void CheckPsxType();
+void psxResetRcntRate();
 }
 
 u32* xfb[3] = { NULL, NULL, NULL };	/*** Framebuffers ***/
@@ -693,6 +695,17 @@ static void loadSeparatelySetting()
 
     // Init biosFile pointers and stuff
     biosFileInit();
+
+    // FORCE NTSC
+    if(forceNTSC == FORCENTSC_ENABLE)
+    {
+        Config.PsxType = PSX_TYPE_NTSC;
+    }
+    else
+    {
+        CheckPsxType();
+    }
+    psxResetRcntRate();
 
     extern bool lightrec_mmap_inited;
     if (Config.Cpu == DYNACORE_DYNAREC && !lightrec_mmap_inited) // Lightrec
