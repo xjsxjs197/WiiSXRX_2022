@@ -1356,6 +1356,7 @@ void Func_TrapFilter()
 
 void Func_ForceNTSC()
 {
+	long oldPsxType = Config.PsxType;
 	if(forceNTSC == FORCENTSC_ENABLE)
 	{
 		FRAME_BUTTONS[63].button->setSelected(false);
@@ -1371,10 +1372,16 @@ void Func_ForceNTSC()
 		forceNTSC = FORCENTSC_ENABLE;
 		Config.PsxType = PSX_TYPE_NTSC;
 	}
-	psxResetRcntRate();
-	if (hasLoadedISO)
+
+	if (hasLoadedISO && oldPsxType != Config.PsxType)
 	{
-		changePsxType();
+		SysClose();
+		SysInit ();
+		CheckCdrom();
+		SysReset();
+		LoadCdrom();
+		Func_SetPlayGame();
+		menu::MessageBox::getInstance().setMessage("Game Reset");
 	}
 }
 

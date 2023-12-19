@@ -3303,26 +3303,6 @@ static const u16 spu_config[] = {
 	0x1056, 0x0ae1, 0x0ae0, 0x07a2, 0x0464, 0x0232, 0x8000, 0x8000
 };
 
-void changePsxType()
-{
-    // change Force NTSC setting
-	if (Config.PsxType == PSX_TYPE_PAL)
-	{
-		gpu_ctl_def[7] |= 0x8;
-	}
-	else
-	{
-		gpu_ctl_def[7] &= ~(u32)0x8;
-	}
-	//GPU_writeStatus(gpu_ctl_def[7]);
-	// gpu
-	int i;
-	for (i = 0; i < sizeof(gpu_ctl_def) / sizeof(gpu_ctl_def[0]); i++)
-		GPU_writeStatus(gpu_ctl_def[i]);
-	for (i = 0; i < sizeof(gpu_data_def) / sizeof(gpu_data_def[0]); i++)
-		GPU_writeData(gpu_data_def[i]);
-}
-
 void psxBiosSetupBootState(void)
 {
 	bool hle = Config.HLE;
