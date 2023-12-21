@@ -312,7 +312,7 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 	  GX_Position2f32(xmin, ymin);
 	  GX_TexCoord2f32( 0.0, 1.0);
 	GX_End();
-	
+
 	if (lightGun){
 
 	GX_InvVtxCache();
@@ -568,6 +568,11 @@ void pl_timing_prepare(int is_pal_)
 	gc_rearmed_cbs.flips_per_sec = 0;
 	gc_rearmed_cbs.cpu_usage = 0;
 
+    pl_chg_psxtype(is_pal_);
+}
+
+void pl_chg_psxtype(int is_pal_)
+{
 	is_pal = is_pal_;
 	frame_interval = is_pal ? 20000 : 16667;
 	frame_interval1024 = is_pal ? 20000*1024 : 17066667;

@@ -627,7 +627,7 @@ void fileBrowserFrame_LoadFile(int i)
 
 			sprintf(buffer,"ISO Size: %u Mb\n",isoFile.size/1024/1024);
 			strcat(RomInfo,buffer);
-			sprintf(buffer,"Country: %s\n",(!Config.PsxType) ? "NTSC":"PAL");
+			sprintf(buffer,"Country: %s\n",forceNTSC == FORCENTSC_ENABLE ? "FORCE NTSC" : ((!Config.PsxType) ? "NTSC":"PAL"));
 			strcat(RomInfo,buffer);
 			sprintf(buffer,"BIOS: %s\n",(Config.HLE==BIOS_USER_DEFINED) ? "PSX":"HLE");
 			strcat(RomInfo,buffer);

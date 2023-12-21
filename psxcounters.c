@@ -533,6 +533,16 @@ u32 psxRcntRtarget( u32 index )
 
 /******************************************************************************/
 
+void psxResetRcntRate()
+{
+    if (rcnts[1].rate > 1)
+    {
+        rcnts[1].rate = lineCycles();
+    }
+
+    rcnts[4].rate = 768 * FrameRate[Config.PsxType];
+}
+
 void psxRcntInit()
 {
     s32 i;

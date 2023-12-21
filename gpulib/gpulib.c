@@ -80,7 +80,7 @@ static noinline void update_width(void)
   static const uint8_t hdivs[8] = { 10, 7, 8, 7, 5, 7, 4, 7 };
   uint8_t hdiv = hdivs[(gpu.status >> 16) & 7];
   int hres = hres_all[(gpu.status >> 16) & 7];
-  int pal = gpu.status & PSX_GPU_STATUS_PAL;
+  int pal = (forceNTSC == FORCENTSC_ENABLE ? 0 : (gpu.status & PSX_GPU_STATUS_PAL));
   int sw = gpu.screen.x2 - gpu.screen.x1;
   int x = 0, x_auto;
   if (sw <= 0)
@@ -121,7 +121,7 @@ static noinline void update_width(void)
 
 static noinline void update_height(void)
 {
-  int pal = gpu.status & PSX_GPU_STATUS_PAL;
+  int pal = (forceNTSC == FORCENTSC_ENABLE ? 0 : (gpu.status & PSX_GPU_STATUS_PAL));
   int dheight = gpu.status & PSX_GPU_STATUS_DHEIGHT;
   int y = gpu.screen.y1 - (pal ? 39 : 16); // 39 for spyro
   int sh = gpu.screen.y2 - gpu.screen.y1;

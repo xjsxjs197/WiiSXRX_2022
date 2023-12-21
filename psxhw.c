@@ -171,7 +171,7 @@ u8 psxHwRead8(u32 add) {
             // falthrough
         default:
             if (0x1f801c00 <= add && add < 0x1f802000) {
-                u16 val = SPU_readRegister(add & ~1);
+                u16 val = SPU_readRegister(add & ~1, psxRegs.cycle);
                 hard = (add & 1) ? val >> 8 : val;
                 break;
             }
@@ -222,7 +222,7 @@ u16 psxHwRead16(u32 add) {
             // falthrough
         default:
             if (0x1f801c00 <= add && add < 0x1f802000) {
-                hard = SPU_readRegister(add);
+                hard = SPU_readRegister(add, psxRegs.cycle);
                 break;
             }
             hard = psxHu16(add);
@@ -262,8 +262,8 @@ u32 psxHwRead32(u32 add) {
             // falthrough
         default:
             if (0x1f801c00 <= add && add < 0x1f802000) {
-                hard = SPU_readRegister(add);
-                hard |= SPU_readRegister(add + 2) << 16;
+                hard = SPU_readRegister(add, psxRegs.cycle);
+                hard |= SPU_readRegister(add + 2, psxRegs.cycle) << 16;
                 break;
             }
             hard = psxHu32(add);

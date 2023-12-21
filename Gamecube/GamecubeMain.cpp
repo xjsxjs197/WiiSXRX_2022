@@ -80,6 +80,8 @@ void SysUpdate();
 void SysRunGui();
 void SysMessage(char *fmt, ...);
 void LidInterrupt();
+void CheckPsxType();
+void psxResetRcntRate();
 }
 
 u32* xfb[3] = { NULL, NULL, NULL };	/*** Framebuffers ***/
@@ -136,6 +138,7 @@ char interlacedMode = 0;
 char deflickerFilter = 1;
 char lightGun = 0;
 char memCard[2];
+char forceNTSC = 0;
 
 #define CONFIG_STRING_TYPE 0
 #define CONFIG_STRING_SIZE 256
@@ -219,7 +222,8 @@ static struct {
   { "PadLightgun7", &padLightgun[6], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
   { "PadLightgun8", &padLightgun[7], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
   { "PadLightgun9", &padLightgun[8], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
-  { "PadLightgun10", &padLightgun[9], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE }
+  { "PadLightgun10", &padLightgun[9], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
+  { "ForceNTSC", &forceNTSC, FORCENTSC_DISABLE, FORCENTSC_ENABLE }
 };
 void handleConfigPair(char* kv);
 void readConfig(FILE* f);
@@ -346,6 +350,7 @@ void loadSettings(int argc, char *argv[])
 	controllerType	 = CONTROLLERTYPE_STANDARD;
 	numMultitaps	 = MULTITAPS_NONE;
 	menuActive = 1;
+	forceNTSC 		 = FORCENTSC_DISABLE;
 
 	//PCSX-specific defaults
 	memset(&Config, 0, sizeof(PcsxConfig));
@@ -725,6 +730,17 @@ static void loadSeparatelySetting()
 
     // Init biosFile pointers and stuff
     biosFileInit();
+
+    // FORCE NTSC
+    if(forceNTSC == FORCENTSC_ENABLE)
+    {
+        Config.PsxType = PSX_TYPE_NTSC;
+    }
+    else
+    {
+        CheckPsxType();
+    }
+    psxResetRcntRate();
 
     extern bool lightrec_mmap_inited;
     if (Config.Cpu == DYNACORE_DYNAREC && !lightrec_mmap_inited) // Lightrec
