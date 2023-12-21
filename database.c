@@ -30,6 +30,8 @@ static const char * const gpu_slow_llist_db[] =
 	"SCES02834", "SCUS94570", "SCUS94616", "SCUS94654",
 	/* Final Fantasy IV */
 	"SCES03840", "SLPM86028", "SLUS01360",
+	/* Point Blank - calibration cursor */
+	"SCED00287", "SCES00886", "SLUS00481",
 	/* Simple 1500 Series Vol. 57: The Meiro */
 	"SLPM86715",
 	/* Spot Goes to Hollywood */
