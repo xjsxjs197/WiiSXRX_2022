@@ -164,7 +164,8 @@ extern struct psx_gpu gpu;
 
 extern const unsigned char cmd_lengths[256];
 
-int do_cmd_list(uint32_t *list, int count, int *cycles, int *last_cmd);
+int do_cmd_list(uint32_t *list, int count,
+	int *cycles_sum, int *cycles_last, int *last_cmd);
 
 struct rearmed_cbs;
 
@@ -192,7 +193,8 @@ struct GPUFreeze;
 long LIB_GPUinit(void);
 long LIB_GPUshutdown(void);
 void LIB_GPUwriteDataMem(uint32_t *mem, int count);
-long LIB_GPUdmaChain(uint32_t *rambase, uint32_t addr, uint32_t *progress_addr);
+long LIB_GPUdmaChain(uint32_t *rambase, uint32_t addr,
+		uint32_t *progress_addr, int32_t *cycles_last_cmd);
 void LIB_GPUwriteData(uint32_t data);
 void LIB_GPUreadDataMem(uint32_t *mem, int count);
 uint32_t LIB_GPUreadData(void);
