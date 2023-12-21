@@ -140,8 +140,9 @@ void pauseAudio(void);  void pauseInput(void);
 void resumeAudio(void); void resumeInput(void);
 void IplFont_loadFontFile(FILE* fontFile);
 FILE* IplFont_getFontFile(char* sdUsb);
-void changePsxType();
 void psxResetRcntRate();
+void pl_chg_psxtype(int is_pal_);
+void gpuChangePsxType();
 }
 
 #define NUM_FRAME_BUTTONS 64
@@ -1375,13 +1376,9 @@ void Func_ForceNTSC()
 
 	if (hasLoadedISO && oldPsxType != Config.PsxType)
 	{
-		SysClose();
-		SysInit ();
-		CheckCdrom();
-		SysReset();
-		LoadCdrom();
-		Func_SetPlayGame();
-		menu::MessageBox::getInstance().setMessage("Game Reset");
+		psxResetRcntRate();
+		pl_chg_psxtype(Config.PsxType);
+		gpuChangePsxType();
 	}
 }
 
