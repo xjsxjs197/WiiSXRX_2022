@@ -595,6 +595,7 @@ void plugin_call_rearmed_cbs(unsigned long autoDwActFixes, int cfgUseDithering)
 	{
 		gc_rearmed_cbs.gpu_peops.dwActFixes = autoDwActFixes;
 		gc_rearmed_cbs.gpu_peops.iUseDither = cfgUseDithering;
+		gc_rearmed_cbs.frameskip = frameSkip;
 
 		rearmed_set_cbs(&gc_rearmed_cbs);
 	}

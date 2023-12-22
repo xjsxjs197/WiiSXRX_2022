@@ -82,6 +82,7 @@ void SysMessage(char *fmt, ...);
 void LidInterrupt();
 void CheckPsxType();
 void psxResetRcntRate();
+void plugin_call_rearmed_cbs(unsigned long autoDwActFixes, int cfgUseDithering);
 }
 
 u32* xfb[3] = { NULL, NULL, NULL };	/*** Framebuffers ***/
@@ -929,7 +930,13 @@ extern "C" {
 void go(void) {
 	Config.PsxOut = 0;
 	stop = 0;
+
+	plugin_call_rearmed_cbs(Config.hacks.dwActFixes, useDithering);
+
 	psxCpu->Execute();
+
+	// remove this callback to avoid any issues when returning to the menu.
+	GX_SetDrawDoneCallback(NULL);
 }
 
 int SysInit() {
