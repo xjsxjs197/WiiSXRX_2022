@@ -307,7 +307,7 @@ void BuildPPFCache() {
 	}
 
 	// now do the data reading
-	do {                                                
+	do {
 		fseek(ppffile, seekpos, SEEK_SET);
 		if (fread(&pos, 1, sizeof(pos), ppffile) != sizeof(pos))
 			goto fail_io;
@@ -389,8 +389,7 @@ int LoadSBI(const char *fname, int sector_count) {
 				clean_eof = 1;
 			break;
 		}
-		//s = MSF2SECT(btoi(sbitime[0]), btoi(sbitime[1]), btoi(sbitime[2]));
-		s = MSF2SECT((sbitime[0]), (sbitime[1]), btoi(sbitime[2]));
+		s = MSF2SECT_OLD(btoi(sbitime[0]), btoi(sbitime[1]), btoi(sbitime[2]));
 		if (s < sector_count) {
 			sbi_sectors[s >> 3] |= 1 << (s&7);
 			good_sectors++;
