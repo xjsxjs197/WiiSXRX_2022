@@ -781,7 +781,9 @@ int loadISOSwap(fileBrowser_file* file) {
 
 	CheckCdrom();
 
-	loadSeparatelySetting();
+	// No longer load separate settings when changing disks,
+	// assuming the settings are the same for different disks
+	//loadSeparatelySetting();
 
 	LoadCdrom();
 
