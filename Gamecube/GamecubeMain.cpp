@@ -232,7 +232,7 @@ void writeConfig(FILE* f);
 int checkBiosExists(int testDevice);
 static void loadSeparatelySetting();
 static bool loadSeparatelySettingItem(char* s1, char* s2, bool isUsb);
-static void biosFileInit();
+void biosFileInit();
 
 static bool loadControllerMapping(char* usbSd)
 {
@@ -641,7 +641,7 @@ void psxCpuInit()
     psxCpu->Init();
 }
 
-static void biosFileInit()
+void biosFileInit()
 {
 	biosFile_dir = &biosDir_libfat_Default;
 	if (biosDevice != BIOSDEVICE_HLE) {
@@ -967,9 +967,7 @@ void SysReset() {
 }
 
 void SysStartCPU() {
-	Config.PsxOut = 0;
-	stop = 0;
-	psxCpu->Execute();
+	go();
 }
 
 void SysClose()

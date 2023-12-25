@@ -1028,9 +1028,18 @@ void Func_BootBiosNo()
 
 bool executedBios = false;
 bool executingBios = false;
+void biosFileInit();
+
 void Func_ExecuteBios()
 {
-	if(biosDevice == BIOSDEVICE_HLE) {
+	if (!hasLoadedISO)
+	{
+		frameLimit[0] = FRAMELIMIT_AUTO;
+	    frameLimit[1] = FRAMELIMIT_AUTO;
+		biosFileInit();
+	}
+	LoadCdBios = BOOTTHRUBIOS_YES;
+	if(Config.HLE == BIOS_HLE) {
 		menu::MessageBox::getInstance().setMessage("You must select a BIOS, not HLE");
 		return;
 	}
