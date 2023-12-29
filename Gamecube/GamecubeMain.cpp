@@ -772,21 +772,17 @@ int loadISOSwap(fileBrowser_file* file) {
 
     CdromId[0] = '\0';
     CdromLabel[0] = '\0';
-    cdrIsoMultidiskSelect++;
-
-    CDR_close();
-	//might need to insert code here to trigger a lid open/close interrupt
-	if(CDR_open() < 0)
+	
+	SetIsoFile(&file->name[0]);
+	
+	if (ReloadCdromPlugin() < 0) {
 		return -1;
+	}
+	if (CDR_open() < 0) {
+		return -1;
+	}
 
-	CheckCdrom();
-
-	// No longer load separate settings when changing disks,
-	// assuming the settings are the same for different disks
-	//loadSeparatelySetting();
-
-	LoadCdrom();
-
+	SetCdOpenCaseTime(time(NULL) + 2);
 	LidInterrupt();
 
 	return 0;

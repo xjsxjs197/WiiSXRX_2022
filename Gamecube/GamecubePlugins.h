@@ -27,6 +27,10 @@
 #include "../plugins.h"
 #include "../gpulib/gpu.h"
 
+void SetCdOpenCaseTime(s64 time);
+void SetIsoFile(const char *filename);
+int ReloadCdromPlugin();
+
 #define SYMS_PER_LIB 32
 typedef struct {
 	const char* lib;

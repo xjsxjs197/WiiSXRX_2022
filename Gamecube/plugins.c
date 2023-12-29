@@ -239,12 +239,10 @@ long CALLBACK CDR__stop(void);
 // byte 1 - second
 // byte 2 - frame
 long CALLBACK CDR__getStatus(struct CdrStat *stat) {
-	/*if (cdOpenCaseTime < 0 || cdOpenCaseTime > (s64)time(NULL))
+	if (cdOpenCaseTime < 0 || cdOpenCaseTime > (s64)time(NULL))
 		stat->Status = 0x10;
 	else
-		stat->Status = 0;*/
-
-	stat->Status = 0;       // Ok so far
+		stat->Status = 0;
 
 //  if(isCDDAPlaying) {
 //    stat->Type = 0x02;    // Audio
@@ -257,7 +255,6 @@ long CALLBACK CDR__getStatus(struct CdrStat *stat) {
 //  else {
 //    stat->Type = 0x01;    // Data
 //  }
-    stat->Type = 0x01;    // Data
 
 	return 0;
 }
@@ -655,6 +652,35 @@ void ReleasePlugins() {
 	}
 }
 
-void SetCdOpenCaseTime(signed long long time) {
+bool UsingIso(void) {
+	return (&isoFile.name[0] != '\0');
+}
+
+// for CD swap
+int ReloadCdromPlugin()
+{
+	if (hCDRDriver != NULL || cdrIsoActive()) CDR_shutdown();
+	if (hCDRDriver != NULL) { SysCloseLibrary(hCDRDriver); hCDRDriver = NULL; }
+
+	if (UsingIso()) {
+		LoadCDRplugin(NULL);
+	} else {
+		char Plugin[MAXPATHLEN * 2];
+		sprintf(Plugin, "%s/%s", Config.PluginsDir, Config.Cdr);
+		if (LoadCDRplugin(Plugin) == -1) return -1;
+	}
+
+	return CDR_init();
+}
+
+void SetIsoFile(const char *filename) {
+	if (filename == NULL) {
+		isoFile.name[0] = '\0';
+		return;
+	}
+	strncpy(isoFile.name, filename, FILE_BROWSER_MAX_PATH_LEN - 1);
+}
+
+void SetCdOpenCaseTime(s64 time) {
 	cdOpenCaseTime = time;
 }

@@ -1634,17 +1634,18 @@ static unsigned char* CALLBACK ISOgetBufferSub(int sector) {
 
 static long CALLBACK ISOgetStatus(struct CdrStat *stat) {
 	CDR__getStatus(stat);
-	
+
 	// BIOS - boot ID (CD type)
 	stat->Type = ti[1].type;
-	
+
 	return 0;
 }
 
 // read CDDA sector into buffer
 long CALLBACK ISOreadCDDA(unsigned char m, unsigned char s, unsigned char f, unsigned char *buffer) {
 	unsigned char msf[3] = {m, s, f};
-	unsigned int file, track, track_start = 0;
+	unsigned int track, track_start = 0;
+	FILE *handle = cdHandle;
 	unsigned int cddaCurPos;
 	int ret;
 
@@ -1665,15 +1666,22 @@ long CALLBACK ISOreadCDDA(unsigned char m, unsigned char s, unsigned char f, uns
 		return 0;
 	}
 
-	file = 1;
 	if (multifile) {
 		// find the file that contains this track
-		for (file = track; file > 1; file--)
-			if (ti[file].handle != NULL)
+		unsigned int file;
+		for (file = track; file > 1; file--) {
+			if (ti[file].handle != NULL) {
+				handle = ti[file].handle;
 				break;
+			}
+		}
+	}
+	if (!handle) {
+		memset(buffer, 0, CD_FRAMESIZE_RAW);
+		return -1;
 	}
 
-	ret = cdimg_read_func(ti[file].handle, ti[track].start_offset,
+	ret = cdimg_read_func(handle, ti[track].start_offset,
 		buffer, cddaCurPos - track_start);
 	if (ret <= 0) {
 		memset(buffer, 0, CD_FRAMESIZE_RAW);

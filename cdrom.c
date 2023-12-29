@@ -409,9 +409,9 @@ void cdrLidSeekInterrupt(void)
         sprintf(txtbuffer, "cdrLidSeekInterrupt=DRIVESTATE_STANDBY2: %x %d ", stat.Status, isShellopen);
         DEBUG_print(txtbuffer, DBG_CDR4);
         #endif // DISP_DEBUG
-		if (isShellopen)
+		if (stat.Status & STATUS_SHELLOPEN)
 		{
-			isShellopen = false;
+			//isShellopen = false;
 			memset(cdr.Prev, 0xff, sizeof(cdr.Prev));
 			cdr.DriveState = DRIVESTATE_LID_OPEN;
 			set_event(PSXINT_CDRLID, WaitTime1st);
@@ -1977,16 +1977,7 @@ int cdrFreeze(gzFile f, int Mode) {
 	return 0;
 }
 
-void LidInterrupt() {
-	SetCdOpenCaseTime(time(NULL) + 2);
-
+void LidInterrupt(void) {
 	getCdInfo();
-	StopCdda();
-
-    cdr.StatP |= STATUS_SHELLOPEN;
-    isShellopen = true;
-    cdr.DriveState = DRIVESTATE_STANDBY;
-
-	//cdrLidSeekInterrupt();
-	set_event(PSXINT_CDRLID, cdReadTime * 30);
+	cdrLidSeekInterrupt();
 }
