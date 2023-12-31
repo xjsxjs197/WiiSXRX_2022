@@ -20,5 +20,6 @@
 
 u32 DIVIDE(u16 n, u16 d);
 u32 DIVIDE_INT(u16 n, u16 d);
+void setGteTblAddr();
 
 #endif /* __GTE_DIVIDER_H__ */

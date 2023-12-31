@@ -4126,3 +4126,9 @@ u32 DIVIDE_INT(u16 numerator, u16 denominator)
 	    return ((u64)numerator * (*(table16 + (denominator - 32768))) + (1 << 15)) >> 16;
 	}
 }
+
+void setGteTblAddr()
+{
+    psxRegs.gteTbl15Addr = (u32)(&table15[0]);
+    psxRegs.gteTbl16Addr = (u32)(&table16[0]);
+}

@@ -25,6 +25,7 @@
 #include "mdec.h"
 #include "cdrom.h"
 #include "gpu.h"
+#include "gte_divider.h"
 #include "Gamecube/DEBUG.h"
 
 #ifdef DISP_DEBUG
@@ -34,6 +35,7 @@ char debug[256];
 static u32 (*psxHwReadGpuSRptr)(void) = psxHwReadGpuSR;
 
 void psxHwReset() {
+    setGteTblAddr();
     memset(psxH, 0, 0x10000);
 
     mdecInit(); // initialize mdec decoder

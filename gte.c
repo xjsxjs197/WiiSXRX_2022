@@ -26,6 +26,7 @@
 #include "gte.h"
 #include "gte_divider.h"
 #include "psxmem.h"
+#include "Gamecube/DEBUG.h"
 
 #define VX(n) (n < 3 ? regs->CP2D.p[n << 1].sw.l : regs->CP2D.p[9].sw.l)
 #define VY(n) (n < 3 ? regs->CP2D.p[n << 1].sw.h : regs->CP2D.p[10].sw.l)
@@ -246,16 +247,14 @@ static inline u32 limE_(psxCP2Regs *regs, u32 result) {
 
 
 //senquack - n param should be unsigned (will be 'gteH' reg which is u16)
-#ifdef GTE_USE_NATIVE_DIVIDE
-INLINE u32 DIVIDE_INT(u16 n, u16 d) {
+static inline u32 DIVIDE_SLOW(u16 n, u16 d) {
     if (n < d * 2) {
         return ((u32)n << 16) / d;
     }
     return 0xffffffff;
 }
-#else
+
 #include "gte_divider.h"
-#endif // GTE_USE_NATIVE_DIVIDE
 
 #ifndef FLAGLESS
 
@@ -391,36 +390,68 @@ void gteSWC2() {
 
 #endif // FLAGLESS
 
+extern void gtePsRtps(register u32 *cp2d, register u32 *gteTbl15Addr);
+extern void gtePsRtpt(register u32 *cp2d, register u32 *gteTbl15Addr);
+extern u32 gteDivTst(u16 h, u16 sz, register s16 *r3);
 
+#ifdef DISP_DEBUG
+// prototypes
+long long gettime(void);
+unsigned int diff_usec(long long start, long long end);
+u32 diff_nsec(u64 start,u64 end);
+#endif // DISP_DEBUG
 
 void gteRTPS(psxCP2Regs *regs) {
     int quotient;
     s64 tmp;
 
+    #ifdef DISP_DEBUG
+    long long curticks;
+    curticks = gettime();
+    #endif // DISP_DEBUG
 #ifdef GTE_LOG
     GTE_LOG("GTE RTPS\n");
 #endif
     gteFLAG = 0;
+    gtePsRtps(&gteVY0, &psxRegs.gteTbl15Addr);
 
-    gteMAC1 = A1((((s64)gteTRX << 12) + (gteR11 * gteVX0) + (gteR12 * gteVY0) + (gteR13 * gteVZ0)) >> 12);
-    gteMAC2 = A2((((s64)gteTRY << 12) + (gteR21 * gteVX0) + (gteR22 * gteVY0) + (gteR23 * gteVZ0)) >> 12);
-    gteMAC3 = A3((((s64)gteTRZ << 12) + (gteR31 * gteVX0) + (gteR32 * gteVY0) + (gteR33 * gteVZ0)) >> 12);
-    gteIR1 = limB1(gteMAC1, 0);
-    gteIR2 = limB2(gteMAC2, 0);
-    gteIR3 = limB3(gteMAC3, 0);
-    gteSZ0 = gteSZ1;
-    gteSZ1 = gteSZ2;
-    gteSZ2 = gteSZ3;
-    gteSZ3 = limD(gteMAC3);
-    quotient = limE(DIVIDE_INT(gteH, gteSZ3));
-    gteSXY0 = gteSXY1;
-    gteSXY1 = gteSXY2;
-    gteSX2 = limG1(F((s64)gteOFX + ((s64)gteIR1 * quotient)) >> 16);
-    gteSY2 = limG2(F((s64)gteOFY + ((s64)gteIR2 * quotient)) >> 16);
-
-    tmp = (s64)gteDQB + ((s64)gteDQA * quotient);
-    gteMAC0 = F(tmp);
-    gteIR0 = limH(tmp >> 12);
+//    gteMAC1 = A1((((s64)gteTRX << 12) + (gteR11 * gteVX0) + (gteR12 * gteVY0) + (gteR13 * gteVZ0)) >> 12);
+//    gteMAC2 = A2((((s64)gteTRY << 12) + (gteR21 * gteVX0) + (gteR22 * gteVY0) + (gteR23 * gteVZ0)) >> 12);
+//    gteMAC3 = A3((((s64)gteTRZ << 12) + (gteR31 * gteVX0) + (gteR32 * gteVY0) + (gteR33 * gteVZ0)) >> 12);
+//    gteIR1 = limB1(gteMAC1, 0);
+//    gteIR2 = limB2(gteMAC2, 0);
+//    gteIR3 = limB3(gteMAC3, 0);
+//    gteSZ0 = gteSZ1;
+//    gteSZ1 = gteSZ2;
+//    gteSZ2 = gteSZ3;
+//    gteSZ3 = limD(gteMAC3);
+//    quotient = limE(DIVIDE_SLOW(gteH, gteSZ3));
+//    gteSXY0 = gteSXY1;
+//    gteSXY1 = gteSXY2;
+//    gteSX2 = limG1(F((s64)gteOFX + ((s64)gteIR1 * quotient)) >> 16);
+//    gteSY2 = limG2(F((s64)gteOFY + ((s64)gteIR2 * quotient)) >> 16);
+//
+//    tmp = (s64)gteDQB + ((s64)gteDQA * quotient);
+//    gteMAC0 = F(tmp);
+//    gteIR0 = limH(tmp >> 12);
+    #ifdef DISP_DEBUG
+    long long lastticks;
+    lastticks = gettime();
+    sprintf(txtbuffer, "rtps %d ", diff_nsec(curticks, lastticks));
+    DEBUG_print(txtbuffer, DBG_CORE3);
+    curticks = lastticks;
+//    u32 tstTmp = gteDivTst(gteH, gteSZ3, &gteR12);
+//    if (gteSZ3 < 32768)
+//    {
+//        sprintf(txtbuffer, "rtpsTst %08x %08x %08x", *((u32*)(*((u32*)(&gteR12) + 32) + 4)), *(u32*)((regs->CP2C.r[32]) + 4), tstTmp);
+//        //sprintf(txtbuffer, "rtpsTst %d %d", *((u32*)psxRegs.gteTbl15Addr + gteSZ3), tstTmp);
+//    }
+//    else
+//    {
+//        sprintf(txtbuffer, "rtpsTst 1 %d", tstTmp);
+//    }
+//    DEBUG_print(txtbuffer, DBG_CORE3);
+    #endif // DISP_DEBUG
 }
 
 void gteRTPT(psxCP2Regs *regs) {
@@ -429,34 +460,57 @@ void gteRTPT(psxCP2Regs *regs) {
     s32 vx, vy, vz;
     s64 tmp;
 
+    #ifdef DISP_DEBUG
+    long long curticks;
+    curticks = gettime();
+    #endif // DISP_DEBUG
+
 #ifdef GTE_LOG
     GTE_LOG("GTE RTPT\n");
 #endif
     gteFLAG = 0;
+    gtePsRtpt(&gteVY0, &psxRegs.gteTbl15Addr);
+    #ifdef DISP_DEBUG
+    //sprintf(txtbuffer, "quotient1 %05x ", quotient);
+    //DEBUG_print(txtbuffer, DBG_GPU1);
+    #endif // DISP_DEBUG
 
-    gteSZ0 = gteSZ3;
-    for (v = 0; v < 3; v++) {
-        vx = VX(v);
-        vy = VY(v);
-        vz = VZ(v);
-        gteMAC1 = A1((((s64)gteTRX << 12) + (gteR11 * vx) + (gteR12 * vy) + (gteR13 * vz)) >> 12);
-        gteMAC2 = A2((((s64)gteTRY << 12) + (gteR21 * vx) + (gteR22 * vy) + (gteR23 * vz)) >> 12);
-        gteMAC3 = A3((((s64)gteTRZ << 12) + (gteR31 * vx) + (gteR32 * vy) + (gteR33 * vz)) >> 12);
-        gteIR1 = limB1(gteMAC1, 0);
-        gteIR2 = limB2(gteMAC2, 0);
-        gteIR3 = limB3(gteMAC3, 0);
-        fSZ(v) = limD(gteMAC3);
-        quotient = limE(DIVIDE_INT(gteH, fSZ(v)));
-        fSX(v) = limG1(F((s64)gteOFX + ((s64)gteIR1 * quotient)) >> 16);
-        fSY(v) = limG2(F((s64)gteOFY + ((s64)gteIR2 * quotient)) >> 16);
-    }
+//    gteSZ0 = gteSZ3;
+//    for (v = 0; v < 3; v++) {
+//        vx = VX(v);
+//        vy = VY(v);
+//        vz = VZ(v);
+//        gteMAC1 = A1((((s64)gteTRX << 12) + (gteR11 * vx) + (gteR12 * vy) + (gteR13 * vz)) >> 12);
+//        gteMAC2 = A2((((s64)gteTRY << 12) + (gteR21 * vx) + (gteR22 * vy) + (gteR23 * vz)) >> 12);
+//        gteMAC3 = A3((((s64)gteTRZ << 12) + (gteR31 * vx) + (gteR32 * vy) + (gteR33 * vz)) >> 12);
+//        gteIR1 = limB1(gteMAC1, 0);
+//        gteIR2 = limB2(gteMAC2, 0);
+//        gteIR3 = limB3(gteMAC3, 0);
+//        fSZ(v) = limD(gteMAC3);
+//        quotient = limE(DIVIDE_INT(gteH, fSZ(v)));
+//        fSX(v) = limG1(F((s64)gteOFX + ((s64)gteIR1 * quotient)) >> 16);
+//        fSY(v) = limG2(F((s64)gteOFY + ((s64)gteIR2 * quotient)) >> 16);
+//    }
+//
+//    tmp = (s64)gteDQB + ((s64)gteDQA * quotient);
+//    gteMAC0 = F(tmp);
+//    gteIR0 = limH(tmp >> 12);
 
-    tmp = (s64)gteDQB + ((s64)gteDQA * quotient);
-    gteMAC0 = F(tmp);
-    gteIR0 = limH(tmp >> 12);
+    #ifdef DISP_DEBUG
+    long long lastticks;
+    lastticks = gettime();
+    sprintf(txtbuffer, "rtpt %d ", diff_nsec(curticks, lastticks));
+    DEBUG_print(txtbuffer, DBG_GPU1);
+    curticks = lastticks;
+    #endif // DISP_DEBUG
 }
 
 void gteMVMVA(psxCP2Regs *regs) {
+    #ifdef DISP_DEBUG
+    long long curticks;
+    curticks = gettime();
+    #endif // DISP_DEBUG
+
     int shift = 12 * GTE_SF(gteop);
     int mx = GTE_MX(gteop);
     int v = GTE_V(gteop);
@@ -478,6 +532,14 @@ void gteMVMVA(psxCP2Regs *regs) {
     gteIR1 = limB1(gteMAC1, lm);
     gteIR2 = limB2(gteMAC2, lm);
     gteIR3 = limB3(gteMAC3, lm);
+
+    #ifdef DISP_DEBUG
+    long long lastticks;
+    lastticks = gettime();
+    sprintf(txtbuffer, "gteMVMVA %d ", diff_nsec(curticks, lastticks));
+    DEBUG_print(txtbuffer, DBG_GPU2);
+    curticks = lastticks;
+    #endif // DISP_DEBUG
 }
 
 void gteNCLIP(psxCP2Regs *regs) {

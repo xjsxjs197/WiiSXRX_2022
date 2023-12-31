@@ -225,6 +225,9 @@ typedef struct {
 		};
 		psxCP2Regs CP2;
 	};
+	u32 gteTbl15Addr;
+	u32 gteTbl16Addr;
+	u32 gteTmpAddr;
 	u32 pc;				/* Program counter */
 	u32 code;			/* The instruction */
 	u32 cycle;
