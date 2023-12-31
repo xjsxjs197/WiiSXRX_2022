@@ -1656,8 +1656,8 @@ void cdrWrite1(unsigned char rt) {
 
 	if (!cdr.CmdInProgress) {
 		#ifdef DISP_DEBUG
-		sprintf(txtbuffer, "cdrCmd1 %s \r\n", CmdName[rt]);
-		DEBUG_print(txtbuffer, DBG_CDR1);
+		//sprintf(txtbuffer, "cdrCmd1 %s \r\n", CmdName[rt]);
+		//DEBUG_print(txtbuffer, DBG_CDR1);
 		//writeLogFile(txtbuffer);
 		#endif // DISP_DEBUG
 		cdr.CmdInProgress = rt;
@@ -1675,8 +1675,8 @@ void cdrWrite1(unsigned char rt) {
 		CDR_LOG_I("cmd while busy: %02x, prev %02x, busy %02x\n",
 			rt, cdr.Cmd, cdr.CmdInProgress);
 		#ifdef DISP_DEBUG
-		sprintf(txtbuffer, "cdrCmd2 %s %s \r\n", CmdName[rt], CmdName[cdr.CmdInProgress < 0x100 ? cdr.CmdInProgress : cdr.CmdInProgress - CMD_PART2]);
-		DEBUG_print(txtbuffer, DBG_CDR2);
+		//sprintf(txtbuffer, "cdrCmd2 %s %s \r\n", CmdName[rt], CmdName[cdr.CmdInProgress < 0x100 ? cdr.CmdInProgress : cdr.CmdInProgress - CMD_PART2]);
+		//DEBUG_print(txtbuffer, DBG_CDR2);
 		//writeLogFile(txtbuffer);
 		#endif // DISP_DEBUG
 		if (cdr.CmdInProgress < 0x100) // no pending 2nd response

@@ -866,15 +866,15 @@ void MTC0(int reg, u32 val) {
 //	SysPrintf("MTC0 %d: %x\n", reg, val);
 	switch (reg) {
 		case 12: // psxRegs.CP0.r[12] = psxRegs.CP0.n.SR
-			#ifdef DISP_DEBUG
-			sprintf(txtbuffer, "MTC0 12 %08x %08x ", psxRegs.CP0.n.SR, val);
-			DEBUG_print(txtbuffer, DBG_CDR4);
-			if ((val >> 16) & 1)
-			{
-			    sprintf(txtbuffer, "MTC0 Clear Cache ");
-			    DEBUG_print(txtbuffer, DBG_CDR3);
-			}
-			#endif // DISP_DEBUG
+//			#ifdef DISP_DEBUG
+//			sprintf(txtbuffer, "MTC0 12 %08x %08x ", psxRegs.CP0.n.SR, val);
+//			DEBUG_print(txtbuffer, DBG_CDR4);
+//			if ((val >> 16) & 1)
+//			{
+//			    sprintf(txtbuffer, "MTC0 Clear Cache ");
+//			    DEBUG_print(txtbuffer, DBG_CDR3);
+//			}
+//			#endif // DISP_DEBUG
 			if (unlikely((psxRegs.CP0.n.SR ^ val) & (1 << 16)))
 				psxMemOnIsolate((val >> 16) & 1);
 			psxRegs.CP0.r[12] = val;

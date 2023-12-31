@@ -153,10 +153,13 @@ int psxMemInit() {
     u32 hid2 = mfhid2();
     mthid2(hid2 | 0x20000000);
 
+    // GQR1 load: u16 >> 1 => float, store: float << 1 => u16
+    // for limB (0x7fff, 0)
+    CAST_SetGQR(GQR0, GQR_TYPE_U16, 1);
     // GQR1 load: u16 >> 4 => float, store: float << 4 => u16
     // for limH (0xfff, 0)
     CAST_SetGQR(GQR1, GQR_TYPE_U16, 4);
-    //CAST_SetGQR(GQR2, GQR_TYPE_U16, -4); // set GQR2 load u16 => float << 4
+    CAST_SetGQR(GQR2, GQR_TYPE_U8, 0); // set GQR2 load u8
     CAST_SetGQR(GQR3, GQR_TYPE_S16, 0); // set GQR3 load s16 => float
     CAST_SetGQR(GQR4, GQR_TYPE_U16, 0); // set GQR4 load u16 => float
     CAST_SetGQR(GQR5, GQR_TYPE_S16, 12); // set GQR5 load s16 => float >> 12
