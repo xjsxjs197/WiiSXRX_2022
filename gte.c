@@ -405,6 +405,9 @@ void gteSWC2() {
 
 extern void gtePsRtps(register u32 *cp2d, register u32 *gteTbl15Addr);
 extern void gtePsRtpt(register u32 *cp2d, register u32 *gteTbl15Addr);
+extern void gtePsNccs(register u32 *cp2d, register u32 *gteTbl15Addr);
+extern void gtePsNcct(register u32 *cp2d, register u32 *gteTbl15Addr);
+
 extern u32 gteDivTst(u16 h, u16 sz, register s16 *r3);
 
 #ifdef DISP_DEBUG
@@ -601,33 +604,34 @@ void gteNCCS(psxCP2Regs *regs) {
     GTE_LOG("GTE NCCS\n");
 #endif
     gteFLAG = 0;
+    gtePsNccs(&gteVY0, &psxRegs.gteTbl15Addr);
 
-    gteMAC1 = ((s64)(gteL11 * gteVX0) + (gteL12 * gteVY0) + (gteL13 * gteVZ0)) >> 12;
-    gteMAC2 = ((s64)(gteL21 * gteVX0) + (gteL22 * gteVY0) + (gteL23 * gteVZ0)) >> 12;
-    gteMAC3 = ((s64)(gteL31 * gteVX0) + (gteL32 * gteVY0) + (gteL33 * gteVZ0)) >> 12;
-    gteIR1 = limB1(gteMAC1, 1);
-    gteIR2 = limB2(gteMAC2, 1);
-    gteIR3 = limB3(gteMAC3, 1);
-    gteMAC1 = A1((((s64)gteRBK << 12) + (gteLR1 * gteIR1) + (gteLR2 * gteIR2) + (gteLR3 * gteIR3)) >> 12);
-    gteMAC2 = A2((((s64)gteGBK << 12) + (gteLG1 * gteIR1) + (gteLG2 * gteIR2) + (gteLG3 * gteIR3)) >> 12);
-    gteMAC3 = A3((((s64)gteBBK << 12) + (gteLB1 * gteIR1) + (gteLB2 * gteIR2) + (gteLB3 * gteIR3)) >> 12);
-    gteIR1 = limB1(gteMAC1, 1);
-    gteIR2 = limB2(gteMAC2, 1);
-    gteIR3 = limB3(gteMAC3, 1);
-    gteMAC1 = ((s32)gteR * gteIR1) >> 8;
-    gteMAC2 = ((s32)gteG * gteIR2) >> 8;
-    gteMAC3 = ((s32)gteB * gteIR3) >> 8;
-
-    gteRGB0 = gteRGB1;
-    gteRGB1 = gteRGB2;
-    gteCODE2 = gteCODE;
-    gteR2 = limC1(gteMAC1 >> 4);
-    gteG2 = limC2(gteMAC2 >> 4);
-    gteB2 = limC3(gteMAC3 >> 4);
-
-    gteIR1 = gteMAC1;
-    gteIR2 = gteMAC2;
-    gteIR3 = gteMAC3;
+//    gteMAC1 = ((s64)(gteL11 * gteVX0) + (gteL12 * gteVY0) + (gteL13 * gteVZ0)) >> 12;
+//    gteMAC2 = ((s64)(gteL21 * gteVX0) + (gteL22 * gteVY0) + (gteL23 * gteVZ0)) >> 12;
+//    gteMAC3 = ((s64)(gteL31 * gteVX0) + (gteL32 * gteVY0) + (gteL33 * gteVZ0)) >> 12;
+//    gteIR1 = limB1(gteMAC1, 1);
+//    gteIR2 = limB2(gteMAC2, 1);
+//    gteIR3 = limB3(gteMAC3, 1);
+//    gteMAC1 = A1((((s64)gteRBK << 12) + (gteLR1 * gteIR1) + (gteLR2 * gteIR2) + (gteLR3 * gteIR3)) >> 12);
+//    gteMAC2 = A2((((s64)gteGBK << 12) + (gteLG1 * gteIR1) + (gteLG2 * gteIR2) + (gteLG3 * gteIR3)) >> 12);
+//    gteMAC3 = A3((((s64)gteBBK << 12) + (gteLB1 * gteIR1) + (gteLB2 * gteIR2) + (gteLB3 * gteIR3)) >> 12);
+//    gteIR1 = limB1(gteMAC1, 1);
+//    gteIR2 = limB2(gteMAC2, 1);
+//    gteIR3 = limB3(gteMAC3, 1);
+//    gteMAC1 = ((s32)gteR * gteIR1) >> 8;
+//    gteMAC2 = ((s32)gteG * gteIR2) >> 8;
+//    gteMAC3 = ((s32)gteB * gteIR3) >> 8;
+//
+//    gteRGB0 = gteRGB1;
+//    gteRGB1 = gteRGB2;
+//    gteCODE2 = gteCODE;
+//    gteR2 = limC1(gteMAC1 >> 4);
+//    gteG2 = limC2(gteMAC2 >> 4);
+//    gteB2 = limC3(gteMAC3 >> 4);
+//
+//    gteIR1 = gteMAC1;
+//    gteIR2 = gteMAC2;
+//    gteIR3 = gteMAC3;
     #ifdef DISP_DEBUG
     long long lastticks;
     lastticks = gettime();
@@ -649,37 +653,38 @@ void gteNCCT(psxCP2Regs *regs) {
     GTE_LOG("GTE NCCT\n");
 #endif
     gteFLAG = 0;
+    gtePsNcct(&gteVY0, &psxRegs.gteTbl15Addr);
 
-    for (v = 0; v < 3; v++) {
-        vx = VX(v);
-        vy = VY(v);
-        vz = VZ(v);
-        gteMAC1 = ((s64)(gteL11 * vx) + (gteL12 * vy) + (gteL13 * vz)) >> 12;
-        gteMAC2 = ((s64)(gteL21 * vx) + (gteL22 * vy) + (gteL23 * vz)) >> 12;
-        gteMAC3 = ((s64)(gteL31 * vx) + (gteL32 * vy) + (gteL33 * vz)) >> 12;
-        gteIR1 = limB1(gteMAC1, 1);
-        gteIR2 = limB2(gteMAC2, 1);
-        gteIR3 = limB3(gteMAC3, 1);
-        gteMAC1 = A1((((s64)gteRBK << 12) + (gteLR1 * gteIR1) + (gteLR2 * gteIR2) + (gteLR3 * gteIR3)) >> 12);
-        gteMAC2 = A2((((s64)gteGBK << 12) + (gteLG1 * gteIR1) + (gteLG2 * gteIR2) + (gteLG3 * gteIR3)) >> 12);
-        gteMAC3 = A3((((s64)gteBBK << 12) + (gteLB1 * gteIR1) + (gteLB2 * gteIR2) + (gteLB3 * gteIR3)) >> 12);
-        gteIR1 = limB1(gteMAC1, 1);
-        gteIR2 = limB2(gteMAC2, 1);
-        gteIR3 = limB3(gteMAC3, 1);
-        gteMAC1 = ((s32)gteR * gteIR1) >> 8;
-        gteMAC2 = ((s32)gteG * gteIR2) >> 8;
-        gteMAC3 = ((s32)gteB * gteIR3) >> 8;
-
-        gteRGB0 = gteRGB1;
-        gteRGB1 = gteRGB2;
-        gteCODE2 = gteCODE;
-        gteR2 = limC1(gteMAC1 >> 4);
-        gteG2 = limC2(gteMAC2 >> 4);
-        gteB2 = limC3(gteMAC3 >> 4);
-    }
-    gteIR1 = gteMAC1;
-    gteIR2 = gteMAC2;
-    gteIR3 = gteMAC3;
+//    for (v = 0; v < 3; v++) {
+//        vx = VX(v);
+//        vy = VY(v);
+//        vz = VZ(v);
+//        gteMAC1 = ((s64)(gteL11 * vx) + (gteL12 * vy) + (gteL13 * vz)) >> 12;
+//        gteMAC2 = ((s64)(gteL21 * vx) + (gteL22 * vy) + (gteL23 * vz)) >> 12;
+//        gteMAC3 = ((s64)(gteL31 * vx) + (gteL32 * vy) + (gteL33 * vz)) >> 12;
+//        gteIR1 = limB1(gteMAC1, 1);
+//        gteIR2 = limB2(gteMAC2, 1);
+//        gteIR3 = limB3(gteMAC3, 1);
+//        gteMAC1 = A1((((s64)gteRBK << 12) + (gteLR1 * gteIR1) + (gteLR2 * gteIR2) + (gteLR3 * gteIR3)) >> 12);
+//        gteMAC2 = A2((((s64)gteGBK << 12) + (gteLG1 * gteIR1) + (gteLG2 * gteIR2) + (gteLG3 * gteIR3)) >> 12);
+//        gteMAC3 = A3((((s64)gteBBK << 12) + (gteLB1 * gteIR1) + (gteLB2 * gteIR2) + (gteLB3 * gteIR3)) >> 12);
+//        gteIR1 = limB1(gteMAC1, 1);
+//        gteIR2 = limB2(gteMAC2, 1);
+//        gteIR3 = limB3(gteMAC3, 1);
+//        gteMAC1 = ((s32)gteR * gteIR1) >> 8;
+//        gteMAC2 = ((s32)gteG * gteIR2) >> 8;
+//        gteMAC3 = ((s32)gteB * gteIR3) >> 8;
+//
+//        gteRGB0 = gteRGB1;
+//        gteRGB1 = gteRGB2;
+//        gteCODE2 = gteCODE;
+//        gteR2 = limC1(gteMAC1 >> 4);
+//        gteG2 = limC2(gteMAC2 >> 4);
+//        gteB2 = limC3(gteMAC3 >> 4);
+//    }
+//    gteIR1 = gteMAC1;
+//    gteIR2 = gteMAC2;
+//    gteIR3 = gteMAC3;
     #ifdef DISP_DEBUG
     long long lastticks;
     lastticks = gettime();

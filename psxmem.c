@@ -155,18 +155,20 @@ int psxMemInit() {
 
     // GQR1 load: u16 >> 1 => float, store: float << 1 => u16
     // for limB (0x7fff, 0)
-    CAST_SetGQR(GQR0, GQR_TYPE_U16, 1);
+    //CAST_SetGQR(GQR0, GQR_TYPE_U16, 1);
     // GQR1 load: u16 >> 4 => float, store: float << 4 => u16
     // for limH (0xfff, 0)
     CAST_SetGQR(GQR1, GQR_TYPE_U16, 4);
     CAST_SetGQR(GQR2, GQR_TYPE_U8, 0); // set GQR2 load u8
     CAST_SetGQR(GQR3, GQR_TYPE_S16, 0); // set GQR3 load s16 => float
     CAST_SetGQR(GQR4, GQR_TYPE_U16, 0); // set GQR4 load u16 => float
-    CAST_SetGQR(GQR5, GQR_TYPE_S16, 12); // set GQR5 load s16 => float >> 12
+    CAST_SetGQR(GQR5, GQR_TYPE_S8, 0); // set GQR5 load s8
     // GQR6 load: s16 >> 5 => float, store: float << 5 => s16
     // for limG (0x3ff, -0x400)
     CAST_SetGQR(GQR6, GQR_TYPE_S16, 5);
-    //CAST_SetGQR(GQR7, GQR_TYPE_S8, 0); // set GQR7 load s16 => float << 5
+    // GQR1 load: u16 >> 1 => float, store: float << 1 => u16
+    // for limB (0x7fff, 0)
+    CAST_SetGQR(GQR7, GQR_TYPE_U16, 1);
 
     //DCEnable();
     //ICEnable();
