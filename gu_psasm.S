@@ -605,10 +605,10 @@ gtePsNccs:
     // gteR2 = limC1(((s32)gteR * gteIR1) >> 8 >> 4);
     // gteG2 = limC2(((s32)gteG * gteIR2) >> 8 >> 4);
     // gteB2 = limC3(((s32)gteB * gteIR3) >> 8 >> 4);
-    ps_mul      fr3, fr5, fr14ShiftR12 // fr3 = gteMAC3 >> 12
-    ps_mul      fr4, fr9, fr14ShiftR12 // fr4 = gteMAC2 >> 12, gteMAC1 >> 12
-    psq_st      fr3, 89(r3), 1, 2      // gteB2    (regs->CP2D.p[22].b.h2)
-    psq_st      fr4, 90(r3), 0, 2      // gteG2    (regs->CP2D.p[22].b.h), gteR2    (regs->CP2D.p[22].b.l)
+    //ps_mul      fr3, fr5, fr14ShiftR12 // fr3 = gteMAC3 >> 12
+    //ps_mul      fr4, fr9, fr14ShiftR12 // fr4 = gteMAC2 >> 12, gteMAC1 >> 12
+    psq_st      fr5, 89(r3), 1, 5      // gteB2    (regs->CP2D.p[22].b.h2)
+    psq_st      fr9, 90(r3), 0, 5      // gteG2    (regs->CP2D.p[22].b.h), gteR2    (regs->CP2D.p[22].b.l)
 
     mtspr       lr, r9
     blr
@@ -748,10 +748,10 @@ ncctVecMulMt:
     // gteR2 = limC1(((s32)gteR * gteIR1) >> 8 >> 4);
     // gteG2 = limC2(((s32)gteG * gteIR2) >> 8 >> 4);
     // gteB2 = limC3(((s32)gteB * gteIR3) >> 8 >> 4);
-    ps_mul      fr3, fr5, fr14ShiftR12 // fr3 = gteMAC3 >> 12
-    ps_mul      fr4, fr9, fr14ShiftR12 // fr4 = gteMAC2 >> 12, gteMAC1 >> 12
-    psq_st      fr3, 89(r3), 1, 2      // gteB2    (regs->CP2D.p[22].b.h2)
-    psq_st      fr4, 90(r3), 0, 2      // gteG2    (regs->CP2D.p[22].b.h), gteR2    (regs->CP2D.p[22].b.l)
+    //ps_mul      fr3, fr5, fr14ShiftR12 // fr3 = gteMAC3 >> 12
+    //ps_mul      fr4, fr9, fr14ShiftR12 // fr4 = gteMAC2 >> 12, gteMAC1 >> 12
+    psq_st      fr5, 89(r3), 1, 5      // gteB2    (regs->CP2D.p[22].b.h2)
+    psq_st      fr9, 90(r3), 0, 5      // gteG2    (regs->CP2D.p[22].b.h), gteR2    (regs->CP2D.p[22].b.l)
 
     // loop
     addi        r10, r10, 8
