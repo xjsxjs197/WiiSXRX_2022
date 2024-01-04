@@ -61,12 +61,16 @@ bool lightrec_mmap_inited = false;
 #include <ogc/cast.h>
 #include <ogc/cache.h>
 
-void CAST_SetGQR(s32 GQR, u32 typeL, s32 scaleL)
+static void CAST_SetGQR(s32 GQR, u32 typeL, s32 scaleL)
 {
-	//register u32 val = ((((scaleL)<<8)) | (typeL));
-	//register u32 val = (((((scaleL)<<24)|(typeL))<<16));
-	register u32 val = (((scaleL) << 24) | ((typeL) << 16) | ((scaleL) << 8) | (typeL));
-	__set_gqr(GQR,val);
+    register u32 val = (((scaleL) << 24) | ((typeL) << 16) | ((scaleL) << 8) | (typeL));
+    __set_gqr(GQR,val);
+}
+
+static void setFloatRoundMode()
+{
+    __asm__ (" mtfsb1 30 ");
+    __asm__ (" mtfsb0 31 ");
 }
 
 extern void SysMessage(char *fmt, ...);
@@ -160,14 +164,17 @@ int psxMemInit() {
     CAST_SetGQR(GQR2, GQR_TYPE_U8, 0); // set GQR2 load u8 <=> float
     CAST_SetGQR(GQR3, GQR_TYPE_S16, 0); // set GQR3 load s16 <=> float
     CAST_SetGQR(GQR4, GQR_TYPE_U16, 0); // set GQR4 load u16 <=> float
-    CAST_SetGQR(GQR5, GQR_TYPE_U8, -14); // set GQR5 load u8 <=> float
+    // GQR5 load u8 <=> float
+    // u8 << 12 => float, store: float >> 12 => u8
+    CAST_SetGQR(GQR5, GQR_TYPE_U8, -12);
     // GQR6 load: s16 >> 5 => float, store: float << 5 => s16
     // for limG (0x3ff, -0x400)
     CAST_SetGQR(GQR6, GQR_TYPE_S16, 5);
-    // GQR7 load: u16 >> 2 => float, store: float << 2 => u16
+    // GQR7 load: u16 >> 1 => float, store: float << 1 => u16
     // for limB (0x7fff, 0)
-    // To reduce the error, an additional bit has been moved here(Why?)
-    CAST_SetGQR(GQR7, GQR_TYPE_U16, 2);
+    CAST_SetGQR(GQR7, GQR_TYPE_U16, 1);
+
+    setFloatRoundMode();
 
     return 0;
 }

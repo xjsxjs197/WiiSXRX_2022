@@ -76,7 +76,7 @@ void refresh_stat();
 
 extern char txtbuffer[1024];
 // Amount of time each string will be held onto
-#define DEBUG_STRING_LIFE 5
+#define DEBUG_STRING_LIFE 2
 // Dimensions of array returned by get_text
 #define DEBUG_TEXT_WIDTH  100
 #define DEBUG_TEXT_HEIGHT 40

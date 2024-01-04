@@ -74,27 +74,7 @@
 #define fr15ShiftR16 15
 #define fr16ShiftR5  16
 #define fr17ShiftR8  17
-#define fr10Kmagic   10
-
-.globl gteDivTst
-gteDivTst:
-    slwi        r7, r4, 1
-    cmpw        r3, r7
-    bge         BBGE           // if gteH >= gteSZX * 2
-    andi.       r7, r4, 0x8000
-    bne         TST_DO16      // if gteSZ3 >= 32768
-TST_DO15:
-    lwz         r3, 128(r5)          // gteTbl15Addr(r5 + 32 * 4)
-    //slwi        r4, r4, 2            // * 4
-    //lwzx        r3, 4, r3
-    lwz         r3, 4(r3)
-    blr
-TST_DO16:
-    li          r3, 1
-    blr
-BBGE:
-    lis         r3, 2
-    blr
+#define fr18Kmagic   18
 
 
 // u32 NATIVE_DIVIDE(u16 gteH, u16 gteSZX)
@@ -139,7 +119,7 @@ DIVIDE_OVERFLOW_CHK:
     xoris       r5, r5, 0x8000
     stw         r5, FloatBufB3@sdarel(r13)
     lfd         fr5, FloatBufA3@sdarel(r13)
-    fsub        fr5, fr5, fr10Kmagic // fr5 = retVal(double)
+    fsub        fr5, fr5, fr18Kmagic // fr5 = retVal(double)
     frsp        fr5, fr5             // fr5 = retVal(single)
     blr
 
@@ -152,9 +132,10 @@ DIVIDE_OVERFLOW:
 //     CP2C(m12, m11, m21, m13, m23, m22, m32, m31, 0, m33)(r3 + 128)
 // r4: gteTbl15Addr, gteTbl16Addr, gteTmpAddr
 gtePsRtps:
-    lfs         fr14ShiftR12, UnitShiftR12@sdarel(r13)
     mfspr       r9, lr              // save link register
-    ps_merge00  fr14ShiftR12,fr14ShiftR12,fr14ShiftR12  // fr14 = 1 >> 12, 1 >> 12
+    lfs         fr14ShiftR12, UnitShiftR12@sdarel(r13)
+    lfs         fr15ShiftR16, UnitShiftR16@sdarel(r13)
+    lfd         fr18Kmagic, kmagic@sdarel(r13)
 
     psq_l       fr0, 128(r3), 0, 3  // fr0 = m12, m11 GQR3 = 0(s16)
     psq_l       fr6, 0(r3), 0, 3    // fr6 = y, x
@@ -179,7 +160,8 @@ gtePsRtps:
     ps_madd     fr11,fr5,fr7,fr10   // fr11 = m23 * z + m22 * y + m21 * x （SUMY）
     ps_madd     fr13,fr1,fr7,fr12   // fr13 = m33 * z + m32 * y + m31 * x （SUMZ)
 
-    lfd         fr10Kmagic, kmagic@sdarel(r13)
+    ps_merge00  fr14ShiftR12,fr14ShiftR12,fr14ShiftR12  // fr14 = 1 >> 12, 1 >> 12
+    ps_merge00  fr15ShiftR16, fr15ShiftR16, fr15ShiftR16 // fr15 = 1 >> 16 , 1 >> 16
 
     // load TRX, TRY, TRZ to float
     lwz         r5, 148(r3)         // gteTRX (((s32 *)regs->CP2C.r)[5])
@@ -194,9 +176,9 @@ gtePsRtps:
     lfd         fr3, FloatBufA1@sdarel(r13)
     lfd         fr4, FloatBufA2@sdarel(r13)
     lfd         fr5, FloatBufA3@sdarel(r13)
-    fsub        fr3, fr3, fr10Kmagic        // fr3 = TRX(double)
-    fsub        fr4, fr4, fr10Kmagic        // fr4 = TRY(double)
-    fsub        fr5, fr5, fr10Kmagic        // fr5 = TRZ(double)
+    fsub        fr3, fr3, fr18Kmagic        // fr3 = TRX(double)
+    fsub        fr4, fr4, fr18Kmagic        // fr4 = TRY(double)
+    fsub        fr5, fr5, fr18Kmagic        // fr5 = TRZ(double)
     frsp        fr3, fr3                    // fr3 = TRX(single)
     frsp        fr4, fr4                    // fr4 = TRY(single)
     frsp        fr5, fr5                    // fr5 = TRZ(single)
@@ -207,30 +189,25 @@ gtePsRtps:
     ps_madd     fr5, fr13, fr14ShiftR12, fr5 // fr5 = SUMZ >> 12 + TRZ, 0
     ps_merge10  fr9, fr2, fr2               // fr9 = SUMY >> 12 + TRY
 
-    // Backup MACX, MACY, MACZ
-    ps_mr       fr3, fr2
-    ps_mr       fr4, fr9
-    ps_mr       fr6, fr5
-
     // Save MACX, MACY to tmpGteAddr
     psq_st      fr2, 8(r4), 0, 3     // save MACX, MACY to tmp gteIR1, gteIR2(r4 + 4 * 2)
 
-    fctiw       fr2, fr2             // MACX => int
-    fctiw       fr9, fr9             // MACY => int
-    fctiw       fr5, fr5             // MACZ => int
+    fctiw       fr3, fr2             // MACX => int
+    fctiw       fr4, fr9             // MACY => int
+    fctiw       fr6, fr5             // MACZ => int
 
     addi        r5, r3, 100
     addi        r6, r3, 104
     addi        r7, r3, 108
 
-    stfiwx      fr2, 0, r5           // store MACX (((s32 *)regs->CP2D.r)[25])
-    stfiwx      fr9, 0, r6           // store MACY (((s32 *)regs->CP2D.r)[26])
-    stfiwx      fr5, 0, r7           // store MACZ (((s32 *)regs->CP2D.r)[27])
+    stfiwx      fr3, 0, r5           // store MACX (((s32 *)regs->CP2D.r)[25])
+    stfiwx      fr4, 0, r6           // store MACY (((s32 *)regs->CP2D.r)[26])
+    stfiwx      fr6, 0, r7           // store MACZ (((s32 *)regs->CP2D.r)[27])
 
     // Set gteIR1, gteIR2, gteIR3
-    psq_st      fr3, 38(r3), 1, 3    // (regs->CP2D.p[9].sw.l)
-    psq_st      fr4, 42(r3), 1, 3    // (regs->CP2D.p[10].sw.l)
-    psq_st      fr6, 46(r3), 1, 3    // (regs->CP2D.p[11].sw.l)
+    psq_st      fr2, 38(r3), 1, 3    // (regs->CP2D.p[9].sw.l)
+    psq_st      fr9, 42(r3), 1, 3    // (regs->CP2D.p[10].sw.l)
+    psq_st      fr5, 46(r3), 1, 3    // (regs->CP2D.p[11].sw.l)
 
     // gteSZ0 = gteSZ1; gteSZ1 = gteSZ2; gteSZ2 = gteSZ3; gteSZ3 = limD(gteMAC3);
     lhz         r5,70(r3)                    // gteSZ1  (regs->CP2D.p[17].w.l)
@@ -239,7 +216,7 @@ gtePsRtps:
     sth         r5,66(r3)                    // gteSZ0  (regs->CP2D.p[16].w.l)
     sth         r6,70(r3)
     sth         r7,74(r3)
-    psq_st      fr6, 78(r3), 1, 4            // gteSZ3  (regs->CP2D.p[19].w.l)
+    psq_st      fr5, 78(r3), 1, 4            // gteSZ3  (regs->CP2D.p[19].w.l)
 
     // quotient = limE(DIVIDE_INT(gteH, gteSZ3));
     lhz         r6, 78(r3)                   // r6 = gteSZ3  (regs->CP2D.p[19].w.l)
@@ -258,7 +235,6 @@ gtePsRtps:
     lwz         r6, 228(r3)                  // gteOFY (((s32 *)regs->CP2C.r)[25])
     psq_l       fr6, 8(r4), 0, 3             // load tmp gteIR1, gteIR2(r4 + 4 * 2)
     ps_merge00  fr5, fr5, fr5                // fr5 = quotient, quotient
-    lfs         fr15ShiftR16, UnitShiftR16@sdarel(r13)
 
     xoris       r7, r7, 0x8000
     xoris       r6, r6, 0x8000
@@ -266,12 +242,11 @@ gtePsRtps:
     stw         r6, FloatBufB2@sdarel(r13)
     lfd         fr0, FloatBufA1@sdarel(r13)
     lfd         fr1, FloatBufA2@sdarel(r13)
-    fsub        fr0, fr0, fr10Kmagic         // fr0 = gteOFX
-    fsub        fr1, fr1, fr10Kmagic         // fr1 = gteOFY
+    fsub        fr0, fr0, fr18Kmagic         // fr0 = gteOFX
+    fsub        fr1, fr1, fr18Kmagic         // fr1 = gteOFY
     frsp        fr0, fr0                     // double to single
     frsp        fr1, fr1                     // double to single
     ps_merge00  fr0, fr0, fr1                // fr0 = gteOFX, gteOFY
-    ps_merge00  fr15ShiftR16, fr15ShiftR16, fr15ShiftR16 // fr15 = 1 >> 16 , 1 >> 16
 
     ps_madd     fr0, fr6, fr5, fr0           // fr0 = (s64)gteOFX + ((s64)gteIR1 * quotient) / (s64)gteOFY + ((s64)gteIR2 * quotient)
     ps_mul      fr0, fr0, fr15ShiftR16
@@ -288,7 +263,7 @@ gtePsRtps:
     xoris       r5, r5, 0x8000
     stw         r5, FloatBufB1@sdarel(r13)
     lfd         fr1, FloatBufA1@sdarel(r13)
-    fsub        fr1, fr1, fr10Kmagic         // fr1 = gteDQB
+    fsub        fr1, fr1, fr18Kmagic         // fr1 = gteDQB
     frsp        fr1, fr1                     // double to single
     fmadds      fr0, fr0, fr5, fr1           // fr0 = ((s64)gteDQA * quotient) + (s64)gteDQB
 
@@ -314,15 +289,22 @@ gtePsRtps:
 gtePsRtpt:
     mfspr       r9, lr              // save link register
     lfs         fr14ShiftR12, UnitShiftR12@sdarel(r13)
-    addi        r8, r3, 0
-    ps_merge00  fr14ShiftR12,fr14ShiftR12,fr14ShiftR12  // fr14 = 1 >> 12, 1 >> 12
+    lfs         fr15ShiftR16, UnitShiftR16@sdarel(r13)
+    lfd         fr18Kmagic, kmagic@sdarel(r13)
 
     // gteSZ0 = gteSZ3;
     lwz         r5, 76(r3)          // gteSZ3  (regs->CP2D.p[19].w.l)
     li          r10, 0
+    addi        r8, r3, 0
     stw         r5, 64(r3)          // gteSZ0  (regs->CP2D.p[16].w.l)
 
+    ps_merge00  fr14ShiftR12,fr14ShiftR12,fr14ShiftR12  // fr14 = 1 >> 12, 1 >> 12
+    ps_merge00  fr15ShiftR16, fr15ShiftR16, fr15ShiftR16 // fr15 = 1 >> 16 , 1 >> 16
+
 rtptVecMulMt:
+    // V1, V2 use cached matrix and TRX, TRY, TRZ
+    cmpli       0, 1, r10, 0
+    bgt         useCacheMt
     psq_l       fr0, 128(r3), 0, 3  // fr0 = m12, m11 GQR3 = 0(s16)
     psq_l       fr6, 0(r8), 0, 3    // fr6 = y, x
 
@@ -346,8 +328,13 @@ rtptVecMulMt:
     ps_madd     fr11,fr5,fr7,fr10   // fr11 = m23 * z + m22 * y + m21 * x （SUMY）
     ps_madd     fr13,fr1,fr7,fr12   // fr13 = m33 * z + m32 * y + m31 * x （SUMZ)
 
-    addi        r8, r8, 8
-    lfd         fr10Kmagic, kmagic@sdarel(r13)
+    // save matrix
+    ps_mr       fr19, fr0           // fr19 = m12, m11
+    ps_mr       fr20, fr2           // fr20 = m22, m21
+    ps_mr       fr21, fr4           // fr21 = m32, m31
+    ps_mr       fr22, fr3           // fr22 = m13, 1
+    ps_mr       fr23, fr5           // fr23 = m23, 1
+    ps_mr       fr24, fr1           // fr24 = m33, 1
 
     // load TRX, TRY, TRZ to float
     lwz         r5, 148(r3)         // gteTRX (((s32 *)regs->CP2C.r)[5])
@@ -362,23 +349,49 @@ rtptVecMulMt:
     lfd         fr3, FloatBufA1@sdarel(r13)
     lfd         fr4, FloatBufA2@sdarel(r13)
     lfd         fr5, FloatBufA3@sdarel(r13)
-    fsub        fr3, fr3, fr10Kmagic        // fr3 = TRX(double)
-    fsub        fr4, fr4, fr10Kmagic        // fr4 = TRY(double)
-    fsub        fr5, fr5, fr10Kmagic        // fr5 = TRZ(double)
+    fsub        fr3, fr3, fr18Kmagic        // fr3 = TRX(double)
+    fsub        fr4, fr4, fr18Kmagic        // fr4 = TRY(double)
+    fsub        fr5, fr5, fr18Kmagic        // fr5 = TRZ(double)
     frsp        fr3, fr3                    // fr3 = TRX(single)
     frsp        fr4, fr4                    // fr4 = TRY(single)
     frsp        fr5, fr5                    // fr5 = TRZ(single)
 
     ps_merge00  fr9, fr9, fr11              // fr9 = SUMX, SUMY
     ps_merge00  fr3, fr3, fr4               // fr3 = TRX, TRY
+
+    // save TRX, TRY, TRZ
+    ps_mr       fr26, fr5                   // fr25 = TRZ
+    ps_mr       fr25, fr3                   // fr24 = TRX, TRY
+
     ps_madd     fr2, fr9, fr14ShiftR12, fr3 // fr2 = SUMX >> 12 + TRX, SUMY >> 12 + TRY
-    ps_madd     fr5, fr13, fr14ShiftR12, fr5 // fr5 = SUMZ >> 12 + TRZ, 0
+    ps_madd     fr5, fr13, fr14ShiftR12,fr5 // fr5 = SUMZ >> 12 + TRZ, 0
     ps_merge10  fr9, fr2, fr2               // fr9 = SUMY >> 12 + TRY
 
-    // Backup MACX, MACY, MACZ
-    ps_mr       fr3, fr2
-    ps_mr       fr4, fr9
-    ps_mr       fr6, fr5
+    b           vecMulMtEnd
+
+useCacheMt:
+    psq_l       fr6, 0(r8), 0, 3    // fr6 = y, x
+    psq_l       fr7, 6(r8), 1, 3    // fr7 = z, 1
+    ps_mul      fr8, fr19, fr6      // fr8 = m12 * y, m11 * x
+    ps_mul      fr10, fr20, fr6     // fr10 = m22 * y, m21 * x
+    ps_mul      fr12, fr21, fr6     // fr12 = m32 * y, m31 * x
+
+    ps_sum0     fr8, fr8, fr8, fr8  // fr8 = m12 * y + m11 * x
+    ps_sum0     fr10,fr10,fr10,fr10 // fr10 = m22 * y + m21 * x
+    ps_sum0     fr12,fr12,fr12,fr12 // fr12 = m32 * y + m31 * x
+
+    ps_madd     fr9,fr22,fr7,fr8    // fr9 = m13 * z + m12 * y + m11 * x  （SUMX）
+    ps_madd     fr11,fr23,fr7,fr10  // fr11 = m23 * z + m22 * y + m21 * x （SUMY）
+    ps_madd     fr13,fr24,fr7,fr12  // fr13 = m33 * z + m32 * y + m31 * x （SUMZ)
+
+    ps_merge00  fr9, fr9, fr11               // fr9 = SUMX, SUMY
+
+    ps_madd     fr2, fr9, fr14ShiftR12,fr25  // fr2 = SUMX >> 12 + TRX, SUMY >> 12 + TRY
+    ps_madd     fr5, fr13, fr14ShiftR12,fr26 // fr5 = SUMZ >> 12 + TRZ, 0
+    ps_merge10  fr9, fr2, fr2                // fr9 = SUMY >> 12 + TRY
+
+vecMulMtEnd:
+    addi        r8, r8, 8
 
     // Save MACX, MACY to tmpGteAddr
     psq_st      fr2, 8(r4), 0, 3     // save MACX, MACY to tmp gteIR1, gteIR2(r4 + 4 * 2)
@@ -386,28 +399,28 @@ rtptVecMulMt:
     // only v2 save to MAC
     cmpli       0, 1, r10, 16
     blt         SET_IR
-    fctiw       fr2, fr2             // MACX => int
-    fctiw       fr9, fr9             // MACY => int
-    fctiw       fr5, fr5             // MACZ => int
+    fctiw       fr3, fr2             // MACX => int
+    fctiw       fr4, fr9             // MACY => int
+    fctiw       fr6, fr5             // MACZ => int
 
     addi        r5, r3, 100
     addi        r6, r3, 104
     addi        r7, r3, 108
 
-    stfiwx      fr2, 0, r5           // store MACX (((s32 *)regs->CP2D.r)[25])
-    stfiwx      fr9, 0, r6           // store MACY (((s32 *)regs->CP2D.r)[26])
-    stfiwx      fr5, 0, r7           // store MACZ (((s32 *)regs->CP2D.r)[27])
+    stfiwx      fr3, 0, r5           // store MACX (((s32 *)regs->CP2D.r)[25])
+    stfiwx      fr4, 0, r6           // store MACY (((s32 *)regs->CP2D.r)[26])
+    stfiwx      fr6, 0, r7           // store MACZ (((s32 *)regs->CP2D.r)[27])
 
 SET_IR:
     // Set gteIR1, gteIR2, gteIR3
-    psq_st      fr3, 38(r3), 1, 3    // (regs->CP2D.p[9].sw.l)
-    psq_st      fr4, 42(r3), 1, 3    // (regs->CP2D.p[10].sw.l)
-    psq_st      fr6, 46(r3), 1, 3    // (regs->CP2D.p[11].sw.l)
+    psq_st      fr2, 38(r3), 1, 3    // (regs->CP2D.p[9].sw.l)
+    psq_st      fr9, 42(r3), 1, 3    // (regs->CP2D.p[10].sw.l)
+    psq_st      fr5, 46(r3), 1, 3    // (regs->CP2D.p[11].sw.l)
 
     // gteSZX = limD(gteMAC3);
     srwi        r5, r10, 1
     addi        r5, r5, 70
-    psq_stx     fr6, r5, r3, 1, 4            // gteSZX  (regs->CP2D.p[17, 18, 19].w.l)
+    psq_stx     fr5, r5, r3, 1, 4            // gteSZX  (regs->CP2D.p[17, 18, 19].w.l)
 
     // quotient = limE(DIVIDE_INT(gteH, gteSZX));
     lhzx        r6, r5, r3                   // r6 = gteSZX  (regs->CP2D.p[17, 18, 19].w.l)
@@ -419,7 +432,6 @@ SET_IR:
     lwz         r6, 228(r3)                  // gteOFY (((s32 *)regs->CP2C.r)[25])
     psq_l       fr6, 8(r4), 0, 3             // load tmp gteIR1, gteIR2(r4 + 4 * 2)
     ps_merge00  fr5, fr5, fr5                // fr5 = quotient, quotient
-    lfs         fr15ShiftR16, UnitShiftR16@sdarel(r13)
 
     xoris       r7, r7, 0x8000
     xoris       r6, r6, 0x8000
@@ -427,12 +439,11 @@ SET_IR:
     stw         r6, FloatBufB2@sdarel(r13)
     lfd         fr0, FloatBufA1@sdarel(r13)
     lfd         fr1, FloatBufA2@sdarel(r13)
-    fsub        fr0, fr0, fr10Kmagic         // fr0 = gteOFX
-    fsub        fr1, fr1, fr10Kmagic         // fr1 = gteOFY
+    fsub        fr0, fr0, fr18Kmagic         // fr0 = gteOFX
+    fsub        fr1, fr1, fr18Kmagic         // fr1 = gteOFY
     frsp        fr0, fr0                     // double to single
     frsp        fr1, fr1                     // double to single
     ps_merge00  fr0, fr0, fr1                // fr0 = gteOFX, gteOFY
-    ps_merge00  fr15ShiftR16, fr15ShiftR16, fr15ShiftR16 // fr15 = 1 >> 16 , 1 >> 16
 
     ps_madd     fr0, fr6, fr5, fr0           // fr0 = (s64)gteOFX + ((s64)gteIR1 * quotient) / (s64)gteOFY + ((s64)gteIR2 * quotient)
     ps_mul      fr0, fr0, fr15ShiftR16
@@ -456,7 +467,7 @@ SET_IR:
     xoris       r5, r5, 0x8000
     stw         r5, FloatBufB1@sdarel(r13)
     lfd         fr1, FloatBufA1@sdarel(r13)
-    fsub        fr1, fr1, fr10Kmagic         // fr1 = gteDQB
+    fsub        fr1, fr1, fr18Kmagic         // fr1 = gteDQB
     frsp        fr1, fr1                     // double to single
     fmadds      fr0, fr0, fr5, fr1           // fr0 = ((s64)gteDQA * quotient) + (s64)gteDQB
 
@@ -484,6 +495,7 @@ SET_IR:
 gtePsNccs:
     lfs         fr14ShiftR12, UnitShiftR12@sdarel(r13)
     lfs         fr17ShiftR8, UnitShiftR8@sdarel(r13)
+    lfd         fr18Kmagic, kmagic@sdarel(r13)
     mfspr       r9, lr              // save link register
     ps_merge00  fr14ShiftR12,fr14ShiftR12,fr14ShiftR12  // fr14 = 1 >> 12, 1 >> 12
     ps_merge00  fr17ShiftR8, fr17ShiftR8, fr17ShiftR8   // fr17 = 1 >> 8, 1 >> 8
@@ -514,8 +526,6 @@ gtePsNccs:
     ps_merge00  fr9, fr11, fr9              // fr9 = SUMY, SUMX
     ps_mul      fr5, fr13, fr14ShiftR12     // fr5 = SUMZ >> 12, 0
     ps_mul      fr2, fr9, fr14ShiftR12      // fr2 = SUMY >> 12, SUMX >> 12
-
-    lfd         fr10Kmagic, kmagic@sdarel(r13)
 
     // Save MACX, MACY, MACZ to tmpGteAddr
     psq_st      fr5, 12(r4), 1, 7    // save MACZ to tmp gteIR3(r4 + 4 * 3)
@@ -560,9 +570,9 @@ gtePsNccs:
     lfd         fr3, FloatBufA1@sdarel(r13)
     lfd         fr4, FloatBufA2@sdarel(r13)
     lfd         fr5, FloatBufA3@sdarel(r13)
-    fsub        fr3, fr3, fr10Kmagic        // fr3 = RBK(double)
-    fsub        fr4, fr4, fr10Kmagic        // fr4 = GBK(double)
-    fsub        fr5, fr5, fr10Kmagic        // fr5 = BBK(double)
+    fsub        fr3, fr3, fr18Kmagic        // fr3 = RBK(double)
+    fsub        fr4, fr4, fr18Kmagic        // fr4 = GBK(double)
+    fsub        fr5, fr5, fr18Kmagic        // fr5 = BBK(double)
     frsp        fr3, fr3                    // fr3 = RBK(single)
     frsp        fr4, fr4                    // fr4 = GBK(single)
     frsp        fr5, fr5                    // fr5 = BBK(single)
@@ -623,6 +633,7 @@ gtePsNccs:
 gtePsNcct:
     lfs         fr14ShiftR12, UnitShiftR12@sdarel(r13)
     lfs         fr17ShiftR8, UnitShiftR8@sdarel(r13)
+    lfd         fr18Kmagic, kmagic@sdarel(r13)
     mfspr       r9, lr              // save link register
     addi        r8, r3, 0
     li          r10, 0
@@ -658,7 +669,6 @@ ncctVecMulMt:
     ps_mul      fr2, fr9, fr14ShiftR12      // fr2 = SUMY >> 12, SUMX >> 12
 
     addi        r8, r8, 8
-    lfd         fr10Kmagic, kmagic@sdarel(r13)
 
     // Save MACX, MACY, MACZ to tmpGteAddr
     psq_st      fr5, 12(r4), 1, 7    // save MACZ to tmp gteIR3(r4 + 4 * 3)
@@ -703,9 +713,9 @@ ncctVecMulMt:
     lfd         fr3, FloatBufA1@sdarel(r13)
     lfd         fr4, FloatBufA2@sdarel(r13)
     lfd         fr5, FloatBufA3@sdarel(r13)
-    fsub        fr3, fr3, fr10Kmagic        // fr3 = RBK(double)
-    fsub        fr4, fr4, fr10Kmagic        // fr4 = GBK(double)
-    fsub        fr5, fr5, fr10Kmagic        // fr5 = BBK(double)
+    fsub        fr3, fr3, fr18Kmagic        // fr3 = RBK(double)
+    fsub        fr4, fr4, fr18Kmagic        // fr4 = GBK(double)
+    fsub        fr5, fr5, fr18Kmagic        // fr5 = BBK(double)
     frsp        fr3, fr3                    // fr3 = RBK(single)
     frsp        fr4, fr4                    // fr4 = GBK(single)
     frsp        fr5, fr5                    // fr5 = BBK(single)
@@ -792,20 +802,8 @@ UnitShiftR8:
 	.float	0.00390625               // 1 >> 8 = 1 / 256 = 0.00390625
 UnitShiftR12:
 	.float	0.000244140625           // 1 >> 12 = 1 / 4096 = 0.000244140625
-FncOverflowH:
-	.float	2147483647.0
-FncOverflowL:
-	.float	-2147483648.0
-IntOverflowH:
-	.int	2147483647
-IntOverflowL:
-	.int	-2147483648
 UnitShiftR16:
 	.float	0.00001526               // 1 >> 16 = 1 / 65536 = 0.00001526
-debugArea:
-    .int 0
-TestOverflowH:
-	.float	2147483647.0
 DivOverflow:
 	.int	0x1ffff
 

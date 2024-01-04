@@ -408,8 +408,6 @@ extern void gtePsRtpt(register u32 *cp2d, register u32 *gteTbl15Addr);
 extern void gtePsNccs(register u32 *cp2d, register u32 *gteTbl15Addr);
 extern void gtePsNcct(register u32 *cp2d, register u32 *gteTbl15Addr);
 
-extern u32 gteDivTst(u16 h, u16 sz, register s16 *r3);
-
 #ifdef DISP_DEBUG
 // prototypes
 long long gettime(void);
