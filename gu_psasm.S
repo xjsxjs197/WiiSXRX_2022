@@ -72,7 +72,6 @@
 
 #define fr14ShiftR12 14
 #define fr15ShiftR16 15
-#define fr16ShiftR5  16
 #define fr17ShiftR8  17
 #define fr18Kmagic   18
 
@@ -304,7 +303,7 @@ gtePsRtpt:
 rtptVecMulMt:
     // V1, V2 use cached matrix and TRX, TRY, TRZ
     cmpli       0, 1, r10, 0
-    bgt         useCacheMt
+    bgt         rtptUseCacheMt
     psq_l       fr0, 128(r3), 0, 3  // fr0 = m12, m11 GQR3 = 0(s16)
     psq_l       fr6, 0(r8), 0, 3    // fr6 = y, x
 
@@ -360,16 +359,16 @@ rtptVecMulMt:
     ps_merge00  fr3, fr3, fr4               // fr3 = TRX, TRY
 
     // save TRX, TRY, TRZ
-    ps_mr       fr26, fr5                   // fr25 = TRZ
-    ps_mr       fr25, fr3                   // fr24 = TRX, TRY
+    ps_mr       fr26, fr5                   // fr26 = TRZ
+    ps_mr       fr25, fr3                   // fr25 = TRX, TRY
 
     ps_madd     fr2, fr9, fr14ShiftR12, fr3 // fr2 = SUMX >> 12 + TRX, SUMY >> 12 + TRY
     ps_madd     fr5, fr13, fr14ShiftR12,fr5 // fr5 = SUMZ >> 12 + TRZ, 0
     ps_merge10  fr9, fr2, fr2               // fr9 = SUMY >> 12 + TRY
 
-    b           vecMulMtEnd
+    b           rtptVecMulMtEnd
 
-useCacheMt:
+rtptUseCacheMt:
     psq_l       fr6, 0(r8), 0, 3    // fr6 = y, x
     psq_l       fr7, 6(r8), 1, 3    // fr7 = z, 1
     ps_mul      fr8, fr19, fr6      // fr8 = m12 * y, m11 * x
@@ -390,7 +389,7 @@ useCacheMt:
     ps_madd     fr5, fr13, fr14ShiftR12,fr26 // fr5 = SUMZ >> 12 + TRZ, 0
     ps_merge10  fr9, fr2, fr2                // fr9 = SUMY >> 12 + TRY
 
-vecMulMtEnd:
+rtptVecMulMtEnd:
     addi        r8, r8, 8
 
     // Save MACX, MACY to tmpGteAddr
@@ -641,6 +640,10 @@ gtePsNcct:
     ps_merge00  fr17ShiftR8, fr17ShiftR8, fr17ShiftR8   // fr17 = 1 >> 8, 1 >> 8
 
 ncctVecMulMt:
+    // V1, V2 use cached matrix and gteRBK, gteGBK, gteBBK
+    cmpli       0, 1, r10, 0
+    bgt         ncctUseCacheMt
+
     psq_l       fr0, 160(r3), 0, 3  // fr0 = L12, L11 GQR3 = 0(s16)
     psq_l       fr6, 0(r8), 0, 3    // fr6 = y, x
 
@@ -664,11 +667,17 @@ ncctVecMulMt:
     ps_madd     fr11,fr5,fr7,fr10   // fr11 = L23 * z + L22 * y + L21 * x （SUMY）
     ps_madd     fr13,fr1,fr7,fr12   // fr13 = L33 * z + L32 * y + L31 * x （SUMZ)
 
+    // save matrix
+    ps_mr       fr19, fr0           // fr19 = L12, L11
+    ps_mr       fr20, fr2           // fr20 = L22, L21
+    ps_mr       fr21, fr4           // fr21 = L32, L31
+    ps_mr       fr22, fr3           // fr22 = L13, 1
+    ps_mr       fr23, fr5           // fr23 = L23, 1
+    ps_mr       fr24, fr1           // fr24 = L33, 1
+
     ps_merge00  fr9, fr11, fr9              // fr9 = SUMY, SUMX
     ps_mul      fr5, fr13, fr14ShiftR12     // fr5 = SUMZ >> 12, 0
     ps_mul      fr2, fr9, fr14ShiftR12      // fr2 = SUMY >> 12, SUMX >> 12
-
-    addi        r8, r8, 8
 
     // Save MACX, MACY, MACZ to tmpGteAddr
     psq_st      fr5, 12(r4), 1, 7    // save MACZ to tmp gteIR3(r4 + 4 * 3)
@@ -698,6 +707,14 @@ ncctVecMulMt:
     ps_madd     fr11,fr5,fr7,fr10   // fr11 = LG3 * z + LG2 * y + LG1 * x （SUMY）
     ps_madd     fr13,fr1,fr7,fr12   // fr13 = LB3 * z + LB2 * y + LB1 * x （SUMZ)
 
+    // save matrix
+    ps_mr       fr27, fr0           // fr27 = LR2, LR1
+    ps_mr       fr28, fr2           // fr28 = LG2, LG1
+    ps_mr       fr29, fr4           // fr29 = LB2, LB1
+    ps_mr       fr30, fr3           // fr30 = LB3, 1
+    ps_mr       fr31, fr5           // fr31 = LB3, 1
+    ps_mr       fr16, fr1           // fr16 = LB3, 1
+
     ps_merge00  fr9, fr11, fr9      // fr9 = SUMY, SUMX
 
     // load gteRBK, gteGBK, gteBBK to float
@@ -721,8 +738,59 @@ ncctVecMulMt:
     frsp        fr5, fr5                    // fr5 = BBK(single)
 
     ps_merge00  fr3, fr4, fr3               // fr3 = GBK, RBK
+
+    // save gteRBK, gteGBK, gteBBK
+    ps_mr       fr26, fr5                   // fr26 = BBK
+    ps_mr       fr25, fr3                   // fr25 = GBK, RBK
+
     ps_madd     fr5, fr13, fr14ShiftR12, fr5 // fr5 = SUMZ >> 12 + BBK, 0
     ps_madd     fr2, fr9, fr14ShiftR12, fr3 // fr2 = SUMY >> 12 + GBK, SUMX >> 12 + RBK
+
+    b           ncctVecMulMtEnd
+
+ncctUseCacheMt:
+    psq_l       fr6, 0(r8), 0, 3    // fr6 = y, x
+    psq_l       fr7, 6(r8), 1, 3    // fr7 = z, 1
+    ps_mul      fr8, fr19, fr6      // fr8 = L12 * y, L11 * x
+    ps_mul      fr10, fr20, fr6     // fr10 = L22 * y, L* x
+    ps_mul      fr12, fr21, fr6     // fr12 = L32 * y, L31 * x
+
+    ps_sum0     fr8, fr8, fr8, fr8  // fr8 = L12 * y + L11 * x
+    ps_sum0     fr10,fr10,fr10,fr10 // fr10 = L22 * y + L21 * x
+    ps_sum0     fr12,fr12,fr12,fr12 // fr12 = L32 * y + L31 * x
+    ps_madd     fr9,fr22,fr7,fr8    // fr9 = L13 * z + L12 * y + L11 * x  （SUMX）
+    ps_madd     fr11,fr23,fr7,fr10  // fr11 = L23 * z + L22 * y + L21 * x （SUMY）
+    ps_madd     fr13,fr24,fr7,fr12  // fr13 = L33 * z + L32 * y + L31 * x （SUMZ)
+
+    ps_merge00  fr9, fr11, fr9              // fr9 = SUMY, SUMX
+    ps_mul      fr5, fr13, fr14ShiftR12     // fr5 = SUMZ >> 12, 0
+    ps_mul      fr2, fr9, fr14ShiftR12      // fr2 = SUMY >> 12, SUMX >> 12
+
+    // Save MACX, MACY, MACZ to tmpGteAddr
+    psq_st      fr5, 12(r4), 1, 7    // save MACZ to tmp gteIR3(r4 + 4 * 3)
+    psq_st      fr2, 8(r4), 0, 7     // save MACY, MACX to tmp gteIR2, gteIR1(r4 + 4 * 2)
+
+    // LR * IR
+    psq_l       fr7, 12(r4), 1, 7   // fr7 = z, 1
+    psq_l       fr6, 8(r4), 0, 7    // fr6 = y, x
+    ps_mul      fr8, fr27, fr6      // fr8 = LR2 * y, LR1 * x
+    ps_mul      fr10, fr28, fr6     // fr10 = LG2 * y, LG2* x
+    ps_mul      fr12, fr29, fr6     // fr12 = LB2 * y, LB1 * x
+
+    ps_sum0     fr8, fr8, fr8, fr8  // fr8 = LR2 * y + LR1 * x
+    ps_sum0     fr10,fr10,fr10,fr10 // fr10 = LG2 * y + LG1 * x
+    ps_sum0     fr12,fr12,fr12,fr12 // fr12 = LB2 * y + LB1 * x
+    ps_madd     fr9,fr30,fr7,fr8    // fr9 = LR3 * z + LR2 * y + LR1 * x  （SUMX）
+    ps_madd     fr11,fr31,fr7,fr10  // fr11 = LG3 * z + LG2 * y + LG1 * x （SUMY）
+    ps_madd     fr13,fr16,fr7,fr12  // fr13 = LB3 * z + LB2 * y + LB1 * x （SUMZ)
+
+    ps_merge00  fr9, fr11, fr9      // fr9 = SUMY, SUMX
+
+    ps_madd     fr5, fr13, fr14ShiftR12, fr26 // fr5 = SUMZ >> 12 + BBK, 0
+    ps_madd     fr2, fr9, fr14ShiftR12, fr25  // fr2 = SUMY >> 12 + GBK, SUMX >> 12 + RBK
+
+ncctVecMulMtEnd:
+    addi        r8, r8, 8
 
     // Save MACX, MACY, MACZ to tmpGteAddr
     psq_st      fr5, 12(r4), 1, 7    // save MACZ to tmp gteIR3(r4 + 4 * 3)
