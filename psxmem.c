@@ -69,8 +69,8 @@ static void CAST_SetGQR(s32 GQR, u32 typeL, s32 scaleL)
 
 static void setFloatRoundMode()
 {
-    __asm__ (" mtfsb1 30 ");
-    __asm__ (" mtfsb0 31 ");
+    __asm__ (" mtfsb0 30 ");
+    __asm__ (" mtfsb1 31 ");
 }
 
 extern void SysMessage(char *fmt, ...);
@@ -160,7 +160,7 @@ int psxMemInit() {
     //CAST_SetGQR(GQR0, GQR_TYPE_U16, 1); // Do not use GQR0 whitch used by system
     // GQR1 load: u16 >> 4 => float, store: float << 4 => u16
     // for limH (0xfff, 0)
-    CAST_SetGQR(GQR1, GQR_TYPE_U16, 4);
+    CAST_SetGQR(GQR1, GQR_TYPE_U16, -12);
     CAST_SetGQR(GQR2, GQR_TYPE_U8, 0); // set GQR2 load u8 <=> float
     CAST_SetGQR(GQR3, GQR_TYPE_S16, 0); // set GQR3 load s16 <=> float
     CAST_SetGQR(GQR4, GQR_TYPE_U16, 0); // set GQR4 load u16 <=> float
@@ -174,7 +174,7 @@ int psxMemInit() {
     // for limB (0x7fff, 0)
     CAST_SetGQR(GQR7, GQR_TYPE_U16, 1);
 
-    setFloatRoundMode();
+    //setFloatRoundMode();
 
     return 0;
 }
