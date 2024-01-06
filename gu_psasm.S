@@ -133,7 +133,7 @@ DIVIDE_OVERFLOW:
 gtePsRtps:
     mfspr       r9, lr              // save link register
     lfs         fr14ShiftR12, UnitShiftR12@sdarel(r13)  // fr14 = 1 >> 12, 1 >> 12
-    lfs         fr15ShiftR16, UnitShiftR16@sdarel(r13)  // fr15 = 1 >> 16 , 1 >> 16
+    //lfs         fr15ShiftR16, UnitShiftR16@sdarel(r13)  // fr15 = 1 >> 16 , 1 >> 16
     lfd         fr18Kmagic, kmagic@sdarel(r13)
 
     psq_l       fr0, 128(r3), 0, 3  // fr0 = m12, m11 GQR3 = 0(s16)
@@ -246,14 +246,14 @@ gtePsRtps:
     ps_merge00  fr0, fr0, fr1                // fr0 = gteOFX, gteOFY
 
     ps_madd     fr0, fr6, fr5, fr0           // fr0 = (s64)gteOFX + ((s64)gteIR1 * quotient) / (s64)gteOFY + ((s64)gteIR2 * quotient)
-    ps_mul      fr0, fr0, fr15ShiftR16
+    //ps_mul      fr0, fr0, fr15ShiftR16
 
     // save limG1(gteSX2), limG2(gteSY2)
     //psq_st      fr0, 8(r4), 0, 6             // save to tmp gteSX2, gteSY2 (float << 5 => s16)(r4 + 4 * 2)
     //psq_l       fr1, 8(r4), 0, 6             // load tmp gteSX2, gteSY2 (s16 >> 5 => float)(r4 + 4 * 2)
     //ps_merge10  fr1, fr1, fr1                // fr1 = gteSY2, gteSX2
     //ps_merge10  fr0, fr0, fr0
-    psq_st      fr0, 56(r3), 0, 3            // gteSXY2 (regs->CP2D.r[14])
+    psq_st      fr0, 56(r3), 0, 6            // gteSXY2 (regs->CP2D.r[14])
 
     // (s64)gteDQB + ((s64)gteDQA * quotient)
     lwz         r5, 240(r3)                  // gteDQB (((s32 *)regs->CP2C.r)[28])
@@ -295,7 +295,7 @@ rtpsEnd:
 gtePsRtpt:
     mfspr       r9, lr              // save link register
     lfs         fr14ShiftR12, UnitShiftR12@sdarel(r13)  // fr14 = 1 >> 12, 1 >> 12
-    lfs         fr15ShiftR16, UnitShiftR16@sdarel(r13)  // fr15 = 1 >> 16 , 1 >> 16
+    //lfs         fr15ShiftR16, UnitShiftR16@sdarel(r13)  // fr15 = 1 >> 16 , 1 >> 16
     lfd         fr18Kmagic, kmagic@sdarel(r13)
 
     // gteSZ0 = gteSZ3;
@@ -450,14 +450,14 @@ SET_IR:
     srwi        r5, r10, 1
     ps_madd     fr0, fr6, fr5, fr0           // fr0 = (s64)gteOFX + ((s64)gteIR1 * quotient) / (s64)gteOFY + ((s64)gteIR2 * quotient)
     addi        r5, r5, 48
-    ps_mul      fr0, fr0, fr15ShiftR16
+    //ps_mul      fr0, fr0, fr15ShiftR16
 
     // save limG1(gteSXN), limG2(gteSYN)
     //psq_st      fr0, 8(r4), 0, 6             // save to tmp gteSXN, gteSYN (float << 5 => s16)(r4 + 4 * 2)
     //psq_l       fr1, 8(r4), 0, 6             // load tmp gteSXN, gteSYN (s16 >> 5 => float)(r4 + 4 * 2)
     //ps_merge10  fr1, fr1, fr1                // fr1 = gteSYN, gteSXN
     //ps_merge10  fr0, fr0, fr0
-    psq_stx     fr0, r5, r3, 0, 3            // gteSXYN (regs->CP2D.r[12, 13, 14])
+    psq_stx     fr0, r5, r3, 0, 6            // gteSXYN (regs->CP2D.r[12, 13, 14])
 
     // loop
     addi        r10, r10, 8

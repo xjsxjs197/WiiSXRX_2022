@@ -169,7 +169,7 @@ int psxMemInit() {
     CAST_SetGQR(GQR5, GQR_TYPE_U8, -12);
     // GQR6 load: s16 >> 5 => float, store: float << 5 => s16
     // for limG (0x3ff, -0x400)
-    CAST_SetGQR(GQR6, GQR_TYPE_S16, 5);
+    CAST_SetGQR(GQR6, GQR_TYPE_S16, -16);
     // GQR7 load: u16 >> 1 => float, store: float << 1 => u16
     // for limB (0x7fff, 0)
     CAST_SetGQR(GQR7, GQR_TYPE_U16, 1);
