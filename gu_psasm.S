@@ -497,6 +497,83 @@ rtptEnd:
     blr
 
 
+.globl gtePsNclip
+// r3: CP2D(vy0, vx0, 0, vz0, vy1, vx1, 0, vz1, vy2, vx2, 0, vz2)
+gtePsNclip:
+    // load gteSY0, gteSY1, gteSY2
+    lha       r4, 48(r3)      // gteSY0 (regs->CP2D.r[12])
+    lha       r5, 52(r3)      // gteSY1 (regs->CP2D.r[13])
+    lha       r6, 56(r3)      // gteSY2 (regs->CP2D.r[14])
+
+    // gteSY0 - gteSY1, gteSY1 - gteSY2, gteSY2 - gteSY0
+    sub       r7, r4, r5
+    sub       r8, r5, r6
+    sub       r9, r6, r4
+
+    // load gteSX0, gteSX1, gteSX2
+    lha       r4, 50(r3)      // gteSX0 (regs->CP2D.r[12])
+    lha       r5, 54(r3)      // gteSX1 (regs->CP2D.r[13])
+    lha       r6, 58(r3)      // gteSX2 (regs->CP2D.r[14])
+
+    // gteSX2 * (gteSY0 - gteSY1) + gteSX0 * (gteSY1 - gteSY2) + gteSX1 * (gteSY2 - gteSY0)
+    mullw     r4, r4, r8
+    mullw     r5, r5, r9
+    mullw     r6, r6, r7
+
+    add       r8, r4, r5
+    add       r8, r8, r6
+
+    stw       r8, 96(r3)       // gteMAC0  (((s32 *)regs->CP2D.r)[24])
+
+    blr
+
+.globl gtePsAvsz3
+// r3: CP2D(vy0, vx0, 0, vz0, vy1, vx1, 0, vz1, vy2, vx2, 0, vz2)
+gtePsAvsz3:
+    // load gteSZ1, gteSZ2, gteSZ3, gteZSF3
+    psq_l       fr0, 70(r3), 0, 4  // gteSZ1  (regs->CP2D.p[17].w.l)
+    psq_l       fr1, 74(r3), 0, 4  // gteSZ2  (regs->CP2D.p[18].w.l)
+    psq_l       fr2, 78(r3), 0, 4  // gteSZ3  (regs->CP2D.p[19].w.l)
+    psq_l       fr3, 246(r3), 0, 3 // gteZSF3 (regs->CP2C.p[29].sw.l) 128 + 118
+
+    // gteZSF3 * (gteSZ1 + gteSZ2 + gteSZ3)
+    fadds       fr4, fr0, fr1
+    fadds       fr4, fr4, fr2
+    fmuls       fr3, fr3, fr4
+
+    // set gteMAC0, gteOTZ = limD(gteMAC0 >> 12)
+    //fctiw       fr0, fr3
+    //addi        r4, r3, 96         // gteMAC0  (((s32 *)regs->CP2D.r)[24])
+    psq_st      fr3, 30(r3), 1, 1  // gteOTZ  (regs->CP2D.p[7].w.l)
+    //stfiwx      fr0, 0, r4
+
+    blr
+
+.globl gtePsAvsz4
+// r3: CP2D(vy0, vx0, 0, vz0, vy1, vx1, 0, vz1, vy2, vx2, 0, vz2)
+gtePsAvsz4:
+    // load gteSZ0, gteSZ1, gteSZ2, gteSZ3, gteZSF4
+    psq_l       fr0, 66(r3), 0, 4  // gteSZ0  (regs->CP2D.p[16].w.l)
+    psq_l       fr1, 70(r3), 0, 4  // gteSZ1  (regs->CP2D.p[17].w.l)
+    psq_l       fr2, 74(r3), 0, 4  // gteSZ2  (regs->CP2D.p[18].w.l)
+    psq_l       fr3, 78(r3), 0, 4  // gteSZ3  (regs->CP2D.p[19].w.l)
+    psq_l       fr4, 250(r3), 0, 3 // gteZSF4 (regs->CP2C.p[30].sw.l) 128 + 122
+
+    // gteZSF4 * (gteSZ0 + gteSZ1 + gteSZ2 + gteSZ3)
+    fadds       fr5, fr0, fr1
+    fadds       fr6, fr2, fr3
+    fadds       fr5, fr5, fr6
+    fmuls       fr3, fr4, fr5
+
+    // set gteMAC0, gteOTZ = limD(gteMAC0 >> 12)
+    //fctiw       fr0, fr3
+    //addi        r4, r3, 96         // gteMAC0  (((s32 *)regs->CP2D.r)[24])
+    psq_st      fr3, 30(r3), 1, 1  // gteOTZ  (regs->CP2D.p[7].w.l)
+    //stfiwx      fr0, 0, r4
+
+    blr
+
+
 .globl gtePsNccs
 // r3: CP2D(vy0, vx0, 0, vz0, vy1, vx1, 0, vz1, vy2, vx2, 0, vz2)
 //     CP2C(m12, m11, m21, m13, m23, m22, m32, m31, 0, m33)(r3 + 128)
@@ -608,9 +685,9 @@ gtePsNccs:
     ps_mul      fr4, fr9, fr17ShiftR8 // fr4 = gteMAC2 >> 8, gteMAC1 >> 8
 
     psq_st      fr3, 46(r3), 1, 3    // gteIR3 (regs->CP2D.p[11].sw.l)
+    ps_merge10  fr6, fr4, fr4        // fr6 = gteMAC1 >> 8, gteMAC2 >> 8
     psq_st      fr4, 42(r3), 1, 3    // gteIR2 (regs->CP2D.p[10].sw.l)
-    ps_merge10  fr4, fr4, fr4        // fr4 = gteMAC1 >> 8, gteMAC2 >> 8
-    psq_st      fr4, 38(r3), 1, 3    // gteIR1 (regs->CP2D.p[9].sw.l)
+    psq_st      fr6, 38(r3), 1, 3    // gteIR1 (regs->CP2D.p[9].sw.l)
 
     // gteRGB0 = gteRGB1; gteRGB1 = gteRGB2; gteCODE2 = gteCODE;
     lwz         r5, 84(r3)           // gteRGB1  (regs->CP2D.r[21])
@@ -807,6 +884,11 @@ ncctVecMulMtEnd:
     ps_mul      fr5, fr3, fr5        // fr5 = gteB * gteIR3
     ps_mul      fr9, fr0, fr9        // fr5 = gteG * gteIR2, gteR * gteIR1
 
+    srwi        r5, r10, 1
+
+    // only v2 save to gteIR1, gteIR2, gteIR3
+    cmpli       0, 1, r10, 16
+    blt         SET_NCCT_IR_END
     // gteIR1 = gteMAC1 = ((s32)gteR * gteIR1) >> 8
     // gteIR2 = gteMAC2 = ((s32)gteG * gteIR2) >> 8
     // gteIR3 = gteMAC3 = ((s32)gteB * gteIR3) >> 8
@@ -814,23 +896,22 @@ ncctVecMulMtEnd:
     ps_mul      fr4, fr9, fr17ShiftR8 // fr4 = gteMAC2 >> 8, gteMAC1 >> 8
 
     psq_st      fr3, 46(r3), 1, 3    // gteIR3 (regs->CP2D.p[11].sw.l)
+    ps_merge10  fr6, fr4, fr4        // fr6 = gteMAC1 >> 8, gteMAC2 >> 8
     psq_st      fr4, 42(r3), 1, 3    // gteIR2 (regs->CP2D.p[10].sw.l)
-    ps_merge10  fr4, fr4, fr4        // fr4 = gteMAC1 >> 8, gteMAC2 >> 8
-    psq_st      fr4, 38(r3), 1, 3    // gteIR1 (regs->CP2D.p[9].sw.l)
+    psq_st      fr6, 38(r3), 1, 3    // gteIR1 (regs->CP2D.p[9].sw.l)
 
-    // gteRGB0 = gteRGB1; gteRGB1 = gteRGB2; gteCODE2 = gteCODE;
-    lwz         r5, 84(r3)           // gteRGB1  (regs->CP2D.r[21])
-    lwz         r6, 88(r3)           // gteRGB2  (regs->CP2D.r[22])
-    lbz         r7, 24(r3)           // gteCODE (regs->CP2D.p[6].b.h3)
-    stw         r5, 80(r3)           // gteRGB0  (regs->CP2D.r[20])
-    stw         r6, 84(r3)           // gteRGB1  (regs->CP2D.r[21])
-    stb         r7, 88(r3)           // gteCODE2 (regs->CP2D.p[22].b.h3)
-
+SET_NCCT_IR_END:
     // gteR2 = limC1(((s32)gteR * gteIR1) >> 8 >> 4);
     // gteG2 = limC2(((s32)gteG * gteIR2) >> 8 >> 4);
     // gteB2 = limC3(((s32)gteB * gteIR3) >> 8 >> 4);
-    psq_st      fr5, 89(r3), 1, 5      // gteB2    (regs->CP2D.p[22].b.h2)
-    psq_st      fr9, 90(r3), 0, 5      // gteG2    (regs->CP2D.p[22].b.h), gteR2    (regs->CP2D.p[22].b.l)
+    // gteCODE2 = gteCODE; gteCODE2 (regs->CP2D.p[20, 21, 22].b.h3)
+    addi        r6, r5, 81
+    addi        r7, r5, 82
+    psq_stx     fr5, r6, r3, 1, 5    // gteB2  (regs->CP2D.p[20, 21, 22].b.h2)
+    psq_stx     fr9, r7, r3, 0, 5    // gteG2  (regs->CP2D.p[20, 21, 22].b.h), gteR2  (regs->CP2D.p[20, 21, 22].b.l)
+    lbz         r6, 24(r3)           // gteCODE (regs->CP2D.p[6].b.h3)
+    addi        r7, r5, 80
+    stbx        r6, r7, r3           // gteCODE2 (regs->CP2D.p[20, 21, 22].b.h3)
 
     // loop
     addi        r10, r10, 8

@@ -407,6 +407,9 @@ extern void gtePsRtps(register u32 *cp2d, register u32 *gteTbl15Addr);
 extern void gtePsRtpt(register u32 *cp2d, register u32 *gteTbl15Addr);
 extern void gtePsNccs(register u32 *cp2d, register u32 *gteTbl15Addr);
 extern void gtePsNcct(register u32 *cp2d, register u32 *gteTbl15Addr);
+extern void gtePsNclip(register u32 *cp2d);
+extern void gtePsAvsz3(register u32 *cp2d);
+extern void gtePsAvsz4(register u32 *cp2d);
 
 #ifdef DISP_DEBUG
 // prototypes
@@ -453,11 +456,11 @@ void gteRTPS(psxCP2Regs *regs) {
     gteSX2 = tmpSX2;
     gteSY2 = tmpSY2;
     #ifdef DISP_DEBUG
-    long long lastticks;
-    lastticks = gettime();
-    sprintf(txtbuffer, "rtps %d ", diff_nsec(curticks, lastticks));
-    DEBUG_print(txtbuffer, DBG_LOG2);
-    curticks = lastticks;
+//    long long lastticks;
+//    lastticks = gettime();
+//    sprintf(txtbuffer, "rtps %d ", diff_nsec(curticks, lastticks));
+//    DEBUG_print(txtbuffer, DBG_LOG2);
+//    curticks = lastticks;
     #endif // DISP_DEBUG
 }
 
@@ -517,11 +520,11 @@ void gteRTPT(psxCP2Regs *regs) {
     fSY(2) = tmpSY;
 
     #ifdef DISP_DEBUG
-    long long lastticks;
-    lastticks = gettime();
-    sprintf(txtbuffer, "rtpt %d ", diff_nsec(curticks, lastticks));
-    DEBUG_print(txtbuffer, DBG_LOG3);
-    curticks = lastticks;
+//    long long lastticks;
+//    lastticks = gettime();
+//    sprintf(txtbuffer, "rtpt %d ", diff_nsec(curticks, lastticks));
+//    DEBUG_print(txtbuffer, DBG_LOG3);
+//    curticks = lastticks;
     #endif // DISP_DEBUG
 }
 
@@ -554,15 +557,19 @@ void gteMVMVA(psxCP2Regs *regs) {
     gteIR3 = limB3(gteMAC3, lm);
 
     #ifdef DISP_DEBUG
-    long long lastticks;
-    lastticks = gettime();
-    sprintf(txtbuffer, "gteMVMVA %d ", diff_nsec(curticks, lastticks));
-    DEBUG_print(txtbuffer, DBG_LOG4);
-    curticks = lastticks;
+//    long long lastticks;
+//    lastticks = gettime();
+//    sprintf(txtbuffer, "gteMVMVA %d ", diff_nsec(curticks, lastticks));
+//    DEBUG_print(txtbuffer, DBG_LOG4);
+//    curticks = lastticks;
     #endif // DISP_DEBUG
 }
 
 void gteNCLIP(psxCP2Regs *regs) {
+    #ifdef DISP_DEBUG
+//    long long curticks;
+//    curticks = gettime();
+    #endif // DISP_DEBUG
 #ifdef GTE_LOG
     GTE_LOG("GTE NCLIP\n");
 #endif
@@ -571,9 +578,21 @@ void gteNCLIP(psxCP2Regs *regs) {
     gteMAC0 = F((s64)gteSX0 * (gteSY1 - gteSY2) +
                 gteSX1 * (gteSY2 - gteSY0) +
                 gteSX2 * (gteSY0 - gteSY1));
+    //gtePsNclip(&gteVY0);
+    #ifdef DISP_DEBUG
+//    long long lastticks;
+//    lastticks = gettime();
+//    sprintf(txtbuffer, "NCLIP %d %d", diff_nsec(curticks, lastticks), gteMAC0);
+//    DEBUG_print(txtbuffer, DBG_LOG2);
+//    curticks = lastticks;
+    #endif // DISP_DEBUG
 }
 
 void gteAVSZ3(psxCP2Regs *regs) {
+    #ifdef DISP_DEBUG
+//    long long curticks;
+//    curticks = gettime();
+    #endif // DISP_DEBUG
 #ifdef GTE_LOG
     GTE_LOG("GTE AVSZ3\n");
 #endif
@@ -581,9 +600,21 @@ void gteAVSZ3(psxCP2Regs *regs) {
 
     gteMAC0 = F((s64)gteZSF3 * (gteSZ1 + gteSZ2 + gteSZ3));
     gteOTZ = limD(gteMAC0 >> 12);
+    //gtePsAvsz3(&gteVY0);
+    #ifdef DISP_DEBUG
+//    long long lastticks;
+//    lastticks = gettime();
+//    sprintf(txtbuffer, "AVSZ3 %d ", diff_nsec(curticks, lastticks));
+//    DEBUG_print(txtbuffer, DBG_LOG3);
+//    curticks = lastticks;
+    #endif // DISP_DEBUG
 }
 
 void gteAVSZ4(psxCP2Regs *regs) {
+    #ifdef DISP_DEBUG
+//    long long curticks;
+//    curticks = gettime();
+    #endif // DISP_DEBUG
 #ifdef GTE_LOG
     GTE_LOG("GTE AVSZ4\n");
 #endif
@@ -591,6 +622,14 @@ void gteAVSZ4(psxCP2Regs *regs) {
 
     gteMAC0 = F((s64)gteZSF4 * (gteSZ0 + gteSZ1 + gteSZ2 + gteSZ3));
     gteOTZ = limD(gteMAC0 >> 12);
+    //gtePsAvsz4(&gteVY0);
+    #ifdef DISP_DEBUG
+//    long long lastticks;
+//    lastticks = gettime();
+//    sprintf(txtbuffer, "AVSZ4 %d ", diff_nsec(curticks, lastticks));
+//    DEBUG_print(txtbuffer, DBG_LOG4);
+//    curticks = lastticks;
+    #endif // DISP_DEBUG
 }
 
 void gteSQR(psxCP2Regs *regs) {
