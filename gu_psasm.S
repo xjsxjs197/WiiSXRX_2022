@@ -133,7 +133,6 @@ DIVIDE_OVERFLOW:
 gtePsRtps:
     mfspr       r9, lr              // save link register
     lfs         fr14ShiftR12, UnitShiftR12@sdarel(r13)  // fr14 = 1 >> 12, 1 >> 12
-    //lfs         fr15ShiftR16, UnitShiftR16@sdarel(r13)  // fr15 = 1 >> 16 , 1 >> 16
     lfd         fr18Kmagic, kmagic@sdarel(r13)
 
     psq_l       fr0, 128(r3), 0, 3  // fr0 = m12, m11 GQR3 = 0(s16)
@@ -221,7 +220,6 @@ gtePsRtps:
     ps_merge00  fr0, fr0, fr1                // fr0 = gteOFX, gteOFY
 
     ps_madd     fr0, fr6, fr5, fr0           // fr0 = (s64)gteOFX + ((s64)gteIR1 * quotient) / (s64)gteOFY + ((s64)gteIR2 * quotient)
-    //ps_mul      fr0, fr0, fr15ShiftR16
 
     // save limG1(gteSX2), limG2(gteSY2)
     //psq_st      fr0, 8(r4), 0, 6             // save to tmp gteSX2, gteSY2 (float << 5 => s16)(r4 + 4 * 2)
@@ -231,19 +229,13 @@ gtePsRtps:
     psq_st      fr0, 56(r3), 0, 6            // gteSXY2 (regs->CP2D.r[14])
 
     // (s64)gteDQB + ((s64)gteDQA * quotient)
-    lwz         r5, 240(r3)                  // gteDQB (((s32 *)regs->CP2C.r)[28])
+    lfs         fr1, 32(r4)                  // gteDQB (r4 + 8 * 4)
     psq_l       fr0, 238(r3), 1, 3           // fr0 = gteDQA (regs->CP2C.p[27].sw.l) / 1.0
-    xoris       r5, r5, 0x8000
-    stw         r5, FloatBufB1@sdarel(r13)
-    lfd         fr1, FloatBufA1@sdarel(r13)
-    fsub        fr1, fr1, fr18Kmagic         // fr1 = gteDQB
-    frsp        fr1, fr1                     // double to single
     fmadds      fr0, fr0, fr5, fr1           // fr0 = ((s64)gteDQA * quotient) + (s64)gteDQB
 
     addi        r5, r3, 96
 
     // gteIR0 = limH(tmp >> 12)
-    //fmuls       fr2, fr0, fr14ShiftR12
     psq_st      fr0, 34(r3), 1, 1
 
     // gteMAC0 = F(tmp);
@@ -270,7 +262,6 @@ rtpsEnd:
 gtePsRtpt:
     mfspr       r9, lr              // save link register
     lfs         fr14ShiftR12, UnitShiftR12@sdarel(r13)  // fr14 = 1 >> 12, 1 >> 12
-    //lfs         fr15ShiftR16, UnitShiftR16@sdarel(r13)  // fr15 = 1 >> 16 , 1 >> 16
     lfd         fr18Kmagic, kmagic@sdarel(r13)
 
     // gteSZ0 = gteSZ3;
@@ -415,13 +406,8 @@ SET_IR:
     blt         rtptVecMulMt                 // loop v0, v1, v2
 
     // (s64)gteDQB + ((s64)gteDQA * quotient)
-    lwz         r5, 240(r3)                  // gteDQB (((s32 *)regs->CP2C.r)[28])
+    lfs         fr1, 32(r4)                  // gteDQB (r4 + 8 * 4)
     psq_l       fr0, 238(r3), 1, 3           // fr0 = gteDQA (regs->CP2C.p[27].sw.l) / 1.0
-    xoris       r5, r5, 0x8000
-    stw         r5, FloatBufB1@sdarel(r13)
-    lfd         fr1, FloatBufA1@sdarel(r13)
-    fsub        fr1, fr1, fr18Kmagic         // fr1 = gteDQB
-    frsp        fr1, fr1                     // double to single
     fmadds      fr0, fr0, fr5, fr1           // fr0 = ((s64)gteDQA * quotient) + (s64)gteDQB
 
     addi        r5, r3, 96

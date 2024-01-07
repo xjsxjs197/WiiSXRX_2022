@@ -411,7 +411,7 @@ extern void gtePsNclip(register u32 *cp2d);
 extern void gtePsAvsz3(register u32 *cp2d);
 extern void gtePsAvsz4(register u32 *cp2d);
 
-static int tmpTRX, tmpTRY, tmpTRZ, tmpOFX, tmpOFY;
+static int tmpTRX, tmpTRY, tmpTRZ, tmpOFX, tmpOFY, tmpDQB;
 static int tmpRBK, tmpGBK, tmpBBK;
 
 #ifdef DISP_DEBUG
@@ -439,6 +439,9 @@ u32 diff_nsec(u64 start,u64 end);
     } \
     if (tmpOFY != gteOFY) { \
         psxRegs.gteTmpFloat[4] = (f32)(gteOFY); \
+    } \
+    if (tmpDQB != gteDQB) { \
+        psxRegs.gteTmpFloat[8] = (f32)(gteDQB); \
     }
 
 #define setTmpNccsVal() \
