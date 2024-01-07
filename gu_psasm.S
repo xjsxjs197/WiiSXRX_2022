@@ -160,24 +160,9 @@ gtePsRtps:
     ps_madd     fr13,fr1,fr7,fr12   // fr13 = m33 * z + m32 * y + m31 * x iSUMZ)
 
     // load TRX, TRY, TRZ to float
-    lwz         r5, 148(r3)         // gteTRX (((s32 *)regs->CP2C.r)[5])
-    lwz         r6, 152(r3)         // gteTRY (((s32 *)regs->CP2C.r)[6])
-    lwz         r7, 156(r3)         // gteTRZ (((s32 *)regs->CP2C.r)[7])
-    xoris       r5, r5, 0x8000
-    xoris       r6, r6, 0x8000
-    xoris       r7, r7, 0x8000
-    stw         r5, FloatBufB1@sdarel(r13)
-    stw         r6, FloatBufB2@sdarel(r13)
-    stw         r7, FloatBufB3@sdarel(r13)
-    lfd         fr3, FloatBufA1@sdarel(r13)
-    lfd         fr4, FloatBufA2@sdarel(r13)
-    lfd         fr5, FloatBufA3@sdarel(r13)
-    fsub        fr3, fr3, fr18Kmagic        // fr3 = TRX(double)
-    fsub        fr4, fr4, fr18Kmagic        // fr4 = TRY(double)
-    fsub        fr5, fr5, fr18Kmagic        // fr5 = TRZ(double)
-    frsp        fr3, fr3                    // fr3 = TRX(single)
-    frsp        fr4, fr4                    // fr4 = TRY(single)
-    frsp        fr5, fr5                    // fr5 = TRZ(single)
+    lfs         fr3, 16(r4)         // gteTRX (r4 + 4 * 4)
+    lfs         fr4, 20(r4)         // gteTRY (r4 + 5 * 4)
+    lfs         fr5, 24(r4)         // gteTRZ (r4 + 6 * 4)
 
     ps_merge00  fr9, fr9, fr11              // fr9 = SUMX, SUMY
     ps_merge00  fr3, fr3, fr4               // fr3 = TRX, TRY
@@ -229,18 +214,8 @@ gtePsRtps:
     // (s64)gteOFX + ((s64)gteIR1 * quotient)
     // (s64)gteOFY + ((s64)gteIR2 * quotient)
     ps_merge00  fr5, fr5, fr5
-    lwz         r7, 224(r3)                  // gteOFX (((s32 *)regs->CP2C.r)[24])
-    lwz         r6, 228(r3)                  // gteOFY (((s32 *)regs->CP2C.r)[25])
-    xoris       r7, r7, 0x8000
-    xoris       r6, r6, 0x8000
-    stw         r7, FloatBufB1@sdarel(r13)
-    stw         r6, FloatBufB2@sdarel(r13)
-    lfd         fr0, FloatBufA1@sdarel(r13)
-    lfd         fr1, FloatBufA2@sdarel(r13)
-    fsub        fr0, fr0, fr18Kmagic         // fr0 = gteOFX
-    fsub        fr1, fr1, fr18Kmagic         // fr1 = gteOFY
-    frsp        fr0, fr0                     // double to single
-    frsp        fr1, fr1                     // double to single
+    lfs         fr0, 28(r4)                  // gteOFX (r4 + 7 * 4)
+    lfs         fr1, 32(r4)                  // gteOFY (r4 + 8 * 4)
 
     psq_l       fr6, 8(r4), 0, 3             // load tmp gteIR1, gteIR2(r4 + 4 * 2)
     ps_merge00  fr0, fr0, fr1                // fr0 = gteOFX, gteOFY
@@ -340,24 +315,9 @@ rtptVecMulMt:
     ps_mr       fr24, fr1           // fr24 = m33, 1
 
     // load TRX, TRY, TRZ to float
-    lwz         r5, 148(r3)         // gteTRX (((s32 *)regs->CP2C.r)[5])
-    lwz         r6, 152(r3)         // gteTRY (((s32 *)regs->CP2C.r)[6])
-    lwz         r7, 156(r3)         // gteTRZ (((s32 *)regs->CP2C.r)[7])
-    xoris       r5, r5, 0x8000
-    xoris       r6, r6, 0x8000
-    xoris       r7, r7, 0x8000
-    stw         r5, FloatBufB1@sdarel(r13)
-    stw         r6, FloatBufB2@sdarel(r13)
-    stw         r7, FloatBufB3@sdarel(r13)
-    lfd         fr3, FloatBufA1@sdarel(r13)
-    lfd         fr4, FloatBufA2@sdarel(r13)
-    lfd         fr5, FloatBufA3@sdarel(r13)
-    fsub        fr3, fr3, fr18Kmagic        // fr3 = TRX(double)
-    fsub        fr4, fr4, fr18Kmagic        // fr4 = TRY(double)
-    fsub        fr5, fr5, fr18Kmagic        // fr5 = TRZ(double)
-    frsp        fr3, fr3                    // fr3 = TRX(single)
-    frsp        fr4, fr4                    // fr4 = TRY(single)
-    frsp        fr5, fr5                    // fr5 = TRZ(single)
+    lfs         fr3, 16(r4)         // gteTRX (r4 + 4 * 4)
+    lfs         fr4, 20(r4)         // gteTRY (r4 + 5 * 4)
+    lfs         fr5, 24(r4)         // gteTRZ (r4 + 6 * 4)
 
     ps_merge00  fr9, fr9, fr11              // fr9 = SUMX, SUMY
     ps_merge00  fr3, fr3, fr4               // fr3 = TRX, TRY
@@ -430,18 +390,8 @@ SET_IR:
 
     // (s64)gteOFX + ((s64)gteIR1 * quotient)
     // (s64)gteOFY + ((s64)gteIR2 * quotient)
-    lwz         r7, 224(r3)                  // gteOFX (((s32 *)regs->CP2C.r)[24])
-    lwz         r6, 228(r3)                  // gteOFY (((s32 *)regs->CP2C.r)[25])
-    xoris       r7, r7, 0x8000
-    xoris       r6, r6, 0x8000
-    stw         r7, FloatBufB1@sdarel(r13)
-    stw         r6, FloatBufB2@sdarel(r13)
-    lfd         fr0, FloatBufA1@sdarel(r13)
-    lfd         fr1, FloatBufA2@sdarel(r13)
-    fsub        fr0, fr0, fr18Kmagic         // fr0 = gteOFX
-    fsub        fr1, fr1, fr18Kmagic         // fr1 = gteOFY
-    frsp        fr0, fr0                     // double to single
-    frsp        fr1, fr1                     // double to single
+    lfs         fr0, 28(r4)                  // gteOFX (r4 + 7 * 4)
+    lfs         fr1, 32(r4)                  // gteOFY (r4 + 8 * 4)
 
     psq_l       fr6, 8(r4), 0, 3             // load tmp gteIR1, gteIR2(r4 + 4 * 2)
     ps_merge00  fr5, fr5, fr5
@@ -643,24 +593,9 @@ gtePsNccs:
     ps_merge00  fr9, fr11, fr9      // fr9 = SUMY, SUMX
 
     // load gteRBK, gteGBK, gteBBK to float
-    lwz         r5, 180(r3)         // gteRBK (((s32 *)regs->CP2C.r)[13])
-    lwz         r6, 184(r3)         // gteGBK (((s32 *)regs->CP2C.r)[14])
-    lwz         r7, 188(r3)         // gteBBK (((s32 *)regs->CP2C.r)[15])
-    xoris       r5, r5, 0x8000
-    xoris       r6, r6, 0x8000
-    xoris       r7, r7, 0x8000
-    stw         r5, FloatBufB1@sdarel(r13)
-    stw         r6, FloatBufB2@sdarel(r13)
-    stw         r7, FloatBufB3@sdarel(r13)
-    lfd         fr3, FloatBufA1@sdarel(r13)
-    lfd         fr4, FloatBufA2@sdarel(r13)
-    lfd         fr5, FloatBufA3@sdarel(r13)
-    fsub        fr3, fr3, fr18Kmagic        // fr3 = RBK(double)
-    fsub        fr4, fr4, fr18Kmagic        // fr4 = GBK(double)
-    fsub        fr5, fr5, fr18Kmagic        // fr5 = BBK(double)
-    frsp        fr3, fr3                    // fr3 = RBK(single)
-    frsp        fr4, fr4                    // fr4 = GBK(single)
-    frsp        fr5, fr5                    // fr5 = BBK(single)
+    lfs         fr3, 36(r4)         // gteRBK (r4 + 9 * 4)
+    lfs         fr4, 40(r4)         // gteGBK (r4 + 10 * 4)
+    lfs         fr5, 44(r4)         // gteBBK (r4 + 11 * 4)
 
     ps_merge00  fr3, fr4, fr3               // fr3 = GBK, RBK
     ps_madd     fr5, fr13, fr14ShiftR12, fr5 // fr5 = SUMZ >> 12 + BBK, 0
@@ -798,24 +733,9 @@ ncctVecMulMt:
     ps_merge00  fr9, fr11, fr9      // fr9 = SUMY, SUMX
 
     // load gteRBK, gteGBK, gteBBK to float
-    lwz         r5, 180(r3)         // gteRBK (((s32 *)regs->CP2C.r)[13])
-    lwz         r6, 184(r3)         // gteGBK (((s32 *)regs->CP2C.r)[14])
-    lwz         r7, 188(r3)         // gteBBK (((s32 *)regs->CP2C.r)[15])
-    xoris       r5, r5, 0x8000
-    xoris       r6, r6, 0x8000
-    xoris       r7, r7, 0x8000
-    stw         r5, FloatBufB1@sdarel(r13)
-    stw         r6, FloatBufB2@sdarel(r13)
-    stw         r7, FloatBufB3@sdarel(r13)
-    lfd         fr3, FloatBufA1@sdarel(r13)
-    lfd         fr4, FloatBufA2@sdarel(r13)
-    lfd         fr5, FloatBufA3@sdarel(r13)
-    fsub        fr3, fr3, fr18Kmagic        // fr3 = RBK(double)
-    fsub        fr4, fr4, fr18Kmagic        // fr4 = GBK(double)
-    fsub        fr5, fr5, fr18Kmagic        // fr5 = BBK(double)
-    frsp        fr3, fr3                    // fr3 = RBK(single)
-    frsp        fr4, fr4                    // fr4 = GBK(single)
-    frsp        fr5, fr5                    // fr5 = BBK(single)
+    lfs         fr3, 36(r4)         // gteRBK (r4 + 9 * 4)
+    lfs         fr4, 40(r4)         // gteGBK (r4 + 10 * 4)
+    lfs         fr5, 44(r4)         // gteBBK (r4 + 11 * 4)
 
     ps_merge00  fr3, fr4, fr3               // fr3 = GBK, RBK
 

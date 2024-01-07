@@ -229,6 +229,10 @@ typedef struct {
 	u32 gteTbl16Addr;
 	u32 gteTmpAddr;
 	u32 gteTmpAddr2;
+	// Save the floating-point values below to improve efficiency without repeating transformations
+	// gteTRX, gteTRY, gteTRZ, gteOFX, gteOFY
+	// gteRBK, gteGBK, gteBBK
+	f32 gteTmpFloat[10];
 	u32 pc;				/* Program counter */
 	u32 code;			/* The instruction */
 	u32 cycle;

@@ -411,12 +411,49 @@ extern void gtePsNclip(register u32 *cp2d);
 extern void gtePsAvsz3(register u32 *cp2d);
 extern void gtePsAvsz4(register u32 *cp2d);
 
+static int tmpTRX, tmpTRY, tmpTRZ, tmpOFX, tmpOFY;
+static int tmpRBK, tmpGBK, tmpBBK;
+
 #ifdef DISP_DEBUG
 // prototypes
 long long gettime(void);
 unsigned int diff_usec(long long start, long long end);
 u32 diff_nsec(u64 start,u64 end);
 #endif // DISP_DEBUG
+
+#define setTmpRtpsVal() \
+    if (tmpTRX != gteTRX) { \
+        tmpTRX = gteTRX; \
+        psxRegs.gteTmpFloat[0] = (f32)(gteTRX); \
+    } \
+    if (tmpTRY != gteTRY) { \
+        tmpTRY = gteTRY; \
+        psxRegs.gteTmpFloat[1] = (f32)(gteTRY); \
+    } \
+    if (tmpTRZ != gteTRZ) { \
+        tmpTRZ = gteTRZ; \
+        psxRegs.gteTmpFloat[2] = (f32)(gteTRZ); \
+    } \
+    if (tmpOFX != gteOFX) { \
+        psxRegs.gteTmpFloat[3] = (f32)(gteOFX); \
+    } \
+    if (tmpOFY != gteOFY) { \
+        psxRegs.gteTmpFloat[4] = (f32)(gteOFY); \
+    }
+
+#define setTmpNccsVal() \
+    if (tmpRBK != gteRBK) { \
+        tmpRBK = gteRBK; \
+        psxRegs.gteTmpFloat[5] = (f32)(gteRBK); \
+    } \
+    if (tmpGBK != gteGBK) { \
+        tmpGBK = gteGBK; \
+        psxRegs.gteTmpFloat[6] = (f32)(gteGBK); \
+    } \
+    if (tmpBBK != gteBBK) { \
+        tmpBBK = gteBBK; \
+        psxRegs.gteTmpFloat[7] = (f32)(gteBBK); \
+    }
 
 void gteRTPS(psxCP2Regs *regs) {
     int quotient;
@@ -430,6 +467,7 @@ void gteRTPS(psxCP2Regs *regs) {
     GTE_LOG("GTE RTPS\n");
 #endif
     gteFLAG = 0;
+    setTmpRtpsVal();
     gtePsRtps(&gteVY0, &psxRegs.gteTbl15Addr);
 
 //    gteMAC1 = A1((((s64)gteTRX << 12) + (gteR11 * gteVX0) + (gteR12 * gteVY0) + (gteR13 * gteVZ0)) >> 12);
@@ -456,11 +494,11 @@ void gteRTPS(psxCP2Regs *regs) {
     gteSX2 = tmpSX2;
     gteSY2 = tmpSY2;
     #ifdef DISP_DEBUG
-//    long long lastticks;
-//    lastticks = gettime();
-//    sprintf(txtbuffer, "rtps %d ", diff_nsec(curticks, lastticks));
-//    DEBUG_print(txtbuffer, DBG_LOG2);
-//    curticks = lastticks;
+    long long lastticks;
+    lastticks = gettime();
+    sprintf(txtbuffer, "rtps %d", diff_nsec(curticks, lastticks));
+    DEBUG_print(txtbuffer, DBG_LOG2);
+    curticks = lastticks;
     #endif // DISP_DEBUG
 }
 
@@ -479,6 +517,7 @@ void gteRTPT(psxCP2Regs *regs) {
     GTE_LOG("GTE RTPT\n");
 #endif
     gteFLAG = 0;
+    setTmpRtpsVal();
     gtePsRtpt(&gteVY0, &psxRegs.gteTbl15Addr);
     #ifdef DISP_DEBUG
     //sprintf(txtbuffer, "quotient1 %05x ", quotient);
@@ -520,11 +559,11 @@ void gteRTPT(psxCP2Regs *regs) {
     fSY(2) = tmpSY;
 
     #ifdef DISP_DEBUG
-//    long long lastticks;
-//    lastticks = gettime();
-//    sprintf(txtbuffer, "rtpt %d ", diff_nsec(curticks, lastticks));
-//    DEBUG_print(txtbuffer, DBG_LOG3);
-//    curticks = lastticks;
+    long long lastticks;
+    lastticks = gettime();
+    sprintf(txtbuffer, "rtpt %d", diff_nsec(curticks, lastticks));
+    DEBUG_print(txtbuffer, DBG_LOG3);
+    curticks = lastticks;
     #endif // DISP_DEBUG
 }
 
@@ -658,6 +697,7 @@ void gteNCCS(psxCP2Regs *regs) {
     GTE_LOG("GTE NCCS\n");
 #endif
     gteFLAG = 0;
+    setTmpNccsVal();
     gtePsNccs(&gteVY0, &psxRegs.gteTbl15Addr);
 
 //    gteMAC1 = ((s64)(gteL11 * gteVX0) + (gteL12 * gteVY0) + (gteL13 * gteVZ0)) >> 12;
@@ -689,7 +729,7 @@ void gteNCCS(psxCP2Regs *regs) {
     #ifdef DISP_DEBUG
     long long lastticks;
     lastticks = gettime();
-    sprintf(txtbuffer, "nccs %d ", diff_nsec(curticks, lastticks));
+    sprintf(txtbuffer, "nccs %d", diff_nsec(curticks, lastticks));
     DEBUG_print(txtbuffer, DBG_LOG5);
     curticks = lastticks;
     #endif // DISP_DEBUG
@@ -707,6 +747,7 @@ void gteNCCT(psxCP2Regs *regs) {
     GTE_LOG("GTE NCCT\n");
 #endif
     gteFLAG = 0;
+    setTmpNccsVal();
     gtePsNcct(&gteVY0, &psxRegs.gteTbl15Addr);
 
 //    for (v = 0; v < 3; v++) {
@@ -742,7 +783,7 @@ void gteNCCT(psxCP2Regs *regs) {
     #ifdef DISP_DEBUG
     long long lastticks;
     lastticks = gettime();
-    sprintf(txtbuffer, "ncct %d ", diff_nsec(curticks, lastticks));
+    sprintf(txtbuffer, "ncct %d", diff_nsec(curticks, lastticks));
     DEBUG_print(txtbuffer, DBG_LOG6);
     curticks = lastticks;
     #endif // DISP_DEBUG
