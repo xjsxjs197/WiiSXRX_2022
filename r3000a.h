@@ -225,10 +225,7 @@ typedef struct {
 		};
 		psxCP2Regs CP2;
 	};
-	u32 gteTbl15Addr;
-	u32 gteTbl16Addr;
-	u32 gteTmpAddr;
-	u32 gteTmpAddr2;
+	u32 gteTmpAddr[10];
 	// Save the floating-point values below to improve efficiency without repeating transformations
 	// gteTRX, gteTRY, gteTRZ, gteOFX, gteOFY
 	// gteRBK, gteGBK, gteBBK, gteDQB

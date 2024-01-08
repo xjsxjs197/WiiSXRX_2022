@@ -471,7 +471,7 @@ void gteRTPS(psxCP2Regs *regs) {
 #endif
     gteFLAG = 0;
     setTmpRtpsVal();
-    gtePsRtps(&gteVY0, &psxRegs.gteTbl15Addr);
+    gtePsRtps(&gteVY0, &psxRegs.gteTmpAddr[0]);
 
 //    gteMAC1 = A1((((s64)gteTRX << 12) + (gteR11 * gteVX0) + (gteR12 * gteVY0) + (gteR13 * gteVZ0)) >> 12);
 //    gteMAC2 = A2((((s64)gteTRY << 12) + (gteR21 * gteVX0) + (gteR22 * gteVY0) + (gteR23 * gteVZ0)) >> 12);
@@ -521,7 +521,7 @@ void gteRTPT(psxCP2Regs *regs) {
 #endif
     gteFLAG = 0;
     setTmpRtpsVal();
-    gtePsRtpt(&gteVY0, &psxRegs.gteTbl15Addr);
+    gtePsRtpt(&gteVY0, &psxRegs.gteTmpAddr[0]);
     #ifdef DISP_DEBUG
     //sprintf(txtbuffer, "quotient1 %05x ", quotient);
     //DEBUG_print(txtbuffer, DBG_GPU1);
@@ -701,7 +701,7 @@ void gteNCCS(psxCP2Regs *regs) {
 #endif
     gteFLAG = 0;
     setTmpNccsVal();
-    gtePsNccs(&gteVY0, &psxRegs.gteTbl15Addr);
+    gtePsNccs(&gteVY0, &psxRegs.gteTmpAddr[0]);
 
 //    gteMAC1 = ((s64)(gteL11 * gteVX0) + (gteL12 * gteVY0) + (gteL13 * gteVZ0)) >> 12;
 //    gteMAC2 = ((s64)(gteL21 * gteVX0) + (gteL22 * gteVY0) + (gteL23 * gteVZ0)) >> 12;
@@ -751,7 +751,7 @@ void gteNCCT(psxCP2Regs *regs) {
 #endif
     gteFLAG = 0;
     setTmpNccsVal();
-    gtePsNcct(&gteVY0, &psxRegs.gteTbl15Addr);
+    gtePsNcct(&gteVY0, &psxRegs.gteTmpAddr[0]);
 
 //    for (v = 0; v < 3; v++) {
 //        vx = VX(v);
