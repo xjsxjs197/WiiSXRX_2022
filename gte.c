@@ -492,10 +492,8 @@ void gteRTPS(psxCP2Regs *regs) {
 //    tmp = (s64)gteDQB + ((s64)gteDQA * quotient);
 //    gteMAC0 = F(tmp);
 //    gteIR0 = limH(tmp >> 12);
-    s16 tmpSX2 = limG1(gteSY2);
-    s16 tmpSY2 = limG2(gteSX2);
-    gteSX2 = tmpSX2;
-    gteSY2 = tmpSY2;
+    gteSX2 = limG1(gteSX2);
+    gteSY2 = limG2(gteSY2);
     #ifdef DISP_DEBUG
     long long lastticks;
     lastticks = gettime();
@@ -548,18 +546,12 @@ void gteRTPT(psxCP2Regs *regs) {
 //    gteMAC0 = F(tmp);
 //    gteIR0 = limH(tmp >> 12);
 
-    s16 tmpSX = limG1(fSY(0));
-    s16 tmpSY = limG2(fSX(0));
-    fSX(0) = tmpSX;
-    fSY(0) = tmpSY;
-    tmpSX = limG1(fSY(1));
-    tmpSY = limG2(fSX(1));
-    fSX(1) = tmpSX;
-    fSY(1) = tmpSY;
-    tmpSX = limG1(fSY(2));
-    tmpSY = limG2(fSX(2));
-    fSX(2) = tmpSX;
-    fSY(2) = tmpSY;
+    fSX(0) = limG1(fSX(0));
+    fSY(0) = limG2(fSY(0));
+    fSX(1) = limG1(fSX(1));
+    fSY(1) = limG2(fSY(1));
+    fSX(2) = limG1(fSX(2));
+    fSY(2) = limG2(fSY(2));
 
     #ifdef DISP_DEBUG
     long long lastticks;
