@@ -766,9 +766,9 @@ gtePsNcct:
     ps_sum0     fr10,fr10,fr10,fr10 // fr10 = LG2 * y + LG1 * x
     ps_sum0     fr12,fr12,fr12,fr12 // fr12 = LB2 * y + LB1 * x
 
-    fmadds      fr19,fr3,fr7,fr8    // fr19 = LR3 * z + LR2 * y + LR1 * x  (SUMX)
-    fmadds      fr20,fr5,fr7,fr10   // fr20 = LG3 * z + LG2 * y + LG1 * x (SUMY)
-    fmadds      fr21,fr1,fr7,fr12   // fr21 = LB3 * z + LB2 * y + LB1 * x (SUMZ)
+    fmadds      fr22,fr3,fr7,fr8    // fr22 = LR3 * z + LR2 * y + LR1 * x  (SUMX)
+    fmadds      fr23,fr5,fr7,fr10   // fr23 = LG3 * z + LG2 * y + LG1 * x (SUMY)
+    fmadds      fr24,fr1,fr7,fr12   // fr24 = LB3 * z + LB2 * y + LB1 * x (SUMZ)
 
     // load gteRBK, gteGBK, gteBBK to float
     lfs         fr3, 60(r4)         // gteRBK (r4 + 15 * 4)
