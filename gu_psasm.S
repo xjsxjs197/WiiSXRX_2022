@@ -222,10 +222,6 @@ gtePsRtps:
     ps_madd     fr0, fr6, fr5, fr0           // fr0 = (s64)gteOFY + ((s64)gteIR2 * quotient) / (s64)gteOFX + ((s64)gteIR1 * quotient)
 
     // save limG1(gteSX2), limG2(gteSY2)
-    //psq_st      fr0, 8(r4), 0, 6             // save to tmp gteSX2, gteSY2 (float << 5 => s16)(r4 + 4 * 2)
-    //psq_l       fr1, 8(r4), 0, 6             // load tmp gteSX2, gteSY2 (s16 >> 5 => float)(r4 + 4 * 2)
-    //ps_merge10  fr1, fr1, fr1                // fr1 = gteSY2, gteSX2
-    //ps_merge10  fr0, fr0, fr0
     psq_st      fr0, 56(r3), 0, 6            // gteSXY2 (regs->CP2D.r[14])
 
     // (s64)gteDQB + ((s64)gteDQA * quotient)

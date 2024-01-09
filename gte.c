@@ -473,6 +473,14 @@ void gteRTPS(psxCP2Regs *regs) {
     setTmpRtpsVal();
     gtePsRtps(&gteVY0, &psxRegs.gteTmpAddr[0]);
 
+    if (gteSZ3 == 0xffff || gteSZ3 == 0)
+    {
+        gteFLAG |= (1 << 31) | (1 << 18);
+    }
+
+    gteSX2 = limG1(gteSX2);
+    gteSY2 = limG2(gteSY2);
+
 //    gteMAC1 = A1((((s64)gteTRX << 12) + (gteR11 * gteVX0) + (gteR12 * gteVY0) + (gteR13 * gteVZ0)) >> 12);
 //    gteMAC2 = A2((((s64)gteTRY << 12) + (gteR21 * gteVX0) + (gteR22 * gteVY0) + (gteR23 * gteVZ0)) >> 12);
 //    gteMAC3 = A3((((s64)gteTRZ << 12) + (gteR31 * gteVX0) + (gteR32 * gteVY0) + (gteR33 * gteVZ0)) >> 12);
@@ -492,8 +500,7 @@ void gteRTPS(psxCP2Regs *regs) {
 //    tmp = (s64)gteDQB + ((s64)gteDQA * quotient);
 //    gteMAC0 = F(tmp);
 //    gteIR0 = limH(tmp >> 12);
-    gteSX2 = limG1(gteSX2);
-    gteSY2 = limG2(gteSY2);
+
     #ifdef DISP_DEBUG
     long long lastticks;
     lastticks = gettime();
@@ -520,10 +527,21 @@ void gteRTPT(psxCP2Regs *regs) {
     gteFLAG = 0;
     setTmpRtpsVal();
     gtePsRtpt(&gteVY0, &psxRegs.gteTmpAddr[0]);
-    #ifdef DISP_DEBUG
-    //sprintf(txtbuffer, "quotient1 %05x ", quotient);
-    //DEBUG_print(txtbuffer, DBG_GPU1);
-    #endif // DISP_DEBUG
+
+    if (gteSZ1 == 0xffff || gteSZ1 == 0
+        || gteSZ2 == 0xffff || gteSZ2 == 0
+        || gteSZ3 == 0xffff || gteSZ3 == 0)
+    {
+        gteFLAG |= (1 << 31) | (1 << 18);
+    }
+
+    fSX(0) = limG1(fSX(0));
+    fSY(0) = limG2(fSY(0));
+    fSX(1) = limG1(fSX(1));
+    fSY(1) = limG2(fSY(1));
+    fSX(2) = limG1(fSX(2));
+    fSY(2) = limG2(fSY(2));
+
 
 //    gteSZ0 = gteSZ3;
 //    for (v = 0; v < 3; v++) {
@@ -545,13 +563,6 @@ void gteRTPT(psxCP2Regs *regs) {
 //    tmp = (s64)gteDQB + ((s64)gteDQA * quotient);
 //    gteMAC0 = F(tmp);
 //    gteIR0 = limH(tmp >> 12);
-
-    fSX(0) = limG1(fSX(0));
-    fSY(0) = limG2(fSY(0));
-    fSX(1) = limG1(fSX(1));
-    fSY(1) = limG2(fSY(1));
-    fSX(2) = limG1(fSX(2));
-    fSY(2) = limG2(fSY(2));
 
     #ifdef DISP_DEBUG
     long long lastticks;
