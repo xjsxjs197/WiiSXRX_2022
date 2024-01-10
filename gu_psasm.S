@@ -373,16 +373,23 @@ gtePsRtpt:
 
     // quotient = limE(DIVIDE_INT(gteH, gteSZX));
     lhz         r6, 70(r3)           // r6 = gteSZX  (regs->CP2D.p[17, 18, 19].w.l)
+    addi        r10, r6, 0
     bl          NATIVE_DIVIDE        // fr5 = quotient
     ps_mr       fr3, fr5
 
     lhz         r6, 74(r3)           // r6 = gteSZX  (regs->CP2D.p[17, 18, 19].w.l)
+    cmpl        0, 1, r10, r6
+    beq         LOAD_RPTT_CACHE_DIV1
     bl          NATIVE_DIVIDE        // fr5 = quotient
+LOAD_RPTT_CACHE_DIV1:
     ps_mr       fr4, fr5
 
     lhz         r6, 78(r3)           // r6 = gteSZX  (regs->CP2D.p[17, 18, 19].w.l)
+    cmpl        0, 1, r10, r6
+    beq         LOAD_RPTT_CACHE_DIV2
     bl          NATIVE_DIVIDE        // fr5 = quotient
 
+LOAD_RPTT_CACHE_DIV2:
     psq_l       fr9, 8(r4), 0, 3              // load tmp gteIR2, gteIR1(r4 + 4 * 2)
     psq_l       fr10, 12(r4), 0, 3            // load tmp gteIR2, gteIR1(r4 + 4 * 3)
     psq_l       fr11, 16(r4), 0, 3            // load tmp gteIR2, gteIR1(r4 + 4 * 4)
