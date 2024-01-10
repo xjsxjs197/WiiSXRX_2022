@@ -438,6 +438,345 @@ rtptEnd:
     blr
 
 
+.globl gtePsMvmva1
+// use gteR Matrix
+// r3: CP2D
+// r4: cvAddr
+// r5: vectorAddr
+// r6: shift
+// r7: lm
+gtePsMvmva1:
+    lfs         fr14ShiftR12, UnitShiftR12@sdarel(r13)  // fr14 = 1 >> 12, 1 >> 12
+    lfs         fr20, UnitShiftL12@sdarel(r13)          // fr20 = 1 << 12, 1 << 12
+
+    cmpli       0, 1, r5, 40
+    blt         mvmval1UseVecXYZ
+    psq_l       fr6, 42(r3), 1, 3    // (regs->CP2D.p[10].sw.l) y
+    psq_l       fr8, 38(r3), 1, 3    // (regs->CP2D.p[9].sw.l)  x
+    psq_l       fr7, 46(r3), 1, 3    // (regs->CP2D.p[11].sw.l) z
+    ps_merge00  fr6, fr6, fr8
+    b           mvmval1VecMulMatrix
+
+mvmval1UseVecXYZ:
+    addi        r6, r5, 6
+    psq_lx      fr6, r5, r3, 0, 3   // fr6 = y, x
+    psq_lx      fr7, r6, r3, 1, 3   // fr7 = z, 1
+
+mvmval1VecMulMatrix:
+    psq_l       fr0, 128(r3), 0, 3  // fr0 = m12, m11 GQR3 = 0(s16)
+    psq_l       fr2, 138(r3), 1, 3  // fr2 = m22
+    psq_l       fr9, 132(r3), 1, 3  // fr9 = m21
+    ps_mul      fr8, fr0, fr6       // fr8 = m12 * y, m11 * x
+    ps_merge00  fr2, fr2, fr9       // fr2 = m22, m21
+    psq_l       fr4, 140(r3), 0, 3  // fr4 = m32, m31
+    ps_mul      fr10, fr2, fr6      // fr10 = m22 * y, m21 * x
+    ps_mul      fr12, fr4, fr6      // fr12 = m32 * y, m31 * x
+    psq_l       fr3, 134(r3), 1, 3  // fr3 = m13, 1
+    ps_sum0     fr8, fr8, fr8, fr8  // fr8 = m12 * y + m11 * x
+    psq_l       fr5, 136(r3), 1, 3  // fr5 = m23, 1
+    ps_sum0     fr10,fr10,fr10,fr10 // fr10 = m22 * y + m21 * x
+    psq_l       fr1, 146(r3), 1, 3  // fr1 = m33, 1
+    ps_sum0     fr12,fr12,fr12,fr12 // fr12 = m32 * y + m31 * x
+    fmadds      fr9,fr3,fr7,fr8     // fr9 = m13 * z + m12 * y + m11 * x  (SUMX)
+    fmadds      fr11,fr5,fr7,fr10   // fr11 = m23 * z + m22 * y + m21 * x (SUMY)
+    fmadds      fr13,fr1,fr7,fr12   // fr13 = m33 * z + m32 * y + m31 * x (SUMZ)
+
+    cmpli       0, 1, r4, 240
+    bgt         mvmval1UseZeroCv
+    // load CVX, CVY, CVZ to float
+    addi        r5, r4, 4
+    addi        r10, r4, 8
+    lfsx        fr3, r4, r3
+    lfsx        fr4, r5, r3
+    lfsx        fr5, r10, r3
+    ps_merge00  fr3, fr3, fr4               // fr3 = CVX, CVY
+    b           mvmval1ChkSum
+
+mvmval1UseZeroCv:
+    lfs         fr3, UnitZero@sdarel(r13)
+    lfs         fr5, UnitZero@sdarel(r13)
+
+mvmval1ChkSum:
+    ps_merge00  fr9, fr9, fr11              // fr9 = SUMX, SUMY
+    cmpli       0, 1, r6, 1
+    blt         mvmval1NoShift
+    ps_madd     fr2, fr9, fr14ShiftR12, fr3 // fr2 = SUMX >> 12 + CVX, SUMY >> 12 + CVY
+    fmadds      fr5, fr13, fr14ShiftR12,fr5 // fr5 = SUMZ >> 12 + CVZ, 0
+    ps_merge10  fr9, fr2, fr2               // fr9 = SUMY >> 12 + CVY
+    b           mvmval1SaveSum
+
+mvmval1NoShift:
+    ps_madd     fr2, fr3, fr20, fr9         // fr2 = CVX << 12 + SUMX, CVY << 12 + SUMY
+    fmadds      fr5, fr5, fr20,fr13         // fr5 = CVZ << 12 + SUMZ, 0
+    ps_merge10  fr9, fr2, fr2               // fr9 = CVY << 12 + SUMY
+
+mvmval1SaveSum:
+    // save MAC
+    fctiw       fr3, fr2                    // MACX => int
+    fctiw       fr4, fr9                    // MACY => int
+    fctiw       fr6, fr5                    // MACZ => int
+
+    addi        r4, r3, 100
+    addi        r5, r3, 104
+    addi        r6, r3, 108
+
+    stfiwx      fr3, 0, r4                  // store MACX (((s32 *)regs->CP2D.r)[25])
+    stfiwx      fr4, 0, r5                  // store MACY (((s32 *)regs->CP2D.r)[26])
+    stfiwx      fr6, 0, r6                  // store MACZ (((s32 *)regs->CP2D.r)[27])
+
+    // Set gteIR1, gteIR2, gteIR3
+    psq_st      fr2, 38(r3), 1, 3           // (regs->CP2D.p[9].sw.l)
+    psq_st      fr9, 42(r3), 1, 3           // (regs->CP2D.p[10].sw.l)
+    psq_st      fr5, 46(r3), 1, 3           // (regs->CP2D.p[11].sw.l)
+
+    cmpli       0, 1, r7, 1
+    blt         mvmval1End
+    lha         r4, 38(r3)
+    lha         r5, 42(r3)
+    lha         r6, 46(r3)
+    li          r7, 0
+    cmpli       0, 1, r4, 0
+    bgt         mvmval1ChkIR2
+    sth         r7, 38(r3)
+mvmval1ChkIR2:
+    cmpli       0, 1, r5, 0
+    bgt         mvmval1ChkIR3
+    sth         r7, 42(r3)
+mvmval1ChkIR3:
+    cmpli       0, 1, r6, 0
+    bgt         mvmval1End
+    sth         r7, 46(r3)
+
+mvmval1End:
+    blr
+
+
+.globl gtePsMvmva2
+// use gteL Matrix
+// r3: CP2D
+// r4: cvAddr
+// r5: vectorAddr
+// r6: shift
+// r7: lm
+gtePsMvmva2:
+    lfs         fr14ShiftR12, UnitShiftR12@sdarel(r13)  // fr14 = 1 >> 12, 1 >> 12
+    lfs         fr20, UnitShiftL12@sdarel(r13)          // fr20 = 1 << 12, 1 << 12
+
+    cmpli       0, 1, r5, 40
+    blt         mvmval2UseVecXYZ
+    psq_l       fr6, 42(r3), 1, 3    // (regs->CP2D.p[10].sw.l) y
+    psq_l       fr8, 38(r3), 1, 3    // (regs->CP2D.p[9].sw.l)  x
+    psq_l       fr7, 46(r3), 1, 3    // (regs->CP2D.p[11].sw.l) z
+    ps_merge00  fr6, fr6, fr8
+    b           mvmval2VecMulMatrix
+
+mvmval2UseVecXYZ:
+    addi        r6, r5, 6
+    psq_lx      fr6, r5, r3, 0, 3   // fr6 = y, x
+    psq_lx      fr7, r6, r3, 1, 3   // fr7 = z, 1
+
+mvmval2VecMulMatrix:
+    psq_l       fr0, 160(r3), 0, 3  // fr0 = m12, m11 GQR3 = 0(s16)
+    psq_l       fr2, 170(r3), 1, 3  // fr2 = m22
+    psq_l       fr9, 164(r3), 1, 3  // fr9 = m21
+    ps_mul      fr8, fr0, fr6       // fr8 = m12 * y, m11 * x
+    ps_merge00  fr2, fr2, fr9       // fr2 = m22, m21
+    psq_l       fr4, 172(r3), 0, 3  // fr4 = m32, m31
+    ps_mul      fr10, fr2, fr6      // fr10 = m22 * y, m21 * x
+    ps_mul      fr12, fr4, fr6      // fr12 = m32 * y, m31 * x
+    psq_l       fr3, 166(r3), 1, 3  // fr3 = m13, 1
+    ps_sum0     fr8, fr8, fr8, fr8  // fr8 = m12 * y + m11 * x
+    psq_l       fr5, 168(r3), 1, 3  // fr5 = m23, 1
+    ps_sum0     fr10,fr10,fr10,fr10 // fr10 = m22 * y + m21 * x
+    psq_l       fr1, 178(r3), 1, 3  // fr1 = m33, 1
+    ps_sum0     fr12,fr12,fr12,fr12 // fr12 = m32 * y + m31 * x
+    fmadds      fr9,fr3,fr7,fr8     // fr9 = m13 * z + m12 * y + m11 * x  (SUMX)
+    fmadds      fr11,fr5,fr7,fr10   // fr11 = m23 * z + m22 * y + m21 * x (SUMY)
+    fmadds      fr13,fr1,fr7,fr12   // fr13 = m33 * z + m32 * y + m31 * x (SUMZ)
+
+    cmpli       0, 1, r4, 240
+    bgt         mvmval2UseZeroCv
+    // load CVX, CVY, CVZ to float
+    addi        r5, r4, 4
+    addi        r10, r4, 8
+    lfsx        fr3, r4, r3
+    lfsx        fr4, r5, r3
+    lfsx        fr5, r10, r3
+    ps_merge00  fr3, fr3, fr4               // fr3 = CVX, CVY
+    b           mvmval2ChkSum
+
+mvmval2UseZeroCv:
+    lfs         fr3, UnitZero@sdarel(r13)
+    lfs         fr5, UnitZero@sdarel(r13)
+
+mvmval2ChkSum:
+    ps_merge00  fr9, fr9, fr11              // fr9 = SUMX, SUMY
+    cmpli       0, 1, r6, 1
+    blt         mvmval2NoShift
+    ps_madd     fr2, fr9, fr14ShiftR12, fr3 // fr2 = SUMX >> 12 + CVX, SUMY >> 12 + CVY
+    fmadds      fr5, fr13, fr14ShiftR12,fr5 // fr5 = SUMZ >> 12 + CVZ, 0
+    ps_merge10  fr9, fr2, fr2               // fr9 = SUMY >> 12 + CVY
+    b           mvmval2SaveSum
+
+mvmval2NoShift:
+    ps_madd     fr2, fr3, fr20, fr9         // fr2 = CVX << 12 + SUMX, CVY << 12 + SUMY
+    fmadds      fr5, fr5, fr20,fr13         // fr5 = CVZ << 12 + SUMZ, 0
+    ps_merge10  fr9, fr2, fr2               // fr9 = CVY << 12 + SUMY
+
+mvmval2SaveSum:
+    // save MAC
+    fctiw       fr3, fr2                    // MACX => int
+    fctiw       fr4, fr9                    // MACY => int
+    fctiw       fr6, fr5                    // MACZ => int
+
+    addi        r4, r3, 100
+    addi        r5, r3, 104
+    addi        r6, r3, 108
+
+    stfiwx      fr3, 0, r4                  // store MACX (((s32 *)regs->CP2D.r)[25])
+    stfiwx      fr4, 0, r5                  // store MACY (((s32 *)regs->CP2D.r)[26])
+    stfiwx      fr6, 0, r6                  // store MACZ (((s32 *)regs->CP2D.r)[27])
+
+    // Set gteIR1, gteIR2, gteIR3
+    psq_st      fr2, 38(r3), 1, 3           // (regs->CP2D.p[9].sw.l)
+    psq_st      fr9, 42(r3), 1, 3           // (regs->CP2D.p[10].sw.l)
+    psq_st      fr5, 46(r3), 1, 3           // (regs->CP2D.p[11].sw.l)
+
+    cmpli       0, 1, r7, 1
+    blt         mvmval2End
+    lha         r4, 38(r3)
+    lha         r5, 42(r3)
+    lha         r6, 46(r3)
+    li          r7, 0
+    cmpli       0, 1, r4, 0
+    bgt         mvmval2ChkIR2
+    sth         r7, 38(r3)
+mvmval2ChkIR2:
+    cmpli       0, 1, r5, 0
+    bgt         mvmval2ChkIR3
+    sth         r7, 42(r3)
+mvmval2ChkIR3:
+    cmpli       0, 1, r6, 0
+    bgt         mvmval2End
+    sth         r7, 46(r3)
+
+mvmval2End:
+    blr
+
+
+.globl gtePsMvmva3
+// use gteC Matrix
+// r3: CP2D
+// r4: cvAddr
+// r5: vectorAddr
+// r6: shift
+// r7: lm
+gtePsMvmva3:
+    lfs         fr14ShiftR12, UnitShiftR12@sdarel(r13)  // fr14 = 1 >> 12, 1 >> 12
+    lfs         fr20, UnitShiftL12@sdarel(r13)          // fr20 = 1 << 12, 1 << 12
+
+    cmpli       0, 1, r5, 40
+    blt         mvmval3UseVecXYZ
+    psq_l       fr6, 42(r3), 1, 3    // (regs->CP2D.p[10].sw.l) y
+    psq_l       fr8, 38(r3), 1, 3    // (regs->CP2D.p[9].sw.l)  x
+    psq_l       fr7, 46(r3), 1, 3    // (regs->CP2D.p[11].sw.l) z
+    ps_merge00  fr6, fr6, fr8
+    b           mvmval3VecMulMatrix
+
+mvmval3UseVecXYZ:
+    addi        r6, r5, 6
+    psq_lx      fr6, r5, r3, 0, 3   // fr6 = y, x
+    psq_lx      fr7, r6, r3, 1, 3   // fr7 = z, 1
+
+mvmval3VecMulMatrix:
+    psq_l       fr0, 192(r3), 0, 3  // fr0 = m12, m11 GQR3 = 0(s16)
+    psq_l       fr2, 202(r3), 1, 3  // fr2 = m22
+    psq_l       fr9, 196(r3), 1, 3  // fr9 = m21
+    ps_mul      fr8, fr0, fr6       // fr8 = m12 * y, m11 * x
+    ps_merge00  fr2, fr2, fr9       // fr2 = m22, m21
+    psq_l       fr4, 204(r3), 0, 3  // fr4 = m32, m31
+    ps_mul      fr10, fr2, fr6      // fr10 = m22 * y, m21 * x
+    ps_mul      fr12, fr4, fr6      // fr12 = m32 * y, m31 * x
+    psq_l       fr3, 198(r3), 1, 3  // fr3 = m13, 1
+    ps_sum0     fr8, fr8, fr8, fr8  // fr8 = m12 * y + m11 * x
+    psq_l       fr5, 200(r3), 1, 3  // fr5 = m23, 1
+    ps_sum0     fr10,fr10,fr10,fr10 // fr10 = m22 * y + m21 * x
+    psq_l       fr1, 210(r3), 1, 3  // fr1 = m33, 1
+    ps_sum0     fr12,fr12,fr12,fr12 // fr12 = m32 * y + m31 * x
+    fmadds      fr9,fr3,fr7,fr8     // fr9 = m13 * z + m12 * y + m11 * x  (SUMX)
+    fmadds      fr11,fr5,fr7,fr10   // fr11 = m23 * z + m22 * y + m21 * x (SUMY)
+    fmadds      fr13,fr1,fr7,fr12   // fr13 = m33 * z + m32 * y + m31 * x (SUMZ)
+
+    cmpli       0, 1, r4, 240
+    bgt         mvmval3UseZeroCv
+    // load CVX, CVY, CVZ to float
+    addi        r5, r4, 4
+    addi        r10, r4, 8
+    lfsx        fr3, r4, r3
+    lfsx        fr4, r5, r3
+    lfsx        fr5, r10, r3
+    ps_merge00  fr3, fr3, fr4               // fr3 = CVX, CVY
+    b           mvmval3ChkSum
+
+mvmval3UseZeroCv:
+    lfs         fr3, UnitZero@sdarel(r13)
+    lfs         fr5, UnitZero@sdarel(r13)
+
+mvmval3ChkSum:
+    ps_merge00  fr9, fr9, fr11              // fr9 = SUMX, SUMY
+    cmpli       0, 1, r6, 1
+    blt         mvmval3NoShift
+    ps_madd     fr2, fr9, fr14ShiftR12, fr3 // fr2 = SUMX >> 12 + CVX, SUMY >> 12 + CVY
+    fmadds      fr5, fr13, fr14ShiftR12,fr5 // fr5 = SUMZ >> 12 + CVZ, 0
+    ps_merge10  fr9, fr2, fr2               // fr9 = SUMY >> 12 + CVY
+    b           mvmval3SaveSum
+
+mvmval3NoShift:
+    ps_madd     fr2, fr3, fr20, fr9         // fr2 = CVX << 12 + SUMX, CVY << 12 + SUMY
+    fmadds      fr5, fr5, fr20,fr13         // fr5 = CVZ << 12 + SUMZ, 0
+    ps_merge10  fr9, fr2, fr2               // fr9 = CVY << 12 + SUMY
+
+mvmval3SaveSum:
+    // save MAC
+    fctiw       fr3, fr2                    // MACX => int
+    fctiw       fr4, fr9                    // MACY => int
+    fctiw       fr6, fr5                    // MACZ => int
+
+    addi        r4, r3, 100
+    addi        r5, r3, 104
+    addi        r6, r3, 108
+
+    stfiwx      fr3, 0, r4                  // store MACX (((s32 *)regs->CP2D.r)[25])
+    stfiwx      fr4, 0, r5                  // store MACY (((s32 *)regs->CP2D.r)[26])
+    stfiwx      fr6, 0, r6                  // store MACZ (((s32 *)regs->CP2D.r)[27])
+
+    // Set gteIR1, gteIR2, gteIR3
+    psq_st      fr2, 38(r3), 1, 3           // (regs->CP2D.p[9].sw.l)
+    psq_st      fr9, 42(r3), 1, 3           // (regs->CP2D.p[10].sw.l)
+    psq_st      fr5, 46(r3), 1, 3           // (regs->CP2D.p[11].sw.l)
+
+    cmpli       0, 1, r7, 1
+    blt         mvmval3End
+    lha         r4, 38(r3)
+    lha         r5, 42(r3)
+    lha         r6, 46(r3)
+    li          r7, 0
+    cmpli       0, 1, r4, 0
+    bgt         mvmval3ChkIR2
+    sth         r7, 38(r3)
+mvmval3ChkIR2:
+    cmpli       0, 1, r5, 0
+    bgt         mvmval3ChkIR3
+    sth         r7, 42(r3)
+mvmval3ChkIR3:
+    cmpli       0, 1, r6, 0
+    bgt         mvmval3End
+    sth         r7, 46(r3)
+
+mvmval3End:
+    blr
+
+
 .globl gtePsNclip
 // r3: CP2D(vy0, vx0, 0, vz0, vy1, vx1, 0, vz1, vy2, vx2, 0, vz2)
 gtePsNclip:
@@ -881,6 +1220,8 @@ FloatBufB3:
 	.int 0x80000000
 kmagic:
     .int 0x43300000, 0x80000000
+UnitZero:
+	.float	0.0
 UnitShiftL12:
 	.float	4096.0                   // 1 << 12 = 4096.0
 UnitShiftR5:

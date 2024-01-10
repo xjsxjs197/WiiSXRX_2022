@@ -405,6 +405,9 @@ void gteSWC2() {
 
 extern void gtePsRtps(register u32 *cp2d, register u32 *gteTbl15Addr);
 extern void gtePsRtpt(register u32 *cp2d, register u32 *gteTbl15Addr);
+extern void gtePsMvmva1(register u32 *cp2d, register u32 cvAddr, register u32 vectorAddr, register u32 shift, register u32 lm);
+extern void gtePsMvmva2(register u32 *cp2d, register u32 cvAddr, register u32 vectorAddr, register u32 shift, register u32 lm);
+extern void gtePsMvmva3(register u32 *cp2d, register u32 cvAddr, register u32 vectorAddr, register u32 shift, register u32 lm);
 extern void gtePsNccs(register u32 *cp2d, register u32 *gteTbl15Addr);
 extern void gtePsNcct(register u32 *cp2d, register u32 *gteTbl15Addr);
 extern void gtePsNclip(register u32 *cp2d);
@@ -413,6 +416,7 @@ extern void gtePsAvsz4(register u32 *cp2d);
 
 static int tmpTRX, tmpTRY, tmpTRZ, tmpOFX, tmpOFY, tmpDQB;
 static int tmpRBK, tmpGBK, tmpBBK;
+static int tmpRFC, tmpGFC, tmpBFC;
 
 #ifdef DISP_DEBUG
 // prototypes
@@ -442,6 +446,53 @@ u32 diff_nsec(u64 start,u64 end);
     } \
     if (tmpDQB != gteDQB) { \
         psxRegs.gteTmpFloat[8] = (f32)(gteDQB); \
+    }
+
+#define setTmpMvmvaVal(cv) \
+    if (cv == 0) \
+    { \
+        if (tmpTRX != gteTRX) { \
+            tmpTRX = gteTRX; \
+            psxRegs.gteTmpFloat[0] = (f32)(gteTRX); \
+        } \
+        if (tmpTRY != gteTRY) { \
+            tmpTRY = gteTRY; \
+            psxRegs.gteTmpFloat[1] = (f32)(gteTRY); \
+        } \
+        if (tmpTRZ != gteTRZ) { \
+            tmpTRZ = gteTRZ; \
+            psxRegs.gteTmpFloat[2] = (f32)(gteTRZ); \
+        } \
+    } \
+    else if (cv == 1) \
+    { \
+        if (tmpRBK != gteRBK) { \
+            tmpRBK = gteRBK; \
+            psxRegs.gteTmpFloat[5] = (f32)(gteRBK); \
+        } \
+        if (tmpGBK != gteGBK) { \
+            tmpGBK = gteGBK; \
+            psxRegs.gteTmpFloat[6] = (f32)(gteGBK); \
+        } \
+        if (tmpBBK != gteBBK) { \
+            tmpBBK = gteBBK; \
+            psxRegs.gteTmpFloat[7] = (f32)(gteBBK); \
+        } \
+    } \
+    else if (cv == 2) \
+    { \
+        if (tmpRFC != gteRFC) { \
+            tmpRFC = gteRFC; \
+            psxRegs.gteTmpFloat[9] = (f32)(gteRFC); \
+        } \
+        if (tmpGFC != gteGFC) { \
+            tmpGFC = gteGFC; \
+            psxRegs.gteTmpFloat[10] = (f32)(gteGFC); \
+        } \
+        if (tmpBFC != gteBFC) { \
+            tmpBFC = gteBFC; \
+            psxRegs.gteTmpFloat[11] = (f32)(gteBFC); \
+        } \
     }
 
 #define setTmpNccsVal() \
@@ -579,34 +630,51 @@ void gteMVMVA(psxCP2Regs *regs) {
     curticks = gettime();
     #endif // DISP_DEBUG
 
-    int shift = 12 * GTE_SF(gteop);
+    //int shift = 12 * GTE_SF(gteop);
     int mx = GTE_MX(gteop);
     int v = GTE_V(gteop);
     int cv = GTE_CV(gteop);
     int lm = GTE_LM(gteop);
-	s32 vx = VX(v);
-	s32 vy = VY(v);
-	s32 vz = VZ(v);
+	//s32 vx = VX(v);
+	//s32 vy = VY(v);
+	//s32 vz = VZ(v);
 
 #ifdef GTE_LOG
 	GTE_LOG("GTE MVMVA\n");
 #endif
 	gteFLAG = 0;
+	if (cv <= 3 && mx < 3)
+    {
+        setTmpMvmvaVal(cv);
 
-	gteMAC1 = A1((((s64)CV1(cv) << 12) + (MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> shift);
-	gteMAC2 = A2((((s64)CV2(cv) << 12) + (MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> shift);
-	gteMAC3 = A3((((s64)CV3(cv) << 12) + (MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> shift);
+        if (mx == 0)
+        {
+            gtePsMvmva1(&gteVY0, (cv << 5) + 20 + 128, v < 3 ? (v << 3) : 42, GTE_SF(gteop), lm);
+        }
+        else if (mx == 1)
+        {
+            gtePsMvmva2(&gteVY0, (cv << 5) + 20 + 128, v < 3 ? (v << 3) : 42, GTE_SF(gteop), lm);
+        }
+        else if (mx == 2)
+        {
+            gtePsMvmva3(&gteVY0, (cv << 5) + 20 + 128, v < 3 ? (v << 3) : 42, GTE_SF(gteop), lm);
+        }
 
-    gteIR1 = limB1(gteMAC1, lm);
-    gteIR2 = limB2(gteMAC2, lm);
-    gteIR3 = limB3(gteMAC3, lm);
+    //	gteMAC1 = A1((((s64)CV1(cv) << 12) + (MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> shift);
+    //	gteMAC2 = A2((((s64)CV2(cv) << 12) + (MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> shift);
+    //	gteMAC3 = A3((((s64)CV3(cv) << 12) + (MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> shift);
+    //
+    //    gteIR1 = limB1(gteMAC1, lm);
+    //    gteIR2 = limB2(gteMAC2, lm);
+    //    gteIR3 = limB3(gteMAC3, lm);
+    }
 
     #ifdef DISP_DEBUG
-//    long long lastticks;
-//    lastticks = gettime();
-//    sprintf(txtbuffer, "gteMVMVA %d ", diff_nsec(curticks, lastticks));
-//    DEBUG_print(txtbuffer, DBG_LOG4);
-//    curticks = lastticks;
+    long long lastticks;
+    lastticks = gettime();
+    sprintf(txtbuffer, "gteMVMVA %d %d %d %d", diff_nsec(curticks, lastticks), cv, mx, v);
+    DEBUG_print(txtbuffer, DBG_LOG4);
+    curticks = lastticks;
     #endif // DISP_DEBUG
 }
 

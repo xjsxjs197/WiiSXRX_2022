@@ -229,6 +229,7 @@ typedef struct {
 	// Save the floating-point values below to improve efficiency without repeating transformations
 	// gteTRX, gteTRY, gteTRZ, gteOFX, gteOFY
 	// gteRBK, gteGBK, gteBBK, gteDQB
+	// gteRFC, gteGFC, gteBFC
 	f32 gteTmpFloat[32];
 	u32 gteTmpHSz;
 	f32 gteTmpQuotient;
