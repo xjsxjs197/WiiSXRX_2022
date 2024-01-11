@@ -630,14 +630,14 @@ void gteMVMVA(psxCP2Regs *regs) {
     curticks = gettime();
     #endif // DISP_DEBUG
 
-    //int shift = 12 * GTE_SF(gteop);
+    int shift = 12 * GTE_SF(gteop);
     int mx = GTE_MX(gteop);
     int v = GTE_V(gteop);
     int cv = GTE_CV(gteop);
     int lm = GTE_LM(gteop);
-	//s32 vx = VX(v);
-	//s32 vy = VY(v);
-	//s32 vz = VZ(v);
+	s32 vx = VX(v);
+	s32 vy = VY(v);
+	s32 vz = VZ(v);
 
 #ifdef GTE_LOG
 	GTE_LOG("GTE MVMVA\n");
@@ -660,19 +660,19 @@ void gteMVMVA(psxCP2Regs *regs) {
             gtePsMvmva3(&gteVY0, (cv << 5) + 20 + 128, v < 3 ? (v << 3) : 42, GTE_SF(gteop), lm);
         }
 
-    //	gteMAC1 = A1((((s64)CV1(cv) << 12) + (MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> shift);
-    //	gteMAC2 = A2((((s64)CV2(cv) << 12) + (MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> shift);
-    //	gteMAC3 = A3((((s64)CV3(cv) << 12) + (MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> shift);
-    //
-    //    gteIR1 = limB1(gteMAC1, lm);
-    //    gteIR2 = limB2(gteMAC2, lm);
-    //    gteIR3 = limB3(gteMAC3, lm);
+//    	gteMAC1 = A1((((s64)CV1(cv) << 12) + (MX11(mx) * vx) + (MX12(mx) * vy) + (MX13(mx) * vz)) >> shift);
+//    	gteMAC2 = A2((((s64)CV2(cv) << 12) + (MX21(mx) * vx) + (MX22(mx) * vy) + (MX23(mx) * vz)) >> shift);
+//    	gteMAC3 = A3((((s64)CV3(cv) << 12) + (MX31(mx) * vx) + (MX32(mx) * vy) + (MX33(mx) * vz)) >> shift);
+//
+//        gteIR1 = limB1(gteMAC1, lm);
+//        gteIR2 = limB2(gteMAC2, lm);
+//        gteIR3 = limB3(gteMAC3, lm);
     }
 
     #ifdef DISP_DEBUG
     long long lastticks;
     lastticks = gettime();
-    sprintf(txtbuffer, "gteMVMVA %d %d %d %d", diff_nsec(curticks, lastticks), cv, mx, v);
+    sprintf(txtbuffer, "gteMVMVA %d %d %d %d %d %d", diff_nsec(curticks, lastticks), cv, mx, v, GTE_SF(gteop), lm);
     DEBUG_print(txtbuffer, DBG_LOG4);
     curticks = lastticks;
     #endif // DISP_DEBUG
