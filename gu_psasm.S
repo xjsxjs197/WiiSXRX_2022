@@ -441,6 +441,7 @@ rtptEnd:
 // r5: vectorAddr
 // r6: shift
 // r7: lm
+// r8: gteTbl15Addr, gteTbl16Addr
 gtePsMvmva1:
     lfs         fr14ShiftR12, UnitShiftR12@sdarel(r13)  // fr14 = 1 >> 12, 1 >> 12
     lfs         fr20, UnitShiftL12@sdarel(r13)          // fr20 = 1 << 12, 1 << 12
@@ -454,9 +455,9 @@ gtePsMvmva1:
     b           mvmval1VecMulMatrix
 
 mvmval1UseVecXYZ:
-    addi        r8, r5, 6
+    addi        r10, r5, 6
     psq_lx      fr6, r5, r3, 0, 3   // fr6 = y, x
-    psq_lx      fr7, r8, r3, 1, 3   // fr7 = z, 1
+    psq_lx      fr7, r10, r3, 1, 3  // fr7 = z, 1
 
 mvmval1VecMulMatrix:
     psq_l       fr0, 128(r3), 0, 3  // fr0 = m12, m11 GQR3 = 0(s16)
@@ -477,14 +478,14 @@ mvmval1VecMulMatrix:
     fmadds      fr11,fr5,fr7,fr10   // fr11 = m23 * z + m22 * y + m21 * x (SUMY)
     fmadds      fr13,fr1,fr7,fr12   // fr13 = m33 * z + m32 * y + m31 * x (SUMZ)
 
-    cmpli       3, 0, r4, 240
+    cmpli       3, 0, r4, 90
     bgt         3, mvmval1UseZeroCv
     // load CVX, CVY, CVZ to float
     addi        r5, r4, 4
     addi        r10, r4, 8
-    lfsx        fr3, r4, r3
-    lfsx        fr4, r5, r3
-    lfsx        fr5, r10, r3
+    lfsx        fr3, r4, r8
+    lfsx        fr4, r5, r8
+    lfsx        fr5, r10, r8
     ps_merge00  fr3, fr3, fr4               // fr3 = CVX, CVY
     b           mvmval1ChkSum
 
@@ -554,6 +555,7 @@ mvmval1End:
 // r5: vectorAddr
 // r6: shift
 // r7: lm
+// r8: gteTbl15Addr, gteTbl16Addr
 gtePsMvmva2:
     lfs         fr14ShiftR12, UnitShiftR12@sdarel(r13)  // fr14 = 1 >> 12, 1 >> 12
     lfs         fr20, UnitShiftL12@sdarel(r13)          // fr20 = 1 << 12, 1 << 12
@@ -567,9 +569,9 @@ gtePsMvmva2:
     b           mvmval2VecMulMatrix
 
 mvmval2UseVecXYZ:
-    addi        r8, r5, 6
+    addi        r10, r5, 6
     psq_lx      fr6, r5, r3, 0, 3   // fr6 = y, x
-    psq_lx      fr7, r8, r3, 1, 3   // fr7 = z, 1
+    psq_lx      fr7, r10, r3, 1, 3  // fr7 = z, 1
 
 mvmval2VecMulMatrix:
     psq_l       fr0, 160(r3), 0, 3  // fr0 = m12, m11 GQR3 = 0(s16)
@@ -590,14 +592,14 @@ mvmval2VecMulMatrix:
     fmadds      fr11,fr5,fr7,fr10   // fr11 = m23 * z + m22 * y + m21 * x (SUMY)
     fmadds      fr13,fr1,fr7,fr12   // fr13 = m33 * z + m32 * y + m31 * x (SUMZ)
 
-    cmpli       3, 0, r4, 240
+    cmpli       3, 0, r4, 90
     bgt         3, mvmval2UseZeroCv
     // load CVX, CVY, CVZ to float
     addi        r5, r4, 4
     addi        r10, r4, 8
-    lfsx        fr3, r4, r3
-    lfsx        fr4, r5, r3
-    lfsx        fr5, r10, r3
+    lfsx        fr3, r4, r8
+    lfsx        fr4, r5, r8
+    lfsx        fr5, r10, r8
     ps_merge00  fr3, fr3, fr4               // fr3 = CVX, CVY
     b           mvmval2ChkSum
 
@@ -667,6 +669,7 @@ mvmval2End:
 // r5: vectorAddr
 // r6: shift
 // r7: lm
+// r8: gteTbl15Addr, gteTbl16Addr
 gtePsMvmva3:
     lfs         fr14ShiftR12, UnitShiftR12@sdarel(r13)  // fr14 = 1 >> 12, 1 >> 12
     lfs         fr20, UnitShiftL12@sdarel(r13)          // fr20 = 1 << 12, 1 << 12
@@ -680,9 +683,9 @@ gtePsMvmva3:
     b           mvmval3VecMulMatrix
 
 mvmval3UseVecXYZ:
-    addi        r8, r5, 6
+    addi        r10, r5, 6
     psq_lx      fr6, r5, r3, 0, 3   // fr6 = y, x
-    psq_lx      fr7, r8, r3, 1, 3   // fr7 = z, 1
+    psq_lx      fr7, r10, r3, 1, 3  // fr7 = z, 1
 
 mvmval3VecMulMatrix:
     psq_l       fr0, 192(r3), 0, 3  // fr0 = m12, m11 GQR3 = 0(s16)
@@ -703,14 +706,14 @@ mvmval3VecMulMatrix:
     fmadds      fr11,fr5,fr7,fr10   // fr11 = m23 * z + m22 * y + m21 * x (SUMY)
     fmadds      fr13,fr1,fr7,fr12   // fr13 = m33 * z + m32 * y + m31 * x (SUMZ)
 
-    cmpli       3, 0, r4, 240
+    cmpli       3, 0, r4, 90
     bgt         3, mvmval3UseZeroCv
     // load CVX, CVY, CVZ to float
     addi        r5, r4, 4
     addi        r10, r4, 8
-    lfsx        fr3, r4, r3
-    lfsx        fr4, r5, r3
-    lfsx        fr5, r10, r3
+    lfsx        fr3, r4, r8
+    lfsx        fr4, r5, r8
+    lfsx        fr5, r10, r8
     ps_merge00  fr3, fr3, fr4               // fr3 = CVX, CVY
     b           mvmval3ChkSum
 
