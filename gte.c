@@ -413,6 +413,7 @@ extern void gtePsNcct(register u32 *cp2d, register u32 *gteTbl15Addr);
 extern void gtePsNclip(register u32 *cp2d);
 extern void gtePsAvsz3(register u32 *cp2d);
 extern void gtePsAvsz4(register u32 *cp2d);
+extern void gtePsGPF(register u32 *cp2d, register u32 shift);
 
 static int tmpTRX, tmpTRY, tmpTRZ, tmpOFX, tmpOFY, tmpDQB;
 static int tmpRBK, tmpGBK, tmpBBK;
@@ -673,13 +674,13 @@ void gteMVMVA(psxCP2Regs *regs) {
 //        gteIR3 = limB3(gteMAC3, lm);
     }
 
-    #ifdef DISP_DEBUG
-    long long lastticks;
-    lastticks = gettime();
-    sprintf(txtbuffer, "gteMVMVA %d %d %d %d %d %d", diff_nsec(curticks, lastticks), cv, mx, v, GTE_SF(gteop), lm);
-    DEBUG_print(txtbuffer, DBG_LOG4);
-    curticks = lastticks;
-    #endif // DISP_DEBUG
+//    #ifdef DISP_DEBUG
+//    long long lastticks;
+//    lastticks = gettime();
+//    sprintf(txtbuffer, "gteMVMVA %d %d %d %d %d %d", diff_nsec(curticks, lastticks), cv, mx, v, GTE_SF(gteop), lm);
+//    DEBUG_print(txtbuffer, DBG_LOG4);
+//    curticks = lastticks;
+//    #endif // DISP_DEBUG
 }
 
 void gteNCLIP(psxCP2Regs *regs) {
@@ -1009,26 +1010,38 @@ void gteDCPL(psxCP2Regs *regs) {
 }
 
 void gteGPF(psxCP2Regs *regs) {
-    int shift = 12 * GTE_SF(gteop);
+    #ifdef DISP_DEBUG
+    long long curticks;
+    curticks = gettime();
+    #endif // DISP_DEBUG
+//    int shift = 12 * GTE_SF(gteop);
 
 #ifdef GTE_LOG
     GTE_LOG("GTE GPF\n");
 #endif
     gteFLAG = 0;
+    gtePsGPF(&gteVY0, GTE_SF(gteop));
 
-    gteMAC1 = (gteIR0 * gteIR1) >> shift;
-    gteMAC2 = (gteIR0 * gteIR2) >> shift;
-    gteMAC3 = (gteIR0 * gteIR3) >> shift;
-    gteIR1 = limB1(gteMAC1, 0);
-    gteIR2 = limB2(gteMAC2, 0);
-    gteIR3 = limB3(gteMAC3, 0);
-
-    gteRGB0 = gteRGB1;
-    gteRGB1 = gteRGB2;
-    gteCODE2 = gteCODE;
-    gteR2 = limC1(gteMAC1 >> 4);
-    gteG2 = limC2(gteMAC2 >> 4);
-    gteB2 = limC3(gteMAC3 >> 4);
+//    gteMAC1 = (gteIR0 * gteIR1) >> shift;
+//    gteMAC2 = (gteIR0 * gteIR2) >> shift;
+//    gteMAC3 = (gteIR0 * gteIR3) >> shift;
+//    gteIR1 = limB1(gteMAC1, 0);
+//    gteIR2 = limB2(gteMAC2, 0);
+//    gteIR3 = limB3(gteMAC3, 0);
+//
+//    gteRGB0 = gteRGB1;
+//    gteRGB1 = gteRGB2;
+//    gteCODE2 = gteCODE;
+//    gteR2 = limC1(gteMAC1 >> 4);
+//    gteG2 = limC2(gteMAC2 >> 4);
+//    gteB2 = limC3(gteMAC3 >> 4);
+    #ifdef DISP_DEBUG
+    long long lastticks;
+    lastticks = gettime();
+    sprintf(txtbuffer, "GPF %d", diff_nsec(curticks, lastticks));
+    DEBUG_print(txtbuffer, DBG_LOG4);
+    curticks = lastticks;
+    #endif // DISP_DEBUG
 }
 
 void gteGPL(psxCP2Regs *regs) {

@@ -1197,6 +1197,68 @@ gtePsNcct:
     blr
 
 
+.globl gtePsGPF
+// r3: CP2D(vy0, vx0, 0, vz0, vy1, vx1, 0, vz1, vy2, vx2, 0, vz2)
+// r4: shift
+gtePsGPF:
+    lfs        fr14, UnitOne@sdarel(r13)  // fr14 = 1 , 1
+
+    // load gteIR0~gteIR3
+    psq_l      fr1, 38(r3), 1, 3     // gteIR1 (regs->CP2D.p[9].sw.l)
+    psq_l      fr2, 42(r3), 1, 3     // gteIR2 (regs->CP2D.p[10].sw.l)
+    psq_l      fr0, 34(r3), 1, 3     // gteIR0 (regs->CP2D.p[8].sw.l)
+    ps_merge00 fr4, fr1, fr2
+    psq_l      fr3, 46(r3), 1, 3     // gteIR3 (regs->CP2D.p[11].sw.l)
+
+    cmpli      3, 0, r4, 1
+    blt        3, gpfShiftChkEnd
+    lfs        fr14, UnitShiftR12@sdarel(r13)  // fr14 = 1 >> 12, 1 >> 12
+
+gpfShiftChkEnd:
+    ps_muls0   fr1, fr4, fr0         // fr1 = gteIR1 * gteIR0 / gteIR2 * gteIR0
+    fmuls      fr3, fr3, fr0         // fr3 = gteIR3 * gteIR0
+
+    lfs        fr4, UnitShiftR4@sdarel(r13)  // fr4 = 1 >> 4, 1 >> 4
+
+    ps_mul     fr1, fr1, fr14
+    fmuls      fr3, fr3, fr14
+    ps_merge10 fr2, fr1, fr1         // fr2 = gteIR2 * gteIR0
+
+    // save gteMAC1~gteMAC3
+//    fctiw       fr5, fr1             // MACX => int
+//    fctiw       fr6, fr2             // MACY => int
+//    fctiw       fr7, fr3             // MACZ => int
+//
+//    addi        r5, r3, 100
+//    addi        r6, r3, 104
+//    addi        r7, r3, 108
+//
+//    stfiwx      fr5, 0, r5           // store MACX (((s32 *)regs->CP2D.r)[25])
+//    stfiwx      fr6, 0, r6           // store MACY (((s32 *)regs->CP2D.r)[26])
+//    stfiwx      fr7, 0, r7           // store MACZ (((s32 *)regs->CP2D.r)[27])
+
+    // save gteIR1~gteIR3
+    psq_st      fr1, 38(r3), 1, 3    // gteIR1 (regs->CP2D.p[9].sw.l)
+    psq_st      fr2, 42(r3), 1, 3    // gteIR2 (regs->CP2D.p[10].sw.l)
+    psq_st      fr3, 46(r3), 1, 3    // gteIR3 (regs->CP2D.p[11].sw.l)
+
+    // gteRGB0 = gteRGB1; gteRGB1 = gteRGB2; gteCODE2 = gteCODE;
+    lwz         r5, 84(r3)           // gteRGB1  (regs->CP2D.r[21])
+    lwz         r6, 88(r3)           // gteRGB2  (regs->CP2D.r[22])
+    lbz         r7, 24(r3)           // gteCODE (regs->CP2D.p[6].b.h3)
+    stw         r5, 80(r3)           // gteRGB0  (regs->CP2D.r[20])
+    stw         r6, 84(r3)           // gteRGB1  (regs->CP2D.r[21])
+    stb         r7, 88(r3)           // gteCODE2 (regs->CP2D.p[22].b.h3)
+
+    // save gteR2, gteG2, gteB2
+    ps_mul      fr2, fr2, fr4        // fr2 = gteMAC2 >> 4 / gteMAC1 >> 4
+    fmuls       fr3, fr3, fr4        // fr3 = gteMAC3 >> 4
+    psq_st      fr2, 90(r3), 0, 2    // gteG2  (regs->CP2D.p[22].b.h), gteR2  (regs->CP2D.p[22].b.l)
+    psq_st      fr3, 89(r3), 1, 2    // gteB2  (regs->CP2D.p[22].b.h2)
+
+    blr
+
+
 .section .sdata
 	.balign 32
 MUL2:
@@ -1221,8 +1283,12 @@ kmagic:
     .int 0x43300000, 0x80000000
 UnitZero:
 	.float	0.0
+UnitOne:
+	.float	1.0
 UnitShiftL12:
 	.float	4096.0                   // 1 << 12 = 4096.0
+UnitShiftR4:
+	.float	0.0625                   // 1 >> 4 = 1 / 16 = 0.0625
 UnitShiftR5:
 	.float	0.03125                  // 1 >> 5 = 1 / 32 = 0.03125
 UnitShiftR8:
