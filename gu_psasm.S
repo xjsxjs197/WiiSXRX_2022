@@ -1225,17 +1225,17 @@ gpfShiftChkEnd:
     ps_merge10 fr2, fr1, fr1         // fr2 = gteIR2 * gteIR0
 
     // save gteMAC1~gteMAC3
-//    fctiw       fr5, fr1             // MACX => int
-//    fctiw       fr6, fr2             // MACY => int
-//    fctiw       fr7, fr3             // MACZ => int
-//
-//    addi        r5, r3, 100
-//    addi        r6, r3, 104
-//    addi        r7, r3, 108
-//
-//    stfiwx      fr5, 0, r5           // store MACX (((s32 *)regs->CP2D.r)[25])
-//    stfiwx      fr6, 0, r6           // store MACY (((s32 *)regs->CP2D.r)[26])
-//    stfiwx      fr7, 0, r7           // store MACZ (((s32 *)regs->CP2D.r)[27])
+    fctiw       fr5, fr1             // MACX => int
+    fctiw       fr6, fr2             // MACY => int
+    fctiw       fr7, fr3             // MACZ => int
+
+    addi        r5, r3, 100
+    addi        r6, r3, 104
+    addi        r7, r3, 108
+
+    stfiwx      fr5, 0, r5           // store MACX (((s32 *)regs->CP2D.r)[25])
+    stfiwx      fr6, 0, r6           // store MACY (((s32 *)regs->CP2D.r)[26])
+    stfiwx      fr7, 0, r7           // store MACZ (((s32 *)regs->CP2D.r)[27])
 
     // save gteIR1~gteIR3
     psq_st      fr1, 38(r3), 1, 3    // gteIR1 (regs->CP2D.p[9].sw.l)
