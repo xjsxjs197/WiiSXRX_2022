@@ -230,6 +230,7 @@ typedef struct {
 	// gteTRX, gteTRY, gteTRZ, gteOFX, gteOFY
 	// gteRBK, gteGBK, gteBBK, gteDQB
 	// gteRFC, gteGFC, gteBFC
+	// gteMAC1, gteMAC2, gteMAC3
 	f32 gteTmpFloat[32];
 	u32 gteTmpHSz;
 	f32 gteTmpQuotient;

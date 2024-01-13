@@ -414,6 +414,7 @@ extern void gtePsNclip(register u32 *cp2d);
 extern void gtePsAvsz3(register u32 *cp2d);
 extern void gtePsAvsz4(register u32 *cp2d);
 extern void gtePsGPF(register u32 *cp2d, register u32 shift);
+extern void gtePsGPL(register u32 *cp2d, register u32 *gteTbl15Addr, register u32 shift);
 
 static int tmpTRX, tmpTRY, tmpTRZ, tmpOFX, tmpOFY, tmpDQB;
 static int tmpRBK, tmpGBK, tmpBBK;
@@ -1045,26 +1046,30 @@ void gteGPF(psxCP2Regs *regs) {
 }
 
 void gteGPL(psxCP2Regs *regs) {
-    int shift = 12 * GTE_SF(gteop);
+//    int shift = 12 * GTE_SF(gteop);
 
 #ifdef GTE_LOG
     GTE_LOG("GTE GPL\n");
 #endif
     gteFLAG = 0;
+    psxRegs.gteTmpFloat[12] = (f32)(gteMAC1);
+    psxRegs.gteTmpFloat[13] = (f32)(gteMAC2);
+    psxRegs.gteTmpFloat[14] = (f32)(gteMAC3);
+    gtePsGPL(&gteVY0, &psxRegs.gteTmpAddr[0], GTE_SF(gteop));
 
-    gteMAC1 = A1((((s64)gteMAC1 << shift) + (gteIR0 * gteIR1)) >> shift);
-    gteMAC2 = A2((((s64)gteMAC2 << shift) + (gteIR0 * gteIR2)) >> shift);
-    gteMAC3 = A3((((s64)gteMAC3 << shift) + (gteIR0 * gteIR3)) >> shift);
-    gteIR1 = limB1(gteMAC1, 0);
-    gteIR2 = limB2(gteMAC2, 0);
-    gteIR3 = limB3(gteMAC3, 0);
-
-    gteRGB0 = gteRGB1;
-    gteRGB1 = gteRGB2;
-    gteCODE2 = gteCODE;
-    gteR2 = limC1(gteMAC1 >> 4);
-    gteG2 = limC2(gteMAC2 >> 4);
-    gteB2 = limC3(gteMAC3 >> 4);
+//    gteMAC1 = A1((((s64)gteMAC1 << shift) + (gteIR0 * gteIR1)) >> shift);
+//    gteMAC2 = A2((((s64)gteMAC2 << shift) + (gteIR0 * gteIR2)) >> shift);
+//    gteMAC3 = A3((((s64)gteMAC3 << shift) + (gteIR0 * gteIR3)) >> shift);
+//    gteIR1 = limB1(gteMAC1, 0);
+//    gteIR2 = limB2(gteMAC2, 0);
+//    gteIR3 = limB3(gteMAC3, 0);
+//
+//    gteRGB0 = gteRGB1;
+//    gteRGB1 = gteRGB2;
+//    gteCODE2 = gteCODE;
+//    gteR2 = limC1(gteMAC1 >> 4);
+//    gteG2 = limC2(gteMAC2 >> 4);
+//    gteB2 = limC3(gteMAC3 >> 4);
 }
 
 void gteDPCS(psxCP2Regs *regs) {
