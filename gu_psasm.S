@@ -779,30 +779,28 @@ mvmval3End:
 .globl gtePsNclip
 // r3: CP2D(vy0, vx0, 0, vz0, vy1, vx1, 0, vz1, vy2, vx2, 0, vz2)
 gtePsNclip:
-    // load gteSY0, gteSY1, gteSY2
-    lha       r4, 48(r3)      // gteSY0 (regs->CP2D.r[12])
-    lha       r5, 52(r3)      // gteSY1 (regs->CP2D.r[13])
-    lha       r6, 56(r3)      // gteSY2 (regs->CP2D.r[14])
+    // load gteSY0 / gteSX0, gteSY1 / gteSX1, gteSY2 / gteSX2
+    psq_l       fr0, 48(r3), 0, 3  // gteSXY0 (regs->CP2D.r[12])
+    psq_l       fr1, 52(r3), 0, 3  // gteSXY1 (regs->CP2D.r[13])
+    psq_l       fr2, 56(r3), 0, 3  // gteSXY2 (regs->CP2D.r[14])
 
     // gteSY0 - gteSY1, gteSY1 - gteSY2, gteSY2 - gteSY0
-    sub       r7, r4, r5
-    sub       r8, r5, r6
-    sub       r9, r6, r4
+    fsubs       fr3, fr0, fr1      // fr3 = gteSY0 - gteSY1
+    fsubs       fr4, fr1, fr2      // fr4 = gteSY1 - gteSY2
+    fsubs       fr5, fr2, fr0      // fr5 = gteSY2 - gteSY0
 
-    // load gteSX0, gteSX1, gteSX2
-    lha       r4, 50(r3)      // gteSX0 (regs->CP2D.r[12])
-    lha       r5, 54(r3)      // gteSX1 (regs->CP2D.r[13])
-    lha       r6, 58(r3)      // gteSX2 (regs->CP2D.r[14])
+    ps_merge10  fr0, fr0, fr0      // fr0 = gteSX0
+    ps_merge10  fr1, fr1, fr1      // fr1 = gteSX1
+    ps_merge10  fr2, fr2, fr2      // fr2 = gteSX2
 
     // gteSX2 * (gteSY0 - gteSY1) + gteSX0 * (gteSY1 - gteSY2) + gteSX1 * (gteSY2 - gteSY0)
-    mullw     r4, r4, r8
-    mullw     r5, r5, r9
-    mullw     r6, r6, r7
+    fmuls       fr4, fr4, fr0      // fr4 = gteSX0 * (gteSY1 - gteSY2)
+    fmadds      fr5, fr5, fr1, fr4 // fr5 = gteSX1 * (gteSY2 - gteSY0) + gteSX0 * (gteSY1 - gteSY2)
+    fmadds      fr3, fr3, fr2, fr5 // fr3 = SUM
 
-    add       r8, r4, r5
-    add       r8, r8, r6
-
-    stw       r8, 96(r3)       // gteMAC0  (((s32 *)regs->CP2D.r)[24])
+    addi        r4, r3, 96         // gteMAC0  (((s32 *)regs->CP2D.r)[24])
+    fctiw       fr4, fr3
+    stfiwx      fr4, 0, r4
 
     blr
 
@@ -821,10 +819,10 @@ gtePsAvsz3:
     fmuls       fr3, fr3, fr4
 
     // set gteMAC0, gteOTZ = limD(gteMAC0 >> 12)
-    //fctiw       fr0, fr3
-    //addi        r4, r3, 96         // gteMAC0  (((s32 *)regs->CP2D.r)[24])
+    addi        r4, r3, 96         // gteMAC0  (((s32 *)regs->CP2D.r)[24])
+    fctiw       fr0, fr3
     psq_st      fr3, 30(r3), 1, 1  // gteOTZ  (regs->CP2D.p[7].w.l)
-    //stfiwx      fr0, 0, r4
+    stfiwx      fr0, 0, r4
 
     blr
 
@@ -845,10 +843,10 @@ gtePsAvsz4:
     fmuls       fr3, fr4, fr5
 
     // set gteMAC0, gteOTZ = limD(gteMAC0 >> 12)
-    //fctiw       fr0, fr3
-    //addi        r4, r3, 96         // gteMAC0  (((s32 *)regs->CP2D.r)[24])
+    addi        r4, r3, 96         // gteMAC0  (((s32 *)regs->CP2D.r)[24])
+    fctiw       fr0, fr3
     psq_st      fr3, 30(r3), 1, 1  // gteOTZ  (regs->CP2D.p[7].w.l)
-    //stfiwx      fr0, 0, r4
+    stfiwx      fr0, 0, r4
 
     blr
 
