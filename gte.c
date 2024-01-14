@@ -415,6 +415,7 @@ extern void gtePsAvsz3(register u32 *cp2d);
 extern void gtePsAvsz4(register u32 *cp2d);
 extern void gtePsGPF(register u32 *cp2d, register u32 shift);
 extern void gtePsGPL(register u32 *cp2d, register u32 *gteTbl15Addr, register u32 shift);
+extern void gtePsINTPL(register u32 *cp2d, register u32 *gteTbl15Addr, register u32 shift, register u32 lm);
 
 static int tmpTRX, tmpTRY, tmpTRZ, tmpOFX, tmpOFY, tmpDQB;
 static int tmpRBK, tmpGBK, tmpBBK;
@@ -512,6 +513,20 @@ u32 diff_nsec(u64 start,u64 end);
     if (tmpBBK != gteBBK) { \
         tmpBBK = gteBBK; \
         psxRegs.gteTmpFloat[7] = (f32)(gteBBK); \
+    }
+
+#define setTmpINTPLVal() \
+    if (tmpRFC != gteRFC) { \
+        tmpRFC = gteRFC; \
+        psxRegs.gteTmpFloat[9] = (f32)(gteRFC); \
+    } \
+    if (tmpGFC != gteGFC) { \
+        tmpGFC = gteGFC; \
+        psxRegs.gteTmpFloat[10] = (f32)(gteGFC); \
+    } \
+    if (tmpBFC != gteBFC) { \
+        tmpBFC = gteBFC; \
+        psxRegs.gteTmpFloat[11] = (f32)(gteBFC); \
     }
 
 void gteRTPS(psxCP2Regs *regs) {
@@ -702,7 +717,7 @@ void gteNCLIP(psxCP2Regs *regs) {
     #ifdef DISP_DEBUG
     long long lastticks;
     lastticks = gettime();
-    sprintf(txtbuffer, "NCLIP %d %d", diff_nsec(curticks, lastticks), gteMAC0);
+    sprintf(txtbuffer, "NCLIP %d", diff_nsec(curticks, lastticks));
     DEBUG_print(txtbuffer, DBG_LOG2);
     curticks = lastticks;
     #endif // DISP_DEBUG
@@ -1175,11 +1190,11 @@ void gteNCS(psxCP2Regs *regs) {
     gteG2 = limC2(gteMAC2 >> 4);
     gteB2 = limC3(gteMAC3 >> 4);
     #ifdef DISP_DEBUG
-    long long lastticks;
-    lastticks = gettime();
-    sprintf(txtbuffer, "ncs %d ", diff_nsec(curticks, lastticks));
-    DEBUG_print(txtbuffer, DBG_LOG11);
-    curticks = lastticks;
+//    long long lastticks;
+//    lastticks = gettime();
+//    sprintf(txtbuffer, "ncs %d ", diff_nsec(curticks, lastticks));
+//    DEBUG_print(txtbuffer, DBG_LOG11);
+//    curticks = lastticks;
     #endif // DISP_DEBUG
 }
 
@@ -1267,26 +1282,39 @@ void gteCC(psxCP2Regs *regs) {
 }
 
 void gteINTPL(psxCP2Regs *regs) {
-    int shift = 12 * GTE_SF(gteop);
-    int lm = GTE_LM(gteop);
+    #ifdef DISP_DEBUG
+    long long curticks;
+    curticks = gettime();
+    #endif // DISP_DEBUG
+//    int shift = 12 * GTE_SF(gteop);
+//    int lm = GTE_LM(gteop);
 
 #ifdef GTE_LOG
     GTE_LOG("GTE INTPL\n");
 #endif
     gteFLAG = 0;
+    setTmpINTPLVal();
+    gtePsINTPL(&gteVY0, &psxRegs.gteTmpAddr[0], GTE_SF(gteop), GTE_LM(gteop));
 
-    gteMAC1 = ((gteIR1 << 12) + (gteIR0 * limB1(A1U((s64)gteRFC - gteIR1), 0))) >> shift;
-    gteMAC2 = ((gteIR2 << 12) + (gteIR0 * limB2(A2U((s64)gteGFC - gteIR2), 0))) >> shift;
-    gteMAC3 = ((gteIR3 << 12) + (gteIR0 * limB3(A3U((s64)gteBFC - gteIR3), 0))) >> shift;
-    gteIR1 = limB1(gteMAC1, lm);
-    gteIR2 = limB2(gteMAC2, lm);
-    gteIR3 = limB3(gteMAC3, lm);
-    gteRGB0 = gteRGB1;
-    gteRGB1 = gteRGB2;
-    gteCODE2 = gteCODE;
-    gteR2 = limC1(gteMAC1 >> 4);
-    gteG2 = limC2(gteMAC2 >> 4);
-    gteB2 = limC3(gteMAC3 >> 4);
+//    gteMAC1 = ((gteIR1 << 12) + (gteIR0 * limB1(A1U((s64)gteRFC - gteIR1), 0))) >> shift;
+//    gteMAC2 = ((gteIR2 << 12) + (gteIR0 * limB2(A2U((s64)gteGFC - gteIR2), 0))) >> shift;
+//    gteMAC3 = ((gteIR3 << 12) + (gteIR0 * limB3(A3U((s64)gteBFC - gteIR3), 0))) >> shift;
+//    gteIR1 = limB1(gteMAC1, lm);
+//    gteIR2 = limB2(gteMAC2, lm);
+//    gteIR3 = limB3(gteMAC3, lm);
+//    gteRGB0 = gteRGB1;
+//    gteRGB1 = gteRGB2;
+//    gteCODE2 = gteCODE;
+//    gteR2 = limC1(gteMAC1 >> 4);
+//    gteG2 = limC2(gteMAC2 >> 4);
+//    gteB2 = limC3(gteMAC3 >> 4);
+    #ifdef DISP_DEBUG
+    long long lastticks;
+    lastticks = gettime();
+    sprintf(txtbuffer, "INTPL %d ", diff_nsec(curticks, lastticks));
+    DEBUG_print(txtbuffer, DBG_LOG11);
+    curticks = lastticks;
+    #endif // DISP_DEBUG
 }
 
 void gteCDP(psxCP2Regs *regs) {
