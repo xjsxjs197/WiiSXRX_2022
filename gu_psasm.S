@@ -776,6 +776,72 @@ mvmval3End:
     blr
 
 
+.globl gtePsSQR
+// use gteC Matrix
+// r3: CP2D
+// r4: shift
+// r5: lm
+gtePsSQR:
+    lfs         fr14, UnitShiftR12@sdarel(r13)  // fr14 = 1 >> 12, 1 >> 12
+
+    // load gteIR1~gteIR3
+    psq_l       fr1, 38(r3), 1, 3    // gteIR1 (regs->CP2D.p[9].sw.l)
+    psq_l       fr2, 42(r3), 1, 3    // gteIR2 (regs->CP2D.p[10].sw.l)
+    psq_l       fr3, 46(r3), 1, 3    // gteIR3 (regs->CP2D.p[11].sw.l)
+    ps_merge00  fr1, fr1, fr2        // fr1 = gteIR1 / gteIR2
+
+    addi        r7, r3, 100
+    addi        r8, r3, 104
+    addi        r9, r3, 108
+
+    ps_mul      fr1, fr1, fr1
+    fmuls       fr3, fr3, fr3
+
+    cmpli       3, 0, r4, 1
+    blt         3, sqrShiftChkEnd
+    ps_mul      fr1, fr1, fr14
+    fmuls       fr3, fr3, fr14
+
+sqrShiftChkEnd:
+    ps_merge10  fr2, fr1, fr1
+
+    // save gteMAC1~gteMAC3
+    fctiw       fr5, fr1             // MAC1 => int
+    fctiw       fr6, fr2             // MAC2 => int
+    fctiw       fr7, fr3             // MAC3 => int
+
+    stfiwx      fr5, 0, r7           // store MACX (((s32 *)regs->CP2D.r)[25])
+    stfiwx      fr6, 0, r8           // store MACY (((s32 *)regs->CP2D.r)[26])
+    stfiwx      fr7, 0, r9           // store MACZ (((s32 *)regs->CP2D.r)[27])
+
+    // save gteIR1~gteIR3
+    psq_st      fr1, 38(r3), 1, 3    // gteIR1 (regs->CP2D.p[9].sw.l)
+    psq_st      fr2, 42(r3), 1, 3    // gteIR2 (regs->CP2D.p[10].sw.l)
+    psq_st      fr3, 46(r3), 1, 3    // gteIR3 (regs->CP2D.p[11].sw.l)
+
+    // check limB limit
+    cmpli       3, 0, r5, 1
+    blt         3, sqrLiBChkEnd
+    lha         r4, 38(r3)
+    lha         r5, 42(r3)
+    lha         r6, 46(r3)
+    li          r7, 0
+    cmpi        3, 0, r4, 0
+    bgt         3, sqrLiBChkIR2
+    sth         r7, 38(r3)
+sqrLiBChkIR2:
+    cmpi        3, 0, r5, 0
+    bgt         3, sqrLiBChkIR3
+    sth         r7, 42(r3)
+sqrLiBChkIR3:
+    cmpi        3, 0, r6, 0
+    bgt         3, sqrLiBChkEnd
+    sth         r7, 46(r3)
+
+sqrLiBChkEnd:
+    blr
+
+
 .globl gtePsNclip
 // r3: CP2D(vy0, vx0, 0, vz0, vy1, vx1, 0, vz1, vy2, vx2, 0, vz2)
 gtePsNclip:
@@ -1195,6 +1261,84 @@ gtePsNcct:
     blr
 
 
+.globl gtePsOP
+// use gteC Matrix
+// r3: CP2D
+// r4: shift
+// r5: lm
+gtePsOP:
+    lfs         fr14, UnitShiftR12@sdarel(r13)  // fr14 = 1 >> 12, 1 >> 12
+
+    // load gteIR1~gteIR3
+    psq_l       fr1, 38(r3), 1, 3    // gteIR1 (regs->CP2D.p[9].sw.l)
+    psq_l       fr2, 42(r3), 1, 3    // gteIR2 (regs->CP2D.p[10].sw.l)
+    psq_l       fr3, 46(r3), 1, 3    // gteIR3 (regs->CP2D.p[11].sw.l)
+
+    // load gteR11~gteR33
+    psq_l       fr4, 130(r3), 1, 3  // fr4 = gteR11 (regs->CP2C.p[0].sw.l)
+    psq_l       fr5, 138(r3), 1, 3  // fr5 = gteR22 (regs->CP2C.p[2].sw.l)
+    psq_l       fr6, 146(r3), 1, 3  // fr6 = gteR33 (regs->CP2C.p[4].sw.l)
+
+    ps_merge00  fr7, fr2, fr3       // fr7 = gteIR2 / gteIR3
+    ps_merge00  fr8, fr3, fr1       // fr8 = gteIR3 / gteIR1
+    ps_merge00  fr9, fr6, fr4       // fr9 = gteR33 / gteR11
+    ps_merge00  fr10, fr5, fr6      // fr10 = gteR22 / gteR33
+
+    ps_mul      fr9, fr9, fr7       // fr9 = gteR33 * gteIR2 / gteR11 * gteIR3
+    fmuls       fr5, fr5, fr1       // fr5 = gteR22 * gteIR1
+
+    ps_msub     fr11, fr10, fr8,fr9 // fr11 = gteR22 * gteIR3 - gteR33 * gteIR2 / gteR33 * gteIR1 - gteR11 * gteIR3
+    fmsubs      fr13, fr4, fr2, fr5 // fr13 = gteR11 * gteIR2 - gteR22 * gteIR1
+
+    addi        r7, r3, 100
+    addi        r8, r3, 104
+    addi        r9, r3, 108
+
+    cmpli       3, 0, r4, 1
+    blt         3, opShiftChkEnd
+    ps_mul      fr11, fr11, fr14
+    fmuls       fr13, fr13, fr14
+
+opShiftChkEnd:
+    ps_merge10  fr12, fr11, fr11
+
+    // save gteMAC1~gteMAC3
+    fctiw       fr5, fr11            // MAC1 => int
+    fctiw       fr6, fr12            // MAC2 => int
+    fctiw       fr7, fr13            // MAC3 => int
+
+    stfiwx      fr5, 0, r7           // store MACX (((s32 *)regs->CP2D.r)[25])
+    stfiwx      fr6, 0, r8           // store MACY (((s32 *)regs->CP2D.r)[26])
+    stfiwx      fr7, 0, r9           // store MACZ (((s32 *)regs->CP2D.r)[27])
+
+    // save gteIR1~gteIR3
+    psq_st      fr11, 38(r3), 1, 3   // gteIR1 (regs->CP2D.p[9].sw.l)
+    psq_st      fr12, 42(r3), 1, 3   // gteIR2 (regs->CP2D.p[10].sw.l)
+    psq_st      fr13, 46(r3), 1, 3   // gteIR3 (regs->CP2D.p[11].sw.l)
+
+    // check limB limit
+    cmpli       3, 0, r5, 1
+    blt         3, opLiBChkEnd
+    lha         r4, 38(r3)
+    lha         r5, 42(r3)
+    lha         r6, 46(r3)
+    li          r7, 0
+    cmpi        3, 0, r4, 0
+    bgt         3, opLiBChkIR2
+    sth         r7, 38(r3)
+opLiBChkIR2:
+    cmpi        3, 0, r5, 0
+    bgt         3, opLiBChkIR3
+    sth         r7, 42(r3)
+opLiBChkIR3:
+    cmpi        3, 0, r6, 0
+    bgt         3, opLiBChkEnd
+    sth         r7, 46(r3)
+
+opLiBChkEnd:
+    blr
+
+
 .globl gtePsGPF
 // r3: CP2D(vy0, vx0, 0, vz0, vy1, vx1, 0, vz1, vy2, vx2, 0, vz2)
 // r4: shift
@@ -1221,7 +1365,7 @@ gpfShiftChkEnd:
     ps_merge10  fr2, fr1, fr1        // fr2 = gteIR2 * gteIR0
 
     // save gteMAC1~gteMAC3
-    fctiw       fr5, fr1             // MACX => int
+    fctiw       fr5, fr1             // MACX => intfmadds
     fctiw       fr6, fr2             // MACY => int
     fctiw       fr7, fr3             // MACZ => int
 
