@@ -403,6 +403,14 @@ void gteSWC2() {
 
 #endif // FLAGLESS
 
+#include <ogc/cast.h>
+
+static void CAST_SetGQR(s32 GQR, u32 typeL, s32 scaleL)
+{
+    register u32 val = (((scaleL) << 24) | ((typeL) << 16) | ((scaleL) << 8) | (typeL));
+    __set_gqr(GQR,val);
+}
+
 extern void gtePsRtps(register u32 *cp2d, register u32 *gteTbl15Addr);
 extern void gtePsRtpt(register u32 *cp2d, register u32 *gteTbl15Addr);
 extern void gtePsMvmva1(register u32 *cp2d, register u32 cvAddr, register u32 vectorAddr, register u32 shift, register u32 lm, register u32 *gteTbl15Addr);
@@ -417,6 +425,7 @@ extern void gtePsNcct(register u32 *cp2d, register u32 *gteTbl15Addr);
 extern void gtePsOP(register u32 *cp2d, register u32 shift, register u32 lm);
 extern void gtePsGPF(register u32 *cp2d, register u32 shift);
 extern void gtePsGPL(register u32 *cp2d, register u32 *gteTbl15Addr, register u32 shift);
+extern void gtePsDPCS(register u32 *cp2d, register u32 *gteTbl15Addr, register u32 shift);
 extern void gtePsINTPL(register u32 *cp2d, register u32 *gteTbl15Addr, register u32 shift, register u32 lm);
 
 static int tmpTRX, tmpTRY, tmpTRZ, tmpOFX, tmpOFY, tmpDQB;
@@ -1132,26 +1141,28 @@ void gteDPCS(psxCP2Regs *regs) {
     long long curticks;
     curticks = gettime();
     #endif // DISP_DEBUG
-    int shift = 12 * GTE_SF(gteop);
+//    int shift = 12 * GTE_SF(gteop);
 
 #ifdef GTE_LOG
     GTE_LOG("GTE DPCS\n");
 #endif
     gteFLAG = 0;
+    setTmpINTPLVal();
+    gtePsDPCS(&gteVY0, &psxRegs.gteTmpAddr[0], GTE_SF(gteop));
 
-    gteMAC1 = ((gteR << 16) + (gteIR0 * limB1(A1U(((s64)gteRFC - (gteR << 4)) << (12 - shift)), 0))) >> 12;
-    gteMAC2 = ((gteG << 16) + (gteIR0 * limB2(A2U(((s64)gteGFC - (gteG << 4)) << (12 - shift)), 0))) >> 12;
-    gteMAC3 = ((gteB << 16) + (gteIR0 * limB3(A3U(((s64)gteBFC - (gteB << 4)) << (12 - shift)), 0))) >> 12;
-
-    gteIR1 = limB1(gteMAC1, 0);
-    gteIR2 = limB2(gteMAC2, 0);
-    gteIR3 = limB3(gteMAC3, 0);
-    gteRGB0 = gteRGB1;
-    gteRGB1 = gteRGB2;
-    gteCODE2 = gteCODE;
-    gteR2 = limC1(gteMAC1 >> 4);
-    gteG2 = limC2(gteMAC2 >> 4);
-    gteB2 = limC3(gteMAC3 >> 4);
+//    gteMAC1 = ((gteR << 16) + (gteIR0 * limB1(A1U(((s64)gteRFC - (gteR << 4)) << (12 - shift)), 0))) >> 12;
+//    gteMAC2 = ((gteG << 16) + (gteIR0 * limB2(A2U(((s64)gteGFC - (gteG << 4)) << (12 - shift)), 0))) >> 12;
+//    gteMAC3 = ((gteB << 16) + (gteIR0 * limB3(A3U(((s64)gteBFC - (gteB << 4)) << (12 - shift)), 0))) >> 12;
+//
+//    gteIR1 = limB1(gteMAC1, 0);
+//    gteIR2 = limB2(gteMAC2, 0);
+//    gteIR3 = limB3(gteMAC3, 0);
+//    gteRGB0 = gteRGB1;
+//    gteRGB1 = gteRGB2;
+//    gteCODE2 = gteCODE;
+//    gteR2 = limC1(gteMAC1 >> 4);
+//    gteG2 = limC2(gteMAC2 >> 4);
+//    gteB2 = limC3(gteMAC3 >> 4);
     #ifdef DISP_DEBUG
     long long lastticks;
     lastticks = gettime();

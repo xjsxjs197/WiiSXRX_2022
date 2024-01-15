@@ -1470,6 +1470,97 @@ gplShiftChkEnd:
     blr
 
 
+.globl gtePsDPCS
+// r3: CP2D(vy0, vx0, 0, vz0, vy1, vx1, 0, vz1, vy2, vx2, 0, vz2)
+// r4: gteTbl15Addr, gteTbl16Addr, gteTmpAddr
+// r5: shift
+gtePsDPCS:
+    lfs         fr21, UnitShiftL4@sdarel(r13)  // fr21 = 1 << 4, 1 << 4
+
+    // load gteG << 4 / gteR << 4, gteB << 4
+    psq_l       fr1, 26(r3), 0, 2    // gteG (regs->CP2D.p[6].b.h) / gteR (regs->CP2D.p[6].b.l)
+    psq_l       fr3, 25(r3), 1, 2    // gteB (regs->CP2D.p[6].b.h2)
+
+    // load gteIR0
+    psq_l       fr7, 34(r3), 1, 3    // gteIR0 (regs->CP2D.p[8].sw.l)
+
+    ps_mul      fr1, fr1, fr21
+    fmuls       fr3, fr3, fr21
+
+    // load gteRFC~gteBFC
+    lfs         fr4, 76(r4)          // load tmp gteRFC(r4 + 4 * 9 + 40)
+    lfs         fr5, 80(r4)          // load tmp gteGFC(r4 + 4 * 10 + 40)
+    lfs         fr6, 84(r4)          // load tmp gteBFC(r4 + 4 * 11 + 40)
+
+    ps_merge00  fr4, fr5, fr4        // fr4 = gteGFC / gteRFC
+    ps_merge00  fr7, fr7, fr7        // fr7 = gteIR0 / gteIR0
+
+    lfs         fr20, UnitShiftL12@sdarel(r13)  // fr20 = 1 << 12, 1 << 12
+
+    fsubs       fr6, fr6, fr3        // fr6 = gteBFC - (gteB << 4)
+    ps_sub      fr4, fr4, fr1        // fr4 = gteGFC - (gteG << 4) / gteRFC - (gteR << 4)
+
+    cmpli       3, 0, r5, 1
+    beq         3, dpcsShiftChkEnd
+    fmuls       fr6, fr6, fr20       // fr6 = (gteBFC - (gteB << 4)) << 12
+    ps_mul      fr4, fr4, fr20       // fr4 = (gteGFC - (gteG << 4)) << 12 / (gteRFC - (gteR << 4)) << 12
+
+dpcsShiftChkEnd:
+    // save temp MAC1, MAC2, MAC3
+    psq_st      fr6, 8(r4), 1, 3     // (r4 + 4 * 2)
+    psq_st      fr4, 12(r4), 0, 3    // (r4 + 4 * 3)
+
+    lfs         fr14, UnitShiftR12@sdarel(r13)  // fr14 = 1 >> 12, 1 >> 12
+
+    // load temp MAC1, MAC2, MAC3
+    psq_l       fr6, 8(r4), 1, 3     // (r4 + 4 * 2)
+    psq_l       fr4, 12(r4), 0, 3    // (r4 + 4 * 3)
+
+    // gteIR0 * MAC3, gteIR0 * MAC2 / gteIR0 * MAC1
+    fmuls       fr6, fr7, fr6
+    ps_mul      fr4, fr7, fr4
+
+    fmadds      fr3, fr6, fr14, fr3
+    ps_madd     fr2, fr4, fr14, fr1
+
+    // save gteMAC1~gteMAC3
+    addi        r5, r3, 100
+    addi        r6, r3, 104
+    addi        r7, r3, 108
+    ps_merge10  fr1, fr2, fr2        // fr1 = MAC1 / MAC2
+
+    fctiw       fr7, fr3             // MAC3 => int
+    fctiw       fr6, fr2             // MAC2 => int
+    fctiw       fr5, fr1             // MAC1 => int
+
+    stfiwx      fr7, 0, r7           // store MACZ (((s32 *)regs->CP2D.r)[27])
+    stfiwx      fr6, 0, r6           // store MACY (((s32 *)regs->CP2D.r)[26])
+    stfiwx      fr5, 0, r5           // store MACX (((s32 *)regs->CP2D.r)[25])
+
+    // save gteIR1~gteIR3
+    psq_st      fr1, 38(r3), 1, 3    // gteIR1 (regs->CP2D.p[9].sw.l)
+    psq_st      fr2, 42(r3), 1, 3    // gteIR2 (regs->CP2D.p[10].sw.l)
+    psq_st      fr3, 46(r3), 1, 3    // gteIR3 (regs->CP2D.p[11].sw.l)
+
+    lfs         fr4, UnitShiftR4@sdarel(r13)  // fr4 = 1 >> 4, 1 >> 4
+
+    // gteRGB0 = gteRGB1; gteRGB1 = gteRGB2; gteCODE2 = gteCODE;
+    lwz         r5, 84(r3)           // gteRGB1  (regs->CP2D.r[21])
+    lwz         r6, 88(r3)           // gteRGB2  (regs->CP2D.r[22])
+    lbz         r7, 24(r3)           // gteCODE (regs->CP2D.p[6].b.h3)
+    stw         r5, 80(r3)           // gteRGB0  (regs->CP2D.r[20])
+    stw         r6, 84(r3)           // gteRGB1  (regs->CP2D.r[21])
+    stb         r7, 88(r3)           // gteCODE2 (regs->CP2D.p[22].b.h3)
+
+    // save gteR2, gteG2, gteB2
+    ps_mul      fr2, fr2, fr4        // fr2 = gteMAC2 >> 4 / gteMAC1 >> 4
+    fmuls       fr3, fr3, fr4        // fr3 = gteMAC3 >> 4
+    psq_st      fr2, 90(r3), 0, 2    // gteG2  (regs->CP2D.p[22].b.h), gteR2  (regs->CP2D.p[22].b.l)
+    psq_st      fr3, 89(r3), 1, 2    // gteB2  (regs->CP2D.p[22].b.h2)
+
+    blr
+
+
 .globl gtePsINTPL
 // r3: CP2D(vy0, vx0, 0, vz0, vy1, vx1, 0, vz1, vy2, vx2, 0, vz2)
 // r4: gteTbl15Addr, gteTbl16Addr, gteTmpAddr
@@ -1608,6 +1699,8 @@ UnitZero:
 	.float	0.0
 UnitOne:
 	.float	1.0
+UnitShiftL4:
+	.float	16.0                     // 1 << 4 = 16.0
 UnitShiftL12:
 	.float	4096.0                   // 1 << 12 = 4096.0
 UnitShiftR4:
