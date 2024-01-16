@@ -213,6 +213,17 @@ static inline s32 LIM_(psxCP2Regs *regs, s32 value, s32 max, s32 min, u32 flag) 
     return ret;
 }
 
+static inline s32 LIM_NoFlg_(psxCP2Regs *regs, s32 value, s32 max, s32 min)
+{
+    s32 ret = value;
+    if (value > max) {
+        ret = max;
+    } else if (value < min) {
+        ret = min;
+    }
+    return ret;
+}
+
 static inline u32 limE_(psxCP2Regs *regs, u32 result) {
     if (result > 0x1ffff) {
         gteFLAG |= (1 << 31) | (1 << 17);
@@ -247,6 +258,13 @@ static inline u32 limE_(psxCP2Regs *regs, u32 result) {
 //#define limH(a) LIM((a), 0xfff, 0x000, (1 << 12))
 #define limH(a) LIM((a), 0x1000, 0x0000, (1 << 12))
 
+#define LIM_NoFlg(value, max, min) \
+    LIM_NoFlg_(regs, value, max, min)
+
+#define limB1NoFlg(a, l) LIM_NoFlg((a), 0x7fff, -0x8000 * !l)
+#define limB2NoFlg(a, l) LIM_NoFlg((a), 0x7fff, -0x8000 * !l)
+#define limB3NoFlg(a, l) LIM_NoFlg((a), 0x7fff, -0x8000 * !l)
+
 #ifndef __arm__
 #define A1U A1
 #define A2U A2
@@ -258,14 +276,6 @@ static inline u32 limE_(psxCP2Regs *regs, u32 result) {
 #define A3U(x) (x)
 #endif
 
-
-//senquack - n param should be unsigned (will be 'gteH' reg which is u16)
-static inline u32 DIVIDE_SLOW(u16 n, u16 d) {
-    if (n < d * 2) {
-        return ((u32)n << 16) / d;
-    }
-    return 0xffffffff;
-}
 
 #include "gte_divider.h"
 
@@ -1330,19 +1340,22 @@ void gteCC(psxCP2Regs *regs) {
 }
 
 void gteINTPL(psxCP2Regs *regs) {
-//    #ifdef DISP_DEBUG
-//    long long curticks;
-//    curticks = gettime();
-//    #endif // DISP_DEBUG
+    #ifdef DISP_DEBUG
+    long long curticks;
+    curticks = gettime();
+    #endif // DISP_DEBUG
 //    int shift = 12 * GTE_SF(gteop);
-//    int lm = GTE_LM(gteop);
+    int lm = GTE_LM(gteop);
 
 #ifdef GTE_LOG
     GTE_LOG("GTE INTPL\n");
 #endif
     gteFLAG = 0;
     setTmpINTPLVal();
-    gtePsINTPL(&gteVY0, &psxRegs.gteTmpAddr[0], GTE_SF(gteop), GTE_LM(gteop));
+    gtePsINTPL(&gteVY0, &psxRegs.gteTmpAddr[0], GTE_SF(gteop), lm);
+    gteIR1 = limB1NoFlg(gteMAC1, lm);
+    gteIR2 = limB2NoFlg(gteMAC2, lm);
+    gteIR3 = limB3NoFlg(gteMAC3, lm);
 
 //    gteMAC1 = ((gteIR1 << 12) + (gteIR0 * limB1(A1U((s64)gteRFC - gteIR1), 0))) >> shift;
 //    gteMAC2 = ((gteIR2 << 12) + (gteIR0 * limB2(A2U((s64)gteGFC - gteIR2), 0))) >> shift;
@@ -1356,13 +1369,13 @@ void gteINTPL(psxCP2Regs *regs) {
 //    gteR2 = limC1(gteMAC1 >> 4);
 //    gteG2 = limC2(gteMAC2 >> 4);
 //    gteB2 = limC3(gteMAC3 >> 4);
-//    #ifdef DISP_DEBUG
-//    long long lastticks;
-//    lastticks = gettime();
-//    sprintf(txtbuffer, "INTPL %d ", diff_nsec(curticks, lastticks));
-//    DEBUG_print(txtbuffer, DBG_LOG11);
-//    curticks = lastticks;
-//    #endif // DISP_DEBUG
+    #ifdef DISP_DEBUG
+    long long lastticks;
+    lastticks = gettime();
+    sprintf(txtbuffer, "INTPL %d ", diff_nsec(curticks, lastticks));
+    DEBUG_print(txtbuffer, DBG_LOG11);
+    curticks = lastticks;
+    #endif // DISP_DEBUG
 }
 
 void gteCDP(psxCP2Regs *regs) {

@@ -1630,28 +1630,66 @@ intplShiftChkEnd:
     stfiwx      fr7, 0, r9           // store MACZ (((s32 *)regs->CP2D.r)[27])
 
     // save gteIR1~gteIR3
-    psq_st      fr1, 38(r3), 1, 3    // gteIR1 (regs->CP2D.p[9].sw.l)
-    psq_st      fr2, 42(r3), 1, 3    // gteIR2 (regs->CP2D.p[10].sw.l)
-    psq_st      fr3, 46(r3), 1, 3    // gteIR3 (regs->CP2D.p[11].sw.l)
+//    lwz         r7, 0(r7)
+//    lwz         r8, 0(r8)
+//    lwz         r9, 0(r9)
+//    li          r10, -0x8000
+//    cmpli       3, 0, r6, 1
+//    blt         3, intplLiBChkStart
+//    li          r10, 0
+//intplLiBChkStart:
+//    cmpi        3, 0, r7, 0x7fff
+//    cmp         2, 0, r7, r10
+//    ble         3, intplLiBChkIR1MaxEnd
+//    li          r7, 0x7fff
+//intplLiBChkIR1MaxEnd:
+//    bge         2, intplLiBChkIR1MinEnd
+//    addi        r7, r10, 0
+//intplLiBChkIR1MinEnd:
+//    stw         r7, 36(r3)
+//
+//    cmpi        3, 0, r8, 0x7fff
+//    cmp         2, 0, r8, r10
+//    ble         3, intplLiBChkIR2MaxEnd
+//    li          r8, 0x7fff
+//intplLiBChkIR2MaxEnd:
+//    bge         2, intplLiBChkIR2MinEnd
+//    addi        r8, r10, 0
+//intplLiBChkIR2MinEnd:
+//    stw         r8, 40(r3)
+//
+//    cmpi        3, 0, r9, 0x7fff
+//    cmp         2, 0, r9, r10
+//    ble         3, intplLiBChkIR3MaxEnd
+//    li          r9, 0x7fff
+//intplLiBChkIR3MaxEnd:
+//    bge         2, intplLiBChkIR3MinEnd
+//    addi        r9, r10, 0
+//intplLiBChkIR3MinEnd:
+//    stw         r9, 44(r3)
 
-    // check limB limit
-    cmpli       3, 0, r6, 1
-    blt         3, intplLiBChkEnd
-    lha         r4, 38(r3)
-    lha         r5, 42(r3)
-    lha         r6, 46(r3)
-    li          r7, 0
-    cmpi        3, 0, r4, 0
-    bgt         3, intplLiBChkIR2
-    sth         r7, 38(r3)
-intplLiBChkIR2:
-    cmpi        3, 0, r5, 0
-    bgt         3, intplLiBChkIR3
-    sth         r7, 42(r3)
-intplLiBChkIR3:
-    cmpi        3, 0, r6, 0
-    bgt         3, intplLiBChkEnd
-    sth         r7, 46(r3)
+//    psq_st      fr1, 38(r3), 1, 3    // gteIR1 (regs->CP2D.p[9].sw.l)
+//    psq_st      fr2, 42(r3), 1, 3    // gteIR2 (regs->CP2D.p[10].sw.l)
+//    psq_st      fr3, 46(r3), 1, 3    // gteIR3 (regs->CP2D.p[11].sw.l)
+//
+//    // check limB limit
+//    cmpli       3, 0, r6, 1
+//    blt         3, intplLiBChkEnd
+//    lha         r4, 38(r3)
+//    lha         r5, 42(r3)
+//    lha         r6, 46(r3)
+//    li          r7, 0
+//    cmpi        3, 0, r4, 0
+//    bgt         3, intplLiBChkIR2
+//    sth         r7, 38(r3)
+//intplLiBChkIR2:
+//    cmpi        3, 0, r5, 0
+//    bgt         3, intplLiBChkIR3
+//    sth         r7, 42(r3)
+//intplLiBChkIR3:
+//    cmpi        3, 0, r6, 0
+//    bgt         3, intplLiBChkEnd
+//    sth         r7, 46(r3)
 
 intplLiBChkEnd:
     lfs         fr4, UnitShiftR4@sdarel(r13)  // fr4 = 1 >> 4, 1 >> 4
