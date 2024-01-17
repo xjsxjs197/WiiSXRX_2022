@@ -436,6 +436,7 @@ extern void gtePsOP(register u32 *cp2d, register u32 shift, register u32 lm);
 extern void gtePsGPF(register u32 *cp2d, register u32 shift);
 extern void gtePsGPL(register u32 *cp2d, register u32 *gteTbl15Addr, register u32 shift);
 extern void gtePsDPCS(register u32 *cp2d, register u32 *gteTbl15Addr, register u32 shift);
+extern void gtePsDPCT(register u32 *cp2d, register u32 *gteTbl15Addr);
 extern void gtePsINTPL(register u32 *cp2d, register u32 *gteTbl15Addr, register u32 shift, register u32 lm);
 
 static int tmpTRX, tmpTRY, tmpTRZ, tmpOFX, tmpOFY, tmpDQB;
@@ -1193,22 +1194,24 @@ void gteDPCT(psxCP2Regs *regs) {
     GTE_LOG("GTE DPCT\n");
 #endif
     gteFLAG = 0;
+    setTmpINTPLVal();
+    gtePsDPCT(&gteVY0, &psxRegs.gteTmpAddr[0]);
 
-    for (v = 0; v < 3; v++) {
-        gteMAC1 = ((gteR0 << 16) + (gteIR0 * limB1(A1U((s64)gteRFC - (gteR0 << 4)), 0))) >> 12;
-        gteMAC2 = ((gteG0 << 16) + (gteIR0 * limB1(A2U((s64)gteGFC - (gteG0 << 4)), 0))) >> 12;
-        gteMAC3 = ((gteB0 << 16) + (gteIR0 * limB1(A3U((s64)gteBFC - (gteB0 << 4)), 0))) >> 12;
-
-        gteRGB0 = gteRGB1;
-        gteRGB1 = gteRGB2;
-        gteCODE2 = gteCODE;
-        gteR2 = limC1(gteMAC1 >> 4);
-        gteG2 = limC2(gteMAC2 >> 4);
-        gteB2 = limC3(gteMAC3 >> 4);
-    }
-    gteIR1 = limB1(gteMAC1, 0);
-    gteIR2 = limB2(gteMAC2, 0);
-    gteIR3 = limB3(gteMAC3, 0);
+//    for (v = 0; v < 3; v++) {
+//        gteMAC1 = ((gteR0 << 16) + (gteIR0 * limB1(A1U((s64)gteRFC - (gteR0 << 4)), 0))) >> 12;
+//        gteMAC2 = ((gteG0 << 16) + (gteIR0 * limB1(A2U((s64)gteGFC - (gteG0 << 4)), 0))) >> 12;
+//        gteMAC3 = ((gteB0 << 16) + (gteIR0 * limB1(A3U((s64)gteBFC - (gteB0 << 4)), 0))) >> 12;
+//
+//        gteRGB0 = gteRGB1;
+//        gteRGB1 = gteRGB2;
+//        gteCODE2 = gteCODE;
+//        gteR2 = limC1(gteMAC1 >> 4);
+//        gteG2 = limC2(gteMAC2 >> 4);
+//        gteB2 = limC3(gteMAC3 >> 4);
+//    }
+//    gteIR1 = limB1(gteMAC1, 0);
+//    gteIR2 = limB2(gteMAC2, 0);
+//    gteIR3 = limB3(gteMAC3, 0);
     #ifdef DISP_DEBUG
     long long lastticks;
     lastticks = gettime();

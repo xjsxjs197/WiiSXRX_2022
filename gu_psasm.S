@@ -1561,6 +1561,138 @@ dpcsShiftChkEnd:
     blr
 
 
+.globl gtePsDPCT
+// r3: CP2D(vy0, vx0, 0, vz0, vy1, vx1, 0, vz1, vy2, vx2, 0, vz2)
+// r4: gteTbl15Addr, gteTbl16Addr, gteTmpAddr
+gtePsDPCT:
+    lfs         fr21, UnitShiftL4@sdarel(r13)  // fr21 = 1 << 4, 1 << 4
+    lfs         fr23, UnitShiftR12@sdarel(r13) // fr23 = 1 >> 12, 1 >> 12
+    lfs         fr24, UnitShiftR4@sdarel(r13)  // fr24 = 1 >> 4, 1 >> 4
+
+    // load gteG0 << 4 / gteR0 << 4, gteB0 << 4
+    psq_l       fr1, 82(r3), 0, 2    // gteG (regs->CP2D.p[20].b.h) / gteR (regs->CP2D.p[20].b.l)
+    psq_l       fr3, 81(r3), 1, 2    // gteB (regs->CP2D.p[20].b.h2)
+
+    // load gteG1 << 4 / gteR1 << 4, gteB1 << 4
+    psq_l       fr4, 86(r3), 0, 2    // gteG (regs->CP2D.p[21].b.h) / gteR (regs->CP2D.p[21].b.l)
+    psq_l       fr6, 85(r3), 1, 2    // gteB (regs->CP2D.p[21].b.h2)
+
+    // load gteG2 << 4 / gteR2 << 4, gteB2 << 4
+    psq_l       fr7, 90(r3), 0, 2    // gteG (regs->CP2D.p[22].b.h) / gteR (regs->CP2D.p[22].b.l)
+    psq_l       fr9, 89(r3), 1, 2    // gteB (regs->CP2D.p[22].b.h2)
+
+    // load gteIR0
+    psq_l       fr10, 34(r3), 1, 3   // gteIR0 (regs->CP2D.p[8].sw.l)
+
+    ps_mul      fr1, fr1, fr21
+    fmuls       fr3, fr3, fr21
+    ps_mul      fr4, fr4, fr21
+    fmuls       fr6, fr6, fr21
+    ps_mul      fr7, fr7, fr21
+    fmuls       fr9, fr9, fr21
+
+    // load gteRFC~gteBFC
+    lfs         fr11, 76(r4)         // load tmp gteRFC(r4 + 4 * 9 + 40)
+    lfs         fr12, 80(r4)         // load tmp gteGFC(r4 + 4 * 10 + 40)
+    lfs         fr13, 84(r4)         // load tmp gteBFC(r4 + 4 * 11 + 40)
+
+    ps_merge00  fr10, fr10, fr10     // fr10 = gteIR0 / gteIR0
+    ps_merge00  fr11, fr12, fr11     // fr11 = gteGFC / gteRFC
+
+    fsubs       fr14, fr13, fr3      // fr14 = gteBFC - (gteB0 << 4)
+    ps_sub      fr15, fr11, fr1      // fr15 = gteGFC - (gteG0 << 4) / gteRFC - (gteR0 << 4)
+
+    fsubs       fr16, fr13, fr6      // fr16 = gteBFC - (gteB1 << 4)
+    ps_sub      fr17, fr11, fr4      // fr17 = gteGFC - (gteG1 << 4) / gteRFC - (gteR1 << 4)
+
+    fsubs       fr18, fr13, fr9      // fr18 = gteBFC - (gteB2 << 4)
+    ps_sub      fr19, fr11, fr7      // fr19 = gteGFC - (gteG2 << 4) / gteRFC - (gteR2 << 4)
+
+    // save temp MAC1, MAC2, MAC3
+    psq_st      fr14, 8(r4), 1, 3    // (r4 + 4 * 2)
+    psq_st      fr15, 12(r4), 0, 3   // (r4 + 4 * 3)
+
+    psq_st      fr16, 16(r4), 1, 3   // (r4 + 4 * 4)
+    psq_st      fr17, 20(r4), 0, 3   // (r4 + 4 * 5)
+
+    psq_st      fr18, 24(r4), 1, 3   // (r4 + 4 * 6)
+    psq_st      fr19, 28(r4), 0, 3   // (r4 + 4 * 7)
+
+    // load temp MAC1, MAC2, MAC3
+    psq_l       fr14, 8(r4), 1, 3    // (r4 + 4 * 2)
+    psq_l       fr15, 12(r4), 0, 3   // (r4 + 4 * 3)
+
+    psq_l       fr16, 16(r4), 1, 3   // (r4 + 4 * 4)
+    psq_l       fr17, 20(r4), 0, 3   // (r4 + 4 * 5)
+
+    psq_l       fr18, 24(r4), 1, 3   // (r4 + 4 * 6)
+    psq_l       fr19, 28(r4), 0, 3   // (r4 + 4 * 7)
+
+    // gteIR0 * MAC3, gteIR0 * MAC2 / gteIR0 * MAC1
+    fmuls       fr14, fr10, fr14
+    ps_mul      fr15, fr10, fr15
+
+    fmuls       fr16, fr10, fr16
+    ps_mul      fr17, fr10, fr17
+
+    fmuls       fr18, fr10, fr18
+    ps_mul      fr19, fr10, fr19
+
+    fmadds      fr14, fr14, fr23, fr3
+    ps_madd     fr15, fr15, fr23, fr1
+
+    fmadds      fr16, fr16, fr23, fr6
+    ps_madd     fr17, fr17, fr23, fr4
+
+    fmadds      fr18, fr18, fr23, fr9
+    ps_madd     fr19, fr19, fr23, fr7
+
+    // only RGB2 save gteMAC1~gteMAC3
+    addi        r5, r3, 100
+    addi        r6, r3, 104
+    addi        r7, r3, 108
+    ps_merge10  fr1, fr19, fr19      // fr1 = MAC1 / MAC2
+
+    fctiw       fr7, fr18            // MAC3 => int
+    fctiw       fr6, fr19            // MAC2 => int
+    fctiw       fr5, fr1             // MAC1 => int
+
+    stfiwx      fr7, 0, r7           // store MACZ (((s32 *)regs->CP2D.r)[27])
+    stfiwx      fr6, 0, r6           // store MACY (((s32 *)regs->CP2D.r)[26])
+    stfiwx      fr5, 0, r5           // store MACX (((s32 *)regs->CP2D.r)[25])
+
+    // only RGB2 save gteIR1~gteIR3
+    psq_st      fr1, 38(r3), 1, 3    // gteIR1 (regs->CP2D.p[9].sw.l)
+    psq_st      fr19, 42(r3), 1, 3   // gteIR2 (regs->CP2D.p[10].sw.l)
+    psq_st      fr18, 46(r3), 1, 3   // gteIR3 (regs->CP2D.p[11].sw.l)
+
+    // save gteRGB0~gteRGB2
+    // gteCODE0~gteCODE2 = gteCODE;
+    lbz         r7, 24(r3)           // gteCODE (regs->CP2D.p[6].b.h3)
+    ps_mul      fr15, fr15, fr24     // fr15 = gteMAC2 >> 4 / gteMAC1 >> 4
+    fmuls       fr14, fr14, fr24     // fr14 = gteMAC3 >> 4
+
+    ps_mul      fr17, fr17, fr24     // fr17 = gteMAC2 >> 4 / gteMAC1 >> 4
+    fmuls       fr16, fr16, fr24     // fr16 = gteMAC3 >> 4
+
+    ps_mul      fr19, fr19, fr24     // fr19 = gteMAC2 >> 4 / gteMAC1 >> 4
+    fmuls       fr18, fr18, fr24     // fr18 = gteMAC3 >> 4
+
+    psq_st      fr15, 82(r3), 0, 2   // gteG0  (regs->CP2D.p[20].b.h), gteR0  (regs->CP2D.p[20].b.l)
+    psq_st      fr14, 81(r3), 1, 2   // gteB0  (regs->CP2D.p[20].b.h2)
+    stb         r7, 80(r3)           // gteCODE0 (regs->CP2D.p[20].b.h3)
+
+    psq_st      fr17, 86(r3), 0, 2   // gteG1  (regs->CP2D.p[21].b.h), gteR1  (regs->CP2D.p[21].b.l)
+    psq_st      fr16, 85(r3), 1, 2   // gteB1  (regs->CP2D.p[21].b.h2)
+    stb         r7, 84(r3)           // gteCODE0 (regs->CP2D.p[21].b.h3)
+
+    psq_st      fr19, 90(r3), 0, 2   // gteG2  (regs->CP2D.p[22].b.h), gteR2  (regs->CP2D.p[22].b.l)
+    psq_st      fr18, 89(r3), 1, 2   // gteB2  (regs->CP2D.p[22].b.h2)
+    stb         r7, 88(r3)           // gteCODE0 (regs->CP2D.p[22].b.h3)
+
+    blr
+
+
 .globl gtePsINTPL
 // r3: CP2D(vy0, vx0, 0, vz0, vy1, vx1, 0, vz1, vy2, vx2, 0, vz2)
 // r4: gteTbl15Addr, gteTbl16Addr, gteTmpAddr
