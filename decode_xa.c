@@ -23,6 +23,7 @@
 
 #include "decode_xa.h"
 #include "psxcommon.h"
+#include "Gamecube/DEBUG.h"
 
 #define _FIXED
 
@@ -67,12 +68,25 @@ static int K1[4] = {
 };
 #endif
 
+static f32 FK0[4] = {
+	0.0       ,
+	0.9375    ,
+	1.796875  ,
+	1.53125
+};
+static f32 FK1[4] = {
+	0.0       ,
+	0.0       ,
+	-0.8125   ,
+	-0.859375
+};
+
 #define BLKSIZ 28       /* block size (32 - 4 nibbles) */
 
 //===========================================
 void ADPCM_InitDecode(ADPCM_Decode_t *decp) {
-	decp->y0 = 0;
-	decp->y1 = 0;
+	decp->y0 = 0.0;
+	decp->y1 = 0.0;
 }
 
 //===========================================
@@ -84,41 +98,56 @@ void ADPCM_InitDecode(ADPCM_Decode_t *decp) {
 #define IK1(fid)	(-K1[fid])
 #endif
 
+#define FIK0(fid)	(FK0[fid])
+#define FIK1(fid)	(FK1[fid])
+extern void psDecodeBlock16(register f32* IK0K1Tmp, register s16* xTmp, register f32* decp, register s16 *destp, register s32 inc);
+
 static __inline void ADPCM_DecodeBlock16( ADPCM_Decode_t *decp, u8 filter_range, const void *vblockp, short *destp, int inc ) {
 	int i;
 	int range, filterid;
-	s32 fy0, fy1;
+	//s32 fy0, fy1;
 	const u16 *blockp;
 
 	blockp = (const unsigned short *)vblockp;
 	filterid = (filter_range >>  4) & 0x0f;
 	range    = (filter_range >>  0) & 0x0f;
 
-	fy0 = decp->y0;
-	fy1 = decp->y1;
+	//fy0 = decp->y0;
+	//fy1 = decp->y1;
+
+	static s16 xTmp[4];
+	static f32 IK0K1Tmp[2];
+	IK0K1Tmp[0] = (f32)(FIK0(filterid));
+	IK0K1Tmp[1] = (f32)(FIK1(filterid));
 
 	for (i = BLKSIZ/4; i; --i) {
 		s32 y;
-		s32 x0, x1, x2, x3;
+		//s32 x0, x1, x2, x3;
 
 		y = *blockp++;
-		x3 = (short)( y        & 0xf000) >> range; x3 <<= SH;
-		x2 = (short)((y <<  4) & 0xf000) >> range; x2 <<= SH;
-		x1 = (short)((y <<  8) & 0xf000) >> range; x1 <<= SH;
-		x0 = (short)((y << 12) & 0xf000) >> range; x0 <<= SH;
-
-		x0 -= (IK0(filterid) * fy0 + (IK1(filterid) * fy1)) >> SHC; fy1 = fy0; fy0 = x0;
-		x1 -= (IK0(filterid) * fy0 + (IK1(filterid) * fy1)) >> SHC; fy1 = fy0; fy0 = x1;
-		x2 -= (IK0(filterid) * fy0 + (IK1(filterid) * fy1)) >> SHC; fy1 = fy0; fy0 = x2;
-		x3 -= (IK0(filterid) * fy0 + (IK1(filterid) * fy1)) >> SHC; fy1 = fy0; fy0 = x3;
-
-		XACLAMP( x0, -32768<<SH, 32767<<SH ); *destp = x0 >> SH; destp += inc;
-		XACLAMP( x1, -32768<<SH, 32767<<SH ); *destp = x1 >> SH; destp += inc;
-		XACLAMP( x2, -32768<<SH, 32767<<SH ); *destp = x2 >> SH; destp += inc;
-		XACLAMP( x3, -32768<<SH, 32767<<SH ); *destp = x3 >> SH; destp += inc;
+//		x3 = (short)( y        & 0xf000) >> range; x3 <<= SH;
+//		x2 = (short)((y <<  4) & 0xf000) >> range; x2 <<= SH;
+//		x1 = (short)((y <<  8) & 0xf000) >> range; x1 <<= SH;
+//		x0 = (short)((y << 12) & 0xf000) >> range; x0 <<= SH;
+//
+//		x0 -= (IK0(filterid) * fy0 + (IK1(filterid) * fy1)) >> SHC; fy1 = fy0; fy0 = x0;
+//		x1 -= (IK0(filterid) * fy0 + (IK1(filterid) * fy1)) >> SHC; fy1 = fy0; fy0 = x1;
+//		x2 -= (IK0(filterid) * fy0 + (IK1(filterid) * fy1)) >> SHC; fy1 = fy0; fy0 = x2;
+//		x3 -= (IK0(filterid) * fy0 + (IK1(filterid) * fy1)) >> SHC; fy1 = fy0; fy0 = x3;
+//
+//		XACLAMP( x0, -32768<<SH, 32767<<SH ); *destp = x0 >> SH; destp += inc;
+//		XACLAMP( x1, -32768<<SH, 32767<<SH ); *destp = x1 >> SH; destp += inc;
+//		XACLAMP( x2, -32768<<SH, 32767<<SH ); *destp = x2 >> SH; destp += inc;
+//		XACLAMP( x3, -32768<<SH, 32767<<SH ); *destp = x3 >> SH; destp += inc;
+		xTmp[3] = (short)( y        & 0xf000) >> range;
+		xTmp[2] = (short)((y <<  4) & 0xf000) >> range;
+		xTmp[1] = (short)((y <<  8) & 0xf000) >> range;
+		xTmp[0] = (short)((y << 12) & 0xf000) >> range;
+		psDecodeBlock16(&IK0K1Tmp[0], &xTmp[0], decp, destp, inc << 1);
+		destp += (inc << 2);
 	}
-	decp->y0 = fy0;
-	decp->y1 = fy1;
+	//decp->y0 = fy0;
+	//decp->y1 = fy1;
 }
 
 static int headtable[4] = {0,2,8,10};
@@ -354,10 +383,27 @@ static int parse_xa_audio_sector( xa_decode_t *xdp,
 //===                  - 0 for any other successive sector
 //=== return -1 if error
 //================================================================
+#ifdef DISP_DEBUG
+// prototypes
+long long gettime(void);
+unsigned int diff_usec(long long start, long long end);
+u32 diff_nsec(u64 start,u64 end);
+#endif // DISP_DEBUG
 s32 xa_decode_sector( xa_decode_t *xdp, const unsigned char *sectorp, int is_first_sector ) {
+	#ifdef DISP_DEBUG
+    long long curticks;
+    curticks = gettime();
+    #endif // DISP_DEBUG
 	if (parse_xa_audio_sector(xdp, (xa_subheader_t *)sectorp, sectorp + sizeof(xa_subheader_t), is_first_sector))
 		return -1;
 
+	#ifdef DISP_DEBUG
+    long long lastticks;
+    lastticks = gettime();
+    sprintf(txtbuffer, "XA %d ", diff_nsec(curticks, lastticks));
+    DEBUG_print(txtbuffer, DBG_CORE2);
+    curticks = lastticks;
+    #endif // DISP_DEBUG
 	return 0;
 }
 
