@@ -95,48 +95,41 @@ psDecodeBlock16:
     psq_l       fr6, 0(r4), 0, 3    // fr6 = x0, x1
     psq_l       fr7, 4(r4), 0, 3    // fr7 = x2, x3
 
-    fmuls       fr4, fr1, fr3       // fr4 = IK1 * fy1
-    fmuls       fr9, fr1, fr2       // fr9 = IK1 * new fy1           for x1
-    fmadds      fr8, fr0, fr2, fr4  // fr8 = IK0 * fy0 + IK1 * fy1   for x0
-
+    fmadds      fr4, fr1, fr3, fr6  // fr4 = x0 + IK1 * fy1
     ps_merge10  fr10, fr6, fr6      // fr10 = x1
-    fadds       fr8, fr6, fr8       // fr8 = x0 + (IK0 * fy0 + IK1 * fy1)
+    fmadds      fr8, fr0, fr2, fr4  // fr8 = x0 + IK0 * fy0 + IK1 * fy1   new x0
     ps_merge10  fr11, fr7, fr7      // fr11 = x3
+
+    fmadds      fr9, fr1, fr2, fr10 // fr9 = x1 + IK1 * new fy1           for x1
 
     // save x0
     psq_st      fr8, 0(r6), 1, 3    // destp + 0
     add         r4, r6, r7          // r4 = addr for save x1
 
-    fmadds      fr9, fr0, fr8, fr9  // fr9 = IK0 * fy0 + IK1 * fy1   for x1
-    fmuls       fr12, fr1, fr8      // fr12 = IK1 * new fy1          for x2
-
-    fadds       fr10, fr10, fr9     // fr10 = x1 + (IK0 * fy0 + IK1 * fy1)
+    fmadds      fr9, fr0, fr8, fr9  // fr9 = x1 + IK0 * fy0 + IK1 * fy1   new x1
+    fmadds      fr12, fr1, fr8, fr7 // fr12 = x2 + IK1 * new fy1          for x2
 
     // save x1
     add         r3, r4, r7          // r3 = addr for save x2
-    psq_st      fr10, 0(r4), 1, 3   // destp + inc
+    psq_st      fr9, 0(r4), 1, 3    // destp + inc
 
-    fmadds      fr9, fr0, fr10, fr12// fr9 = IK0 * fy0 + IK1 * fy1   for x2
+    fmadds      fr10, fr0, fr9, fr12// fr10 = x2 + IK0 * fy0 + IK1 * fy1   new x2
     add         r4, r3, r7          // r4 = addr for save x3
 
-    fmuls       fr12, fr1, fr10     // fr12 = IK1 *  new fy1         for x3
-    fadds       fr7, fr7, fr9       // fr7 = x2 + (IK0 * fy0 + IK1 * fy1)
+    fmadds      fr12, fr1, fr9, fr11// fr12 = x3 + IK1 *  new fy1          for x3
 
     // save x2
-    psq_st      fr7, 0(r3), 1, 3    // destp + inc
-
-    fmadds      fr9, fr0, fr7, fr12 // fr9 = IK0 * fy0 + IK1 * fy1   for x3
+    psq_st      fr10, 0(r3), 1, 3    // destp + inc
+    fmadds      fr13, fr0, fr10, fr12// fr13 = x3 + IK0 * fy0 + IK1 * fy1   new x3
 
     // save fy1
-    stfs        fr7, 4(r5)
-
-    fadds       fr11, fr11, fr9     // fr11 = x3 + (IK0 * fy0 + IK1 * fy1)
+    stfs        fr10, 4(r5)
 
     // save x3
-    psq_st      fr11, 0(r4), 1, 3   // destp + inc
+    psq_st      fr13, 0(r4), 1, 3   // destp + inc
 
     // save fy0
-    stfs        fr11, 0(r5)
+    stfs        fr13, 0(r5)
 
     blr
 
