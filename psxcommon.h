@@ -174,4 +174,16 @@ enum {
 #define STORE_SWAP32p(ptr,val) ({u32 __val=(val), *__ptr=(ptr); __asm__ ("stwbrx %0, 0, %1" : : "r" (__val), "r" (__ptr) : "memory");})
 #define STORE_SWAP32p2(ptr,val) ({u32 __val=(val); __asm__ ("stwbrx %0, 0, %1" : : "r" (__val), "r" (ptr) : "memory");})
 
+#define FIK0(fid)    (FK0[fid])
+#define FIK1(fid)    (FK1[fid])
+
+typedef struct {
+    f32 IK0;
+    f32 IK1;
+    u32 vblockp;
+    u32 range;
+    u32 decpAddr;
+    u32 tmpAddr[4];
+} typPcmDecode;
+
 #endif /* __PSXCOMMON_H__ */
