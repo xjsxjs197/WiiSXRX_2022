@@ -395,33 +395,33 @@ INLINE int iGetInterpolationVal(int *SB, int sinc, int spos, int fmod_freq)
  return fa;
 }
 
-static f32 FK0[4] = {
+static f32 FK0[16] = {
     0.0       ,
     0.9375    ,
     1.796875  ,
-    1.53125
+    1.53125   ,
+    1.90625
 };
-static f32 FK1[4] = {
+static f32 FK1[16] = {
     0.0       ,
     0.0       ,
     -0.8125   ,
-    -0.859375
+    -0.859375 ,
+    -0.9375
 };
 
 static typPcmDecode decodeTmp;
-static f32 lastF0F1[2];
-extern void psDecodePcmBlock(register void* decodeTmp, register s16 *destp, register s32 inc);
+extern void psDecodePcmBlock(register void* decodeTmp, register s32 *destp, register s32 inc);
 
-static void decode_block_data(int *dest, const unsigned char *src, int predict_nr, int shift_factor)
+static void decode_block_data(int *dest, const unsigned char *src, int predict_nr, int shift_factor, void *lastF0F1)
 {
     decodeTmp.IK0 = (f32)(FIK0(predict_nr));
     decodeTmp.IK1 = (f32)(FIK1(predict_nr));
     decodeTmp.vblockp = (u32)(src);
     decodeTmp.range = shift_factor;
-    decodeTmp.decpAddr = (u32)(&lastF0F1[0]);
+    decodeTmp.decpAddr = lastF0F1;
 
-    memset(dest, 0, 28 * 4);
-    psDecodePcmBlock(&decodeTmp, dest, 4);
+    psDecodePcmBlock(&decodeTmp, dest - 1, 4);
 // static const int f[16][2] = {
 //    {    0,  0  },
 //    {   60,  0  },
@@ -482,7 +482,7 @@ static int decode_block(void *unused, int ch, int *SB)
  shift_factor = predict_nr & 0xf;
  predict_nr >>= 4;
 
- decode_block_data(SB, start + 2, predict_nr, shift_factor);
+ decode_block_data(SB, start + 2, predict_nr, shift_factor, &s_chan->lastF0F1[0]);
 
  flags = start[1];
  if (flags & 4 && !s_chan->bIgnoreLoop)
@@ -577,8 +577,6 @@ static noinline int do_samples_##name( \
  int ret = ns_to;                            \
  interp_start;                               \
                                              \
- lastF0F1[0] = 0.0;                          \
- lastF0F1[1] = 0.0;                          \
  for (ns = 0; ns < ns_to; ns++)              \
  {                                           \
   fmod_code;                                 \

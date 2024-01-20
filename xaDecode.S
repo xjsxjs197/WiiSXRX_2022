@@ -476,9 +476,7 @@ psDecodePcmBlock:
     lwz         r9, 8(r3)           // vblockp
     lwz         r8, 16(r3)          // decp
     subi        r9, r9, 2
-    sub         r4, r4, r5
     lhau        r10, 2(r9)          // load y
-    addi        r4, r4, 2
 
     // load fy0, fy1
     lfs         fr2, 0(r8)          // fr2 = fy0
@@ -540,6 +538,14 @@ psDecodePcmBlock:
 
     // save x3
     psq_stux    fr2, r4, r5, 1, 3   // destp + inc
+    lha         r6, -12(r4)
+    lha         r7, -8(r4)
+    stw         r6, -12(r4)
+    stw         r7, -8(r4)
+    lha         r6, -4(r4)
+    lha         r7, 0(r4)
+    stw         r6, -4(r4)
+    stw         r7, 0(r4)
 
     // loop 2
     // check x0~x3
@@ -592,6 +598,14 @@ psDecodePcmBlock:
 
     // save x3
     psq_stux    fr2, r4, r5, 1, 3   // destp + inc
+    lha         r6, -12(r4)
+    lha         r7, -8(r4)
+    stw         r6, -12(r4)
+    stw         r7, -8(r4)
+    lha         r6, -4(r4)
+    lha         r7, 0(r4)
+    stw         r6, -4(r4)
+    stw         r7, 0(r4)
 
     // loop 3
     // check x0~x3
@@ -644,6 +658,14 @@ psDecodePcmBlock:
 
     // save x3
     psq_stux    fr2, r4, r5, 1, 3   // destp + inc
+    lha         r6, -12(r4)
+    lha         r7, -8(r4)
+    stw         r6, -12(r4)
+    stw         r7, -8(r4)
+    lha         r6, -4(r4)
+    lha         r7, 0(r4)
+    stw         r6, -4(r4)
+    stw         r7, 0(r4)
 
     // loop 4
     // check x0~x3
@@ -696,6 +718,14 @@ psDecodePcmBlock:
 
     // save x3
     psq_stux    fr2, r4, r5, 1, 3   // destp + inc
+    lha         r6, -12(r4)
+    lha         r7, -8(r4)
+    stw         r6, -12(r4)
+    stw         r7, -8(r4)
+    lha         r6, -4(r4)
+    lha         r7, 0(r4)
+    stw         r6, -4(r4)
+    stw         r7, 0(r4)
 
     // loop 5
     // check x0~x3
@@ -748,6 +778,14 @@ psDecodePcmBlock:
 
     // save x3
     psq_stux    fr2, r4, r5, 1, 3   // destp + inc
+    lha         r6, -12(r4)
+    lha         r7, -8(r4)
+    stw         r6, -12(r4)
+    stw         r7, -8(r4)
+    lha         r6, -4(r4)
+    lha         r7, 0(r4)
+    stw         r6, -4(r4)
+    stw         r7, 0(r4)
 
     // loop 6
     // check x0~x3
@@ -800,6 +838,14 @@ psDecodePcmBlock:
 
     // save x3
     psq_stux    fr2, r4, r5, 1, 3   // destp + inc
+    lha         r6, -12(r4)
+    lha         r7, -8(r4)
+    stw         r6, -12(r4)
+    stw         r7, -8(r4)
+    lha         r6, -4(r4)
+    lha         r7, 0(r4)
+    stw         r6, -4(r4)
+    stw         r7, 0(r4)
 
     // loop 7
     // check x0~x3
@@ -852,6 +898,14 @@ psDecodePcmBlock:
 
     // save x3
     psq_stux    fr2, r4, r5, 1, 3   // destp + inc
+    lha         r6, -12(r4)
+    lha         r7, -8(r4)
+    stw         r6, -12(r4)
+    stw         r7, -8(r4)
+    lha         r6, -4(r4)
+    lha         r7, 0(r4)
+    stw         r6, -4(r4)
+    stw         r7, 0(r4)
 
     // save fy1
     stfs        fr3, 4(r8)
