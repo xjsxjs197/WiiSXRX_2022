@@ -395,41 +395,66 @@ INLINE int iGetInterpolationVal(int *SB, int sinc, int spos, int fmod_freq)
  return fa;
 }
 
+static f32 FK0[4] = {
+    0.0       ,
+    0.9375    ,
+    1.796875  ,
+    1.53125
+};
+static f32 FK1[4] = {
+    0.0       ,
+    0.0       ,
+    -0.8125   ,
+    -0.859375
+};
+
+static typPcmDecode decodeTmp;
+static f32 lastF0F1[2];
+extern void psDecodePcmBlock(register void* decodeTmp, register s16 *destp, register s32 inc);
+
 static void decode_block_data(int *dest, const unsigned char *src, int predict_nr, int shift_factor)
 {
- static const int f[16][2] = {
-    {    0,  0  },
-    {   60,  0  },
-    {  115, -52 },
-    {   98, -55 },
-    {  122, -60 }
- };
- int nSample;
- int fa, s_1, s_2, d, s;
+    decodeTmp.IK0 = (f32)(FIK0(predict_nr));
+    decodeTmp.IK1 = (f32)(FIK1(predict_nr));
+    decodeTmp.vblockp = (u32)(src);
+    decodeTmp.range = shift_factor;
+    decodeTmp.decpAddr = (u32)(&lastF0F1[0]);
 
- s_1 = dest[27];
- s_2 = dest[26];
-
- for (nSample = 0; nSample < 28; src++)
- {
-  d = (int)*src;
-  s = (int)(signed short)((d & 0x0f) << 12);
-
-  fa = s >> shift_factor;
-  fa += ((s_1 * f[predict_nr][0])>>6) + ((s_2 * f[predict_nr][1])>>6);
-  ssat32_to_16(fa);
-  s_2 = s_1; s_1 = fa;
-
-  dest[nSample++] = fa;
-
-  s = (int)(signed short)((d & 0xf0) << 8);
-  fa = s >> shift_factor;
-  fa += ((s_1 * f[predict_nr][0])>>6) + ((s_2 * f[predict_nr][1])>>6);
-  ssat32_to_16(fa);
-  s_2 = s_1; s_1 = fa;
-
-  dest[nSample++] = fa;
- }
+    memset(dest, 0, 28 * 4);
+    psDecodePcmBlock(&decodeTmp, dest, 4);
+// static const int f[16][2] = {
+//    {    0,  0  },
+//    {   60,  0  },
+//    {  115, -52 },
+//    {   98, -55 },
+//    {  122, -60 }
+// };
+// int nSample;
+// int fa, s_1, s_2, d, s;
+//
+// s_1 = dest[27];
+// s_2 = dest[26];
+//
+// for (nSample = 0; nSample < 28; src++)
+// {
+//  d = (int)*src;
+//  s = (int)(signed short)((d & 0x0f) << 12);
+//
+//  fa = s >> shift_factor;
+//  fa += ((s_1 * f[predict_nr][0])>>6) + ((s_2 * f[predict_nr][1])>>6);
+//  ssat32_to_16(fa);
+//  s_2 = s_1; s_1 = fa;
+//
+//  dest[nSample++] = fa;
+//
+//  s = (int)(signed short)((d & 0xf0) << 8);
+//  fa = s >> shift_factor;
+//  fa += ((s_1 * f[predict_nr][0])>>6) + ((s_2 * f[predict_nr][1])>>6);
+//  ssat32_to_16(fa);
+//  s_2 = s_1; s_1 = fa;
+//
+//  dest[nSample++] = fa;
+// }
 }
 
 static int decode_block(void *unused, int ch, int *SB)
@@ -552,6 +577,8 @@ static noinline int do_samples_##name( \
  int ret = ns_to;                            \
  interp_start;                               \
                                              \
+ lastF0F1[0] = 0.0;                          \
+ lastF0F1[1] = 0.0;                          \
  for (ns = 0; ns < ns_to; ns++)              \
  {                                           \
   fmod_code;                                 \

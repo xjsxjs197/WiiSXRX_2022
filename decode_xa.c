@@ -55,18 +55,7 @@ void ADPCM_InitDecode(ADPCM_Decode_t *decp) {
 
 //===========================================
 
-#define FIK0(fid)    (FK0[fid])
-#define FIK1(fid)    (FK1[fid])
-
-typedef struct {
-    f32 IK0;
-    f32 IK1;
-    u32 vblockp;
-    u32 range;
-    u32 decpAddr;
-    u32 tmpAddr[4];
-} typXaDecode;
-static typXaDecode decodeTmp;
+static typPcmDecode decodeTmp;
 
 extern void psDecodeBlock16(register void* decodeTmp, register s16 *destp, register s32 inc);
 
