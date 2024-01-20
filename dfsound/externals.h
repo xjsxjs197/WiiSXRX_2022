@@ -129,6 +129,7 @@ typedef struct
  };
  ADSRInfoEx        ADSRX;
  int               iRawPitch;                          // raw pitch (0...3fff)
+ f32               lastF0F1[2];
 } SPUCHAN;
 
 ///////////////////////////////////////////////////////////
