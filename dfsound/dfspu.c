@@ -126,7 +126,7 @@ int ChanBuf[NSSIZE];
 //          /
 //
 
-static void InterpolateUp(int *SB, int sinc)
+static void InterpolateUp(s16 *SB, int sinc)
 {
  if(SB[32]==1)                                         // flag == 1? calc step and set flag... and don't change the value in this pass
   {
@@ -175,7 +175,7 @@ static void InterpolateUp(int *SB, int sinc)
 // even easier interpolation on downsampling, also no special filter, again just "Pete's common sense" tm
 //
 
-static void InterpolateDown(int *SB, int sinc)
+static void InterpolateDown(s16 *SB, int sinc)
 {
  if(sinc>=0x20000L)                                 // we would skip at least one val?
   {
@@ -243,7 +243,7 @@ void do_irq_io(int cycles_after)
 // START SOUND... called by main thread to setup a new sound on a channel
 ////////////////////////////////////////////////////////////////////////
 
-static void StartSoundSB(int *SB)
+static void StartSoundSB(s16 *SB)
 {
  SB[26]=0;                                             // init mixing vars
  SB[27]=0;
@@ -283,7 +283,7 @@ static void StartSound(int ch)
 // ALL KIND OF HELPERS
 ////////////////////////////////////////////////////////////////////////
 
-INLINE int FModChangeFrequency(int *SB, int pitch, int ns)
+INLINE int FModChangeFrequency(s16 *SB, int pitch, int ns)
 {
  unsigned int NP=pitch;
  int sinc;
@@ -302,7 +302,7 @@ INLINE int FModChangeFrequency(int *SB, int pitch, int ns)
 
 ////////////////////////////////////////////////////////////////////////
 
-INLINE void StoreInterpolationVal(int *SB, int sinc, int fa, int fmod_freq)
+INLINE void StoreInterpolationVal(s16 *SB, int sinc, int fa, int fmod_freq)
 {
  if(fmod_freq)                                         // fmod freq channel
   SB[29]=fa;
@@ -332,7 +332,7 @@ INLINE void StoreInterpolationVal(int *SB, int sinc, int fa, int fmod_freq)
 
 ////////////////////////////////////////////////////////////////////////
 
-INLINE int iGetInterpolationVal(int *SB, int sinc, int spos, int fmod_freq)
+INLINE int iGetInterpolationVal(s16 *SB, int sinc, int spos, int fmod_freq)
 {
  int fa;
 
@@ -411,9 +411,9 @@ static f32 FK1[16] = {
 };
 
 static typPcmDecode decodeTmp;
-extern void psDecodePcmBlock(register void* decodeTmp, register s32 *destp, register s32 inc);
+extern void psDecodePcmBlock(register void* decodeTmp, register s16 *destp, register s32 inc);
 
-static void decode_block_data(int *dest, const unsigned char *src, int predict_nr, int shift_factor, void *lastF0F1)
+static void decode_block_data(s16 *dest, const unsigned char *src, int predict_nr, int shift_factor, void *lastF0F1)
 {
     decodeTmp.IK0 = (f32)(FIK0(predict_nr));
     decodeTmp.IK1 = (f32)(FIK1(predict_nr));
@@ -421,7 +421,7 @@ static void decode_block_data(int *dest, const unsigned char *src, int predict_n
     decodeTmp.range = shift_factor;
     decodeTmp.decpAddr = lastF0F1;
 
-    psDecodePcmBlock(&decodeTmp, dest - 1, 4);
+    psDecodePcmBlock(&decodeTmp, dest - 1, 2);
 // static const int f[16][2] = {
 //    {    0,  0  },
 //    {   60,  0  },
@@ -457,7 +457,7 @@ static void decode_block_data(int *dest, const unsigned char *src, int predict_n
 // }
 }
 
-static int decode_block(void *unused, int ch, int *SB)
+static int decode_block(void *unused, int ch, s16 *SB)
 {
  SPUCHAN *s_chan = &spu.s_chan[ch];
  unsigned char *start;
@@ -571,7 +571,7 @@ static void scan_for_irq(int ch, unsigned int *upd_samples)
 #define make_do_samples(name, fmod_code, interp_start, interp1_code, interp2_code, interp_end) \
 static noinline int do_samples_##name( \
  int (*decode_f)(void *context, int ch, int *SB), void *ctx, \
- int ch, int ns_to, int *SB, int sinc, int *spos, int *sbpos) \
+ int ch, int ns_to, s16 *SB, int sinc, int *spos, int *sbpos) \
 {                                            \
  int ns, d, fa;                              \
  int ret = ns_to;                            \
@@ -803,7 +803,8 @@ static void do_channels(int ns_to)
  unsigned int mask;
  int do_rvb, ch, d;
  SPUCHAN *s_chan;
- int *SB, sinc;
+ s16 *SB;
+ int sinc;
 
  do_rvb = spu.rvb->StartAddr && spu_config.iUseReverb;
  if (do_rvb)
@@ -1233,7 +1234,7 @@ long DF_SPUinit(void)
   //     spu.SB = calloc(MAXCHAN, sizeof(spu.SB[0]) * SB_SIZE);
   spu.s_chan = (SPUCHAN *)s_chan;
   spu.rvb = (REVERBInfo *)rvb;
-  spu.SB = (int *)SB;
+  spu.SB = (s16 *)SB;
 
  spu.spuAddr = 0;
  spu.decode_pos = 0;

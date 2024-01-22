@@ -251,7 +251,7 @@ typedef struct
  unsigned int  * CDDAEnd;
 
  // buffers
- int           * SB;
+ s16           * SB;
 
  unsigned short  regArea[0x400];
  int             interpolation;
