@@ -538,14 +538,14 @@ psDecodePcmBlock:
 
     // save x3
     psq_stux    fr2, r4, r5, 1, 3   // destp + inc
-    lha         r6, -12(r4)
-    lha         r7, -8(r4)
-    stw         r6, -12(r4)
-    stw         r7, -8(r4)
-    lha         r6, -4(r4)
-    lha         r7, 0(r4)
-    stw         r6, -4(r4)
-    stw         r7, 0(r4)
+//    lha         r6, -12(r4)
+//    lha         r7, -8(r4)
+//    stw         r6, -12(r4)
+//    stw         r7, -8(r4)
+//    lha         r6, -4(r4)
+//    lha         r7, 0(r4)
+//    stw         r6, -4(r4)
+//    stw         r7, 0(r4)
 
     // loop 2
     // check x0~x3
@@ -598,14 +598,14 @@ psDecodePcmBlock:
 
     // save x3
     psq_stux    fr2, r4, r5, 1, 3   // destp + inc
-    lha         r6, -12(r4)
-    lha         r7, -8(r4)
-    stw         r6, -12(r4)
-    stw         r7, -8(r4)
-    lha         r6, -4(r4)
-    lha         r7, 0(r4)
-    stw         r6, -4(r4)
-    stw         r7, 0(r4)
+//    lha         r6, -12(r4)
+//    lha         r7, -8(r4)
+//    stw         r6, -12(r4)
+//    stw         r7, -8(r4)
+//    lha         r6, -4(r4)
+//    lha         r7, 0(r4)
+//    stw         r6, -4(r4)
+//    stw         r7, 0(r4)
 
     // loop 3
     // check x0~x3
@@ -658,14 +658,14 @@ psDecodePcmBlock:
 
     // save x3
     psq_stux    fr2, r4, r5, 1, 3   // destp + inc
-    lha         r6, -12(r4)
-    lha         r7, -8(r4)
-    stw         r6, -12(r4)
-    stw         r7, -8(r4)
-    lha         r6, -4(r4)
-    lha         r7, 0(r4)
-    stw         r6, -4(r4)
-    stw         r7, 0(r4)
+//    lha         r6, -12(r4)
+//    lha         r7, -8(r4)
+//    stw         r6, -12(r4)
+//    stw         r7, -8(r4)
+//    lha         r6, -4(r4)
+//    lha         r7, 0(r4)
+//    stw         r6, -4(r4)
+//    stw         r7, 0(r4)
 
     // loop 4
     // check x0~x3
@@ -718,14 +718,14 @@ psDecodePcmBlock:
 
     // save x3
     psq_stux    fr2, r4, r5, 1, 3   // destp + inc
-    lha         r6, -12(r4)
-    lha         r7, -8(r4)
-    stw         r6, -12(r4)
-    stw         r7, -8(r4)
-    lha         r6, -4(r4)
-    lha         r7, 0(r4)
-    stw         r6, -4(r4)
-    stw         r7, 0(r4)
+//    lha         r6, -12(r4)
+//    lha         r7, -8(r4)
+//    stw         r6, -12(r4)
+//    stw         r7, -8(r4)
+//    lha         r6, -4(r4)
+//    lha         r7, 0(r4)
+//    stw         r6, -4(r4)
+//    stw         r7, 0(r4)
 
     // loop 5
     // check x0~x3
@@ -778,14 +778,14 @@ psDecodePcmBlock:
 
     // save x3
     psq_stux    fr2, r4, r5, 1, 3   // destp + inc
-    lha         r6, -12(r4)
-    lha         r7, -8(r4)
-    stw         r6, -12(r4)
-    stw         r7, -8(r4)
-    lha         r6, -4(r4)
-    lha         r7, 0(r4)
-    stw         r6, -4(r4)
-    stw         r7, 0(r4)
+//    lha         r6, -12(r4)
+//    lha         r7, -8(r4)
+//    stw         r6, -12(r4)
+//    stw         r7, -8(r4)
+//    lha         r6, -4(r4)
+//    lha         r7, 0(r4)
+//    stw         r6, -4(r4)
+//    stw         r7, 0(r4)
 
     // loop 6
     // check x0~x3
@@ -838,14 +838,14 @@ psDecodePcmBlock:
 
     // save x3
     psq_stux    fr2, r4, r5, 1, 3   // destp + inc
-    lha         r6, -12(r4)
-    lha         r7, -8(r4)
-    stw         r6, -12(r4)
-    stw         r7, -8(r4)
-    lha         r6, -4(r4)
-    lha         r7, 0(r4)
-    stw         r6, -4(r4)
-    stw         r7, 0(r4)
+//    lha         r6, -12(r4)
+//    lha         r7, -8(r4)
+//    stw         r6, -12(r4)
+//    stw         r7, -8(r4)
+//    lha         r6, -4(r4)
+//    lha         r7, 0(r4)
+//    stw         r6, -4(r4)
+//    stw         r7, 0(r4)
 
     // loop 7
     // check x0~x3
@@ -898,14 +898,14 @@ psDecodePcmBlock:
 
     // save x3
     psq_stux    fr2, r4, r5, 1, 3   // destp + inc
-    lha         r6, -12(r4)
-    lha         r7, -8(r4)
-    stw         r6, -12(r4)
-    stw         r7, -8(r4)
-    lha         r6, -4(r4)
-    lha         r7, 0(r4)
-    stw         r6, -4(r4)
-    stw         r7, 0(r4)
+//    lha         r6, -12(r4)
+//    lha         r7, -8(r4)
+//    stw         r6, -12(r4)
+//    stw         r7, -8(r4)
+//    lha         r6, -4(r4)
+//    lha         r7, 0(r4)
+//    stw         r6, -4(r4)
+//    stw         r7, 0(r4)
 
     // save fy1
     stfs        fr3, 4(r8)

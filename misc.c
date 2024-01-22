@@ -536,7 +536,7 @@ int Load(fileBrowser_file *exe) {
 
 // STATES
 void LoadingBar_showBar(float percent, const char* string);
-const char PcsxHeader[32] = "STv4 PCSX v";
+const char PcsxHeader[32] = "STv4 PCSX 3.0";
 char* statespath = "/wiisxrx/savestates/";
 static unsigned int savestates_slot = 0;
 extern unsigned char  *psxVub;
@@ -704,7 +704,7 @@ int LoadState() {
     LoadingBar_showBar(0.10f, LOAD_STATE_MSG);
 
 
-	if (strncmp("STv4 PCSX", header, 9)) { gzclose(f); return -1; }
+	if (strncmp(PcsxHeader, header, sizeof(header))) { gzclose(f); return -1; }
 
 	if (Config.HLE)
 		psxBiosInit();

@@ -75,7 +75,7 @@ typedef struct
  int               iSBPos;                             // mixing stuff
  int               spos;
  int               sinc;
- int               SB[32+32];                          // Pete added another 32 dwords in 1.6 ... prevents overflow issues with gaussian/cubic interpolation (thanx xodnizel!), and can be used for even better interpolations, eh? :)
+ s16               SB[32+32];                          // Pete added another 32 dwords in 1.6 ... prevents overflow issues with gaussian/cubic interpolation (thanx xodnizel!), and can be used for even better interpolations, eh? :)
  int               sval;
 
  int               iStart;                             // start ptr into sound mem
@@ -106,6 +106,7 @@ typedef struct
  int               iOldNoise;                          // old noise val for this channel
  ADSRInfo          ADSR;                               // active ADSR settings
  ADSRInfoEx_orig   ADSRX;                              // next ADSR settings (will be moved to active on sample start)
+ f32               lastF0F1[2];
 } SPUCHAN_orig;
 
 typedef struct
@@ -171,6 +172,8 @@ static void save_channel(SPUCHAN_orig *d, const SPUCHAN *s, int ch)
  d->iRawPitch = s->iRawPitch;
  d->s_1 = spu.SB[ch * SB_SIZE + 27]; // yes it's reversed
  d->s_2 = spu.SB[ch * SB_SIZE + 26];
+ d->lastF0F1[0] = s->lastF0F1[0];
+ d->lastF0F1[1] = s->lastF0F1[1];
  d->bRVBActive = s->bRVBActive;
  d->bNoise = s->bNoise;
  d->bFMod = s->bFMod;
@@ -205,6 +208,10 @@ static void load_channel(SPUCHAN *d, const SPUCHAN_orig *s, int ch)
  d->iLeftVolume = s->iLeftVolume;
  d->iRightVolume = s->iRightVolume;
  d->iRawPitch = s->iRawPitch;
+ spu.SB[ch * SB_SIZE + 27] = s->s_1;
+ spu.SB[ch * SB_SIZE + 26] = s->s_2;
+ d->lastF0F1[0] = s->lastF0F1[0];
+ d->lastF0F1[1] = s->lastF0F1[1];
  d->bRVBActive = s->bRVBActive;
  d->bNoise = s->bNoise;
  d->bFMod = s->bFMod;
