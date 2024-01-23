@@ -2099,7 +2099,7 @@ static int lightrec_flag_mults_divs(struct lightrec_state *state, struct block *
 			list->flags &= ~(LIGHTREC_NO_LO | LIGHTREC_NO_HI);
 		}
 
-		if (reg_lo > 0 && reg_lo != REG_LO) {
+		if (0/* Broken */ && reg_lo > 0 && reg_lo != REG_LO) {
 			pr_debug("Found register %s to hold LO (rs = %u, rt = %u)\n",
 				 lightrec_reg_name(reg_lo), list->r.rs, list->r.rt);
 
@@ -2109,7 +2109,7 @@ static int lightrec_flag_mults_divs(struct lightrec_state *state, struct block *
 			list->r.rd = 0;
 		}
 
-		if (reg_hi > 0 && reg_hi != REG_HI) {
+		if (0/* Broken */ && reg_hi > 0 && reg_hi != REG_HI) {
 			pr_debug("Found register %s to hold HI (rs = %u, rt = %u)\n",
 				 lightrec_reg_name(reg_hi), list->r.rs, list->r.rt);
 
