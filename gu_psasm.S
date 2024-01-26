@@ -533,15 +533,15 @@ mvmval1SaveSum:
     lha         r6, 46(r3)
     li          r7, 0
     cmpi        3, 0, r4, 0
+    cmpi        4, 0, r5, 0
+    cmpi        5, 0, r6, 0
     bgt         3, mvmval1ChkIR2
     sth         r7, 38(r3)
 mvmval1ChkIR2:
-    cmpi        3, 0, r5, 0
-    bgt         3, mvmval1ChkIR3
+    bgt         4, mvmval1ChkIR3
     sth         r7, 42(r3)
 mvmval1ChkIR3:
-    cmpi        3, 0, r6, 0
-    bgt         3, mvmval1End
+    bgt         5, mvmval1End
     sth         r7, 46(r3)
 
 mvmval1End:
@@ -647,15 +647,15 @@ mvmval2SaveSum:
     lha         r6, 46(r3)
     li          r7, 0
     cmpi        3, 0, r4, 0
+    cmpi        4, 0, r5, 0
+    cmpi        5, 0, r6, 0
     bgt         3, mvmval2ChkIR2
     sth         r7, 38(r3)
 mvmval2ChkIR2:
-    cmpi        3, 0, r5, 0
-    bgt         3, mvmval2ChkIR3
+    bgt         4, mvmval2ChkIR3
     sth         r7, 42(r3)
 mvmval2ChkIR3:
-    cmpi        3, 0, r6, 0
-    bgt         3, mvmval2End
+    bgt         5, mvmval2End
     sth         r7, 46(r3)
 
 mvmval2End:
@@ -761,15 +761,15 @@ mvmval3SaveSum:
     lha         r6, 46(r3)
     li          r7, 0
     cmpi        3, 0, r4, 0
+    cmpi        4, 0, r5, 0
+    cmpi        5, 0, r6, 0
     bgt         3, mvmval3ChkIR2
     sth         r7, 38(r3)
 mvmval3ChkIR2:
-    cmpi        3, 0, r5, 0
-    bgt         3, mvmval3ChkIR3
+    bgt         4, mvmval3ChkIR3
     sth         r7, 42(r3)
 mvmval3ChkIR3:
-    cmpi        3, 0, r6, 0
-    bgt         3, mvmval3End
+    bgt         5, mvmval3End
     sth         r7, 46(r3)
 
 mvmval3End:
@@ -827,15 +827,15 @@ sqrShiftChkEnd:
     lha         r6, 46(r3)
     li          r7, 0
     cmpi        3, 0, r4, 0
+    cmpi        4, 0, r5, 0
+    cmpi        5, 0, r6, 0
     bgt         3, sqrLiBChkIR2
     sth         r7, 38(r3)
 sqrLiBChkIR2:
-    cmpi        3, 0, r5, 0
-    bgt         3, sqrLiBChkIR3
+    bgt         4, sqrLiBChkIR3
     sth         r7, 42(r3)
 sqrLiBChkIR3:
-    cmpi        3, 0, r6, 0
-    bgt         3, sqrLiBChkEnd
+    bgt         5, sqrLiBChkEnd
     sth         r7, 46(r3)
 
 sqrLiBChkEnd:
@@ -1324,15 +1324,15 @@ opShiftChkEnd:
     lha         r6, 46(r3)
     li          r7, 0
     cmpi        3, 0, r4, 0
+    cmpi        4, 0, r5, 0
+    cmpi        5, 0, r6, 0
     bgt         3, opLiBChkIR2
     sth         r7, 38(r3)
 opLiBChkIR2:
-    cmpi        3, 0, r5, 0
-    bgt         3, opLiBChkIR3
+    bgt         4, opLiBChkIR3
     sth         r7, 42(r3)
 opLiBChkIR3:
-    cmpi        3, 0, r6, 0
-    bgt         3, opLiBChkEnd
+    bgt         5, opLiBChkEnd
     sth         r7, 46(r3)
 
 opLiBChkEnd:
