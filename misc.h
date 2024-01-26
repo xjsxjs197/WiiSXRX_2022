@@ -59,7 +59,7 @@ extern char debugInfo[256];
 extern char CdromLabel[33];
 
 int LoadCdrom();
-int LoadCdromFile(char *filename, EXE_HEADER *head);
+int LoadCdromFile(const char *filename, EXE_HEADER *head, u8 *time_bcd_out);
 int CheckCdrom();
 int Load(fileBrowser_file *exe);
 
