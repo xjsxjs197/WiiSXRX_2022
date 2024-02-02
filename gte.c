@@ -464,12 +464,15 @@ u32 diff_nsec(u64 start,u64 end);
         psxRegs.gteTmpFloat[2] = (f32)(gteTRZ); \
     } \
     if (tmpOFX != gteOFX) { \
+        tmpOFX = gteOFX; \
         psxRegs.gteTmpFloat[3] = (f32)(gteOFX); \
     } \
     if (tmpOFY != gteOFY) { \
+        tmpOFY = gteOFY; \
         psxRegs.gteTmpFloat[4] = (f32)(gteOFY); \
     } \
     if (tmpDQB != gteDQB) { \
+        tmpDQB = gteDQB; \
         psxRegs.gteTmpFloat[8] = (f32)(gteDQB); \
     }
 
