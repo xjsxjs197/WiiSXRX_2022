@@ -271,6 +271,9 @@ static void StartSoundMain(int ch)
  spu.dwNewChannel&=~(1<<ch);                           // clear new channel bit
  spu.dwChannelDead&=~(1<<ch);
  spu.dwChannelsAudible|=1<<ch;
+
+ s_chan->lastF0F1[0] = 0.0;
+ s_chan->lastF0F1[1] = 0.0;
 }
 
 static void StartSound(int ch)
@@ -302,13 +305,13 @@ INLINE int FModChangeFrequency(s16 *SB, int pitch, int ns)
 
 ////////////////////////////////////////////////////////////////////////
 
-INLINE void StoreInterpolationVal(s16 *SB, int sinc, int fa, int fmod_freq)
+INLINE void StoreInterpolationVal(s16 *SB, int sinc, s16 fa, int fmod_freq)
 {
  if(fmod_freq)                                         // fmod freq channel
   SB[29]=fa;
  else
   {
-   ssat32_to_16(fa);
+   //ssat32_to_16(fa);
 
    /*if(spu_config.iUseInterpolation>=2)                 // gauss/cubic interpolation
     {
@@ -336,7 +339,7 @@ INLINE int iGetInterpolationVal(s16 *SB, int sinc, int spos, int fmod_freq)
 {
  int fa;
 
- if(fmod_freq) return SB[29];
+ if(fmod_freq) return (int)(SB[29]);
 
  /*switch(spu_config.iUseInterpolation)
   {
@@ -390,7 +393,7 @@ INLINE int iGetInterpolationVal(s16 *SB, int sinc, int spos, int fmod_freq)
       InterpolateUp(SB, sinc);                     // --> interpolate up
   else
       InterpolateDown(SB, sinc);                   // --> else down
-   fa=SB[29];
+   fa=(int)(SB[29]);
 
  return fa;
 }
@@ -415,8 +418,8 @@ extern void psDecodePcmBlock(register void* decodeTmp, register s16 *destp, regi
 
 static void decode_block_data(s16 *dest, const unsigned char *src, int predict_nr, int shift_factor, void *lastF0F1)
 {
-    decodeTmp.IK0 = (f32)(FIK0(predict_nr));
-    decodeTmp.IK1 = (f32)(FIK1(predict_nr));
+    decodeTmp.IK0 = FIK0(predict_nr);
+    decodeTmp.IK1 = FIK1(predict_nr);
     decodeTmp.vblockp = (u32)(src);
     decodeTmp.range = shift_factor;
     decodeTmp.decpAddr = lastF0F1;
@@ -573,7 +576,8 @@ static noinline int do_samples_##name( \
  int (*decode_f)(void *context, int ch, int *SB), void *ctx, \
  int ch, int ns_to, s16 *SB, int sinc, int *spos, int *sbpos) \
 {                                            \
- int ns, d, fa;                              \
+ int ns, d;                                  \
+ s16 fa;                                     \
  int ret = ns_to;                            \
  interp_start;                               \
                                              \
@@ -625,7 +629,7 @@ make_do_samples(noint, , fa = SB[29], , ChanBuf[ns] = fa, SB[29] = fa)
   if(sinc<0x10000)                /* -> upsampling? */ \
        InterpolateUp(SB, sinc);   /* --> interpolate up */ \
   else InterpolateDown(SB, sinc); /* --> else down */ \
-  ChanBuf[ns] = SB[29]
+  ChanBuf[ns] = (int)(SB[29])
 
 make_do_samples(simple, , ,
   simple_interp_store, simple_interp_get, )
