@@ -66,8 +66,8 @@ static __inline void ADPCM_DecodeBlock16( ADPCM_Decode_t *decp, u8 filter_range,
     filterid = (filter_range >>  4) & 0x0f;
     range    = (filter_range >>  0) & 0x0f;
 
-    decodeTmp.IK0 = (f32)(FIK0(filterid));
-    decodeTmp.IK1 = (f32)(FIK1(filterid));
+    decodeTmp.IK0 = FIK0(filterid);
+    decodeTmp.IK1 = FIK1(filterid);
     decodeTmp.vblockp = (u32)(vblockp);
     decodeTmp.range = range;
     decodeTmp.decpAddr = (u32)(decp);
