@@ -33,7 +33,6 @@ public:
 	WPADData* getWpad();
 	WUPCData* getWupc();
 	const WiiDRCData* getWiiDRC();
-	PADStatus* getHidPad();
 #endif
 	PADStatus* getPad();
 	void clearInputData();
@@ -52,7 +51,6 @@ private:
 	WPADData *wiiPad;
 	WUPCData *wupcData;
 	const WiiDRCData *wiidrcData;
-	PADStatus* hidGcPad;
 #endif
 
 };

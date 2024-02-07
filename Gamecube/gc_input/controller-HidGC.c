@@ -135,7 +135,7 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 	c->btns.All = 0xFFFF;
 	c->leftStickX = c->leftStickY = c->rightStickX = c->rightStickY = 128;
 
-	//if (!controller_HidGC.available[Control]) return 0;
+	if (!controller_HidGC.available[Control]) return 0;
 
     PAD_Pressed = 0;
 	PAD_Stick_Y = 0;
@@ -274,15 +274,15 @@ controller_t controller_HidGC =
 	  }
 	 };
 
-static volatile hidController *HID_CTRL = (volatile hidController*)0x93005000;
 static void refreshAvailable(void){
 	if (hidPadNeedScan)
 	{
+		volatile hidController *HID_CTRL = (volatile hidController*)0x93005000;
 		hidGcConnected = ((HID_CTRL->VID != 0 && HID_CTRL->PID != 0) ? 1 : 0);
 	    hidPadNeedScan = 0;
 	}
 	controller_HidGC.available[0] = hidGcConnected;
-	controller_HidGC.available[1] = hidGcConnected;
-	controller_HidGC.available[2] = hidGcConnected;
-	controller_HidGC.available[3] = hidGcConnected;
+	controller_HidGC.available[1] = 0;
+	controller_HidGC.available[2] = 0;
+	controller_HidGC.available[3] = 0;
 }

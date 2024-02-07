@@ -86,12 +86,6 @@ Input::Input()
 	WPAD_SetPowerButtonCallback((WPADShutdownCallback)ShutdownWii);
 	SYS_SetPowerCallback(ShutdownWii);
 
-	HIDUpdateRegisters();
-	//writeLogFile("HIDUpdateRegisters==OK==\r\n");
-	PADRead(0);
-	hidGcPad = (PADStatus*)(0x93003100); //PadBuff
-	//writeLogFile("PADRead==OK==\r\n");
-
 #endif
 //	VIDEO_SetPostRetraceCallback (PAD_ScanPads);
 }
@@ -106,8 +100,6 @@ Input::~Input()
 
 void Input::initHid()
 {
-	//writeLogFile("initHid==11111==\r\n");
-
 	// inject nintendont kernel
 	memcpy((void*)0x92F00000,kernel_bin, kernel_bin_size);
 	DCFlushRange((void*)0x92F00000, kernel_bin_size);
@@ -132,12 +124,10 @@ void Input::initHid()
 		*(vu32*)0x92FFFFC4 = 0;
 	DCFlushRange((void*)0x92FFFFC0,0x20);
 
-	//writeLogFile("initHid==2222222==\r\n");
 	s32 fd;
 	fd = IOS_Open( dev_es, 0 );
 	IOS_IoctlvAsync(fd, 0x1F, 0, 0, IOCTL_Buf, NULL, NULL);
-	//Waiting for Nintendont...
-	//writeLogFile("initHid==3333333333==\r\n");
+	// Waiting for Nintendont...
 	while(1)
 	{
 		DCInvalidateRange( STATUS, 0x20 );
@@ -148,9 +138,7 @@ void Input::initHid()
 		}
 	}
 	//Async Ioctlv done by now
-	//writeLogFile("initHid==444444444==\r\n");
 	IOS_Close(fd);
-	//writeLogFile("initHid==5555555==\r\n");
 
 	// Initialize controllers.
 	DCInvalidateRange((void*)0x93000000, 0x3000);
@@ -164,7 +152,6 @@ void Input::initHid()
 	int i;
 	for(i = 0; i < WPAD_MAX_WIIMOTES; ++i)
 		BTPad[i].used = C_NOT_SET;
-	//writeLogFile("initHid==OK==\r\n");
 }
 
 void Input::refreshInput()
@@ -181,12 +168,12 @@ void Input::refreshInput()
 
 	if (hidPadNeedScan)
 	{
-	    static volatile hidController *HID_CTRL = (volatile hidController*)0x93005000;
+	    volatile hidController *HID_CTRL = (volatile hidController*)0x93005000;
 		hidGcConnected = ((HID_CTRL->VID != 0 && HID_CTRL->PID != 0) ? 1 : 0);
-	    hidPadNeedScan = 0;
+		HIDUpdateRegisters();
+		PADRead(0);
+		hidPadNeedScan = 0;
 	}
-	HIDUpdateRegisters();
-	PADRead(0);
 #endif
 }
 
@@ -204,11 +191,6 @@ WUPCData* Input::getWupc()
 const WiiDRCData* Input::getWiiDRC()
 {
 	return wiidrcData;
-}
-
-PADStatus* Input::getHidPad()
-{
-    return hidGcPad;
 }
 #endif
 

@@ -53,7 +53,7 @@ void Focus::updateFocus()
 	int buttonsDown = 0;
 #ifdef HW_RVL
 	WPADData* wiiPad = Input::getInstance().getWpad();
-	PADStatus* hidGcPad = Input::getInstance().getHidPad();
+	PADStatus* hidGcPad = (PADStatus*)(0x93003100); //PadBuff
 #endif
 //	PADStatus* gcPad = Input::getInstance().getPad();
 
