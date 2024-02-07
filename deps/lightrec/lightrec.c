@@ -35,6 +35,8 @@ static bool lightrec_block_is_fully_tagged(const struct block *block);
 static void lightrec_mtc2(struct lightrec_state *state, u8 reg, u32 data);
 static u32 lightrec_mfc2(struct lightrec_state *state, u8 reg);
 
+static void lightrec_reap_block(struct lightrec_state *state, void *data);
+
 static void lightrec_default_sb(struct lightrec_state *state, u32 opcode,
 				void *host, u32 addr, u32 data)
 {
@@ -703,9 +705,15 @@ static struct block * lightrec_get_block(struct lightrec_state *state, u32 pc)
 			if (ENABLE_THREADED_COMPILER)
 				lightrec_recompiler_remove(state->rec, block);
 
-			lightrec_unregister_block(state->block_cache, block);
 			remove_from_code_lut(state->block_cache, block);
-			lightrec_free_block(state, block);
+
+			if (ENABLE_THREADED_COMPILER) {
+				lightrec_reaper_add(state->reaper,
+						    lightrec_reap_block, block);
+			} else {
+				lightrec_unregister_block(state->block_cache, block);
+				lightrec_free_block(state, block);
+			}
 		}
 
 		block = NULL;
@@ -1559,6 +1567,7 @@ static void lightrec_reap_opcode_list(struct lightrec_state *state, void *data)
 int lightrec_compile_block(struct lightrec_cstate *cstate,
 			   struct block *block)
 {
+	struct block *dead_blocks[ARRAY_SIZE(cstate->targets)];
 	u32 was_dead[ARRAY_SIZE(cstate->targets) / 8];
 	struct lightrec_state *state = cstate->state;
 	struct lightrec_branch_target *target;
@@ -1702,6 +1711,8 @@ int lightrec_compile_block(struct lightrec_cstate *cstate,
 				was_dead[i / 32] &= ~BIT(i % 32);
 		}
 
+		dead_blocks[i] = block2;
+
 		/* If block2 was pending for compilation, cancel it.
 		 * If it's being compiled right now, wait until it finishes. */
 		if (block2)
@@ -1720,8 +1731,12 @@ int lightrec_compile_block(struct lightrec_cstate *cstate,
 		offset = lut_offset(block->pc) + target->offset;
 		lut_write(state, offset, jit_address(target->label));
 
-		offset = block->pc + target->offset * sizeof(u32);
-		block2 = lightrec_find_block(state->block_cache, offset);
+		if (ENABLE_THREADED_COMPILER) {
+			block2 = dead_blocks[i];
+		} else {
+			offset = block->pc + target->offset * sizeof(u32);
+			block2 = lightrec_find_block(state->block_cache, offset);
+		}
 		if (block2) {
 			pr_debug("Reap block 0x%08x as it's covered by block "
 				 "0x%08x\n", block2->pc, block->pc);
@@ -1903,11 +1918,13 @@ void lightrec_free_cstate(struct lightrec_cstate *cstate)
 }
 
 struct lightrec_state * lightrec_init(char *argv0,
-				      const struct lightrec_mem_map *map,
+				      const struct lightrec_mem_map *maps,
 				      size_t nb,
 				      const struct lightrec_ops *ops)
 {
-	const struct lightrec_mem_map *codebuf_map = &map[PSX_MAP_CODE_BUFFER];
+	const struct lightrec_mem_map *codebuf_map = &maps[PSX_MAP_CODE_BUFFER];
+	const struct lightrec_mem_map *map;
+	uintptr_t offset_ram, offset_bios, offset_scratch, offset_io;
 	struct lightrec_state *state;
 	uintptr_t addr;
 	void *tlsf = NULL;
@@ -1917,6 +1934,26 @@ struct lightrec_state * lightrec_init(char *argv0,
 	/* Sanity-check ops */
 	if (!ops || !ops->cop2_op || !ops->enable_ram) {
 		pr_err("Missing callbacks in lightrec_ops structure\n");
+		return NULL;
+	}
+
+	/* Sanity-check memory map */
+	map = &maps[PSX_MAP_BIOS];
+	offset_bios = (uintptr_t)map->address - map->pc;
+
+	map = &maps[PSX_MAP_SCRATCH_PAD];
+	offset_scratch = (uintptr_t)map->address - map->pc;
+
+	map = &maps[PSX_MAP_HW_REGISTERS];
+	offset_io = (uintptr_t)map->address - map->pc;
+
+	map = &maps[PSX_MAP_KERNEL_USER_RAM];
+	offset_ram = (uintptr_t)map->address - map->pc;
+
+	if (offset_bios != offset_scratch
+	    || offset_bios != offset_io
+	    || offset_bios != offset_ram) {
+		pr_err("Invalid memory map.\n");
 		return NULL;
 	}
 
@@ -1977,7 +2014,7 @@ struct lightrec_state * lightrec_init(char *argv0,
 	}
 
 	state->nb_maps = nb;
-	state->maps = map;
+	state->maps = maps;
 
 	memcpy(&state->ops, ops, sizeof(*ops));
 
@@ -1995,28 +2032,14 @@ struct lightrec_state * lightrec_init(char *argv0,
 	state->c_wrappers[C_WRAPPER_MTC] = lightrec_mtc_cb;
 	state->c_wrappers[C_WRAPPER_CP] = lightrec_cp_cb;
 
-	map = &state->maps[PSX_MAP_BIOS];
-	state->offset_bios = (uintptr_t)map->address - map->pc;
-
-	map = &state->maps[PSX_MAP_SCRATCH_PAD];
-	state->offset_scratch = (uintptr_t)map->address - map->pc;
-
-	map = &state->maps[PSX_MAP_HW_REGISTERS];
-	state->offset_io = (uintptr_t)map->address - map->pc;
-
-	map = &state->maps[PSX_MAP_KERNEL_USER_RAM];
-	state->offset_ram = (uintptr_t)map->address - map->pc;
-
 	if (state->maps[PSX_MAP_MIRROR1].address == map->address + 0x200000 &&
 	    state->maps[PSX_MAP_MIRROR2].address == map->address + 0x400000 &&
 	    state->maps[PSX_MAP_MIRROR3].address == map->address + 0x600000)
 		state->mirrors_mapped = true;
 
-	if (state->offset_bios == 0 &&
-	    state->offset_scratch == 0 &&
-	    state->offset_ram == 0 &&
-	    state->offset_io == 0 &&
-	    state->mirrors_mapped) {
+	state->offset = offset_ram;
+
+	if (state->offset == 0 && state->mirrors_mapped) {
 		pr_info("Memory map is perfect. Emitted code will be best.\n");
 	} else {
 		pr_info("Memory map is sub-par. Emitted code will be slow.\n");
