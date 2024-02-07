@@ -58,17 +58,16 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
 ## Goals
 
-(some taken from NiuuS' WiiSXRX readme)
-
 * Improve GTE (Geometry Transformation Engine) code to provide 3D game speed.
-  Although I used paired single instruction, the speed is basically not improved.
+  By using the paired single instruction, most of the GTE logic has been rewritten, and FPS has indeed improved by about 2 frames,
+  However, due to accuracy issues, there may be minor image issues.
+
+* HID controller support via USB.
+  By reading the code of Nintendont, have understood the working principle of the HID controller,
+  It is still a little bit short to port Nintendont's HID control logic to WiiStation.
 
 * Use the graphics display mode of GL to provide image quality and performance.
-  I don't know anything about OpenGL, and I don't know if I can use grrlib.
-
-* DualShock 3, DualShock 4 and DualShock 5 controller support.
-
-* Possibility to select other BIOS with some basic buttons.
+  (At least transplant the texture caching logic in OpenGL, it may improve running efficiency).
 
 Any help is appreciated.
 
