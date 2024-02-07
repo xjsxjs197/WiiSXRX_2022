@@ -1,5 +1,5 @@
 README : WiiStation
-Ver 2.4
+Ver 3.0
 
 LICENSE:
     This software is licensed under the GNU General Public License v2
@@ -12,18 +12,18 @@ QUICK USAGE:
  * To install: Extract the contents of WiiStation.zip to the root of your SD card
  * For SD/USB: Put ISOs (.bin/.cue or other formats) in the directory named /wiisxrx/isos,
     All Memory Cards will automatically be placed in /wiisxrx/saves
-	All Savestates will automatically be placed in /wiisxrx/savestates
+    All Savestates will automatically be placed in /wiisxrx/savestates
  * For DVD: ISOs may be anywhere on the disc (requires DVDxV2 on Wii)
  * For actual BIOS: Put SCPH1001.BIN in the directory on SD/USB named /wiisxrx/bios
  * Load the executable from the HBC or in the loader of your choice
     Once loaded, select 'Load ISO' and choose the source and select the ISO to load
-		(Note: to go up a directory select '..', B will exit the file browser)
+        (Note: to go up a directory select '..', B will exit the file browser)
  * Select 'Play Game' to play
    The game can be exited any time by pressing a configurable key combination together
    on a GC pad (START & X), Wii Classic Controller or Pro (HOME), Wiimote (- & +),
    Wii U Pro Controller (HOME), or Wii U GamePad (HOME)
    Wiimote+Nunchuk (1 & 2), or the RESET button
-		(Note: this must be done to save your game; it will not be done automatically)
+        (Note: this must be done to save your game; it will not be done automatically)
 
 Controls:
  * While the GameCube pad is compatible, a Wii Classic Controller, Wii Classic Controller Pro, or Wii U Pro Controller is recommended.
@@ -43,7 +43,7 @@ Settings:
    * Native Saves Device: Choose where to load and save native game saves
    * Save States Device: Choose where to load and save save states
    * Select CPU Core: Choose whether to play games with Pure Interpreter
-		(better compatibility) or Dynarec (better speed)
+        (better compatibility) or Dynarec (better speed)
    * Save settings: Save all of these settings either SD or USB (to be loaded automatically next time)
  * Video
    * Show FPS: Display the framerate in the top-left corner of the screen
@@ -59,8 +59,8 @@ Settings:
    * Disable CDDA: Select to mute the CDDA audio tracks
  * Saves
    * Auto Save Native Saves: When enabled, the emulator will automatically load
-	 saves from the selected device on ISO load and save when returning to the menu or
-	 turning off the console
+     saves from the selected device on ISO load and save when returning to the menu or
+     turning off the console
    * Copy Saves: Not yet implemented
    * Delete Saves: Not yet implemented
 
@@ -116,6 +116,18 @@ LATER UPDATES BY:
  * Jokippo
 
 WiiStation CHANGE LOG:
+Ver 3.0:
+* 240p/Lightgun/Mouse/Multitap support.
+* CHD v1-v5 compressed format support.
+* Add Force ntsc mode.
+* Rewritten PCM decoding logic using the paired single instruction,
+  There is a slight increase in corresponding speed.
+* Imported the latest SPU, GPU, BIOS, Cdrom and other modules from PCSX ReARMed.
+* Add separate save function, each game can save its own settings.
+* Add old dynamic compilation core, For games where the Lightrec core cannot run,
+  you can try the old dynamic compilation core.
+* Many other minor corrections.
+
 Ver 2.4:
 * Use devkitPPC r41-2 + libOGC2 to compile code and solve the problem of some games not running.
 * Use the latest Lightrec to solve the problem of slow of Destruction Derby Raw.

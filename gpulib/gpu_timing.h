@@ -13,3 +13,7 @@
 #define gput_line(k)        (8 + (k))
 #define gput_sprite(w, h)   (8 + ((w) / 2u) * (h))
 
+// sort of a workaround for lack of proper fifo emulation
+#define gput_sum(sum, cnt, new_cycles) do { \
+  sum += cnt; cnt = new_cycles; \
+} while (0)

@@ -119,7 +119,7 @@ typedef struct
  unsigned int      bFMod:2;                            // freq mod (0=off, 1=sound channel, 2=freq channel)
  unsigned int      prevflags:3;                        // flags from previous block
  unsigned int      bIgnoreLoop:1;                      // Ignore loop
- unsigned int      bNewPitch:1;                        // pitch changed
+ unsigned int      bStarting:1;                        // starting after keyon
  union {
   struct {
    int             iLeftVolume;                        // left volume
@@ -129,6 +129,7 @@ typedef struct
  };
  ADSRInfoEx        ADSRX;
  int               iRawPitch;                          // raw pitch (0...3fff)
+ f32               lastF0F1[2];
 } SPUCHAN;
 
 ///////////////////////////////////////////////////////////
@@ -250,16 +251,16 @@ typedef struct
  unsigned int  * CDDAEnd;
 
  // buffers
- int           * SB;
+ s16           * SB;
 
  unsigned short  regArea[0x400];
  int             interpolation;
 } SPUInfo;
 
 #define regAreaGet(offset) \
-  spu.regArea[((offset) - 0xc00)>>1]
+  spu.regArea[((offset) - 0xc00) >> 1]
 #define regAreaGetCh(ch, offset) \
-  spu.regArea[((ch<<4)|(offset))>>1]
+  spu.regArea[(((ch) << 4) | (offset)) >> 1]
 
 ///////////////////////////////////////////////////////////
 // SPU.C globals

@@ -61,7 +61,7 @@ typedef void (CALLBACK* GPUwriteDataMem)(uint32_t *, int);
 typedef uint32_t (CALLBACK* GPUreadStatus)(void);
 typedef uint32_t (CALLBACK* GPUreadData)(void);
 typedef void (CALLBACK* GPUreadDataMem)(uint32_t *, int);
-typedef long (CALLBACK* GPUdmaChain)(uint32_t *,uint32_t, uint32_t *);
+typedef long (CALLBACK* GPUdmaChain)(uint32_t *, uint32_t, uint32_t *, int32_t *);
 typedef void (CALLBACK* GPUupdateLace)(void);
 typedef void (CALLBACK* GPUmakeSnapshot)(void);
 typedef void (CALLBACK* GPUkeypressed)(int);
@@ -82,13 +82,13 @@ typedef void (CALLBACK* GPUgetScreenInfo)(int *, int *);
 // GPU function pointers
 extern GPUupdateLace    GPU_updateLace;
 extern GPUinit          GPU_init;
-extern GPUshutdown      GPU_shutdown; 
+extern GPUshutdown      GPU_shutdown;
 extern GPUopen          GPU_open;
 extern GPUclose         GPU_close;
 extern GPUreadStatus    GPU_readStatus;
 extern GPUreadData      GPU_readData;
 extern GPUreadDataMem   GPU_readDataMem;
-extern GPUwriteStatus   GPU_writeStatus; 
+extern GPUwriteStatus   GPU_writeStatus;
 extern GPUwriteData     GPU_writeData;
 extern GPUwriteDataMem  GPU_writeDataMem;
 extern GPUdmaChain      GPU_dmaChain;
@@ -142,7 +142,7 @@ typedef long (CALLBACK* CDRgetTE)(unsigned char, unsigned char *, unsigned char 
 extern CDRinit               CDR_init;
 extern CDRshutdown           CDR_shutdown;
 extern CDRopen               CDR_open;
-extern CDRclose              CDR_close; 
+extern CDRclose              CDR_close;
 extern CDRtest               CDR_test;
 extern CDRgetTN              CDR_getTN;
 extern CDRgetTD              CDR_getTD;
@@ -166,7 +166,7 @@ typedef long (CALLBACK* SPUinit)(void);
 typedef long (CALLBACK* SPUshutdown)(void);
 typedef long (CALLBACK* SPUclose)(void);
 typedef void (CALLBACK* SPUwriteRegister)(unsigned long, unsigned short, unsigned int);
-typedef unsigned short (CALLBACK* SPUreadRegister)(unsigned long);
+typedef unsigned short (CALLBACK* SPUreadRegister)(unsigned long, unsigned int);
 typedef void (CALLBACK* SPUwriteDMAMem)(unsigned short *, int, unsigned int);
 typedef void (CALLBACK* SPUreadDMAMem)(unsigned short *, int, unsigned int);
 typedef void (CALLBACK* SPUplayADPCMchannel)(xa_decode_t *, unsigned int, int);
@@ -283,11 +283,11 @@ typedef long (CALLBACK* NETsetInfo)(netInfo *);
 typedef long (CALLBACK* NETkeypressed)(int);
 
 
-// NET function pointers 
+// NET function pointers
 extern NETinit               NET_init;
 extern NETshutdown           NET_shutdown;
 extern NETopen               NET_open;
-extern NETclose              NET_close; 
+extern NETclose              NET_close;
 extern NETtest               NET_test;
 extern NETconfigure          NET_configure;
 extern NETabout              NET_about;

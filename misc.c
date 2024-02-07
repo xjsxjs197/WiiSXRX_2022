@@ -287,7 +287,7 @@ int LoadCdrom() {
 	return 0;
 }
 
-int LoadCdromFile(char *filename, EXE_HEADER *head) {
+int LoadCdromFile(const char *filename, EXE_HEADER *head, u8 *time_bcd_out) {
 	struct iso_directory_record *dir;
 	u8 time[4],*buf;
 	u8 mdir[4096];
@@ -320,6 +320,7 @@ int LoadCdromFile(char *filename, EXE_HEADER *head) {
 	if (GetCdromFile(mdir, time, exename) == -1) return -1;
 
 	READTRACK();
+	incTime();
 
 	memcpy(head, buf + 12, sizeof(EXE_HEADER));
 	size = SWAP32(head->t_size);
@@ -331,8 +332,8 @@ int LoadCdromFile(char *filename, EXE_HEADER *head) {
 	psxRegs.ICache_valid = FALSE;
 
 	while (size & ~2047) {
-		incTime();
 		READTRACK();
+		incTime();
 
 		mem = PSXM(addr);
 		if (mem != INVALID_PTR)
@@ -341,8 +342,23 @@ int LoadCdromFile(char *filename, EXE_HEADER *head) {
 		size -= 2048;
 		addr += 2048;
 	}
+	if (time_bcd_out)
+		memcpy(time_bcd_out, time, 3);
 
 	return 0;
+}
+
+void CheckPsxType()
+{
+	if (
+		/* Make sure Wild Arms SCUS-94608 is not detected as a PAL game. */
+		((CdromId[0] == 's' || CdromId[0] == 'S') && (CdromId[2] == 'e' || CdromId[2] == 'E')) ||
+		!strncmp(CdromId, "DTLS3035", 8) ||
+		!strncmp(CdromId, "PBPX95001", 9) || // according to redump.org, these PAL
+		!strncmp(CdromId, "PBPX95007", 9) || // discs have a non-standard ID;
+		!strncmp(CdromId, "PBPX95008", 9))   // add more serials if they are discovered.
+		Config.PsxType = PSX_TYPE_PAL; // pal
+	else Config.PsxType = PSX_TYPE_NTSC; // ntsc
 }
 
 int CheckCdrom() {
@@ -424,16 +440,11 @@ int CheckCdrom() {
 	if (CdromId[0] == '\0')
 		strcpy(CdromId, "SLUS99999");
 
-	if (Config.PsxAuto) { // autodetect system (pal or ntsc)
-		if (
-			/* Make sure Wild Arms SCUS-94608 is not detected as a PAL game. */
-			((CdromId[0] == 's' || CdromId[0] == 'S') && (CdromId[2] == 'e' || CdromId[2] == 'E')) ||
-			!strncmp(CdromId, "DTLS3035", 8) ||
-			!strncmp(CdromId, "PBPX95001", 9) || // according to redump.org, these PAL
-			!strncmp(CdromId, "PBPX95007", 9) || // discs have a non-standard ID;
-			!strncmp(CdromId, "PBPX95008", 9))   // add more serials if they are discovered.
-			Config.PsxType = PSX_TYPE_PAL; // pal
-		else Config.PsxType = PSX_TYPE_NTSC; // ntsc
+	if (forceNTSC){
+		Config.PsxType = PSX_TYPE_NTSC;
+	}
+	else if (Config.PsxAuto) { // autodetect system (pal or ntsc)
+		CheckPsxType();
 	}
 
 	if (CdromLabel[0] == ' ') {
@@ -528,7 +539,7 @@ int Load(fileBrowser_file *exe) {
 
 // STATES
 void LoadingBar_showBar(float percent, const char* string);
-const char PcsxHeader[32] = "STv4 PCSX v";
+const char PcsxHeader[32] = "STv4 PCSX 3.0";
 char* statespath = "/wiisxrx/savestates/";
 static unsigned int savestates_slot = 0;
 extern unsigned char  *psxVub;
@@ -696,7 +707,7 @@ int LoadState() {
     LoadingBar_showBar(0.10f, LOAD_STATE_MSG);
 
 
-	if (strncmp("STv4 PCSX", header, 9)) { gzclose(f); return -1; }
+	if (strncmp(PcsxHeader, header, sizeof(header))) { gzclose(f); return -1; }
 
 	if (Config.HLE)
 		psxBiosInit();

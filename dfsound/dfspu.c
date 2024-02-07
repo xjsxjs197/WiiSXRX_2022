@@ -126,7 +126,7 @@ int ChanBuf[NSSIZE];
 //          /
 //
 
-static void InterpolateUp(int *SB, int sinc)
+static void InterpolateUp(s16 *SB, int sinc)
 {
  if(SB[32]==1)                                         // flag == 1? calc step and set flag... and don't change the value in this pass
   {
@@ -175,7 +175,7 @@ static void InterpolateUp(int *SB, int sinc)
 // even easier interpolation on downsampling, also no special filter, again just "Pete's common sense" tm
 //
 
-static void InterpolateDown(int *SB, int sinc)
+static void InterpolateDown(s16 *SB, int sinc)
 {
  if(sinc>=0x20000L)                                 // we would skip at least one val?
   {
@@ -243,7 +243,7 @@ void do_irq_io(int cycles_after)
 // START SOUND... called by main thread to setup a new sound on a channel
 ////////////////////////////////////////////////////////////////////////
 
-static void StartSoundSB(int *SB)
+static void StartSoundSB(s16 *SB)
 {
  SB[26]=0;                                             // init mixing vars
  SB[27]=0;
@@ -261,15 +261,19 @@ static void StartSoundMain(int ch)
  StartADSR(ch);
  StartREVERB(ch);
 
- s_chan->prevflags=2;
- s_chan->iSBPos=27;
- s_chan->spos=0;
+ s_chan->prevflags = 2;
+ s_chan->iSBPos = 27;
+ s_chan->spos = 0;
+ s_chan->bStarting = 1;
 
  s_chan->pCurr = spu.spuMemC + ((regAreaGetCh(ch, 6) & ~1) << 3);
 
  spu.dwNewChannel&=~(1<<ch);                           // clear new channel bit
  spu.dwChannelDead&=~(1<<ch);
  spu.dwChannelsAudible|=1<<ch;
+
+ s_chan->lastF0F1[0] = 0.0;
+ s_chan->lastF0F1[1] = 0.0;
 }
 
 static void StartSound(int ch)
@@ -282,7 +286,7 @@ static void StartSound(int ch)
 // ALL KIND OF HELPERS
 ////////////////////////////////////////////////////////////////////////
 
-INLINE int FModChangeFrequency(int *SB, int pitch, int ns)
+INLINE int FModChangeFrequency(s16 *SB, int pitch, int ns)
 {
  unsigned int NP=pitch;
  int sinc;
@@ -301,13 +305,13 @@ INLINE int FModChangeFrequency(int *SB, int pitch, int ns)
 
 ////////////////////////////////////////////////////////////////////////
 
-INLINE void StoreInterpolationVal(int *SB, int sinc, int fa, int fmod_freq)
+INLINE void StoreInterpolationVal(s16 *SB, int sinc, s16 fa, int fmod_freq)
 {
  if(fmod_freq)                                         // fmod freq channel
   SB[29]=fa;
  else
   {
-   ssat32_to_16(fa);
+   //ssat32_to_16(fa);
 
    /*if(spu_config.iUseInterpolation>=2)                 // gauss/cubic interpolation
     {
@@ -331,11 +335,11 @@ INLINE void StoreInterpolationVal(int *SB, int sinc, int fa, int fmod_freq)
 
 ////////////////////////////////////////////////////////////////////////
 
-INLINE int iGetInterpolationVal(int *SB, int sinc, int spos, int fmod_freq)
+INLINE int iGetInterpolationVal(s16 *SB, int sinc, int spos, int fmod_freq)
 {
  int fa;
 
- if(fmod_freq) return SB[29];
+ if(fmod_freq) return (int)(SB[29]);
 
  /*switch(spu_config.iUseInterpolation)
   {
@@ -389,49 +393,74 @@ INLINE int iGetInterpolationVal(int *SB, int sinc, int spos, int fmod_freq)
       InterpolateUp(SB, sinc);                     // --> interpolate up
   else
       InterpolateDown(SB, sinc);                   // --> else down
-   fa=SB[29];
+   fa=(int)(SB[29]);
 
  return fa;
 }
 
-static void decode_block_data(int *dest, const unsigned char *src, int predict_nr, int shift_factor)
+static f32 FK0[16] = {
+    0.0       ,
+    0.9375    ,
+    1.796875  ,
+    1.53125   ,
+    1.90625
+};
+static f32 FK1[16] = {
+    0.0       ,
+    0.0       ,
+    -0.8125   ,
+    -0.859375 ,
+    -0.9375
+};
+
+static typPcmDecode decodeTmp;
+extern void psDecodePcmBlock(register void* decodeTmp, register s16 *destp, register s32 inc);
+
+static void decode_block_data(s16 *dest, const unsigned char *src, int predict_nr, int shift_factor, void *lastF0F1)
 {
- static const int f[16][2] = {
-    {    0,  0  },
-    {   60,  0  },
-    {  115, -52 },
-    {   98, -55 },
-    {  122, -60 }
- };
- int nSample;
- int fa, s_1, s_2, d, s;
+    decodeTmp.IK0 = FIK0(predict_nr);
+    decodeTmp.IK1 = FIK1(predict_nr);
+    decodeTmp.vblockp = (u32)(src);
+    decodeTmp.range = shift_factor;
+    decodeTmp.decpAddr = lastF0F1;
 
- s_1 = dest[27];
- s_2 = dest[26];
-
- for (nSample = 0; nSample < 28; src++)
- {
-  d = (int)*src;
-  s = (int)(signed short)((d & 0x0f) << 12);
-
-  fa = s >> shift_factor;
-  fa += ((s_1 * f[predict_nr][0])>>6) + ((s_2 * f[predict_nr][1])>>6);
-  ssat32_to_16(fa);
-  s_2 = s_1; s_1 = fa;
-
-  dest[nSample++] = fa;
-
-  s = (int)(signed short)((d & 0xf0) << 8);
-  fa = s >> shift_factor;
-  fa += ((s_1 * f[predict_nr][0])>>6) + ((s_2 * f[predict_nr][1])>>6);
-  ssat32_to_16(fa);
-  s_2 = s_1; s_1 = fa;
-
-  dest[nSample++] = fa;
- }
+    psDecodePcmBlock(&decodeTmp, dest - 1, 2);
+// static const int f[16][2] = {
+//    {    0,  0  },
+//    {   60,  0  },
+//    {  115, -52 },
+//    {   98, -55 },
+//    {  122, -60 }
+// };
+// int nSample;
+// int fa, s_1, s_2, d, s;
+//
+// s_1 = dest[27];
+// s_2 = dest[26];
+//
+// for (nSample = 0; nSample < 28; src++)
+// {
+//  d = (int)*src;
+//  s = (int)(signed short)((d & 0x0f) << 12);
+//
+//  fa = s >> shift_factor;
+//  fa += ((s_1 * f[predict_nr][0])>>6) + ((s_2 * f[predict_nr][1])>>6);
+//  ssat32_to_16(fa);
+//  s_2 = s_1; s_1 = fa;
+//
+//  dest[nSample++] = fa;
+//
+//  s = (int)(signed short)((d & 0xf0) << 8);
+//  fa = s >> shift_factor;
+//  fa += ((s_1 * f[predict_nr][0])>>6) + ((s_2 * f[predict_nr][1])>>6);
+//  ssat32_to_16(fa);
+//  s_2 = s_1; s_1 = fa;
+//
+//  dest[nSample++] = fa;
+// }
 }
 
-static int decode_block(void *unused, int ch, int *SB)
+static int decode_block(void *unused, int ch, s16 *SB)
 {
  SPUCHAN *s_chan = &spu.s_chan[ch];
  unsigned char *start;
@@ -456,7 +485,7 @@ static int decode_block(void *unused, int ch, int *SB)
  shift_factor = predict_nr & 0xf;
  predict_nr >>= 4;
 
- decode_block_data(SB, start + 2, predict_nr, shift_factor);
+ decode_block_data(SB, start + 2, predict_nr, shift_factor, &s_chan->lastF0F1[0]);
 
  flags = start[1];
  if (flags & 4 && !s_chan->bIgnoreLoop)
@@ -466,6 +495,7 @@ static int decode_block(void *unused, int ch, int *SB)
 
  s_chan->pCurr = start;                    // store values for next cycle
  s_chan->prevflags = flags;
+ s_chan->bStarting = 0;
 
  return ret;
 }
@@ -495,6 +525,7 @@ static int skip_block(int ch)
 
  s_chan->pCurr = start;
  s_chan->prevflags = flags;
+ s_chan->bStarting = 0;
 
  return ret;
 }
@@ -543,9 +574,10 @@ static void scan_for_irq(int ch, unsigned int *upd_samples)
 #define make_do_samples(name, fmod_code, interp_start, interp1_code, interp2_code, interp_end) \
 static noinline int do_samples_##name( \
  int (*decode_f)(void *context, int ch, int *SB), void *ctx, \
- int ch, int ns_to, int *SB, int sinc, int *spos, int *sbpos) \
+ int ch, int ns_to, s16 *SB, int sinc, int *spos, int *sbpos) \
 {                                            \
- int ns, d, fa;                              \
+ int ns, d;                                  \
+ s16 fa;                                     \
  int ret = ns_to;                            \
  interp_start;                               \
                                              \
@@ -597,7 +629,7 @@ make_do_samples(noint, , fa = SB[29], , ChanBuf[ns] = fa, SB[29] = fa)
   if(sinc<0x10000)                /* -> upsampling? */ \
        InterpolateUp(SB, sinc);   /* --> interpolate up */ \
   else InterpolateDown(SB, sinc); /* --> else down */ \
-  ChanBuf[ns] = SB[29]
+  ChanBuf[ns] = (int)(SB[29])
 
 make_do_samples(simple, , ,
   simple_interp_store, simple_interp_get, )
@@ -775,7 +807,8 @@ static void do_channels(int ns_to)
  unsigned int mask;
  int do_rvb, ch, d;
  SPUCHAN *s_chan;
- int *SB, sinc;
+ s16 *SB;
+ int sinc;
 
  do_rvb = spu.rvb->StartAddr && spu_config.iUseReverb;
  if (do_rvb)
@@ -795,9 +828,9 @@ static void do_channels(int ns_to)
    s_chan = &spu.s_chan[ch];
    SB = spu.SB + ch * SB_SIZE;
    sinc = s_chan->sinc;
-   if (spu.s_chan[ch].bNewPitch)
-    SB[32] = 1;                                    // reset interpolation
-   spu.s_chan[ch].bNewPitch = 0;
+   //if (spu.s_chan[ch].bNewPitch)
+   // SB[32] = 1;                                    // reset interpolation
+   //spu.s_chan[ch].bNewPitch = 0;
 
    if (s_chan->bNoise)
     d = do_samples_noise(ch, ns_to);
@@ -812,13 +845,15 @@ static void do_channels(int ns_to)
     d = do_samples_default(decode_block, NULL, ch, ns_to,
           SB, sinc, &s_chan->spos, &s_chan->iSBPos);
 
-   d = MixADSR(&s_chan->ADSRX, d);
-   if (d < ns_to) {
-    spu.dwChannelsAudible &= ~(1 << ch);
-    s_chan->ADSRX.State = ADSR_RELEASE;
-    s_chan->ADSRX.EnvelopeVol = 0;
-    s_chan->ADSRX.EnvelopeCounter = 0;
-    memset(&ChanBuf[d], 0, (ns_to - d) * sizeof(ChanBuf[0]));
+   if (!s_chan->bStarting) {
+    d = MixADSR(&s_chan->ADSRX, d);
+    if (d < ns_to) {
+     spu.dwChannelsAudible &= ~(1 << ch);
+     s_chan->ADSRX.State = ADSR_RELEASE;
+     s_chan->ADSRX.EnvelopeVol = 0;
+     s_chan->ADSRX.EnvelopeCounter = 0;
+     memset(&ChanBuf[d], 0, (ns_to - d) * sizeof(ChanBuf[0]));
+    }
    }
 
    if (ch == 1 || ch == 3)
@@ -882,7 +917,7 @@ void do_samples(unsigned int cycles_to, int do_direct)
      return 0;
  }
 
- ns_to = (cycle_diff / 768 + 1) & ~3;
+ ns_to = (cycle_diff / 768 + 3) & ~3;
  if (ns_to > NSSIZE) {
   // should never happen
   //xprintf("ns_to oflow %d %d\n", ns_to, NSSIZE);
@@ -1049,11 +1084,11 @@ void CALLBACK DF_SPUasync(unsigned int cycle, unsigned int flags, unsigned int p
    if (!out_current->busy()) {
     // cause more samples to be generated
     // (and break some games because of bad sync)
-    if (psxType) {
-        spu.cycles_played -= PS_SPU_FREQ / 50 / 2 * 768;  // Config.PsxType = 1, PAL 50Fps/1s
-    } else {
+    //if (psxType) {
+    //    spu.cycles_played -= PS_SPU_FREQ / 50 / 2 * 768;  // Config.PsxType = 1, PAL 50Fps/1s
+    //} else {
         spu.cycles_played -= PS_SPU_FREQ / 60 / 2 * 768;  // Config.PsxType = 0, PAL 60Fps/1s
-    }
+    //}
    }
  }
 }
@@ -1203,7 +1238,7 @@ long DF_SPUinit(void)
   //     spu.SB = calloc(MAXCHAN, sizeof(spu.SB[0]) * SB_SIZE);
   spu.s_chan = (SPUCHAN *)s_chan;
   spu.rvb = (REVERBInfo *)rvb;
-  spu.SB = (int *)SB;
+  spu.SB = (s16 *)SB;
 
  spu.spuAddr = 0;
  spu.decode_pos = 0;

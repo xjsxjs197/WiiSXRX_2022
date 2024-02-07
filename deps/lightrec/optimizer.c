@@ -345,7 +345,7 @@ static bool reg_is_read_or_written(const struct opcode *list,
 	return reg_is_read(list, a, b, reg) || reg_is_written(list, a, b, reg);
 }
 
-bool opcode_is_mfc(union code op)
+static bool opcode_is_mfc(union code op)
 {
 	switch (op.i.op) {
 	case OP_CP0:
@@ -377,7 +377,7 @@ bool opcode_is_mfc(union code op)
 	return false;
 }
 
-bool opcode_is_load(union code op)
+static bool opcode_is_load(union code op)
 {
 	switch (op.i.op) {
 	case OP_LB:
@@ -409,6 +409,12 @@ static bool opcode_is_store(union code op)
 	default:
 		return false;
 	}
+}
+
+bool opcode_has_load_delay(union code op)
+{
+	return (opcode_is_load(op) && op.i.rt && op.i.op != OP_LWC2)
+		|| opcode_is_mfc(op);
 }
 
 static u8 opcode_get_io_size(union code op)
@@ -636,7 +642,7 @@ lightrec_remove_useless_lui(struct block *block, unsigned int offset,
 		return;
 	}
 
-	if (op->i.imm != 0 || op->i.rt == 0 || offset == block->nb_ops - 1)
+	if (op->i.imm != 0 || op->i.rt == 0 || is_delay_slot(list, offset))
 		return;
 
 	reader = find_next_reader(list, offset + 1, op->i.rt);
@@ -996,10 +1002,10 @@ static int lightrec_transform_ops(struct lightrec_state *state, struct block *bl
 			break;
 
 		case OP_LUI:
-			if (i == 0 || !has_delay_slot(list[i - 1].c))
+			if (!is_delay_slot(list, i))
 				lightrec_modify_lui(block, i);
 			lightrec_remove_useless_lui(block, i, v);
-			if (i == 0 || !has_delay_slot(list[i - 1].c))
+			if (!is_delay_slot(list, i))
 				lightrec_lui_to_movi(block, i);
 			break;
 
@@ -1385,7 +1391,7 @@ static int lightrec_handle_load_delays(struct lightrec_state *state,
 	for (i = 0; i < block->nb_ops; i++) {
 		op = &list[i];
 
-		if (!opcode_is_load(op->c) || !op->c.i.rt || op->c.i.op == OP_LWC2)
+		if (!opcode_has_load_delay(op->c))
 			continue;
 
 		if (!is_delay_slot(list, i)) {
@@ -2093,7 +2099,7 @@ static int lightrec_flag_mults_divs(struct lightrec_state *state, struct block *
 			list->flags &= ~(LIGHTREC_NO_LO | LIGHTREC_NO_HI);
 		}
 
-		if (reg_lo > 0 && reg_lo != REG_LO) {
+		if (0/* Broken */ && reg_lo > 0 && reg_lo != REG_LO) {
 			pr_debug("Found register %s to hold LO (rs = %u, rt = %u)\n",
 				 lightrec_reg_name(reg_lo), list->r.rs, list->r.rt);
 
@@ -2103,7 +2109,7 @@ static int lightrec_flag_mults_divs(struct lightrec_state *state, struct block *
 			list->r.rd = 0;
 		}
 
-		if (reg_hi > 0 && reg_hi != REG_HI) {
+		if (0/* Broken */ && reg_hi > 0 && reg_hi != REG_HI) {
 			pr_debug("Found register %s to hold HI (rs = %u, rt = %u)\n",
 				 lightrec_reg_name(reg_hi), list->r.rs, list->r.rt);
 

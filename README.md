@@ -16,7 +16,7 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 * Combined the latest DFSound module from PCSX-ReARMed and used the SDL library.
   The sound quality of the system has been greatly improved.
 
-* Adding the new, updated PSX dynamic recompiler [Lightrec](https://github.com/pcercuei/lightrec) by pcercuei, the speed/performance of the emulation is greatly improved. The original old (and fixed/improved) PPC dynarec is kept as an option in case compatibility or speed changes much.
+* Adding the new, updated PSX dynamic recompiler [Lightrec](https://github.com/pcercuei/lightrec) by pcercuei, the speed/performance of the emulation is greatly improved. The 'new' PPC Dynarec is kept as an option in case compatibility or speed changes much.
 
 * 240p support!
 
@@ -47,24 +47,27 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
   ※※※ Note: It reads a font file in a fixed location, so make sure that [sd:/wiisxrx/fonts/chs.dat] exists ※※※
 
-## Changes on old PPC dynarec:
+## Changes on 'new' PPC Dynarec:
 
-* Modification of some dynamic compilation instructions on the old PPC dynarec, such as SLLV, SRLV, SRAV, Final Fantasy 9 and Biohazard 3 (Resident Evil 3) can be run.
+* Modification of some dynamic compilation instructions on the PPC Dynarec, such as SLLV, SRLV, SRAV, Final Fantasy 9 and Biohazard 3 (Resident Evil 3) can be run.
 (Part of the division instruction uses a static compilation instruction)
+
+* Emulation of more instructions, such BREAK and SYSCALL, makes more games to be playable with the PPC Dynarec (ex., EA Sports F1 2000).
+
+* Many other emulation, speed and events improvements, some of them courtesy of PCSX-ReARMed.
 
 ## Goals
 
-(some taken from NiuuS' WiiSXRX readme)
-
 * Improve GTE (Geometry Transformation Engine) code to provide 3D game speed.
-  Although I used paired single instruction, the speed is basically not improved.
+  By using the paired single instruction, most of the GTE logic has been rewritten, and FPS has indeed improved by about 2 frames,
+  However, due to accuracy issues, there may be minor image issues.
+
+* HID controller support via USB.
+  By reading the code of Nintendont, have understood the working principle of the HID controller,
+  It is still a little bit short to port Nintendont's HID control logic to WiiStation.
 
 * Use the graphics display mode of GL to provide image quality and performance.
-  I don't know anything about OpenGL, and I don't know if I can use grrlib.
-
-* DualShock 3, DualShock 4 and DualShock 5 controller support.
-
-* Possibility to select other BIOS with some basic buttons.
+  (At least transplant the texture caching logic in OpenGL, it may improve running efficiency).
 
 Any help is appreciated.
 

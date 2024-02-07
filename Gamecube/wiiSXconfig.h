@@ -318,6 +318,12 @@ enum memCard
 	MEMCARD_ENABLE,
 };
 
+extern char forceNTSC;
+enum forceNTSC
+{
+	FORCENTSC_DISABLE=0,
+	FORCENTSC_ENABLE,
+};
 
 extern const unsigned char En_dat[];
 extern const unsigned int  En_dat_size;

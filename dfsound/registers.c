@@ -207,13 +207,13 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
     //-------------------------------------------------//
     case H_SPUon1:
       spu.last_keyon_cycles = cycles;
-      do_samples_if_needed(cycles, 0, 2);
+      do_samples_if_needed(cycles, 0, 4);
       SoundOn(0,16,val);
       break;
     //-------------------------------------------------//
     case H_SPUon2:
       spu.last_keyon_cycles = cycles;
-      do_samples_if_needed(cycles, 0, 2);
+      do_samples_if_needed(cycles, 0, 4);
       SoundOn(16,24,val);
       break;
     //-------------------------------------------------//
@@ -223,7 +223,7 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
         log_unhandled("koff1 %04x %d\n", val, cycles - spu.last_keyon_cycles);
        val &= ~regAreaGet(H_SPUon1);
       }
-      do_samples_if_needed(cycles, 0, 2);
+      do_samples_if_needed(cycles, 0, 4);
       SoundOff(0,16,val);
       break;
     //-------------------------------------------------//
@@ -233,7 +233,7 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
         log_unhandled("koff2 %04x %d\n", val, cycles - spu.last_keyon_cycles);
        val &= ~regAreaGet(H_SPUon2);
       }
-      do_samples_if_needed(cycles, 0, 2);
+      do_samples_if_needed(cycles, 0, 4);
       SoundOff(16,24,val);
       break;
     //-------------------------------------------------//
@@ -318,7 +318,7 @@ rvbd:
 // READ REGISTER: called by main emu
 ////////////////////////////////////////////////////////////////////////
 
-unsigned short CALLBACK DF_SPUreadRegister(unsigned long reg)
+unsigned short CALLBACK DF_SPUreadRegister(unsigned long reg, unsigned int cycles)
 {
  const unsigned long r = reg & 0xffe;
 
@@ -329,6 +329,8 @@ unsigned short CALLBACK DF_SPUreadRegister(unsigned long reg)
      case 12:                                          // get adsr vol
       {
        const int ch=(r>>4)-0xc0;
+	   if (spu.s_chan[ch].bStarting)
+        do_samples_if_needed(cycles, 0, 4);
        if(spu.dwNewChannel&(1<<ch)) return 1;          // we are started, but not processed? return 1
        if((spu.dwChannelsAudible&(1<<ch)) &&                 // same here... we haven't decoded one sample yet, so no envelope yet. return 1 as well
           //!spu.s_chan[ch].ADSRX.EnvelopeVol)
@@ -398,6 +400,7 @@ static void SoundOn(int start,int end,unsigned short val)
    if((val&1) && regAreaGetCh(ch, 6))                  // mmm... start has to be set before key on !?!
     {
      spu.s_chan[ch].bIgnoreLoop = 0;
+     spu.s_chan[ch].bStarting = 1;
      spu.dwNewChannel|=(1<<ch);
     }
   }
@@ -410,7 +413,7 @@ static void SoundOn(int start,int end,unsigned short val)
 static void SoundOff(int start,int end,unsigned short val)
 {
  int ch;
- for(ch=start;ch<end;ch++,val>>=1)                     // loop channels
+ for (ch = start; val && ch < end; ch++, val >>= 1)    // loop channels
   {
    if(val&1)
     {
@@ -533,7 +536,6 @@ static void SetPitch(int ch,unsigned short val)               // SET PITCH
  spu.s_chan[ch].iRawPitch = NP;
  spu.s_chan[ch].sinc = NP << 4;
  spu.s_chan[ch].sinc_inv = 0;
- spu.s_chan[ch].bNewPitch = 1;
 
  // don't mess spu.dwChannelsAudible as adsr runs independently
 }

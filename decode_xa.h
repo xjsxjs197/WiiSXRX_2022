@@ -27,7 +27,7 @@ extern "C" {
 #include "psxcommon.h"
 
 typedef struct {
-	s32	y0, y1;
+	f32	y0, y1;
 } ADPCM_Decode_t;
 
 typedef struct {
