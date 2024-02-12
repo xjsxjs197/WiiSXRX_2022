@@ -35,6 +35,7 @@ extern "C" {
     #include "../../Nintendont/HID.h"
     #include "../../Nintendont/Patches.h"
     #include "../../Nintendont/global.h"
+    #include "../DEBUG.h"
 }
 
 bool isWiiVC = false;
@@ -44,6 +45,7 @@ void initHid();
 
 static ioctlv IOCTL_Buf[2] ALIGNED(32);
 static u32 (*const PADRead)(u32) = (void*)0x93000000;
+
 #define STATUS			((void*)0x90004100)
 #define STATUS_LOADING	(*(volatile unsigned int*)(0x90004100))
 #define MEM_PROT		0xD8B420A
@@ -168,11 +170,13 @@ void Input::refreshInput()
 
 	if (hidPadNeedScan)
 	{
-	    volatile hidController *HID_CTRL = (volatile hidController*)0x93005000;
-		hidGcConnected = ((HID_CTRL->VID != 0 && HID_CTRL->PID != 0) ? 1 : 0);
-		HIDUpdateRegisters();
-		PADRead(0);
+		hidGcConnected = (*(vu32*)DEVICE_VID == 0) ? 0 : 1;
 		hidPadNeedScan = 0;
+		if (hidGcConnected)
+		{
+			HIDUpdateRegisters();
+		    PADRead(0);
+		}
 	}
 #endif
 }

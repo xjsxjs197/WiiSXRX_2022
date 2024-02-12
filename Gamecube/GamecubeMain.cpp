@@ -319,6 +319,17 @@ static bool loadControllerMapping(char* usbSd)
 
     #ifdef HW_RVL
 
+    sprintf(settingPathBuf, "%s:/wiisxrx/controlH.cfg", usbSd);
+    f = fopen(settingPathBuf, "rb" );  //attempt to open file
+    if(f) {
+        load_configurations(f, &controller_HidGC);			//read in HID controller mappings
+        fclose(f);
+    }
+    else
+    {
+        loadRet = false;
+    }
+
     sprintf(settingPathBuf, "%s:/wiisxrx/controlC.cfg", usbSd);
     f = fopen(settingPathBuf, "rb" );  //attempt to open file
     if(f) {
@@ -866,9 +877,9 @@ int loadISOSwap(fileBrowser_file* file) {
 
     CdromId[0] = '\0';
     CdromLabel[0] = '\0';
-	
+
 	SetIsoFile(&file->name[0]);
-	
+
 	if (ReloadCdromPlugin() < 0) {
 		return -1;
 	}

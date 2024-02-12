@@ -30,6 +30,7 @@
 #include "controller.h"
 #include "../wiiSXconfig.h"
 #include "../../Nintendont/HID.h"
+#include "../DEBUG.h"
 
 enum {
 	ANALOG_AS_ANALOG = 1, C_STICK_AS_ANALOG = 2,
@@ -86,34 +87,6 @@ static button_t menu_combos[] = {
 
 u32 hidGcConnected;
 
-//static unsigned int getButtons(int Control)
-//{
-//	HIDUpdateRegisters();
-//	static u32 (*const PADRead)(u32) = (void*)0x93000000;
-//	PADRead(1);
-//	PADStatus *PadBuff = (PADStatus*)(0x93003100); //PadBuff
-//
-//	unsigned int b = PadBuff[0].button;
-////	s8 stickX      = PadBuff[0].stickX;
-////	s8 stickY      = PadBuff[0].stickY;
-////	s8 substickX   = PadBuff[0].substickX;
-////	s8 substickY   = PadBuff[0].substickY;
-////
-////	if(stickX    < -48) b |= ANALOG_L;
-////	if(stickX    >  48) b |= ANALOG_R;
-////	if(stickY    >  48) b |= ANALOG_U;
-////	if(stickY    < -48) b |= ANALOG_D;
-////
-////	if(substickX < -48) b |= C_STICK_L;
-////	if(substickX >  48) b |= C_STICK_R;
-////	if(substickY >  48) b |= C_STICK_U;
-////	if(substickY < -48) b |= C_STICK_D;
-//
-//	if(!(b & PAD_TRIGGER_Z)) b |= PAD_TRIGGER_Z_UP;
-//
-//	return b;
-//}
-
 static inline u8 GCtoPSXAnalog(int a)
 {
 	a = a * 4 / 3; // GC ranges -96 ~ 96 (192 values, PSX has 256)
@@ -127,8 +100,12 @@ static s8  PAD_Stick_X = 0;
 static s8  PAD_SubStick_Y = 0;
 static s8  PAD_SubStick_X = 0;
 
+static void refreshAvailable(void);
+
 static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 {
+	refreshAvailable();
+
 	BUTTONS* c = Keys;
 	memset(c, 0, sizeof(BUTTONS));
 	//Reset buttons & sticks
@@ -230,8 +207,6 @@ static void assign(int p, int v){
 	// Nothing to do here
 }
 
-static void refreshAvailable(void);
-
 controller_t controller_HidGC =
 	{ 'H',
 	  _GetKeys,
@@ -277,10 +252,10 @@ controller_t controller_HidGC =
 static void refreshAvailable(void){
 	if (hidPadNeedScan)
 	{
-		volatile hidController *HID_CTRL = (volatile hidController*)0x93005000;
-		hidGcConnected = ((HID_CTRL->VID != 0 && HID_CTRL->PID != 0) ? 1 : 0);
-	    hidPadNeedScan = 0;
+		hidGcConnected = (*(vu32*)DEVICE_VID == 0) ? 0 : 1;
+		hidPadNeedScan = 0;
 	}
+
 	controller_HidGC.available[0] = hidGcConnected;
 	controller_HidGC.available[1] = 0;
 	controller_HidGC.available[2] = 0;
