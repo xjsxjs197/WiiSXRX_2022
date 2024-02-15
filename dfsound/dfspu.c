@@ -128,47 +128,61 @@ int ChanBuf[NSSIZE];
 
 static void InterpolateUp(s16 *SB, int sinc)
 {
- if(SB[32]==1)                                         // flag == 1? calc step and set flag... and don't change the value in this pass
-  {
-   const int id1=SB[30]-SB[29];                        // curr delta to next val
-   const int id2=SB[31]-SB[30];                        // and next delta to next-next val :)
-
-   SB[32]=0;
-
-   if(id1>0)                                           // curr delta positive
+    if (SB[32] == 1)                                         // flag == 1? calc step and set flag... and don't change the value in this pass
     {
-     if(id2<id1)
-      {SB[28]=id1;SB[32]=2;}
-     else
-     if(id2<(id1<<1))
-      SB[28]=(id1*sinc)>>16;
-     else
-      SB[28]=(id1*sinc)>>17;
-    }
-   else                                                // curr delta negative
-    {
-     if(id2>id1)
-      {SB[28]=id1;SB[32]=2;}
-     else
-     if(id2>(id1<<1))
-      SB[28]=(id1*sinc)>>16;
-     else
-      SB[28]=(id1*sinc)>>17;
-    }
-  }
- else
- if(SB[32]==2)                                         // flag 1: calc step and set flag... and don't change the value in this pass
-  {
-   SB[32]=0;
+        int id1 = SB[30] - SB[29];                        // curr delta to next val
+        int id2 = SB[31] - SB[30];                        // and next delta to next-next val :)
 
-   SB[28]=(SB[28]*sinc)>>17;
-   //if(sinc<=0x8000)
-   //     SB[29]=SB[30]-(SB[28]*((0x10000/sinc)-1));
-   //else
-   SB[29]+=SB[28];
-  }
- else                                                  // no flags? add bigger val (if possible), calc smaller step, set flag1
-  SB[29]+=SB[28];
+        ssat32_to_16(id1);
+        ssat32_to_16(id2);
+
+        SB[32] = 0;
+
+        if (id1 > 0)                                           // curr delta positive
+        {
+            if (id2 < id1)
+            {
+                SB[28] = id1;
+                SB[32] = 2;
+            }
+            else if (id2 < (id1 << 1))
+                SB[28] = (id1 * sinc) >> 16;
+            else
+                SB[28] = (id1 * sinc) >> 17;
+        }
+        else                                                // curr delta negative
+        {
+            if (id2 > id1)
+            {
+                SB[28] = id1;
+                SB[32] = 2;
+            }
+            else if (id2 > (id1 << 1))
+                SB[28] = (id1 * sinc) >> 16;
+            else
+                SB[28] = (id1 * sinc) >> 17;
+        }
+    }
+    else if (SB[32] == 2)                                        // flag 1: calc step and set flag... and don't change the value in this pass
+    {
+        SB[32] = 0;
+
+        SB[28] = (SB[28] * sinc) >> 17;
+        //if(sinc<=0x8000)
+        //     SB[29]=SB[30]-(SB[28]*((0x10000/sinc)-1));
+        //else
+        //SB[29] += SB[28];
+        int temp = SB[29] + SB[28];
+        ssat32_to_16(temp);
+        SB[29] = temp;
+    }
+    else                                                  // no flags? add bigger val (if possible), calc smaller step, set flag1
+    {
+        //SB[29] += SB[28];
+        int temp = SB[29] + SB[28];
+        ssat32_to_16(temp);
+        SB[29] = temp;
+    }
 }
 
 //
@@ -177,12 +191,15 @@ static void InterpolateUp(s16 *SB, int sinc)
 
 static void InterpolateDown(s16 *SB, int sinc)
 {
- if(sinc>=0x20000L)                                 // we would skip at least one val?
-  {
-   SB[29]+=(SB[30]-SB[29])/2;                                  // add easy weight
-   if(sinc>=0x30000L)                               // we would skip even more vals?
-    SB[29]+=(SB[31]-SB[30])/2;                                 // add additional next weight
-  }
+    if (sinc >= 0x20000L)                                 // we would skip at least one val?
+    {
+        int temp;
+        temp = SB[29] + (SB[30] - SB[29]) / 2;                                  // add easy weight
+        if (sinc >= 0x30000L)                               // we would skip even more vals?
+            temp = SB[29] + (SB[31] - SB[30]) / 2;                                 // add additional next weight
+        ssat32_to_16(temp);
+        SB[29] = temp;
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////
