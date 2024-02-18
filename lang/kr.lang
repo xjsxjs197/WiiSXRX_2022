@@ -179,6 +179,9 @@ msgstr "표준"
 msgid "Analog"
 msgstr "아날로그"
 
+msgid "Lightgun"
+msgstr "라이트건"
+
 msgid "Save Button Configs"
 msgstr "버튼 구성 저장"
 
@@ -225,7 +228,7 @@ msgid "CardB"
 msgstr "카드B"
 
 msgid "Game Reset"
-msgstr "게임 리셋"
+msgstr "게임 재설정"
 
 msgid "BIOS not found on SD"
 msgstr "SD에서 BIOS를 찾을 수 없습니다."
@@ -320,6 +323,12 @@ msgstr "PSX 패드 3"
 msgid "PSX Pad 4"
 msgstr "PSX 패드 4"
 
+msgid "Multitap 1"
+msgstr "멀티탭 1"
+
+msgid "Multitap 1"
+msgstr "멀티탭 2"
+
 msgid "Automatic"
 msgstr "자동"
 
@@ -345,10 +354,13 @@ msgid "Load Default"
 msgstr "기본값 불러오기"
 
 msgid "Load"
-msgstr "불러오기"
+msgstr "로드"
 
 msgid "Save"
-msgstr "저장하기"
+msgstr "저장"
+
+msgid "Gun/Mouse"
+msgstr "건/마우스"
 
 msgid "PSX Pad 1: No Physical Controller Assigned"
 msgstr "PSX 패드 1: 할당된 물리적 컨트롤러 없음"
@@ -357,7 +369,7 @@ msgid "PSX Pad 2: No Physical Controller Assigned"
 msgstr "PSX 패드 2: 할당된 물리적 컨트롤러 없음"
 
 msgid "PSX Pad 3: No Physical Controller Assigned"
-msgstr "PSX 페드 3: 할당된 물리적 컨트롤러 없음"
+msgstr "PSX 패드 3: 할당된 물리적 컨트롤러 없음"
 
 msgid "PSX Pad 4: No Physical Controller Assigned"
 msgstr "PSX 패드 4: 할당된 물리적 컨트롤러 없음"
@@ -584,6 +596,9 @@ msgstr "스페인어"
 msgid "Pte"
 msgstr "포르투갈어"
 
+msgid "It"
+msgstr "이탈리아어"	 
+
 msgid "Select language"
 msgstr "언어 선택"
 
@@ -592,3 +607,9 @@ msgstr "빠른 로드"
 
 msgid "Because the language has changed, please restart"
 msgstr "언어가 변경되었으므로 다시 시작하세요."
+
+msgid "Separately"
+msgstr "별도 저장"
+
+msgid "Unable to read different versions of Save State"
+msgstr "다른 버전의 저장 상태를 읽을 수 없습니다."
