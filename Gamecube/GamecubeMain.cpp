@@ -532,62 +532,63 @@ static bool checkIOS58()
 	WiiDRC_Init();
 	isWiiVC = WiiDRC_Inited();
 
-//	s32 fd;
-//	/* Wii VC fw.img is pre-patched but Wii/vWii isnt, so we
-//		still have to reload IOS on those with a patched kernel */
-//	if(!isWiiVC)
-//	{
-//	    u32 u;
-//		//Disables MEMPROT for patches
-//		write16(MEM_PROT, 0);
-//		//Patches FS access
-//		for( u = 0x93A00000; u < 0x94000000 - sizeof(FSAccessPattern); u+=2 )
-//		{
-//			if( memcmp( (void*)(u), FSAccessPattern, sizeof(FSAccessPattern) ) == 0 )
-//			{
-//				//gprintf("FSAccessPatch:%08X\r\n", u );
-//				memcpy( (void*)u, FSAccessPatch, sizeof(FSAccessPatch) );
-//				DCFlushRange((void*)u, sizeof(FSAccessPatch));
-//				break;
-//			}
-//		}
-//
-//		// Load and patch IOS58.
-//		printf("patchIOS58 44444 \r\n");
-//		if (LoadKernel() >= 0)
-//		{
-//		    PatchKernel(isWiiVC);
-//            u32 v = FoundVersion;
-//            //this ensures all IOS modules get loaded in ES on reload
-//            memcpy( ESBootPatch+0x14, &v, 4 );
-//            DCInvalidateRange( (void*)0x939F0348, sizeof(ESBootPatch) );
-//            memcpy( (void*)0x939F0348, ESBootPatch, sizeof(ESBootPatch) );
-//            DCFlushRange( (void*)0x939F0348, sizeof(ESBootPatch) );
-//
-//            //libogc still has that, lets close it
-//            __ES_Close();
-//            fd = IOS_Open( dev_es, 0 );
-//
-//            irq_handler_t irq_handler = BeforeIOSReload();
-//            IOS_IoctlvAsync( fd, 0x25, 0, 0, IOCTL_Buf, NULL, NULL );
-//            sleep(1); //wait this time at least
-//            AfterIOSReload( irq_handler, v );
-//            //Disables MEMPROT for patches
-//            memWrite16(MEM_PROT, 0);
-//		}
-//		else
-//        {
-//            return false;
-//        }
-//	}
+	s32 fd;
+	/* Wii VC fw.img is pre-patched but Wii/vWii isnt, so we
+		still have to reload IOS on those with a patched kernel */
+	if(!isWiiVC)
+	{
+	    u32 u;
+		//Disables MEMPROT for patches
+		write16(MEM_PROT, 0);
+		//Patches FS access
+        for( u = 0x93A00000; u < 0x94000000 - sizeof(FSAccessPattern); u+=2 )
+		{
+			if( memcmp( (void*)(u), FSAccessPattern, sizeof(FSAccessPattern) ) == 0 )
+			{
+				//gprintf("FSAccessPatch:%08X\r\n", u );
+				memcpy( (void*)u, FSAccessPatch, sizeof(FSAccessPatch) );
+				DCFlushRange((void*)u, sizeof(FSAccessPatch));
+				break;
+			}
+		}
 
-	// Check IOS58 exist.
-	if (LoadKernel() >= 0)
-    {
-        return true;
-    }
+		// Load and patch IOS58.
+		printf("patchIOS58 44444 \r\n");
+		if (LoadKernel() >= 0)
+		{
+		    PatchKernel(isWiiVC);
+            u32 v = FoundVersion;
+            //this ensures all IOS modules get loaded in ES on reload
+            memcpy( ESBootPatch+0x14, &v, 4 );
+            DCInvalidateRange( (void*)0x939F0348, sizeof(ESBootPatch) );
+            memcpy( (void*)0x939F0348, ESBootPatch, sizeof(ESBootPatch) );
+            DCFlushRange( (void*)0x939F0348, sizeof(ESBootPatch) );
 
-	return false;
+            //libogc still has that, lets close it
+            __ES_Close();
+            fd = IOS_Open( dev_es, 0 );
+
+            //irq_handler_t irq_handler = BeforeIOSReload();
+            //IOS_IoctlvAsync( fd, 0x25, 0, 0, IOCTL_Buf, NULL, NULL );
+            //sleep(1); //wait this time at least
+            //AfterIOSReload( irq_handler, v );
+            IOS_ReloadIOS(v);
+            //Disables MEMPROT for patches
+            write16(MEM_PROT, 0);
+		}
+		else
+        {
+            return false;
+        }
+	}
+
+//	// Check IOS58 exist.
+//	if (LoadKernel() >= 0)
+//    {
+//        return true;
+//    }
+
+	return true;
 }
 
 #endif
@@ -653,11 +654,7 @@ int main(int argc, char *argv[])
 
     // HID ios58 check
     bool ios58Exists = checkIOS58();
-    if (ios58Exists)
-    {
-        IOS_ReloadIOS(58);
-    }
-    else
+    if (!ios58Exists)
     {
         // HID check error, use default processing
         u32 ios = IOS_GetVersion();
