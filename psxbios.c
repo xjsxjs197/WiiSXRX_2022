@@ -492,20 +492,21 @@ static int card_buf_io(int is_write, int port, void *buf, u32 size)
 	UnDeliverEvent(0xf4000001, 0x0100);
 
 	if (offset >= 128*1024u) {
-		log_unhandled("card offs %x(%x)\n", desc->offset, offset);
+		//log_unhandled("card offs %x(%x)\n", desc->offset, offset);
 		DeliverEvent(0xf4000001, 0x8000); // ?
 		return -1;
 	}
 	if (offset + size >= 128*1024u) {
-		log_unhandled("card offs+size %x+%x\n", offset, size);
+		//log_unhandled("card offs+size %x+%x\n", offset, size);
 		size = 128*1024 - offset;
 	}
 	if (is_write) {
 		memcpy(mcdptr + offset, buf, size);
-		if (port == 0)
-			SaveMcd(Config.Mcd1, Mcd1Data, offset, size);
-		else
-			SaveMcd(Config.Mcd2, Mcd2Data, offset, size);
+		SaveMcdByNum(port);
+		//if (port == 0)
+		//	SaveMcd(Config.Mcd1, Mcd1Data, offset, size);
+		//else
+		//	SaveMcd(Config.Mcd2, Mcd2Data, offset, size);
 	}
 	else {
 		size_t ram_offset = (s8 *)buf - psxM;
