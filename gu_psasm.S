@@ -195,13 +195,22 @@ gtePsRtps:
     lhz         r7,78(r3)                    // gteSZ3  (regs->CP2D.p[19].w.l)
     psq_st      fr5, 78(r3), 1, 4            // gteSZ3  (regs->CP2D.p[19].w.l)
 
+    psq_l       fr1, 234(r3), 1, 4           // fr1 = gteH   (psxRegs.CP2C.p[26].w.l)
+    lfs         fr2, MUL16@sdarel(r13)       // fr2 = 1 << 16
+    psq_l       fr3, 78(r3), 1, 4            // fr3 = gteSZ3
+    lfs         fr4, MAXDIV@sdarel(r13)      // fr4 = 0x1ffff
+    fmuls       fr1, fr1, fr2
+
     sth         r5,66(r3)                    // gteSZ0  (regs->CP2D.p[16].w.l)
     sth         r6,70(r3)                    // gteSZ1  (regs->CP2D.p[17].w.l)
     sth         r7,74(r3)                    // gteSZ2  (regs->CP2D.p[18].w.l)
 
     // quotient = limE(DIVIDE_INT(gteH, gteSZ3));
-    lhz         r6, 78(r3)                   // r6 = gteSZ3  (regs->CP2D.p[19].w.l)
-    bl          NATIVE_DIVIDE                // fr5 = quotient
+    //lhz         r6, 78(r3)                   // r6 = gteSZ3  (regs->CP2D.p[19].w.l)
+    //bl          NATIVE_DIVIDE                // fr5 = quotient
+    fdivs       fr1, fr1, fr3
+    fsubs       fr2, fr1, fr4
+    fsel        fr5, fr2, fr4, fr1
 
     // gteSXY0 = gteSXY1;
     // gteSXY1 = gteSXY2;
@@ -369,24 +378,43 @@ gtePsRtpt:
     psq_st      fr11, 74(r3), 1, 4   // gteSZX  (regs->CP2D.p[17, 18, 19].w.l)
     psq_st      fr28, 78(r3), 1, 4   // gteSZX  (regs->CP2D.p[17, 18, 19].w.l)
 
-    // quotient = limE(DIVIDE_INT(gteH, gteSZX));
-    lhz         r6, 70(r3)           // r6 = gteSZX  (regs->CP2D.p[17, 18, 19].w.l)
-    addi        r10, r6, 0
-    bl          NATIVE_DIVIDE        // fr5 = quotient
-    ps_mr       fr3, fr5
+    psq_l       fr1, 234(r3), 1, 4           // fr1 = gteH   (psxRegs.CP2C.p[26].w.l)
+    lfs         fr2, MUL16@sdarel(r13)       // fr2 = 1 << 16
+    psq_l       fr3, 70(r3), 1, 4            // fr3 = gteSZ1
+    psq_l       fr4, 74(r3), 1, 4            // fr4 = gteSZ2
 
-    lhz         r6, 74(r3)           // r6 = gteSZX  (regs->CP2D.p[17, 18, 19].w.l)
-    cmpl        3, 0, r10, r6
-    beq         3, LOAD_RPTT_CACHE_DIV1
-    addi        r10, r6, 0
-    bl          NATIVE_DIVIDE        // fr5 = quotient
-LOAD_RPTT_CACHE_DIV1:
-    ps_mr       fr4, fr5
+    fmuls       fr1, fr1, fr2
+    ps_merge00  fr3, fr3, fr4
+    psq_l       fr5, 78(r3), 1, 4            // fr5 = gteSZ3
+    ps_merge00  fr1, fr1, fr1
+    lfs         fr6, MAXDIV@sdarel(r13)      // fr6 = 0x1ffff
 
-    lhz         r6, 78(r3)           // r6 = gteSZX  (regs->CP2D.p[17, 18, 19].w.l)
-    cmpl        3, 0, r10, r6
-    beq         3, LOAD_RPTT_CACHE_DIV2
-    bl          NATIVE_DIVIDE        // fr5 = quotient
+    ps_div      fr2, fr1, fr3
+    fdivs       fr5, fr1, fr5
+    ps_sub      fr0, fr2, fr6
+    fsubs       fr1, fr5, fr6
+    ps_sel      fr3, fr0, fr6, fr2
+    fsel        fr5, fr1, fr6, fr5
+    ps_merge10  fr4, fr3, fr3
+
+//    // quotient = limE(DIVIDE_INT(gteH, gteSZX));
+//    lhz         r6, 70(r3)           // r6 = gteSZX  (regs->CP2D.p[17, 18, 19].w.l)
+//    addi        r10, r6, 0
+//    bl          NATIVE_DIVIDE        // fr5 = quotient
+//    ps_mr       fr3, fr5
+//
+//    lhz         r6, 74(r3)           // r6 = gteSZX  (regs->CP2D.p[17, 18, 19].w.l)
+//    cmpl        3, 0, r10, r6
+//    beq         3, LOAD_RPTT_CACHE_DIV1
+//    addi        r10, r6, 0
+//    bl          NATIVE_DIVIDE        // fr5 = quotient
+//LOAD_RPTT_CACHE_DIV1:
+//    ps_mr       fr4, fr5
+//
+//    lhz         r6, 78(r3)           // r6 = gteSZX  (regs->CP2D.p[17, 18, 19].w.l)
+//    cmpl        3, 0, r10, r6
+//    beq         3, LOAD_RPTT_CACHE_DIV2
+//    bl          NATIVE_DIVIDE        // fr5 = quotient
 
 LOAD_RPTT_CACHE_DIV2:
     psq_l       fr9, 8(r4), 0, 3              // load tmp gteIR2, gteIR1(r4 + 4 * 2)
