@@ -199,6 +199,7 @@ gtePsRtps:
     lfs         fr2, MUL16@sdarel(r13)       // fr2 = 1 << 16
     psq_l       fr3, 78(r3), 1, 4            // fr3 = gteSZ3
     lfs         fr4, MAXDIV@sdarel(r13)      // fr4 = 0x1ffff
+    fres        fr3, fr3
     fmuls       fr1, fr1, fr2
 
     sth         r5,66(r3)                    // gteSZ0  (regs->CP2D.p[16].w.l)
@@ -208,7 +209,7 @@ gtePsRtps:
     // quotient = limE(DIVIDE_INT(gteH, gteSZ3));
     //lhz         r6, 78(r3)                   // r6 = gteSZ3  (regs->CP2D.p[19].w.l)
     //bl          NATIVE_DIVIDE                // fr5 = quotient
-    fdivs       fr1, fr1, fr3
+    fmuls       fr1, fr1, fr3
     fsubs       fr2, fr1, fr4
     fsel        fr5, fr2, fr4, fr1
 
@@ -388,9 +389,11 @@ gtePsRtpt:
     psq_l       fr5, 78(r3), 1, 4            // fr5 = gteSZ3
     ps_merge00  fr1, fr1, fr1
     lfs         fr6, MAXDIV@sdarel(r13)      // fr6 = 0x1ffff
+    ps_res      fr3, fr3
+    fres        fr5, fr5
 
-    ps_div      fr2, fr1, fr3
-    fdivs       fr5, fr1, fr5
+    ps_mul      fr2, fr1, fr3
+    fmuls       fr5, fr1, fr5
     ps_sub      fr0, fr2, fr6
     fsubs       fr1, fr5, fr6
     ps_sel      fr3, fr0, fr6, fr2
@@ -1870,6 +1873,13 @@ intplLiBChkEnd:
 
     blr
 
+.globl testPsRes
+testPsRes:
+    psq_l        fr0, 8(r3), 0, 3
+    ps_res       fr1, fr0
+    stfs         fr1, 8(r3)
+    lwz          r3, 8(r3)
+    blr
 
 .section .sdata
 	.balign 32
@@ -1906,11 +1916,11 @@ UnitShiftR4:
 UnitShiftR5:
 	.float	0.03125                  // 1 >> 5 = 1 / 32 = 0.03125
 UnitShiftR8:
-	.float	0.00390625               // 1 >> 8 = 1 / 256 = 0.00390625
+	.float	0.003906                 // 1 >> 8 = 1 / 256 = 0.00390625
 UnitShiftR12:
-	.float	0.000244140625           // 1 >> 12 = 1 / 4096 = 0.000244140625
+	.float	0.000244                 // 1 >> 12 = 1 / 4096 = 0.000244140625
 UnitShiftR16:
-	.float	0.00001526               // 1 >> 16 = 1 / 65536 = 0.00001526
+	.float	0.000015                 // 1 >> 16 = 1 / 65536 = 0.00001526
 DivOverflow:
 	.int	0x1ffff
 
