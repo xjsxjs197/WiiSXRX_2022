@@ -361,12 +361,14 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
         GXColor fontColor = {150,255,150,255};
 	    IplFont_drawInit(fontColor);
 		IplFont_drawString(10,35,fpsInfo, 1.0, false);
+		#ifdef SHOW_DEBUG
 		int i = 0;
         DEBUG_update();
         for (i=0;i<DEBUG_TEXT_HEIGHT;i++)
 		{
             IplFont_drawString(10,(24*i+60),text[i], 0.5, false);
 		}
+		#endif // SHOW_DEBUG
     }
 
 	gc_vout_render();
