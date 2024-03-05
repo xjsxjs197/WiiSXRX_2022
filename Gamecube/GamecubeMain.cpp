@@ -61,6 +61,8 @@ extern "C" {
 
 #include "libgui/gui2/gettext.h"
 
+#include "../Nintendont/KernelHID.h"
+
 #ifdef WII
 unsigned int MALLOC_MEM2 = 0;
 extern "C" {
@@ -114,6 +116,7 @@ char saveEnabled;
 char creditsScrolling;
 char padNeedScan=1;
 char wpadNeedScan=1;
+char hidPadNeedScan = 1;
 char shutdown = 0;
 char nativeSaveDevice;
 char saveStateDevice;
@@ -252,6 +255,17 @@ static bool loadControllerMapping(char* usbSd)
     }
 
     #ifdef HW_RVL
+
+    sprintf(settingPathBuf, "%s:/wiisxrx/controlH.cfg", usbSd);
+    f = fopen(settingPathBuf, "rb" );  //attempt to open file
+    if(f) {
+        load_configurations(f, &controller_HidGC);			//read in HID controller mappings
+        fclose(f);
+    }
+    else
+    {
+        loadRet = false;
+    }
 
     sprintf(settingPathBuf, "%s:/wiisxrx/controlC.cfg", usbSd);
     f = fopen(settingPathBuf, "rb" );  //attempt to open file
@@ -426,6 +440,7 @@ void ScanPADSandReset(u32 dummy)
 {
 //	PAD_ScanPads();
 	padNeedScan = wpadNeedScan = 1;
+	hidPadNeedScan = 1;
 	if(!((*(u32*)0xCC003000)>>16))
 		stop = 1;
 }
@@ -472,64 +487,6 @@ bool SupportedIOS(u32 ios)
         return false;
 }
 
-bool SaneIOS(u32 ios)
-{
-        bool res = false;
-        u32 num_titles=0;
-        u32 tmd_size;
-
-        if(ios > 200)
-                return false;
-
-        if (ES_GetNumTitles(&num_titles) < 0)
-                return false;
-
-        if(num_titles < 1)
-                return false;
-
-        u64 *titles = (u64 *)memalign(32, num_titles * sizeof(u64) + 32);
-
-        if(!titles)
-                return false;
-
-        if (ES_GetTitles(titles, num_titles) < 0)
-        {
-                free(titles);
-                return false;
-        }
-
-        u32 *tmdbuffer = (u32 *)memalign(32, MAX_SIGNED_TMD_SIZE);
-
-        if(!tmdbuffer)
-        {
-                free(titles);
-                return false;
-        }
-
-        for(u32 n=0; n < num_titles; n++)
-        {
-                if((titles[n] & 0xFFFFFFFF) != ios)
-                        continue;
-
-                if (ES_GetStoredTMDSize(titles[n], &tmd_size) < 0)
-                        break;
-
-                if (tmd_size > 4096)
-                        break;
-
-                if (ES_GetStoredTMD(titles[n], (signed_blob *)tmdbuffer, tmd_size) < 0)
-                        break;
-
-                if (tmdbuffer[1] || tmdbuffer[2])
-                {
-                        res = true;
-                        break;
-                }
-        }
-        free(tmdbuffer);
-    free(titles);
-        return res;
-}
 #endif
 
 bool Autoboot;
@@ -572,6 +529,8 @@ int main(int argc, char *argv[])
 	loadSettings(argc, argv);
 
 	#ifdef HW_RVL
+	HIDInit();
+
 	VM_Init(1024*1024, 256*1024); // whatever for now, we're not really using this for anything other than mmap on Wii.
 	#endif // HW_RVL
 
@@ -616,6 +575,10 @@ int main(int argc, char *argv[])
 	delete &obj;
 
 	delete menu;
+
+	#ifdef HW_RVL
+	HIDClose();
+	#endif // HW_RVL
 
 	ReleaseLanguage();
 
@@ -772,9 +735,9 @@ int loadISOSwap(fileBrowser_file* file) {
 
     CdromId[0] = '\0';
     CdromLabel[0] = '\0';
-	
+
 	SetIsoFile(&file->name[0]);
-	
+
 	if (ReloadCdromPlugin() < 0) {
 		return -1;
 	}
