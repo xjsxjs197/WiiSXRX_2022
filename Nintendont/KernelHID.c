@@ -1110,7 +1110,7 @@ void HIDUpdateRegisters(u32 LoaderRequest)
 			hidattached = 0;
 			//wait half a second for devices to
 			//actually attach properly
-			if(hidwaittimer < 120)
+			if (hidwaittimer < 120)
 				hidwaittimer++;
 			else
 			{
@@ -1118,6 +1118,7 @@ void HIDUpdateRegisters(u32 LoaderRequest)
 				hidwaittimer = 0;
 				//If you dont do that it wont update anymore
 				//IOS_IoctlAsync(HIDHandle, AttachFinish, NULL, 0, NULL, 0, ipcCallBack, hidattachmsg);
+				IOS_Ioctl(HIDHandle, AttachFinish, NULL, 0, NULL, 0);
 				hidattach = 1;
 			}
 		}
@@ -1127,8 +1128,8 @@ void HIDUpdateRegisters(u32 LoaderRequest)
 			hidattached = 1;
 			HIDOpen(LoaderRequest);
 			memset(AttachedDevices, 0, sizeof(usb_device_entry)*32);
-			IOS_IoctlAsync(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, sizeof(usb_device_entry) * 32, ipcCallBack, hidchangemsg);
-			//IOS_Ioctl(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, sizeof(usb_device_entry) * 32);
+			//IOS_IoctlAsync(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, sizeof(usb_device_entry) * 32, ipcCallBack, hidchangemsg);
+			IOS_Ioctl(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, sizeof(usb_device_entry) * 32);
 			hidchange = 1;
 		}
 		if (hidattached)
