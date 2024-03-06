@@ -278,6 +278,9 @@ struct BTPadCont {
 #define PAD_BUTTON_MENU         0x1000
 #define PAD_BUTTON_START        0x1000
 
+u64 gettime(void);
+u32 diff_usec(u64 start, u64 end);
+
 //static inline u16 read16(u32 addr)
 //{
 //	u32 data;
@@ -341,33 +344,33 @@ struct BTPadCont {
 //	return data;
 //}
 
-static inline u32 TicksToSecs(u32 time)
-{
-	//really accurate, it reports the first second is over about 0.5ms early and
-	//with a full 37.7 minutes difference its off by only about 0.7ms
-	return ((time >> 9)*283)>>20;
-}
+//static inline u32 TicksToSecs(u32 time)
+//{
+//	//really accurate, it reports the first second is over about 0.5ms early and
+//	//with a full 37.7 minutes difference its off by only about 0.7ms
+//	return ((time >> 9)*283)>>20;
+//}
+//
+//static inline u32 TimerDiffTicks(u32 time)
+//{
+//	u32 curtime = read32((u32)(HW_TIMER));
+//	if(time > curtime) return UINT_MAX; //wrapped, return UINT_MAX to reset
+//	return curtime - time;
+//}
 
-static inline u32 TimerDiffTicks(u32 time)
-{
-	u32 curtime = read32((u32)(HW_TIMER));
-	if(time > curtime) return UINT_MAX; //wrapped, return UINT_MAX to reset
-	return curtime - time;
-}
+//static inline u32 TimerDiffSeconds(u32 time)
+//{
+//	u32 curtime = read32((u32)(HW_TIMER));
+//	if(time > curtime) return UINT_MAX; //wrapped, return UINT_MAX to reset
+//	return TicksToSecs(curtime - time);
+//}
 
-static inline u32 TimerDiffSeconds(u32 time)
-{
-	u32 curtime = read32((u32)(HW_TIMER));
-	if(time > curtime) return UINT_MAX; //wrapped, return UINT_MAX to reset
-	return TicksToSecs(curtime - time);
-}
-
-static inline u32 IsGCGame(u32 Buffer)
-{
-	u32 AMB1 = read32((u32)(Buffer+0x4));
-	u32 GCMagic = read32((u32)(Buffer+0x1C));
-	return (AMB1 == 0x414D4231 || GCMagic == 0xC2339F3D);
-}
+//static inline u32 IsGCGame(u32 Buffer)
+//{
+//	u32 AMB1 = read32((u32)(Buffer+0x4));
+//	u32 GCMagic = read32((u32)(Buffer+0x1C));
+//	return (AMB1 == 0x414D4231 || GCMagic == 0xC2339F3D);
+//}
 
 //static inline void sync_before_read_align32(void *Buf, u32 Len)
 //{

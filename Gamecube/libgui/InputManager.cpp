@@ -23,6 +23,7 @@
 #include "FocusManager.h"
 #include "CursorManager.h"
 #include "../gc_input/controller.h"
+#include "../DEBUG.h"
 
 #include "../../Nintendont/HID.h"
 bool isWiiVC = false;
@@ -104,6 +105,10 @@ void Input::refreshInput()
 	{
 	    static controller *HID_CTRL = (controller*)0x93005000;
 		hidGcConnected = (HID_CTRL->VID > 0) ? 1 : 0;
+		#ifdef DISP_DEBUG
+        //sprintf(txtbuffer, "NeedScan %05x \r\n", HID_CTRL->VID);
+        //writeLogFile(txtbuffer);
+        #endif // DISP_DEBUG
 		hidPadNeedScan = 0;
 		if (hidGcConnected)
 		{
