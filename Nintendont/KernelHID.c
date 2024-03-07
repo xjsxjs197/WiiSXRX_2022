@@ -104,7 +104,6 @@ static vu32 hidread = 0, keyboardread = 0, hidchange = 0, hidattach = 0, hidatta
 static u32 *HIDRun();
 static s32 HIDInterruptMessage(u32 isKBreq, u8 *Data, u32 Length, u32 Endpoint, s32 asyncqueue, u32 *asyncmsg);
 static s32 HIDControlMessage(u32 isKBreq, u8 *Data, u32 Length, u32 RequestType, u32 Request, u32 Value, s32 asyncqueue, u32 *asyncmsg);
-extern char __hid_stack_addr, __hid_stack_size;
 
 static s32 ipcCallBack(s32 result, void *usrdata);
 
@@ -187,7 +186,7 @@ void HIDInit( void )
 
 	memset((void*)HID_STATUS, 0, 0x20);
 
-	usleep(100);
+	usleep(20);
 	HID_Timer = gettime();
 	#ifdef DISP_DEBUG
     sprintf(txtbuffer, "HIDInit end\r\n");
@@ -870,8 +869,13 @@ void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left, u8 po
 
 vu32 HIDRumbleCurrent = 0, HIDRumbleLast = 0;
 vu32 MotorCommand = 0x93003020;
+
 void HIDPS3Read()
 {
+	#ifdef DISP_DEBUG
+	sprintf(txtbuffer, "HIDPS3Read \r\n");
+	writeLogFile(txtbuffer);
+	#endif // DISP_DEBUG
 	if( !PS3LedSet && Packet[4] )
 	{
 		HIDPS3SetLED(1);
@@ -884,6 +888,7 @@ void HIDPS3Read()
 			USB_REQ_GETREPORT, (USB_REPTYPE_INPUT<<8) | 0x1, hidqueue, &hidreadcontrollermsg);
 	//hidread = 1;
 }
+
 void HIDGCRumble(u32 input)
 {
 	gcbuf[0] = 0x11;
@@ -1110,7 +1115,7 @@ u32 ConfigGetDecValue( char *Data, const char *EntryName, u32 Entry )
 static void KeyboardRead()
 {
 	#ifdef DISP_DEBUG
-	sprintf(txtbuffer, "KeyboardRead \r\n");
+	sprintf(txtbuffer, "KeyboardRead %08x %08x \r\n", *(u32*)kbbuf, *(u32*)(kbbuf + 4));
 	writeLogFile(txtbuffer);
 	#endif // DISP_DEBUG
 	memcpy(kb_input, kbbuf, 8);
