@@ -142,12 +142,22 @@ static s32 ipcCallBack(s32 result, void *usrdata)
 	}
 	else if (msg == HID_CHANGE_MSG)
 	{
-		hidchange = 1;
+		if (result >= 0)
+		{
+			hidchange = 1;
+		    // wipe unused device entries
+		    memset(&AttachedDevices[result], 0, sizeof(usb_device_entry) * (32 - result));
+		}
 	}
 	else
 	{
-		hidattach = 1;
+		if (result >= 0)
+		{
+			hidattach = 1;
+		}
 	}
+
+	return 0;
 }
 
 void HIDInit( void )
@@ -173,7 +183,7 @@ void HIDInit( void )
 	hidwaittimer = 0;
 	memset(AttachedDevices, 0, sizeof(usb_device_entry) * 32);
 	IOS_IoctlAsync(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, sizeof(usb_device_entry) * 32, ipcCallBack, &hidchangemsg);
-	hidchange = 1;
+	//hidchange = 1;
 
 	memset((void*)HID_STATUS, 0, 0x20);
 
@@ -725,7 +735,7 @@ static u32 *HIDRun(void *param)
 			break;
 		}
 		HIDUpdateRegisters(1);
-		usleep(20);
+		usleep(100);
 	}
 	return 0;
 }
@@ -1123,6 +1133,10 @@ void HIDUpdateRegisters(u32 LoaderRequest)
 				hidwaittimer++;
 			else
 			{
+				#ifdef DISP_DEBUG
+				sprintf(txtbuffer, "AttachFinish\r\n");
+				writeLogFile(txtbuffer);
+				#endif // DISP_DEBUG
 				hidchange = 0;
 				hidwaittimer = 0;
 				//If you dont do that it wont update anymore
@@ -1136,7 +1150,11 @@ void HIDUpdateRegisters(u32 LoaderRequest)
 			hidattach = 0;
 			hidattached = 1;
 			HIDOpen(LoaderRequest);
-			memset(AttachedDevices, 0, sizeof(usb_device_entry)*32);
+			//memset(AttachedDevices, 0, sizeof(usb_device_entry)*32);
+			#ifdef DISP_DEBUG
+			sprintf(txtbuffer, "GetDeviceChange\r\n");
+			writeLogFile(txtbuffer);
+			#endif // DISP_DEBUG
 			IOS_IoctlAsync(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, sizeof(usb_device_entry) * 32, ipcCallBack, &hidchangemsg);
 			//IOS_Ioctl(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, sizeof(usb_device_entry) * 32);
 			//hidchange = 1;
