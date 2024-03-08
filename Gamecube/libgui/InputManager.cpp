@@ -25,7 +25,7 @@
 #include "../gc_input/controller.h"
 #include "../DEBUG.h"
 
-#include "../../Nintendont/HID.h"
+#include "../../Nintendont/KernelHID.h"
 bool isWiiVC = false;
 
 void ShutdownWii();
@@ -103,7 +103,7 @@ void Input::refreshInput()
 
 	if (hidPadNeedScan)
 	{
-	    static controller *HID_CTRL = (controller*)0x93005000;
+	    static controller *HID_CTRL = (controller*)HID_CTRL_ADDR;
 		hidGcConnected = (HID_CTRL->VID > 0) ? 1 : 0;
 		#ifdef DISP_DEBUG
         //sprintf(txtbuffer, "NeedScan %05x \r\n", HID_CTRL->VID);

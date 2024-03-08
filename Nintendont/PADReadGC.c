@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "CommonConfig.h"
 #include "global.h"
-#include "HID.h"
+#include "KernelHID.h"
 #include "hidmem.h"
 #include "wiidrc.h"
 #include "../Gamecube/DEBUG.h"

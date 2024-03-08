@@ -107,8 +107,8 @@ static s32 HIDControlMessage(u32 isKBreq, u8 *Data, u32 Length, u32 RequestType,
 
 static s32 ipcCallBack(s32 result, void *usrdata);
 
-static controller *HID_CTRL = (controller*)0x93005000;
-static void *HID_Packet = (void*)0x930050F0;
+static controller *HID_CTRL = (controller*)HID_CTRL_ADDR;
+static void *HID_Packet = (void*)HID_Packet_ADDR;
 
 #define RESET_STATUS 0x93003420
 
@@ -428,7 +428,7 @@ s32 HIDOpen( u32 LoaderRequest )
 						continue;
 					}
 					memcpy(HID_CTRL, c, sizeof(controller));
-					for(i = 0; i < sizeof(DefRumble) / sizeof(rumble); ++i)
+					for(i = 0; i < sizeof(DefRumble) / sizeof(kernelRumble); ++i)
 					{
 						if(DefRumble[i].VID == DeviceVID && DefRumble[i].PID == DevicePID)
 						{

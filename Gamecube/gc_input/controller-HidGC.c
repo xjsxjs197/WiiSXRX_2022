@@ -29,7 +29,7 @@
 #include <ogc/pad.h>
 #include "controller.h"
 #include "../wiiSXconfig.h"
-#include "../../Nintendont/HID.h"
+#include "../../Nintendont/KernelHID.h"
 #include "../DEBUG.h"
 
 enum {
@@ -251,12 +251,12 @@ controller_t controller_HidGC =
 static void refreshAvailable(void){
 	if (hidPadNeedScan)
 	{
-		static controller *HID_CTRL = (controller*)0x93005000;
+		static controller *HID_CTRL = (controller*)HID_CTRL_ADDR;
 		hidGcConnected = (HID_CTRL->VID > 0) ? 1 : 0;
 		hidPadNeedScan = 0;
 	}
 
-	controller_HidGC.available[0] = 0;
+	controller_HidGC.available[0] = hidGcConnected;
 	controller_HidGC.available[1] = 0;
 	controller_HidGC.available[2] = 0;
 	controller_HidGC.available[3] = 0;
