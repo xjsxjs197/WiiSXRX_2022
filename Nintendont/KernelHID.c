@@ -175,19 +175,19 @@ void HIDInit( void )
 //	hidchangemsg = (struct ipcmessage*)memalign(32, sizeof(struct ipcmessage));
 //	hidattachmsg = (struct ipcmessage*)memalign(32, sizeof(struct ipcmessage));
 
-	hidRun = 1;
-	LWP_CreateThread(&HID_Thread, HIDRun, NULL, NULL, 0, 70);
-
-	hidattached = 0;
+    hidattached = 0;
 	hidwaittimer = 0;
 	memset(AttachedDevices, 0, sizeof(usb_device_entry) * 32);
 	IOS_IoctlAsync(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, sizeof(usb_device_entry) * 32, ipcCallBack, &hidchangemsg);
 	//hidchange = 1;
 
+	hidRun = 1;
+	HID_Timer = gettime();
+	LWP_CreateThread(&HID_Thread, HIDRun, NULL, NULL, 0, 70);
+
 	memset((void*)HID_STATUS, 0, 0x20);
 
-	usleep(20);
-	HID_Timer = gettime();
+	usleep(100);
 	#ifdef DISP_DEBUG
     sprintf(txtbuffer, "HIDInit end\r\n");
     writeLogFile(txtbuffer);
@@ -290,10 +290,6 @@ s32 HIDOpen( u32 LoaderRequest )
 				(bInterfaceSubClass == USB_SUBCLASS_BOOT) &&
 				(bInterfaceProtocol == USB_PROTOCOL_KEYBOARD))
 			{
-				#ifdef DISP_DEBUG
-				sprintf(txtbuffer, "HIDKeyboardConnected \r\n");
-				writeLogFile(txtbuffer);
-				#endif // DISP_DEBUG
 				dbgprintf("HID:Keyboard detected\r\n");
 				memset(&read_kb_ctrl_req, 0, sizeof(struct _usb_msg));
 				memset(&write_kb_ctrl_req, 0, sizeof(struct _usb_msg));
@@ -301,9 +297,17 @@ s32 HIDOpen( u32 LoaderRequest )
 				memset(&write_kb_irq_req, 0, sizeof(struct _usb_msg));
 				KeyboardID = DeviceID;
 				bEndpointAddressKeyboard = bEndpointAddress;
+				#ifdef DISP_DEBUG
+				sprintf(txtbuffer, "HIDKeyboardConnected %08x\r\n", bEndpointAddress);
+				writeLogFile(txtbuffer);
+				#endif // DISP_DEBUG
 				HIDKeyboardConnected = 1;
 				//set to boot protocol (0)
-				HIDControlMessage(1, NULL, 0, USB_REQTYPE_INTERFACE_SET, USB_REQ_SETPROTOCOL, 0, 0, NULL);
+				s32 ret = HIDControlMessage(1, NULL, 0, USB_REQTYPE_INTERFACE_SET, USB_REQ_SETPROTOCOL, 0, 0, NULL);
+				#ifdef DISP_DEBUG
+				sprintf(txtbuffer, "HIDKeyboard CTRL MSG %d\r\n", ret);
+				writeLogFile(txtbuffer);
+				#endif // DISP_DEBUG
 				//start reading data
 				HIDInterruptMessage(1, kbbuf, 8, bEndpointAddressKeyboard, hidqueue, &hidreadkeyboardmsg);
 				//keyboardread = 1;
@@ -366,10 +370,6 @@ s32 HIDOpen( u32 LoaderRequest )
 					u32 cfgsize = *((u32*)(HID_CFG_SIZE));
 					if (cfgsize == 0)
 					{
-						#ifdef DISP_DEBUG
-						sprintf(txtbuffer, "Reset HID_CTRL->VID 0\r\n");
-						writeLogFile(txtbuffer);
-						#endif // DISP_DEBUG
 						dbgprintf("HID:No controller config found!\r\n");
 						HID_CTRL->VID = 0;
 					}
@@ -386,16 +386,8 @@ s32 HIDOpen( u32 LoaderRequest )
 
 				if(Data != NULL) //initial check
 				{
-					#ifdef DISP_DEBUG
-					sprintf(txtbuffer, "Bef Read ID %05x\r\n", HID_CTRL->VID);
-					writeLogFile(txtbuffer);
-					#endif // DISP_DEBUG
 					HID_CTRL->VID = ConfigGetValue( Data, "VID", 0 );
 					HID_CTRL->PID = ConfigGetValue( Data, "PID", 0 );
-					#ifdef DISP_DEBUG
-					sprintf(txtbuffer, "Aft Read ID %05x\r\n", HID_CTRL->VID);
-					writeLogFile(txtbuffer);
-					#endif // DISP_DEBUG
 
 					if( DeviceVID != HID_CTRL->VID || DevicePID != HID_CTRL->PID )
 					{
@@ -771,9 +763,6 @@ static s32 HIDControlMessage(u32 isKBreq, u8 *Data, u32 Length, u32 RequestType,
 	if (asyncmsg != NULL)
 	{
 		ret = IOS_IoctlvAsync(HIDHandle, ControlMessage, 2-request_dir, request_dir, msg->vec, ipcCallBack, asyncmsg);
-		//ret = IOS_Ioctlv(HIDHandle, ControlMessage, 2-request_dir, request_dir, msg->vec);
-		//ipcCallBack(0, asyncmsg);
-		//ret = 0;
 	}
 	else
 	{
@@ -809,9 +798,6 @@ static s32 HIDInterruptMessage(u32 isKBreq, u8 *Data, u32 Length, u32 Endpoint, 
 	if (asyncmsg != NULL)
 	{
 		ret = IOS_IoctlvAsync(HIDHandle, InterruptMessage, 2-endpoint_dir, endpoint_dir, msg->vec, ipcCallBack, asyncmsg);
-		//ret = IOS_Ioctlv(HIDHandle, InterruptMessage, 2-endpoint_dir, endpoint_dir, msg->vec);
-		//ipcCallBack(0, asyncmsg);
-		//ret = 0;
 	}
 	else
 	{
@@ -826,9 +812,12 @@ void HIDGCInit()
 	s32 ret = HIDInterruptMessage(0, gcbuf, 1, bEndpointAddressOut, 0, NULL);
 	if( ret < 0 )
 	{
-		dbgprintf("HID:HIDGCInit:IOS_Ioctl( %u, %u, %u, %u, %u):%d\r\n", HIDHandle, 2, 32, 0, 0, ret );
+		#ifdef DISP_DEBUG
+		writeLogFile("HIDGCInit error \r\n");
+		#endif // DISP_DEBUG
+		//dbgprintf("HID:HIDGCInit:IOS_Ioctl( %u, %u, %u, %u, %u):%d\r\n", HIDHandle, 2, 32, 0, 0, ret );
 		//BootStatusError(-8, -7);
-		usleep(1000000);
+		//usleep(1000000);
 		//Shutdown();
 	}
 }
@@ -840,9 +829,13 @@ void HIDPS3Init()
 			USB_REQ_GETREPORT, (USB_REPTYPE_FEATURE<<8) | 0xf2, 0, NULL);
 	if( ret < 0 )
 	{
-		dbgprintf("HID:HIDPS3Init:IOS_Ioctl( %u, %u, %u, %u, %u):%d\r\n", HIDHandle, 2, 32, 0, 0, ret );
+		#ifdef DISP_DEBUG
+		writeLogFile("HIDPS3Init error \r\n");
+		#endif // DISP_DEBUG
+		//dbgprintf("HID:HIDPS3Init:IOS_Ioctl( %u, %u, %u, %u, %u):%d\r\n", HIDHandle, 2, 32, 0, 0, ret );
+
 		//BootStatusError(-8, -6);
-		usleep(1000000);
+		//usleep(1000000);
 		//Shutdown();
 	}
 	free(buf);
@@ -1115,7 +1108,7 @@ u32 ConfigGetDecValue( char *Data, const char *EntryName, u32 Entry )
 static void KeyboardRead()
 {
 	#ifdef DISP_DEBUG
-	sprintf(txtbuffer, "KeyboardRead %08x %08x \r\n", *(u32*)kbbuf, *(u32*)(kbbuf + 4));
+	sprintf(txtbuffer, "KeyboardRead %08x %08x\r\n", *(u32*)kbbuf, *(u32*)(kbbuf + 4));
 	writeLogFile(txtbuffer);
 	#endif // DISP_DEBUG
 	memcpy(kb_input, kbbuf, 8);
@@ -1146,7 +1139,6 @@ void HIDUpdateRegisters(u32 LoaderRequest)
 				hidwaittimer = 0;
 				//If you dont do that it wont update anymore
 				IOS_IoctlAsync(HIDHandle, AttachFinish, NULL, 0, NULL, 0, ipcCallBack, &hidattachmsg);
-				//IOS_Ioctl(HIDHandle, AttachFinish, NULL, 0, NULL, 0);
 				//hidattach = 1;
 			}
 		}
@@ -1161,7 +1153,6 @@ void HIDUpdateRegisters(u32 LoaderRequest)
 			writeLogFile(txtbuffer);
 			#endif // DISP_DEBUG
 			IOS_IoctlAsync(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, sizeof(usb_device_entry) * 32, ipcCallBack, &hidchangemsg);
-			//IOS_Ioctl(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, sizeof(usb_device_entry) * 32);
 			//hidchange = 1;
 		}
 		if (hidattached)
