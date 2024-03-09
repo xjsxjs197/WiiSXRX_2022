@@ -24,7 +24,7 @@
 #include "spu.h"
 #include "dfsound/externals.h"
 
-char spuMemC[512 * 1024] __attribute__((aligned(32)));
+//char spuMemC[512 * 1024] __attribute__((aligned(32)));
 char s_chan[(MAXCHAN + 1) * sizeof(spu.s_chan[0])] __attribute__((aligned(32)));
 char rvb[sizeof(REVERBInfo)] __attribute__((aligned(32)));
 char SB[MAXCHAN * sizeof(spu.SB[0]) * SB_SIZE] __attribute__((aligned(32)));
