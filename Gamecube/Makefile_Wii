@@ -9,8 +9,6 @@ endif
 
 include $(DEVKITPRO)/libogc2/wii_rules
 
-CHDLIBDIR = ../deps/libchdr
-
 #---------------------------------------------------------------------------------
 # GPU Plugin (GX or Soft)
 # For example, run "make GPU=GX" for GX
@@ -26,7 +24,6 @@ GPU = Soft
 TARGET		:=	WiiSXRX_debug
 BUILD		:=	build_debug
 SOURCES		:=	../lang ../fonts \
-                $(CHDLIBDIR)/src/ $(CHDLIBDIR)/deps/lzma-19.00/ $(CHDLIBDIR)/deps/zlib-1.2.13/ \
                 . ./gc_input/ ./libgui/ ./menu/ ./fileBrowser/ .. \
                 ../gpulib/ ../SoftGPU/ \
 				./libgui/gui2 ../dfsound/ ./vm ../ppc
@@ -52,7 +49,7 @@ LDFLAGS	=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map,-wrap,wiiuse_register
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS	:=	-ldi -liso9660 -lm -lSDL -lfat -ldb -lwiiuse -lwupc -lwiidrc -lbte -logc -lz -ltinysmb -lwiikeyboard -llightrecWithLog -llightning
+LIBS	:=	-ldi -liso9660 -lm -lSDL -lfat -ldb -lwiiuse -lwupc -lwiidrc -lbte -logc -lz -ltinysmb -lwiikeyboard -llightrecWithLog -llightning -llzma -lzstd -lzlibstatic -lchdr
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
@@ -114,7 +111,11 @@ export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
 					-L$(LIBOGC_LIB) \
 					-L$(DEVKITPRO)/libogc/lib/wii, -L$(DEVKITPRO)/libfat/libogc/lib/wii \
-					-L../../deps/lightrec/lib
+					-L../../deps/lightrec/lib \
+					-L../../deps/libchdr/deps/zstd-1.5.5/bin/lib \
+					-L../../deps/libchdr/deps/lzma-19.00/lib \
+					-L../../deps/libchdr/deps/zlib-1.3.1/bin/lib \
+					-L../../deps/libchdr/lib
 
 export OUTPUT	:=	$(CURDIR)/$(TARGET)
 .PHONY: $(BUILD) clean

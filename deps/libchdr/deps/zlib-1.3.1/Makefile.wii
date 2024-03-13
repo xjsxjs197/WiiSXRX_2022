@@ -1,0 +1,71 @@
+#---------------------------------------------------------------------------------
+# Clear the implicit built in rules
+#---------------------------------------------------------------------------------
+.SUFFIXES:
+#---------------------------------------------------------------------------------
+ifeq ($(strip $(DEVKITPPC)),)
+$(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC")
+endif
+
+include $(DEVKITPPC)/wii_rules
+
+INCLUDES := ./
+
+# Directories.
+OBJ_DIR			:= obj/release
+LIB_DIR			:= bin/lib
+ZLIBSTLIB_OBJ_DIR		:= $(OBJ_DIR)
+ZLIBSTLIB_SRC_DIR		:= ./
+INSTALL_HEADER_DIR	?= $(PORTLIBS_PATH)/wii/include
+INSTALL_LIB_DIR		?= $(PORTLIBS_PATH)/wii/lib
+
+# Tools.
+PIPE_TO_SED := 2>&1 | sed "s/:\([0-9]*\):/\(\1\) :/"
+
+# Library source files.
+SDL_SRCS	:= \
+	$(wildcard $(ZLIBSTLIB_SRC_DIR)/*.c)
+
+# Library object files.
+ZLIBSTLIB_OBJS	:= $(subst $(ZLIBSTLIB_SRC_DIR),$(ZLIBSTLIB_OBJ_DIR),$(SDL_SRCS:.c=.o))
+
+export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
+			        -I$(LIBOGC_INC)
+
+# What's a full build?
+all: $(LIB_DIR)/libzlibstatic.a
+
+# How to delete the intermediate files.
+clean:
+	@echo Cleaning $(LIB_DIR) $(ZLIBSTLIB_OBJS)
+	@rm -fr $(LIB_DIR) $(ZLIBSTLIB_OBJS)
+
+install: all
+	@mkdir -p $(INSTALL_HEADER_DIR) $(INSTALL_LIB_DIR)
+	@mkdir -p $(INSTALL_HEADER_DIR)/SDL
+	@cp -frv $(LIB_DIR)/*.* $(INSTALL_LIB_DIR)
+
+# Used to install library by pressing Alt+R in Programmer's Notepad
+run: all install
+
+# How to build a library.
+$(LIB_DIR)/libzlibstatic.a: $(ZLIBSTLIB_OBJS)
+	@echo Archiving $@
+	@-mkdir -p $(dir $@)
+	powerpc-eabi-ar crs $@ $(ZLIBSTLIB_OBJS)
+	@echo ----
+
+# Compilation flags.
+COMMON_FLAGS	:= -g -O2 -DNDEBUG
+INCLUDES		:= -Iinclude -I$(LIBOGC_INC)
+DEFINES			:= -mrvl -DGEKKO -mcpu=750 -meabi -mhard-float -ffunction-sections 
+CFLAGS			:= $(COMMON_FLAGS) $(INCLUDES) $(INCLUDE) $(DEFINES)--pedantic -D__BIG_ENDIAN__ -D__powerpc__ -DBIG_ENDIAN -DHAVE_STDINT_H -D__BYTE_ORDER__=__ORDER_BIG_ENDIAN__
+
+# Test link flags.
+LDFLAGS			:= $(COMMON_FLAGS) -L$(LIB_DIR) -L$(LIBOGC_LIB) $(PORTLIBS_PATH)/wii/lib
+
+# How to compile C file (SDL library).
+$(ZLIBSTLIB_OBJ_DIR)/%.o: $(ZLIBSTLIB_SRC_DIR)/%.c
+	@echo Compiling $<
+	@-mkdir -p $(dir $@)
+	powerpc-eabi-gcc $(CFLAGS) -c $< -o $@ $(PIPE_TO_SED)
