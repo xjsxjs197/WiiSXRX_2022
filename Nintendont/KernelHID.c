@@ -98,7 +98,6 @@ static usb_device_entry AttachedDevices[32] ALIGNED(32);
 static int hidRun = 0;
 static lwp_t HID_Thread = LWP_THREAD_NULL;
 static u64 HID_Timer = 0;
-static u8 *hidheap = NULL;
 static s32 hidqueue = -1;
 static vu32 hidread = 0, keyboardread = 0, hidchange = 0, hidattach = 0, hidattached = 0, hidwaittimer = 0;
 static u32 *HIDRun();
@@ -197,16 +196,9 @@ void HIDInit( void )
 	}
 	iosFree(hId, hid_ver);
 
-	ps3buf = (u8*)memalign( 32, 64 );
-	gcbuf = (u8*)memalign( 32,32 );
-	kbbuf = (u8*)memalign( 32,32 );
-
-	hidheap = (u8*)memalign(32, 64);
-	//hidqueue = mqueue_create(hidheap, 3);
-//	hidreadcontrollermsg = (struct ipcmessage*)memalign(32, sizeof(struct ipcmessage));
-//	hidreadkeyboardmsg = (struct ipcmessage*)memalign(32, sizeof(struct ipcmessage));
-//	hidchangemsg = (struct ipcmessage*)memalign(32, sizeof(struct ipcmessage));
-//	hidattachmsg = (struct ipcmessage*)memalign(32, sizeof(struct ipcmessage));
+	ps3buf = (u8*)iosAlloc(hId, 64);
+	gcbuf = (u8*)iosAlloc(hId, 32);
+	kbbuf = (u8*)iosAlloc(hId, 32);
 
     hidattached = 0;
 	hidwaittimer = 0;
@@ -236,9 +228,10 @@ s32 HIDOpen( u32 LoaderRequest )
 	//BootStatusError(8, 1);
 	u32 HIDControllerConnected = 0, HIDKeyboardConnected = 0;
 
-	s32 *io_buffer = (s32*)memalign(32, 0x20);
-	u8 *HIDHeap = (u8*)memalign(32, 0x60);
+	s32 *io_buffer = (s32*)iosAlloc(hId, 32);
+	u8 *HIDHeap = (u8*)iosAlloc(hId, 0x60);
 	u32 i;
+	s32 chkRet;
 	u32 DeviceVID = 0, DevicePID = 0;
 	for (i = 0; i < 32; ++i)
 	{
@@ -268,14 +261,22 @@ s32 HIDOpen( u32 LoaderRequest )
 			memset(io_buffer, 0, 0x20);
 			io_buffer[0] = DeviceID;
 			io_buffer[2] = 1; //resume device
-			IOS_Ioctl(HIDHandle, ResumeDevice, io_buffer, 0x20, NULL, 0);
+			chkRet = IOS_Ioctl(HIDHandle, ResumeDevice, io_buffer, 0x20, NULL, 0);
+			#ifdef DISP_DEBUG
+			sprintf(txtbuffer, "ResumeDevice %05x\r\n", chkRet);
+			writeLogFile(txtbuffer);
+			#endif // DISP_DEBUG
 
 			memset(HIDHeap, 0, 0x60);
 
 			memset(io_buffer, 0, 0x20);
 			io_buffer[0] = DeviceID;
 			io_buffer[2] = 0;
-			IOS_Ioctl(HIDHandle, GetDeviceParameters, io_buffer, 0x20, HIDHeap, 0x60);
+			chkRet = IOS_Ioctl(HIDHandle, GetDeviceParameters, io_buffer, 0x20, HIDHeap, 0x60);
+			#ifdef DISP_DEBUG
+			sprintf(txtbuffer, "GetDeviceParameters %05x\r\n", chkRet);
+			writeLogFile(txtbuffer);
+			#endif // DISP_DEBUG
 
 			//BootStatusError(8, 0);
 
@@ -336,9 +337,9 @@ s32 HIDOpen( u32 LoaderRequest )
 				#endif // DISP_DEBUG
 				HIDKeyboardConnected = 1;
 				//set to boot protocol (0)
-				s32 ret = HIDControlMessage(1, NULL, 0, USB_REQTYPE_INTERFACE_SET, USB_REQ_SETPROTOCOL, 0, 0, NULL);
+				chkRet = HIDControlMessage(1, NULL, 0, USB_REQTYPE_INTERFACE_SET, USB_REQ_SETPROTOCOL, 0, 0, NULL);
 				#ifdef DISP_DEBUG
-				sprintf(txtbuffer, "HIDKeyboard CTRL MSG %d\r\n", ret);
+				sprintf(txtbuffer, "HIDKeyboard CTRL MSG %d\r\n", chkRet);
 				writeLogFile(txtbuffer);
 				#endif // DISP_DEBUG
 				//start reading data
@@ -686,8 +687,9 @@ s32 HIDOpen( u32 LoaderRequest )
 			}
 		}
 	}
-	free(io_buffer);
-	free(HIDHeap);
+
+    iosFree(hId, io_buffer);
+    iosFree(hId, HIDHeap);
 
 	#ifdef DISP_DEBUG
     sprintf(txtbuffer, "HIDOpen ConnInfo %d %d \r\n", HIDControllerConnected, HIDKeyboardConnected);
@@ -745,6 +747,19 @@ void HIDClose()
 	    LWP_JoinThread(HID_Thread, NULL);
     	HID_Thread = LWP_THREAD_NULL;
     }
+
+    if (ps3buf != NULL)
+	{
+		iosFree(hId, ps3buf);
+	}
+	if (gcbuf != NULL)
+	{
+		iosFree(hId, gcbuf);
+	}
+	if (kbbuf != NULL)
+	{
+		iosFree(hId, kbbuf);
+	}
 }
 
 static u32 *HIDRun(void *param)
@@ -856,7 +871,7 @@ void HIDGCInit()
 }
 void HIDPS3Init()
 {
-	u8 *buf = (u8*)memalign( 32, 0x20 );
+	u8 *buf = (u8*)iosAlloc(hId, 32);
 	memset( buf, 0, 0x20 );
 	s32 ret = HIDControlMessage(0, buf, 17, USB_REQTYPE_INTERFACE_GET,
 			USB_REQ_GETREPORT, (USB_REPTYPE_FEATURE<<8) | 0xf2, 0, NULL);
@@ -871,7 +886,7 @@ void HIDPS3Init()
 		//usleep(1000000);
 		//Shutdown();
 	}
-	free(buf);
+	iosFree(hId, buf);
 }
 void HIDPS3SetLED( u8 led )
 {
