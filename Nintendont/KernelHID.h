@@ -131,7 +131,7 @@ typedef struct {
 	void *data; // virtual pointer, not physical!
 } req_args; // 32 bytes
 
-void HIDInit();
+void HIDInit(u32 ios);
 s32 HIDOpen();
 void HIDClose();
 void HIDUpdateRegisters(u32 LoaderRequest);

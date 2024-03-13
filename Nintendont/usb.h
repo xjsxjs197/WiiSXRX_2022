@@ -141,6 +141,7 @@ struct _usb_msg {
 
 		u32 align_pad[6]; // pad to 32 bytes
 	};
+	s32 msgData;
 	ioctlv vec[7];
 };
 
