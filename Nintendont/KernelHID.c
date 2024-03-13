@@ -123,6 +123,12 @@ static void *HID_Packet = (void*)HID_Packet_ADDR;
 #define HID_CHANGE_MSG        3
 #define HID_ATTACH_MSG        4
 
+#define USBV4_IOCTL_GETVERSION                   6 // returns 0x40001
+#define USBV5_IOCTL_GETVERSION                   0 // should return 0x50001
+
+#define USB_HEAPSIZE          16384
+static s32 hId = -1;
+
 static u32 hidreadcontrollermsg = READ_CONTROLLER_MSG;
 static u32 hidreadkeyboardmsg = READ_KEYBOARD_MSG;
 static u32 hidchangemsg = HID_CHANGE_MSG;
@@ -148,7 +154,7 @@ static s32 ipcCallBack(s32 result, void *usrdata)
 		    memset(&AttachedDevices[result], 0, sizeof(usb_device_entry) * (32 - result));
 		}
 	}
-	else
+	else if (msg == HID_ATTACH_MSG)
 	{
 		if (result >= 0)
 		{
@@ -163,6 +169,33 @@ void HIDInit( void )
 {
 	HIDHandle = IOS_Open("/dev/usb/hid", 0 );
 	if(HIDHandle < 0) return; //should never happen
+
+	if (hId == -1 ) hId = iosCreateHeap(USB_HEAPSIZE);
+	u32 *hid_ver = (u32*)iosAlloc(hId, 0x20);
+	s32 checkRet = IOS_Ioctl(HIDHandle, USBV4_IOCTL_GETVERSION, NULL, 0, NULL, 0);
+	if (checkRet == 0x40001)
+	{
+		#ifdef DISP_DEBUG
+		sprintf(txtbuffer, "HID chk V4 error\r\n");
+		writeLogFile(txtbuffer);
+		#endif // DISP_DEBUG
+		IOS_Close(HIDHandle);
+		iosFree(hId, hid_ver);
+		return;
+	}
+
+	checkRet = IOS_Ioctl(HIDHandle, USBV5_IOCTL_GETVERSION, NULL, 0, hid_ver, 0x20);
+	if (checkRet  || hid_ver[0] != 0x50001)
+	{
+		#ifdef DISP_DEBUG
+		sprintf(txtbuffer, "HID chk V5 error %08x %05x\r\n", checkRet, hid_ver[0]);
+		writeLogFile(txtbuffer);
+		#endif // DISP_DEBUG
+		IOS_Close(HIDHandle);
+		iosFree(hId, hid_ver);
+		return;
+	}
+	iosFree(hId, hid_ver);
 
 	ps3buf = (u8*)memalign( 32, 64 );
 	gcbuf = (u8*)memalign( 32,32 );
