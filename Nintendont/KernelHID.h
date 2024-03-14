@@ -6,9 +6,6 @@ extern "C" {
 #endif
 
 #include "global.h"
-//#include "common.h"
-//#include "vsprintf.h"
-#include "alloc.h"
 #include "PS3Controller.h"
 
 #define C_NOT_SET	(0<<0)

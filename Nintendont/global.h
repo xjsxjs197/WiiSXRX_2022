@@ -90,7 +90,6 @@ typedef volatile signed long long vs64;
 typedef s32(*ipccallback)(s32 result,void *usrdata);
 
 #include "ipc.h"
-//#include "syscalls.h"
 
 #define NULL ((void *)0)
 
@@ -281,137 +280,25 @@ struct BTPadCont {
 u64 gettime(void);
 u32 diff_usec(u64 start, u64 end);
 
-//static inline u16 read16(u32 addr)
-//{
-//	u32 data;
-//	__asm__ volatile ("ldrh\t%0, [%1]" : "=l" (data) : "l" (addr));
-//	return data;
-//}
-//
-//static inline void write16(u32 addr, u16 data)
-//{
-//	__asm__ volatile ("strh\t%0, [%1]" : : "l" (data), "l" (addr));
-//}
-//
-//static inline u32 read32(u32 addr)
-//{
-//	u32 data;
-//	__asm__ volatile ("ldr\t%0, [%1]" : "=l" (data) : "l" (addr));
-//	return data;
-//}
-//
-//static inline void write32(u32 addr, u32 data)
-//{
-//	__asm__ volatile ("str\t%0, [%1]" : : "l" (data), "l" (addr));
-//}
-//
-//static inline u32 set32(u32 addr, u32 set)
-//{
-//	u32 data;
-//	__asm__ volatile (
-//		"ldr\t%0, [%1]\n"
-//		"\torr\t%0, %2\n"
-//		"\tstr\t%0, [%1]"
-//		: "=&l" (data)
-//		: "l" (addr), "l" (set)
-//	);
-//	return data;
-//}
-//
-//static inline u32 mask32(u32 addr, u32 clear, u32 set)
-//{
-//	u32 data;
-//	__asm__ volatile (
-//		"ldr\t%0, [%1]\n"
-//		"\tbic\t%0, %3\n"
-//		"\torr\t%0, %2\n"
-//		"\tstr\t%0, [%1]"
-//		: "=&l" (data)
-//		: "l" (addr), "l" (set), "l" (clear)
-//	);
-//	return data;
-//}
-//static inline u32 clear32(u32 addr, u32 clear)
-//{
-//	u32 data;
-//	__asm__ volatile (
-//		"ldr\t%0, [%1]\n"
-//		"\tbic\t%0, %2\n"
-//		"\tstr\t%0, [%1]"
-//		: "=&l" (data)
-//		: "l" (addr), "l" (clear)
-//	);
-//	return data;
-//}
-
-//static inline u32 TicksToSecs(u32 time)
-//{
-//	//really accurate, it reports the first second is over about 0.5ms early and
-//	//with a full 37.7 minutes difference its off by only about 0.7ms
-//	return ((time >> 9)*283)>>20;
-//}
-//
-//static inline u32 TimerDiffTicks(u32 time)
-//{
-//	u32 curtime = read32((u32)(HW_TIMER));
-//	if(time > curtime) return UINT_MAX; //wrapped, return UINT_MAX to reset
-//	return curtime - time;
-//}
-
-//static inline u32 TimerDiffSeconds(u32 time)
-//{
-//	u32 curtime = read32((u32)(HW_TIMER));
-//	if(time > curtime) return UINT_MAX; //wrapped, return UINT_MAX to reset
-//	return TicksToSecs(curtime - time);
-//}
-
-//static inline u32 IsGCGame(u32 Buffer)
-//{
-//	u32 AMB1 = read32((u32)(Buffer+0x4));
-//	u32 GCMagic = read32((u32)(Buffer+0x1C));
-//	return (AMB1 == 0x414D4231 || GCMagic == 0xC2339F3D);
-//}
-
-//static inline void sync_before_read_align32(void *Buf, u32 Len)
-//{
-//	void *BufA = ALIGN_BACKWARD(Buf, 0x20);
-//	u32 LenDiff = (u32)Buf - (u32)BufA;
-//	sync_before_read(BufA, ALIGN_FORWARD(Len + LenDiff, 0x20));
-//}
-//
-//static inline void sync_after_write_align32(void *Buf, u32 Len)
-//{
-//	void *BufA = ALIGN_BACKWARD(Buf, 0x20);
-//	u32 LenDiff = (u32)Buf - (u32)BufA;
-//	sync_after_write(BufA, ALIGN_FORWARD(Len + LenDiff, 0x20));
-//}
-
-/**
- * Is this system a Wii U?
- * @return True if this is Wii U; false if not.
- */
-//extern bool isWiiVC;
-//static inline bool IsWiiU(void)
-//{
-//	return ((read16(0xD8005A0) == 0xCAFE) || isWiiVC);
-//}
-//static inline bool IsWiiUFastCPU(void)
-//{
-//	return ((read16(0xD8005A0) == 0xCAFE) && ((read32(0xD8005B0) & 0x20) == 0));
-//}
-
-/* Writing to this reboots the WiiU */
-//static inline void WiiUResetToMenu(void)
-//{
-//	write32( 0x0D8005E0, 0xFFFFFFFE );
-//}
-
 extern u32 virtentry;
-//static inline u32 do_thread_create(void *entry, u32 *stackaddr, u32 stacksize, u32 prio)
-//{
-//	*(vu32*)0x12FFFFE0 = (u32)entry; //physical entry
-//	sync_after_write((void*)0x12FFFFE0, 0x20);
-//	return thread_create((u32(*)(void*))virtentry, NULL, stackaddr, stacksize / sizeof(u32), prio, 1);
-//}
+
+#define NIN_CFG_MAXPAD 4
+
+typedef struct NIN_CFG
+{
+	unsigned int		Magicbytes;		// 0x01070CF6
+	unsigned int		Version;		// 0x00000001
+	unsigned int		Config;
+	unsigned int		VideoMode;
+	unsigned int		Language;
+	char	GamePath[255];
+	char	CheatPath[255];
+	unsigned int		MaxPads;
+	unsigned int		GameID;
+	unsigned char		MemCardBlocks;
+	signed char			VideoScale;
+	signed char			VideoOffset;
+	unsigned char		NetworkProfile;
+} NIN_CFG;
 
 #endif
