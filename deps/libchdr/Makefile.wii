@@ -1,0 +1,77 @@
+#---------------------------------------------------------------------------------
+# Clear the implicit built in rules
+#---------------------------------------------------------------------------------
+.SUFFIXES:
+#---------------------------------------------------------------------------------
+ifeq ($(strip $(DEVKITPPC)),)
+$(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC")
+endif
+
+include $(DEVKITPPC)/wii_rules
+
+INCLUDES := ./ ./include/
+
+# Directories.
+OBJ_DIR			:= obj/release
+LIB_DIR			:= lib
+LIBCHDR_OBJ_DIR		:= $(OBJ_DIR)
+LIBCHDR_SRC_DIR		:= ./src
+INSTALL_HEADER_DIR	?= $(PORTLIBS_PATH)/wii/include
+INSTALL_LIB_DIR		?= $(PORTLIBS_PATH)/wii/lib
+
+# Tools.
+PIPE_TO_SED := 2>&1 | sed "s/:\([0-9]*\):/\(\1\) :/"
+
+# Library source files.
+SDL_SRCS	:= \
+	$(wildcard $(LIBCHDR_SRC_DIR)/libchdr_bitstream.c) \
+	$(wildcard $(LIBCHDR_SRC_DIR)/libchdr_cdrom.c) \
+	$(wildcard $(LIBCHDR_SRC_DIR)/libchdr_chd.c) \
+	$(wildcard $(LIBCHDR_SRC_DIR)/libchdr_flac.c) \
+	$(wildcard $(LIBCHDR_SRC_DIR)/libchdr_huffman.c)
+
+# Library object files.
+LIBCHDR_OBJS	:= $(subst $(LIBCHDR_SRC_DIR),$(LIBCHDR_OBJ_DIR),$(SDL_SRCS:.c=.o))
+
+export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
+			        -I$(LIBOGC_INC)
+
+# What's a full build?
+all: $(LIB_DIR)/libchdr.a
+
+# How to delete the intermediate files.
+clean:
+	@echo Cleaning $(LIB_DIR) $(LIBCHDR_OBJS)
+	@rm -fr $(LIB_DIR) $(LIBCHDR_OBJS)
+
+install: all
+	@mkdir -p $(INSTALL_HEADER_DIR) $(INSTALL_LIB_DIR)
+	@mkdir -p $(INSTALL_HEADER_DIR)/SDL
+	@cp -frv $(LIB_DIR)/*.* $(INSTALL_LIB_DIR)
+	@cp -frv include/dr_libs/*.* $(INSTALL_HEADER_DIR)/SDL
+	@cp -frv include/libchdr/*.* $(INSTALL_HEADER_DIR)/SDL
+
+# Used to install library by pressing Alt+R in Programmer's Notepad
+run: all install
+
+# How to build a library.
+$(LIB_DIR)/libchdr.a: $(LIBCHDR_OBJS)
+	@echo Archiving $@
+	@-mkdir -p $(dir $@)
+	powerpc-eabi-ar crs $@ $(LIBCHDR_OBJS)
+	@echo ----
+
+# Compilation flags.
+COMMON_FLAGS	:= -g -O2 -w $(MACHDEP) -fvisibility=hidden
+INCLUDES		:= -Iinclude -I$(LIBOGC_INC)
+DEFINES			:= -DGEKKO
+CFLAGS			:= $(COMMON_FLAGS) $(INCLUDES) $(INCLUDE) $(DEFINES) --pedantic -D__BIG_ENDIAN__ -D__powerpc__ -D__ppc__ -DBIG_ENDIAN -DLOG_LEVEL=2 -D__BYTE_ORDER__=__ORDER_BIG_ENDIAN__
+
+# Test link flags.
+LDFLAGS			:= $(COMMON_FLAGS) -L$(LIB_DIR) -L$(LIBOGC_LIB) $(PORTLIBS_PATH)/wii/lib -llightning
+
+# How to compile C file (SDL library).
+$(LIBCHDR_OBJ_DIR)/%.o: $(LIBCHDR_SRC_DIR)/%.c
+	@echo Compiling $<
+	@-mkdir -p $(dir $@)
+	powerpc-eabi-gcc $(CFLAGS) -c $< -o $@ $(PIPE_TO_SED)
