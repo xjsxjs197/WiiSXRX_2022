@@ -256,16 +256,16 @@ static bool loadControllerMapping(char* usbSd)
 
     #ifdef HW_RVL
 
-    sprintf(settingPathBuf, "%s:/wiisxrx/controlH.cfg", usbSd);
-    f = fopen(settingPathBuf, "rb" );  //attempt to open file
-    if(f) {
-        load_configurations(f, &controller_HidGC);			//read in HID controller mappings
-        fclose(f);
-    }
-    else
-    {
-        loadRet = false;
-    }
+//    sprintf(settingPathBuf, "%s:/wiisxrx/controlH.cfg", usbSd);
+//    f = fopen(settingPathBuf, "rb" );  //attempt to open file
+//    if(f) {
+//        load_configurations(f, &controller_HidGC);			//read in HID controller mappings
+//        fclose(f);
+//    }
+//    else
+//    {
+//        loadRet = false;
+//    }
 
     sprintf(settingPathBuf, "%s:/wiisxrx/controlC.cfg", usbSd);
     f = fopen(settingPathBuf, "rb" );  //attempt to open file
