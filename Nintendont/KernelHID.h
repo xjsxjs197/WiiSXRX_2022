@@ -73,7 +73,10 @@ typedef struct Controller
 
 	layout L;
 	layout R;
+	layout L2; // L2 for WiiStation
+	layout R2; // R2 for WiiStation
 	layout S;
+	layout Select; // Select for WiiStation
 
 	layout Left;
 	layout Down;

@@ -488,8 +488,17 @@ s32 HIDOpen( u32 LoaderRequest )
                     HID_CTRL->R.Offset    = ConfigGetValue( Data, "R", 0 );
                     HID_CTRL->R.Mask    = ConfigGetValue( Data, "R", 1 );
 
+                    HID_CTRL->L2.Offset    = ConfigGetValue( Data, "L2", 0 );
+                    HID_CTRL->L2.Mask    = ConfigGetValue( Data, "L2", 1 );
+
+                    HID_CTRL->R2.Offset    = ConfigGetValue( Data, "R2", 0 );
+                    HID_CTRL->R2.Mask    = ConfigGetValue( Data, "R2", 1 );
+
                     HID_CTRL->S.Offset    = ConfigGetValue( Data, "S", 0 );
                     HID_CTRL->S.Mask    = ConfigGetValue( Data, "S", 1 );
+
+                    HID_CTRL->Select.Offset    = ConfigGetValue( Data, "Select", 0 );
+                    HID_CTRL->Select.Mask    = ConfigGetValue( Data, "Select", 1 );
 
                     HID_CTRL->Left.Offset    = ConfigGetValue( Data, "Left", 0 );
                     HID_CTRL->Left.Mask        = ConfigGetValue( Data, "Left", 1 );

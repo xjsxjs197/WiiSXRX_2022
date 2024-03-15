@@ -92,21 +92,17 @@ void HIDUpdateControllerIni()
     /* I hope this covers all possible ini files */
     char file_sd[40];
     char file_usb[40];
-    snprintf(file_sd, sizeof(file_sd), "sd:/controllers/%04X_%04X.ini", DeviceVID, DevicePID);
-    snprintf(file_usb, sizeof(file_usb), "usb:/controllers/%04X_%04X.ini", DeviceVID, DevicePID);
+    snprintf(file_sd, sizeof(file_sd), "sd:/wiisxrx/controllers/%04X_%04X.ini", DeviceVID, DevicePID);
+    snprintf(file_usb, sizeof(file_usb), "usb:/wiisxrx/controllers/%04X_%04X.ini", DeviceVID, DevicePID);
 
-    const char *const filenames[6] =
+    const char *const filenames[2] =
     {
-        file_sd, file_usb,
-        "sd:/controller.ini",
-        "sd:/controller.ini.ini",
-        "usb:/controller.ini",
-        "usb:/controller.ini.ini"
+        file_sd, file_usb
     };
 
     int i;
     FILE* f = NULL;
-    for (i = 0; i < 6; i++)
+    for (i = 0; i < 2; i++)
     {
         f = fopen(filenames[i], "r");
         if (f != NULL)
@@ -495,6 +491,11 @@ u32 ReadHidData(u32 calledByGame)
                     button |= PAD_TRIGGER_L;
                 if(HID_Packet[HID_CTRL->R.Offset] & HID_CTRL->R.Mask)
                     button |= PAD_TRIGGER_R;
+
+                if(HID_Packet[HID_CTRL->L2.Offset] & HID_CTRL->L2.Mask)
+                    button |= PAD_TRIGGER_L2;
+                if(HID_Packet[HID_CTRL->R2.Offset] & HID_CTRL->R2.Mask)
+                    button |= PAD_TRIGGER_R2;
             }
         }
         else if( HID_CTRL->DigitalLR == 2)    //no digital trigger buttons compute from analog trigger values
@@ -505,6 +506,11 @@ u32 ReadHidData(u32 calledByGame)
                     button |= PAD_TRIGGER_L;
                 if((HID_Packet[HID_CTRL->R.Offset] & 0x0F) >= HID_CTRL->R.Mask)    //only some bits are part of this control
                     button |= PAD_TRIGGER_R;
+
+                if ((HID_Packet[HID_CTRL->L2.Offset] & 0x7C) >= HID_CTRL->L2.Mask)
+                    button |= PAD_TRIGGER_L2;
+                if ((HID_Packet[HID_CTRL->R2.Offset] & 0x0F) >= HID_CTRL->R2.Mask)
+                    button |= PAD_TRIGGER_R2;
             }
             else    //standard no digital trigger button
             {
@@ -512,6 +518,11 @@ u32 ReadHidData(u32 calledByGame)
                     button |= PAD_TRIGGER_L;
                 if(HID_Packet[HID_CTRL->R.Offset] >= HID_CTRL->R.Mask)
                     button |= PAD_TRIGGER_R;
+
+                if(HID_Packet[HID_CTRL->L2.Offset] & HID_CTRL->L2.Mask)
+                    button |= PAD_TRIGGER_L2;
+                if(HID_Packet[HID_CTRL->R2.Offset] & HID_CTRL->R2.Mask)
+                    button |= PAD_TRIGGER_R2;
             }
         }
         else    //standard digital left and right trigger buttons
@@ -520,6 +531,11 @@ u32 ReadHidData(u32 calledByGame)
                 button |= PAD_TRIGGER_L;
             if(HID_Packet[HID_CTRL->R.Offset] & HID_CTRL->R.Mask)
                 button |= PAD_TRIGGER_R;
+
+            if(HID_Packet[HID_CTRL->L2.Offset] & HID_CTRL->L2.Mask)
+                button |= PAD_TRIGGER_L2;
+            if(HID_Packet[HID_CTRL->R2.Offset] & HID_CTRL->R2.Mask)
+                button |= PAD_TRIGGER_R2;
         }
 
         if (PADBarrelEnabled[chan] && PADIsBarrel[chan]) //if bongo controller
@@ -539,6 +555,10 @@ u32 ReadHidData(u32 calledByGame)
 
         if(HID_Packet[HID_CTRL->S.Offset] & HID_CTRL->S.Mask)
             button |= PAD_BUTTON_START;
+
+        if(HID_Packet[HID_CTRL->Select.Offset] & HID_CTRL->Select.Mask)
+            button |= PAD_BUTTON_SELECT;
+
         Pad[chan].button = button;
 
         if((Pad[chan].button&0x1030) == 0x1030)    //reset by pressing start, Z, R
