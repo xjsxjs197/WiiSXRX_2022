@@ -712,15 +712,13 @@ static u32 *HIDRun(void *param)
 {
     while (hidRun)
     {
-        u32 reset_status = *((u32*)RESET_STATUS);
-        if(reset_status == 0x1DEA)
+        extern char shutdown;
+        if (shutdown)
         {
-            hidRun = 0;
-            *((u32*)RESET_STATUS) = 0;
             break;
         }
         HIDUpdateRegisters(1);
-        usleep(100);
+        usleep(20);
     }
     return 0;
 }
@@ -732,12 +730,10 @@ static s32 HIDControlMessage(u32 isKBreq, u8 *Data, u32 Length, u32 RequestType,
 
     if(isKBreq)
     {
-        //msg = request_dir ? &read_kb_ctrl_req : &write_kb_ctrl_req;
         msg->fd = KeyboardID;
     }
     else
     {
-        //msg = request_dir ? &read_ctrl_req : &write_ctrl_req;
         msg->fd = ControllerID;
     }
 
@@ -854,16 +850,16 @@ vu32 MotorCommand = 0x93003020;
 
 void HIDPS3Read()
 {
-    #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "HIDPS3Read \r\n");
-    writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
     if( !PS3LedSet && Packet[4] )
     {
         HIDPS3SetLED(1);
         PS3LedSet = 1;
     }
     memcpy(HID_Packet, Packet, SS_DATA_LEN);
+    #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "HIDPS3Read %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     HIDControlMessage(0, Packet, SS_DATA_LEN, USB_REQTYPE_INTERFACE_GET,
             USB_REQ_GETREPORT, (USB_REPTYPE_INPUT<<8) | 0x1, READ_CONTROLLER_MSG);
@@ -912,10 +908,6 @@ ctrlrumblerepeat:
 
 void HIDIRQRead()
 {
-    #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "HIDIRQRead \r\n");
-    writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
     switch( HID_CTRL->MultiIn )
     {
         default:
@@ -932,6 +924,10 @@ void HIDIRQRead()
             break;
     }
     memcpy(HID_Packet, Packet, wMaxPacketSize);
+    #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "HIDIRQRead %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 dohidirqread:
     HIDInterruptMessage(0, Packet, wMaxPacketSize, bEndpointAddressController, READ_CONTROLLER_MSG);
     //hidread = 1;
@@ -1094,10 +1090,6 @@ u32 ConfigGetDecValue( char *Data, const char *EntryName, u32 Entry )
 
 static void KeyboardRead()
 {
-    #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "KeyboardRead %08x %08x\r\n", *(u32*)kbbuf, *(u32*)(kbbuf + 4));
-    writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
     memcpy(kb_input, kbbuf, 8);
     HIDInterruptMessage(1, kbbuf, 8, bEndpointAddressKeyboard, READ_KEYBOARD_MSG);
     //keyboardread = 1;

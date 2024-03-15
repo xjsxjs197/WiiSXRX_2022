@@ -132,6 +132,7 @@ void HIDUpdateControllerIni()
     *(vu32*)HID_CHANGE = 0;
 }
 
+// CalledByGame is always 0
 u32 ReadHidData(u32 calledByGame)
 {
     // Registers r1,r13-r31 automatically restored if used.
@@ -142,13 +143,13 @@ u32 ReadHidData(u32 calledByGame)
 
     PADStatusKernel *Pad = (PADStatusKernel*)(0x93003100); //PadBuff
     u32 MaxPads;
-    if(calledByGame)
-    {
-        MaxPads = ((NIN_CFG*)0x93004000)->MaxPads;
-        if (MaxPads > NIN_CFG_MAXPAD)
-            MaxPads = NIN_CFG_MAXPAD;
-    }
-    else //this file is only used for hid in the loader
+//    if(calledByGame)
+//    {
+//        MaxPads = ((NIN_CFG*)0x93004000)->MaxPads;
+//        if (MaxPads > NIN_CFG_MAXPAD)
+//            MaxPads = NIN_CFG_MAXPAD;
+//    }
+//    else //this file is only used for hid in the loader
         MaxPads = 0;
 
     u32 HIDPad = (*HID_STATUS == 0) ? HID_PAD_NONE : HID_PAD_NOT_SET;
@@ -158,97 +159,97 @@ u32 ReadHidData(u32 calledByGame)
     asm volatile("dcbi 0,%0; sync" : : "b"(memInvalidate) : "memory");
 
     /* For Wii VC */
-    if(calledByGame && *drcAddress)
-    {
-        used |= (1<<0); //always use channel 0
-        if(HIDPad == HID_PAD_NOT_SET)
-        {
-            //Force HID to player 2
-            *HIDMotor = (MotorCommand[1]&0x3);
-            HIDPad = 1;
-        }
-        memInvalidate = *drcAddressAligned; //pre-aligned to 0x20 grid
-        asm volatile("dcbi 0,%0; sync" : : "b"(memInvalidate) : "memory");
-        vu8 *i2cdata = (vu8*)(*drcAddress);
-        //check for console shutdown request
-        if(i2cdata[1] & 0x80) goto DoShutdown;
-        //Start out mapping buttons first
-        u16 button = 0;
-        u16 drcbutton = (i2cdata[2]<<8) | (i2cdata[3]);
-        //swap abxy when minus is pressed
-        if((!(PrevDRCButton & WIIDRC_BUTTON_MINUS)) && drcbutton & WIIDRC_BUTTON_MINUS)
-            PrevDRCButton ^= DRC_SWAP;
-        PrevDRCButton = (PrevDRCButton & DRC_SWAP) | drcbutton;
-        if(PrevDRCButton & DRC_SWAP)
-        {    /* turn buttons quarter clockwise */
-            if(drcbutton & WIIDRC_BUTTON_B) button |= PAD_BUTTON_A;
-            if(drcbutton & WIIDRC_BUTTON_Y) button |= PAD_BUTTON_B;
-            if(drcbutton & WIIDRC_BUTTON_A) button |= PAD_BUTTON_X;
-            if(drcbutton & WIIDRC_BUTTON_X) button |= PAD_BUTTON_Y;
-        }
-        else
-        {
-            if(drcbutton & WIIDRC_BUTTON_A) button |= PAD_BUTTON_A;
-            if(drcbutton & WIIDRC_BUTTON_B) button |= PAD_BUTTON_B;
-            if(drcbutton & WIIDRC_BUTTON_X) button |= PAD_BUTTON_X;
-            if(drcbutton & WIIDRC_BUTTON_Y) button |= PAD_BUTTON_Y;
-        }
-        if(drcbutton & WIIDRC_BUTTON_LEFT) button |= PAD_BUTTON_LEFT;
-        if(drcbutton & WIIDRC_BUTTON_RIGHT) button |= PAD_BUTTON_RIGHT;
-        if(drcbutton & WIIDRC_BUTTON_UP) button |= PAD_BUTTON_UP;
-        if(drcbutton & WIIDRC_BUTTON_DOWN) button |= PAD_BUTTON_DOWN;
-        //also sets left analog trigger
-        if(drcbutton & WIIDRC_BUTTON_ZL)
-        {
-            //Check half-press by holding L
-            if(drcbutton & WIIDRC_BUTTON_L)
-                Pad[0].triggerLeft = 0x7F;
-            else
-            {
-                button |= PAD_TRIGGER_L;
-                Pad[0].triggerLeft = 0xFF;
-            }
-        }
-        else
-            Pad[0].triggerLeft = 0;
-        //also sets right analog trigger
-        if(drcbutton & WIIDRC_BUTTON_ZR)
-        {
-            //Check half-press by holding L
-            if(drcbutton & WIIDRC_BUTTON_L)
-                Pad[0].triggerRight = 0x7F;
-            else
-            {
-                button |= PAD_TRIGGER_R;
-                Pad[0].triggerRight = 0xFF;
-            }
-        }
-        else
-            Pad[0].triggerRight = 0;
-        if(drcbutton & WIIDRC_BUTTON_R) button |= PAD_TRIGGER_Z;
-        if(drcbutton & WIIDRC_BUTTON_PLUS) button |= PAD_BUTTON_START;
-        if(drcbutton & WIIDRC_BUTTON_HOME) goto DoExit;
-        //write in mapped out buttons
-        Pad[0].button = button;
-        if((Pad[0].button&0x1030) == 0x1030) //reset by pressing start, Z, R
-        {
-            /* reset status 3 */
-            *RESET_STATUS = 0x3DEA;
-        }
-        else /* for held status */
-            *RESET_STATUS = 0;
-        //do scale, deadzone and clamp
-        s8 tmp_stick8; s16 tmp_stick16;
-        _DRC_BUILD_TMPSTICK(i2cdata[4]);
-        Pad[0].stickX = tmp_stick8;
-        _DRC_BUILD_TMPSTICK(i2cdata[5]);
-        Pad[0].stickY = tmp_stick8;
-        _DRC_BUILD_TMPSTICK(i2cdata[6]);
-        Pad[0].substickX = tmp_stick8;
-        _DRC_BUILD_TMPSTICK(i2cdata[7]);
-        Pad[0].substickY = tmp_stick8;
-    }
-    else
+//    if(calledByGame && *drcAddress)
+//    {
+//        used |= (1<<0); //always use channel 0
+//        if(HIDPad == HID_PAD_NOT_SET)
+//        {
+//            //Force HID to player 2
+//            *HIDMotor = (MotorCommand[1]&0x3);
+//            HIDPad = 1;
+//        }
+//        memInvalidate = *drcAddressAligned; //pre-aligned to 0x20 grid
+//        asm volatile("dcbi 0,%0; sync" : : "b"(memInvalidate) : "memory");
+//        vu8 *i2cdata = (vu8*)(*drcAddress);
+//        //check for console shutdown request
+//        if(i2cdata[1] & 0x80) goto DoShutdown;
+//        //Start out mapping buttons first
+//        u16 button = 0;
+//        u16 drcbutton = (i2cdata[2]<<8) | (i2cdata[3]);
+//        //swap abxy when minus is pressed
+//        if((!(PrevDRCButton & WIIDRC_BUTTON_MINUS)) && drcbutton & WIIDRC_BUTTON_MINUS)
+//            PrevDRCButton ^= DRC_SWAP;
+//        PrevDRCButton = (PrevDRCButton & DRC_SWAP) | drcbutton;
+//        if(PrevDRCButton & DRC_SWAP)
+//        {    /* turn buttons quarter clockwise */
+//            if(drcbutton & WIIDRC_BUTTON_B) button |= PAD_BUTTON_A;
+//            if(drcbutton & WIIDRC_BUTTON_Y) button |= PAD_BUTTON_B;
+//            if(drcbutton & WIIDRC_BUTTON_A) button |= PAD_BUTTON_X;
+//            if(drcbutton & WIIDRC_BUTTON_X) button |= PAD_BUTTON_Y;
+//        }
+//        else
+//        {
+//            if(drcbutton & WIIDRC_BUTTON_A) button |= PAD_BUTTON_A;
+//            if(drcbutton & WIIDRC_BUTTON_B) button |= PAD_BUTTON_B;
+//            if(drcbutton & WIIDRC_BUTTON_X) button |= PAD_BUTTON_X;
+//            if(drcbutton & WIIDRC_BUTTON_Y) button |= PAD_BUTTON_Y;
+//        }
+//        if(drcbutton & WIIDRC_BUTTON_LEFT) button |= PAD_BUTTON_LEFT;
+//        if(drcbutton & WIIDRC_BUTTON_RIGHT) button |= PAD_BUTTON_RIGHT;
+//        if(drcbutton & WIIDRC_BUTTON_UP) button |= PAD_BUTTON_UP;
+//        if(drcbutton & WIIDRC_BUTTON_DOWN) button |= PAD_BUTTON_DOWN;
+//        //also sets left analog trigger
+//        if(drcbutton & WIIDRC_BUTTON_ZL)
+//        {
+//            //Check half-press by holding L
+//            if(drcbutton & WIIDRC_BUTTON_L)
+//                Pad[0].triggerLeft = 0x7F;
+//            else
+//            {
+//                button |= PAD_TRIGGER_L;
+//                Pad[0].triggerLeft = 0xFF;
+//            }
+//        }
+//        else
+//            Pad[0].triggerLeft = 0;
+//        //also sets right analog trigger
+//        if(drcbutton & WIIDRC_BUTTON_ZR)
+//        {
+//            //Check half-press by holding L
+//            if(drcbutton & WIIDRC_BUTTON_L)
+//                Pad[0].triggerRight = 0x7F;
+//            else
+//            {
+//                button |= PAD_TRIGGER_R;
+//                Pad[0].triggerRight = 0xFF;
+//            }
+//        }
+//        else
+//            Pad[0].triggerRight = 0;
+//        if(drcbutton & WIIDRC_BUTTON_R) button |= PAD_TRIGGER_Z;
+//        if(drcbutton & WIIDRC_BUTTON_PLUS) button |= PAD_BUTTON_START;
+//        if(drcbutton & WIIDRC_BUTTON_HOME) goto DoExit;
+//        //write in mapped out buttons
+//        Pad[0].button = button;
+//        if((Pad[0].button&0x1030) == 0x1030) //reset by pressing start, Z, R
+//        {
+//            /* reset status 3 */
+//            *RESET_STATUS = 0x3DEA;
+//        }
+//        else /* for held status */
+//            *RESET_STATUS = 0;
+//        //do scale, deadzone and clamp
+//        s8 tmp_stick8; s16 tmp_stick16;
+//        _DRC_BUILD_TMPSTICK(i2cdata[4]);
+//        Pad[0].stickX = tmp_stick8;
+//        _DRC_BUILD_TMPSTICK(i2cdata[5]);
+//        Pad[0].stickY = tmp_stick8;
+//        _DRC_BUILD_TMPSTICK(i2cdata[6]);
+//        Pad[0].substickX = tmp_stick8;
+//        _DRC_BUILD_TMPSTICK(i2cdata[7]);
+//        Pad[0].substickY = tmp_stick8;
+//    }
+//    else
     {
         for (chan = 0; (chan < MaxPads); ++chan)
         {
@@ -437,11 +438,11 @@ u32 ReadHidData(u32 calledByGame)
             }
         }
 
-        if(calledByGame && HID_CTRL->Power.Mask &&    //exit if power configured and all power buttons pressed
-        ((HID_Packet[HID_CTRL->Power.Offset] & HID_CTRL->Power.Mask) == HID_CTRL->Power.Mask))
-        {
-            goto DoExit;
-        }
+//        if(calledByGame && HID_CTRL->Power.Mask &&    //exit if power configured and all power buttons pressed
+//        ((HID_Packet[HID_CTRL->Power.Offset] & HID_CTRL->Power.Mask) == HID_CTRL->Power.Mask))
+//        {
+//            goto DoExit;
+//        }
         used |= (1<<chan);
 
         Rumble |= ((1<<31)>>chan);
