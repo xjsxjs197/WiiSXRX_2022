@@ -10,7 +10,7 @@ extern "C" {
 
 #define C_NOT_SET	(0<<0)
 #define HID_CTRL_ADDR                    0x93005000
-#define HID_Packet_ADDR                  0x930050F0
+#define HID_Packet_ADDR                  0x93005100
 
 #define USB_REPTYPE_FEATURE                             0x03
 #define USB_REPTYPE_OUTPUT                              0x02
@@ -73,8 +73,8 @@ typedef struct Controller
 
 	layout L;
 	layout R;
-	layout L2; // L2 for WiiStation
-	layout R2; // R2 for WiiStation
+	layout L1; // L1 for WiiStation
+	layout R1; // R1 for WiiStation
 	layout S;
 	layout Select; // Select for WiiStation
 
@@ -154,6 +154,8 @@ extern RumbleFunc HIDRumble;
 
 u32 ReadHidData(u32 calledByGame);
 void HIDUpdateControllerIni();
+
+extern s32 hidControllerConnected;
 
 #ifdef __cplusplus
 }

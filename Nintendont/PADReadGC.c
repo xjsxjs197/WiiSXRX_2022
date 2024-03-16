@@ -373,7 +373,7 @@ u32 ReadHidData(u32 calledByGame)
     {
         if(HIDMemPrep == 0) // first run
         {
-            HID_Packet = (vu8*)0x930050F0; // reset back to default offset
+            HID_Packet = (vu8*)HID_Packet_ADDR; // reset back to default offset
             memInvalidate = (u32)HID_Packet; // prepare memory
             asm volatile("dcbi 0,%0" : : "b"(memInvalidate) : "memory");
             //invalidate cache block for controllers using more than 0x10 bytes
@@ -395,7 +395,7 @@ u32 ReadHidData(u32 calledByGame)
 
         if (HID_CTRL->MultiIn == 3)        //multiple controllers connected to a single usb port all in one message
         {
-            HID_Packet = (vu8*)(0x930050F0 + (chan * HID_CTRL->MultiInValue));    //skip forward how ever many bytes in each controller
+            HID_Packet = (vu8*)(HID_Packet_ADDR + (chan * HID_CTRL->MultiInValue));    //skip forward how ever many bytes in each controller
             u32 HID_CacheEndBlock = ALIGN32(((u32)HID_Packet) + HID_CTRL->MultiInValue); //calculate upper cache block used
             if(HID_CacheEndBlock > HIDMemPrep) //new cache block, prepare memory
             {
@@ -492,10 +492,10 @@ u32 ReadHidData(u32 calledByGame)
                 if(HID_Packet[HID_CTRL->R.Offset] & HID_CTRL->R.Mask)
                     button |= PAD_TRIGGER_R;
 
-                if(HID_Packet[HID_CTRL->L2.Offset] & HID_CTRL->L2.Mask)
-                    button |= PAD_TRIGGER_L2;
-                if(HID_Packet[HID_CTRL->R2.Offset] & HID_CTRL->R2.Mask)
-                    button |= PAD_TRIGGER_R2;
+                if(HID_Packet[HID_CTRL->L1.Offset] & HID_CTRL->L1.Mask)
+                    button |= PAD_TRIGGER_L1;
+                if(HID_Packet[HID_CTRL->R1.Offset] & HID_CTRL->R1.Mask)
+                    button |= PAD_TRIGGER_R1;
             }
         }
         else if( HID_CTRL->DigitalLR == 2)    //no digital trigger buttons compute from analog trigger values
@@ -507,10 +507,10 @@ u32 ReadHidData(u32 calledByGame)
                 if((HID_Packet[HID_CTRL->R.Offset] & 0x0F) >= HID_CTRL->R.Mask)    //only some bits are part of this control
                     button |= PAD_TRIGGER_R;
 
-                if ((HID_Packet[HID_CTRL->L2.Offset] & 0x7C) >= HID_CTRL->L2.Mask)
-                    button |= PAD_TRIGGER_L2;
-                if ((HID_Packet[HID_CTRL->R2.Offset] & 0x0F) >= HID_CTRL->R2.Mask)
-                    button |= PAD_TRIGGER_R2;
+                if ((HID_Packet[HID_CTRL->L1.Offset] & 0x7C) >= HID_CTRL->L1.Mask)
+                    button |= PAD_TRIGGER_L1;
+                if ((HID_Packet[HID_CTRL->R1.Offset] & 0x0F) >= HID_CTRL->R1.Mask)
+                    button |= PAD_TRIGGER_R1;
             }
             else    //standard no digital trigger button
             {
@@ -519,10 +519,10 @@ u32 ReadHidData(u32 calledByGame)
                 if(HID_Packet[HID_CTRL->R.Offset] >= HID_CTRL->R.Mask)
                     button |= PAD_TRIGGER_R;
 
-                if(HID_Packet[HID_CTRL->L2.Offset] & HID_CTRL->L2.Mask)
-                    button |= PAD_TRIGGER_L2;
-                if(HID_Packet[HID_CTRL->R2.Offset] & HID_CTRL->R2.Mask)
-                    button |= PAD_TRIGGER_R2;
+                if(HID_Packet[HID_CTRL->L1.Offset] & HID_CTRL->L1.Mask)
+                    button |= PAD_TRIGGER_L1;
+                if(HID_Packet[HID_CTRL->R1.Offset] & HID_CTRL->R1.Mask)
+                    button |= PAD_TRIGGER_R1;
             }
         }
         else    //standard digital left and right trigger buttons
@@ -532,10 +532,10 @@ u32 ReadHidData(u32 calledByGame)
             if(HID_Packet[HID_CTRL->R.Offset] & HID_CTRL->R.Mask)
                 button |= PAD_TRIGGER_R;
 
-            if(HID_Packet[HID_CTRL->L2.Offset] & HID_CTRL->L2.Mask)
-                button |= PAD_TRIGGER_L2;
-            if(HID_Packet[HID_CTRL->R2.Offset] & HID_CTRL->R2.Mask)
-                button |= PAD_TRIGGER_R2;
+            if(HID_Packet[HID_CTRL->L1.Offset] & HID_CTRL->L1.Mask)
+                button |= PAD_TRIGGER_L1;
+            if(HID_Packet[HID_CTRL->R1.Offset] & HID_CTRL->R1.Mask)
+                button |= PAD_TRIGGER_R1;
         }
 
         if (PADBarrelEnabled[chan] && PADIsBarrel[chan]) //if bongo controller
@@ -1473,8 +1473,8 @@ DoExit:
     /* stop audio dma */
     _dspReg[27] = (_dspReg[27]&~0x8000);
     /* reset status 1 (DoExit) */
-    *RESET_STATUS = 0x1DEA;
-    while(*RESET_STATUS == 0x1DEA) ;
+    //*RESET_STATUS = 0x1DEA;
+    //while(*RESET_STATUS == 0x1DEA) ;
     /* disable dcache and icache */
     //disableCaches();
     /* disable memory protection */
@@ -1482,9 +1482,9 @@ DoExit:
     _memReg[16] = 0;
     _memReg[8] = 0xFF;
     /* load in stub */
-    do {
-        *stubdest++ = *stubsrc++;
-    } while((stubsize-=4) > 0);
+//    do {
+//        *stubdest++ = *stubsrc++;
+//    } while((stubsize-=4) > 0);
     /* Allow all IOS IRQs again */
     *(vu32*)0xCD800004 = 0x36;
     /* jump to it */
@@ -1496,7 +1496,7 @@ DoShutdown:
     /* stop audio dma */
     _dspReg[27] = (_dspReg[27]&~0x8000);
     /* reset status 7 (DoShutdown) */
-    *RESET_STATUS = 0x7DEA;
-    while(1) ;
+    //*RESET_STATUS = 0x7DEA;
+    //while(1) ;
 }
 

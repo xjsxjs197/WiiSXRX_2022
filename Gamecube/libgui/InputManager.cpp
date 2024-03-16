@@ -82,8 +82,8 @@ void Input::initHid()
 		*(vu32*)0x92FFFFC4 = 0;
 	DCFlushRange((void*)0x92FFFFC0,0x20);
 
-	memset((void*)0x93003010, 0, 0x190); //clears alot of pad stuff
-	DCFlushRange((void*)0x93003010, 0x190);
+	//memset((void*)0x93003010, 0, 0x190); //clears alot of pad stuff
+	//DCFlushRange((void*)0x93003010, 0x190);
 	struct BTPadCont *BTPad = (struct BTPadCont*)0x932F0000;
 	for(i = 0; i < WPAD_MAX_WIIMOTES; ++i)
 		BTPad[i].used = C_NOT_SET;
@@ -103,8 +103,9 @@ void Input::refreshInput()
 
 	if (hidPadNeedScan)
 	{
-	    static controller *HID_CTRL = (controller*)HID_CTRL_ADDR;
-		hidGcConnected = (HID_CTRL->VID > 0) ? 1 : 0;
+	    //static controller *HID_CTRL = (controller*)HID_CTRL_ADDR;
+		//hidGcConnected = (HID_CTRL->VID > 0) ? 1 : 0;
+		hidGcConnected = hidControllerConnected;
 		#ifdef DISP_DEBUG
         //sprintf(txtbuffer, "NeedScan %05x \r\n", HID_CTRL->VID);
         //writeLogFile(txtbuffer);
@@ -114,6 +115,11 @@ void Input::refreshInput()
 		{
 			HIDUpdateControllerIni();
 		    ReadHidData(0);
+		    #ifdef DISP_DEBUG
+		    //PADStatusKernel *Pad = (PADStatusKernel*)(0x93003100); //PadBuff
+            //sprintf(txtbuffer, "BTN %08x\r\n", Pad[0].button);
+            //writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
 		}
 	}
 #endif

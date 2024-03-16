@@ -54,10 +54,10 @@ static button_t buttons[] = {
 	{  2, PAD_BUTTON_LEFT,                   "D-Left" },
 	{  3, PAD_BUTTON_RIGHT,                  "D-Right" },
 	{  4, PAD_BUTTON_DOWN,                   "D-Down" },
-	{  5, PAD_TRIGGER_L,                     "L1" },
-	{  6, PAD_TRIGGER_R,                     "R1" },
-	{  7, PAD_TRIGGER_L2,                    "L2" },
-	{  8, PAD_TRIGGER_R2,                    "R3" },
+	{  5, PAD_TRIGGER_L,                     "L2" },
+	{  6, PAD_TRIGGER_R,                     "R2" },
+	{  7, PAD_TRIGGER_L1,                    "L1" },
+	{  8, PAD_TRIGGER_R1,                    "R1" },
 	{  9, PAD_BUTTON_A,                      "A" },
 	{ 10, PAD_BUTTON_B,                      "B" },
 	{ 11, PAD_BUTTON_X,                      "X" },
@@ -188,14 +188,16 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 		return 0;
 }
 
+static u32* MotorCommand = (u32*)(0x93003020);
+
 static void pause(int Control){
-	//PAD_ControlMotor(Control, PAD_MOTOR_STOP);
+	*MotorCommand = PAD_MOTOR_STOP;
 }
 
 static void resume(int Control){ }
 
 static void rumble(int Control, int rumble){
-	//PAD_ControlMotor(Control, (rumble && rumbleEnabled) ? PAD_MOTOR_RUMBLE : PAD_MOTOR_STOP);
+	*MotorCommand = (rumble && rumbleEnabled) ? PAD_MOTOR_RUMBLE : PAD_MOTOR_STOP;
 }
 
 static void configure(int Control, controller_config_t* config){
@@ -251,8 +253,7 @@ controller_t controller_HidGC =
 static void refreshAvailable(void){
 	if (hidPadNeedScan)
 	{
-		static controller *HID_CTRL = (controller*)HID_CTRL_ADDR;
-		hidGcConnected = (HID_CTRL->VID > 0) ? 1 : 0;
+		hidGcConnected = (hidControllerConnected > 0) ? 1 : 0;
 		hidPadNeedScan = 0;
 	}
 

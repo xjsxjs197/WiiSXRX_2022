@@ -279,8 +279,8 @@ struct BTPadCont {
 
 // Added for HID controller
 #define PAD_BUTTON_SELECT       0x2000
-#define PAD_TRIGGER_R2          0x4000
-#define PAD_TRIGGER_L2          0x8000
+#define PAD_TRIGGER_R1          0x4000
+#define PAD_TRIGGER_L1          0x8000
 
 u64 gettime(void);
 u32 diff_usec(u64 start, u64 end);
