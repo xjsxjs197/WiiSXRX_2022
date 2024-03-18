@@ -121,8 +121,6 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 	PAD_SubStick_X = 0;
 	int i;
 
-	HIDUpdateControllerIni();
-	ReadHidData(0);
 	PADStatus *Pad = (PADStatus*)(0x93003100); //PadBuff
 	for(i = 0; i < PAD_CHANMAX; ++i)
 	{
@@ -181,10 +179,10 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 	c->rightStickX = GCtoPSXAnalog(stickX);
 	c->rightStickY = GCtoPSXAnalog(config->invertedYR ? stickY : -stickY);
 
-	// Return 1 if exit, 2 if fastforward
-	if (!isHeld(config->exit)) return 1;
-	if (!isHeld(config->fastf)) return 2;
-	else
+	// Return 1 if exit, 2 if fastforward TODO
+	//if (!isHeld(config->exit)) return 1;
+	//if (!isHeld(config->fastf)) return 2;
+	//else
 		return 0;
 }
 
@@ -254,6 +252,7 @@ static void refreshAvailable(void){
 	if (hidPadNeedScan)
 	{
 		hidGcConnected = (hidControllerConnected > 0) ? 1 : 0;
+		ReadHidData(0);
 		hidPadNeedScan = 0;
 	}
 
