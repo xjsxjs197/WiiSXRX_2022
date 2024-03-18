@@ -742,7 +742,7 @@ static u32 *HIDRun(void *param)
             break;
         }
         HIDUpdateRegisters(1);
-        usleep(20);
+        usleep(200);
     }
     return 0;
 }
@@ -1193,14 +1193,14 @@ static void KeyboardRead()
 void HIDUpdateRegisters(u32 LoaderRequest)
 {
     u32 nextTimer = gettime();
-    if (diff_usec(HID_Timer, nextTimer) > 2000) // about 500 times a second
+    if (diff_usec(HID_Timer, nextTimer) > 20000) // about 50 times a second
     {
         if (hidchange == 1)
         {
             hidattached = 0;
             //wait half a second for devices to
             //actually attach properly
-            if (hidwaittimer < 120)
+            if (hidwaittimer < 12)
                 hidwaittimer++;
             else
             {
