@@ -47,9 +47,8 @@ static u32 psxRecLUT[0x010000];
 static char *recMem = RECMEM2_LO;	/* the recompiled blocks will be here */
 //static char recRAM[0x200000] __attribute__((aligned(32)));	/* and the ptr to the blocks here */
 //static char recROM[0x080000] __attribute__((aligned(32)));	/* and here */
-extern char recBuffer[0x400000] __attribute__((aligned(32)));
-static char* recRAM = (char*)recBuffer;
-static char* recROM = (char*)recBuffer + 0x200000;
+static char* recRAM = (char*)LIGHTREC_BUF_LO;
+static char* recROM = (char*)LIGHTREC_BUF_LO + 0x200000;
 
 static u32 pc;			/* recompiler pc */
 static u32 pcold;		/* recompiler oldpc */
