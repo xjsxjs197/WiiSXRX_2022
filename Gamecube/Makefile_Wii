@@ -36,7 +36,7 @@ INCLUDES	:=
 # options for code generation
 #---------------------------------------------------------------------------------
 
-CFLAGS	= -flto -Ofast -w -Wno-stringop-truncation -Wno-strict-aliasing -Wno-misleading-indentation -fpermissive $(MACHDEP) $(INCLUDE) -D__GAMECUBE__ -DWII -DHW_RVL -D__ppc__ -DCPU_IS_BIG_ENDIAN=1 -DWORDS_BIGENDIAN=1 -DPACKAGE_VERSION=\"1.3.2\" -DFLAC_API_EXPORTS -DFLAC__HAS_OGG=0 -DHAVE_LROUND -DHAVE_STDINT_H -DHAVE_SYS_PARAM_H -D_7ZIP_ST \
+CFLAGS	= -flto -Ofast -w -Wno-stringop-truncation -Wno-strict-aliasing -Wno-misleading-indentation -fpermissive $(MACHDEP) $(INCLUDE) -DUSE_LIBCHDR=1 -D__GAMECUBE__ -DWII -DHW_RVL -D__ppc__ -D__BIG_ENDIAN__ -D__powerpc__ -DCPU_IS_BIG_ENDIAN=1 -DWORDS_BIGENDIAN=1 -DPACKAGE_VERSION=\"1.3.2\" -DHAVE_LROUND \
 		  -D__GX__ \
 		  -D_GNU_SOURCE -DDISP_DEBUG -DSHOW_DEBUG
 
