@@ -167,9 +167,9 @@ void Func_Credits()
 {
 	char CreditsInfo[512] = "";
 #ifdef HW_RVL
-	sprintf(CreditsInfo,"WiiStation 3.0\n");
+	sprintf(CreditsInfo,"WiiStation 3.2\n");
 #else
-	sprintf(CreditsInfo,"CubeStation 3.0\n");
+	sprintf(CreditsInfo,"CubeStation 3.2\n");
 #endif
 	strcat(CreditsInfo,"www.github.com/xjsxjs197/WiiSXRX_2022\n");
 	strcat(CreditsInfo,"WiiStation: xjsxjs197 - Icon: Dakangel\n");
