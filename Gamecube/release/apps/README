@@ -123,7 +123,7 @@ Ver 3.2:
 * Update to latest libCHDr.
 * To avoid errors where CHD games occupy too much memory, move Lightrec's 4M Buffer to MEM2 memory.
 
-Ver 3.1:
+Ver 3.0:
 * 240p/Lightgun/Mouse/Multitap support.
 * CHD v1-v5 compressed format support.
 * Add Force ntsc mode.
