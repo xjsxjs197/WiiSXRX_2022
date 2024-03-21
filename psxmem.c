@@ -87,7 +87,7 @@ u8* psxMemWLUT[0x10000] __attribute__((aligned(32)));
 u8* psxMemRLUT[0x10000] __attribute__((aligned(32)));
 
 #define BUF_SIZE 0x400000 // 4 MiB code buffer for Lightrec and DYNAREC
-extern char recBuffer[BUF_SIZE] __attribute__((aligned(32)));
+static char *recBuffer = (char*)LIGHTREC_BUF_LO;
 
 int psxMemInit() {
 	int i;

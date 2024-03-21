@@ -30,11 +30,35 @@ lightrecWithLog.a:
 	@echo " "
 	$(MAKE) -C deps/lightrec -f Makefile.WithLog
 
-Wii: lightrecWithLog.a
+zstd.a:
+	@echo " "
+	@echo "Building zstd.a library for PPC"
+	@echo " "
+	$(MAKE) -C deps/libchdr/deps/zstd-1.5.5 -f Makefile.wii
+
+lzma.a:
+	@echo " "
+	@echo "Building lzma.a library for PPC"
+	@echo " "
+	$(MAKE) -C deps/libchdr/deps/lzma-19.00 -f Makefile.wii
+
+zlibstatic.a:
+	@echo " "
+	@echo "Building zlibstatic.a library for PPC"
+	@echo " "
+	$(MAKE) -C deps/libchdr/deps/zlib-1.3.1 -f Makefile.wii
+
+chdrstatic.a:
+	@echo " "
+	@echo "Building chdrstatic.a library for PPC"
+	@echo " "
+	$(MAKE) -C deps/libchdr -f Makefile.wii
+
+Wii: lightrecWithLog.a zstd.a lzma.a zlibstatic.a chdrstatic.a
 	@$(ECHO) "Building Wii..."
 	@$(MAKE) -C Gamecube -f Makefile_Wii
 
-Wii_Release: lightrecNoLog.a
+Wii_Release: lightrecNoLog.a zstd.a lzma.a zlibstatic.a chdrstatic.a
 	@$(ECHO) "Building Wii_Release..."
 	@$(MAKE) -C Gamecube -f Makefile_Wii_Release
 
@@ -49,6 +73,10 @@ clean:
 	@$(ECHO) "Cleaning..."
 	@$(MAKE) -C deps/lightrec clean -f Makefile.NoLog
 	@$(MAKE) -C deps/lightrec clean -f Makefile.WithLog
+	@$(MAKE) -C deps/libchdr/deps/zstd-1.5.5 clean -f Makefile.wii
+	@$(MAKE) -C deps/libchdr/deps/lzma-19.00 clean -f Makefile.wii
+	@$(MAKE) -C deps/libchdr/deps/zlib-1.3.1 clean -f Makefile.wii
+	@$(MAKE) -C deps/libchdr clean -f Makefile.wii
 	@$(MAKE) -C Gamecube clean -f Makefile_Wii
 	@$(MAKE) -C Gamecube clean -f Makefile_Wii_Release
 

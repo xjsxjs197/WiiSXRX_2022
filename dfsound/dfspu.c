@@ -28,6 +28,7 @@
 #include "spu_config.h"
 #include "../coredebug.h"
 #include "../psxcommon.h"
+#include "../Gamecube/MEM2.h"
 
 #ifdef __arm__
 #include "arm_features.h"
@@ -1170,7 +1171,7 @@ void ClearWorkingState(void)
  spu.pS=(short *)spu.pSpuBuffer;                       // setup soundbuffer pointer
 }
 
-extern char spuMemC[512 * 1024];
+//extern char spuMemC[512 * 1024];
 extern char s_chan[(MAXCHAN + 1) * sizeof(spu.s_chan[0])];
 extern char rvb[sizeof(REVERBInfo)];
 extern char SB[MAXCHAN * sizeof(spu.SB[0]) * SB_SIZE];
@@ -1247,7 +1248,7 @@ long DF_SPUinit(void)
   spu_config.iUseThread = 0; // no effect if only 1 core is detected
 
   //spu.spuMemC = calloc(1, 512 * 1024);
-  spu.spuMemC = spuMemC;
+  spu.spuMemC = (unsigned char  *)SPU_BUF_LO;
   InitADSR();
 
   //     spu.s_chan = calloc(MAXCHAN+1, sizeof(spu.s_chan[0])); // channel + 1 infos (1 is security for fmod handling)

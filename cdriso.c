@@ -28,7 +28,9 @@
 
 #include <errno.h>
 #include <zlib.h>
+#ifdef USE_LIBCHDR
 #include "deps/libchdr/include/libchdr/chd.h"
+#endif // USE_LIBCHDR
 
 #include <ogc/lwp.h>
 #include <ogc/mutex.h>

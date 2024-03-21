@@ -31,10 +31,7 @@
 #endif
 
 #define BUF_SIZE 0x400000 // 4 MiB code buffer for Lightrec and DYNAREC
-char recBuffer[BUF_SIZE] __attribute__((aligned(32)));
-
-//static s8 code_buffer [0x400000] __attribute__((aligned(32)));
-static s8* code_buffer = (s8*)recBuffer;
+static s8* code_buffer = (s8*)LIGHTREC_BUF_LO;
 static struct lightrec_state *lightrec_state;
 
 static char *name = "sd:/WiiStation/WiiStation.elf";

@@ -543,10 +543,7 @@ const char PcsxHeader[32] = "STv4 PCSX 3.0";
 char* statespath = "/wiisxrx/savestates/";
 static unsigned int savestates_slot = 0;
 extern unsigned char  *psxVub;
-// upd xjsxjs197 start
-//extern unsigned short  spuMem[256*1024];
-extern unsigned char  spuMem[512 * 1024];
-// upd xjsxjs197 end
+
 #define iGPUHeight 512
 #define SAVE_STATE_MSG "Saving State .."
 #define LOAD_STATE_MSG "Loading State .."
