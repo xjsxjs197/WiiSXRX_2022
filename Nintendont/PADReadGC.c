@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "global.h"
 #include "KernelHID.h"
-#include "hidmem.h"
+//#include "hidmem.h"
 #include "wiidrc.h"
 #include "../Gamecube/DEBUG.h"
 
@@ -47,6 +47,8 @@ static u32 PrevAdapterChannel2 = 0;
 static u32 PrevAdapterChannel3 = 0;
 static u32 PrevAdapterChannel4 = 0;
 static u32 PrevDRCButton = 0;
+
+static volatile controller *HID_CTRL = (volatile controller*)0x93005000;
 
 #define DRC_SWAP (1<<16)
 
@@ -150,6 +152,11 @@ u32 HidFormatData(u32 calledByGame)
     if (HIDPad == HID_PAD_NOT_SET)
         HIDPad = MaxPads;
 
+    vu8* HID_Packet = (vu8*)HID_Packet_ADDR;
+    #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "HidFormat %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
     for (chan = HIDPad; (chan < HID_PAD_NONE); (HID_CTRL->MultiIn == 3) ? (++chan) : (chan = HID_PAD_NONE)) // Run once unless MultiIn == 3
     {
         if(HIDMemPrep == 0) // first run
