@@ -33,6 +33,8 @@ extern "C" {
 }
 #include "../../psxcommon.h"
 
+#include "../../Nintendont/KernelHID.h"
+
 namespace menu {
 
 InputStatusBar::InputStatusBar(float x, float y)
@@ -160,7 +162,7 @@ void InputStatusBar::drawComponent(Graphics& gfx)
 			break;
 #ifdef HW_RVL
         case PADTYPE_HID:
-			if (hidGcConnected)
+			if (hidControllerConnected)
 			{
 				assign_controller(i, &controller_HidGC, (int)padAssign[i]);
 				gfx.setColor(activeColor);

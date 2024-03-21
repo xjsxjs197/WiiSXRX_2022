@@ -132,28 +132,13 @@ typedef struct {
 } req_args; // 32 bytes
 
 void HIDInit(u32 ios);
-s32 HIDOpen();
 void HIDClose();
-void HIDUpdateRegisters(u32 LoaderRequest);
-void HIDGCInit( void );
-void HIDPS3Init( void );
-void HIDPS3Read( void );
-void HIDIRQRead( void );
-void HIDPS3SetLED( u8 led );
-void HIDGCRumble( u32 Enable );
-void HIDPS3Rumble( u32 Enable );
-void HIDIRQRumble( u32 Enable );
-void HIDCTRLRumble( u32 Enable );
-u32 ConfigGetValue( char *Data, const char *EntryName, u32 Entry );
-u32 ConfigGetDecValue( char *Data, const char *EntryName, u32 Entry );
-void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left, u8 power_left);
-u32 HID_Run(void *arg);
 
-typedef void (*RumbleFunc)(u32 Enable);
-extern RumbleFunc HIDRumble;
 
-u32 ReadHidData(u32 calledByGame);
+u32 HidFormatData(u32 calledByGame);
 void HIDUpdateControllerIni();
+
+void HIDReadData(void);
 
 extern s32 hidControllerConnected;
 

@@ -79,7 +79,7 @@ typedef void (*HIDReadFunc)();
 static HIDReadFunc HIDRead = NULL;
 
 typedef void (*RumbleFunc)(u32 Enable);
-RumbleFunc HIDRumble = NULL;
+static RumbleFunc HIDRumble = NULL;
 
 static usb_device_entry *AttachedDevices = NULL;
 #define ATTACHED_DEVICES_SIZE     (sizeof(usb_device_entry) * 32)
@@ -89,6 +89,19 @@ static lwp_t HID_Thread = LWP_THREAD_NULL;
 static u64 HID_Timer = 0;
 static vu32 hidread = 0, keyboardread = 0, hidchange = 0, hidattach = 0, hidattached = 0, hidwaittimer = 0;
 static u32 *HIDRun();
+static void HIDUpdateRegisters(u32 LoaderRequest);
+static void HIDGCInit( void );
+static void HIDPS3Init( void );
+static void HIDPS3Read( void );
+static void HIDIRQRead( void );
+static void HIDPS3SetLED( u8 led );
+static void HIDGCRumble( u32 Enable );
+static void HIDPS3Rumble( u32 Enable );
+static void HIDIRQRumble( u32 Enable );
+static void HIDCTRLRumble( u32 Enable );
+static u32 ConfigGetValue( char *Data, const char *EntryName, u32 Entry );
+static u32 ConfigGetDecValue( char *Data, const char *EntryName, u32 Entry );
+static void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left, u8 power_left);
 static s32 HIDInterruptMessage(u32 isKBreq, u8 *Data, u32 Length, u32 Endpoint, s32 msgData);
 static s32 HIDControlMessage(u32 isKBreq, u8 *Data, u32 Length, u32 RequestType, u32 Request, u32 Value, s32 msgData);
 
@@ -117,6 +130,7 @@ static void *HID_Packet = (void*)HID_Packet_ADDR;
 #define USB_HEAPSIZE          32768
 static s32 hId = -1;
 static struct _usb_msg *msg = NULL;
+s32 hidControllerConnected = 0;
 
 static s32 ipcCallBack(s32 result, void *usrdata)
 {
@@ -136,6 +150,11 @@ static s32 ipcCallBack(s32 result, void *usrdata)
             hidchange = 1;
             // wipe unused device entries
             memset(&AttachedDevices[result], 0, sizeof(usb_device_entry) * (32 - result));
+        }
+
+        if (result <= 0)
+        {
+            hidControllerConnected = 0;
         }
     }
     else if (msgParam->msgData == HID_ATTACH_MSG)
@@ -224,9 +243,7 @@ void HIDInit( u32 ios )
     #endif // DISP_DEBUG
 }
 
-s32 hidControllerConnected = 0;
-
-s32 HIDOpen( u32 LoaderRequest )
+static s32 HIDOpen( u32 LoaderRequest )
 {
     s32 ret = -1;
     dbgprintf("HIDOpen()\r\n");
@@ -712,8 +729,11 @@ s32 HIDOpen( u32 LoaderRequest )
 
 void HIDClose()
 {
-    IOS_Close(HIDHandle);
-    HIDHandle = -1;
+    if (HIDHandle)
+    {
+        IOS_Close(HIDHandle);
+        HIDHandle = -1;
+    }
 
     if (HID_Thread != LWP_THREAD_NULL)
     {
@@ -742,7 +762,7 @@ static u32 *HIDRun(void *param)
             break;
         }
         HIDUpdateRegisters(1);
-        usleep(200);
+        usleep(2000);
     }
     return 0;
 }
@@ -823,7 +843,7 @@ static s32 HIDInterruptMessage(u32 isKBreq, u8 *Data, u32 Length, u32 Endpoint, 
     return ret;
 }
 
-void HIDGCInit()
+static void HIDGCInit()
 {
     s32 ret = HIDInterruptMessage(0, gcbuf, 1, bEndpointAddressOut, 0);
     if( ret < 0 )
@@ -835,7 +855,7 @@ void HIDGCInit()
     }
 }
 
-void HIDPS3Init()
+static void HIDPS3Init()
 {
     u8 *buf = (u8*)iosAlloc(hId, 32);
     memset( buf, 0, 0x20 );
@@ -851,7 +871,7 @@ void HIDPS3Init()
     iosFree(hId, buf);
 }
 
-void HIDPS3SetLED( u8 led )
+static void HIDPS3SetLED( u8 led )
 {
     ps3buf[10] = ss_led_pattern[led];
 
@@ -860,7 +880,7 @@ void HIDPS3SetLED( u8 led )
         dbgprintf("ES:IOS_Ioctl():%d\r\n", ret );
 }
 
-void SetPs3ControllerIni()
+static void SetPs3ControllerIni()
 {
     HID_CTRL->VID          = 0x054C;
     HID_CTRL->PID          = 0x0268;
@@ -930,7 +950,7 @@ void SetPs3ControllerIni()
     HID_CTRL->RAnalog         = 0x13;
 }
 
-void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left, u8 power_left)
+static void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left, u8 power_left)
 {
     ps3buf[3] = power_left;
     ps3buf[5] = power_right;
@@ -943,7 +963,7 @@ void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left, u8 po
 static vu32 HIDRumbleCurrent = 0, HIDRumbleLast = 0;
 static vu32 MotorCommand = 0x93003020;
 
-void HIDPS3Read()
+static void HIDPS3Read()
 {
     if( !PS3LedSet && Packet[4] )
     {
@@ -961,7 +981,7 @@ void HIDPS3Read()
     //hidread = 1;
 }
 
-void HIDGCRumble(u32 input)
+static void HIDGCRumble(u32 input)
 {
     gcbuf[0] = 0x11;
     gcbuf[1] = input & 1;
@@ -972,7 +992,7 @@ void HIDGCRumble(u32 input)
     HIDInterruptMessage(0, gcbuf, 5, bEndpointAddressOut, 0);
 }
 
-void HIDIRQRumble(u32 Enable)
+static void HIDIRQRumble(u32 Enable)
 {
     u8 *buf = (Enable == 1) ? RawRumbleDataOn : RawRumbleDataOff;
     u32 i = 0;
@@ -986,7 +1006,7 @@ irqrumblerepeat:
     }
 }
 
-void HIDCTRLRumble(u32 Enable)
+static void HIDCTRLRumble(u32 Enable)
 {
     u8 *buf = (Enable == 1) ? RawRumbleDataOn : RawRumbleDataOff;
     u32 i = 0;
@@ -1001,7 +1021,7 @@ ctrlrumblerepeat:
     }
 }
 
-void HIDIRQRead()
+static void HIDIRQRead()
 {
     switch( HID_CTRL->MultiIn )
     {
@@ -1028,7 +1048,7 @@ dohidirqread:
     //hidread = 1;
 }
 
-void HIDPS3Rumble( u32 Enable )
+static void HIDPS3Rumble( u32 Enable )
 {
     switch( Enable )
     {
@@ -1042,7 +1062,7 @@ void HIDPS3Rumble( u32 Enable )
     }
 }
 
-u32 ConfigGetValue( char *Data, const char *EntryName, u32 Entry )
+static u32 ConfigGetValue( char *Data, const char *EntryName, u32 Entry )
 {
     char *str = strstr( Data, EntryName );
     if( str == (char*)NULL )
@@ -1121,7 +1141,7 @@ u32 ConfigGetValue( char *Data, const char *EntryName, u32 Entry )
     return ret;
 }
 
-u32 ConfigGetDecValue( char *Data, const char *EntryName, u32 Entry )
+static u32 ConfigGetDecValue( char *Data, const char *EntryName, u32 Entry )
 {
     char *str = strstr( Data, EntryName );
     if( str == (char*)NULL )
@@ -1190,10 +1210,10 @@ static void KeyboardRead()
     //keyboardread = 1;
 }
 
-void HIDUpdateRegisters(u32 LoaderRequest)
+static void HIDUpdateRegisters(u32 LoaderRequest)
 {
-    u32 nextTimer = gettime();
-    if (diff_usec(HID_Timer, nextTimer) > 20000) // about 50 times a second
+    //u32 nextTimer = gettime();
+    //if (diff_usec(HID_Timer, nextTimer) > 20000) // about 50 times a second
     {
         if (hidchange == 1)
         {
@@ -1229,28 +1249,54 @@ void HIDUpdateRegisters(u32 LoaderRequest)
             IOS_IoctlAsync(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, ATTACHED_DEVICES_SIZE, ipcCallBack, msg);
             //hidchange = 1;
         }
-        if (hidattached)
+//        if (hidattached)
+//        {
+//            if(hidread == 1)
+//            {
+//                hidread = 0;
+//                if(HIDRead) HIDRead();
+//            }
+//            if(keyboardread == 1)
+//            {
+//                keyboardread = 0;
+//                KeyboardRead();
+//            }
+//            if(RumbleEnabled)
+//            {
+//                HIDRumbleCurrent = *((u32*)(MotorCommand));
+//                if( HIDRumbleLast != HIDRumbleCurrent )
+//                {
+//                    if(HIDRumble) HIDRumble( HIDRumbleCurrent );
+//                    HIDRumbleLast = HIDRumbleCurrent;
+//                }
+//            }
+//        }
+        //HID_Timer = gettime();
+    }
+}
+
+void HIDReadData(void)
+{
+    if (hidattached)
+    {
+        if(hidread == 1)
         {
-            if(hidread == 1)
+            hidread = 0;
+            if(HIDRead) HIDRead();
+        }
+        if(keyboardread == 1)
+        {
+            keyboardread = 0;
+            KeyboardRead();
+        }
+        if (RumbleEnabled)
+        {
+            HIDRumbleCurrent = *((u32*)(MotorCommand));
+            if( HIDRumbleLast != HIDRumbleCurrent )
             {
-                hidread = 0;
-                if(HIDRead) HIDRead();
-            }
-            if(keyboardread == 1)
-            {
-                keyboardread = 0;
-                KeyboardRead();
-            }
-            if(RumbleEnabled)
-            {
-                HIDRumbleCurrent = *((u32*)(MotorCommand));
-                if( HIDRumbleLast != HIDRumbleCurrent )
-                {
-                    if(HIDRumble) HIDRumble( HIDRumbleCurrent );
-                    HIDRumbleLast = HIDRumbleCurrent;
-                }
+                if(HIDRumble) HIDRumble( HIDRumbleCurrent );
+                HIDRumbleLast = HIDRumbleCurrent;
             }
         }
-        HID_Timer = gettime();
     }
 }

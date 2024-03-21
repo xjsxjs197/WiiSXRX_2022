@@ -23,6 +23,8 @@
 #include "Frame.h"
 #include "IPLFont.h"
 
+#include "../../Nintendont/KernelHID.h"
+
 namespace menu {
 
 Focus::Focus()
@@ -54,6 +56,10 @@ void Focus::updateFocus()
 #ifdef HW_RVL
 	WPADData* wiiPad = Input::getInstance().getWpad();
 	PADStatus* hidGcPad = (PADStatus*)(0x93003100); //PadBuff
+	if (hidControllerConnected)
+	{
+		HidFormatData(0);
+	}
 #endif
 //	PADStatus* gcPad = Input::getInstance().getPad();
 

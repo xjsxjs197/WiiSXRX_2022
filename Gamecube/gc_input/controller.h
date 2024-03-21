@@ -31,7 +31,7 @@
 #include <stdio.h>
 
 extern char padNeedScan, wpadNeedScan, hidPadNeedScan;
-extern u32 gc_connected, hidGcConnected;
+extern u32 gc_connected;
 
 void control_info_init(void);
 void auto_assign_controllers(void);

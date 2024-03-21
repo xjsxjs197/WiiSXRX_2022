@@ -85,8 +85,6 @@ static button_t menu_combos[] = {
 	{ 2, PAD_BUTTON_START|PAD_BUTTON_Y, "Start+Y" },
 };
 
-u32 hidGcConnected;
-
 static inline u8 GCtoPSXAnalog(int a)
 {
 	a = a * 4 / 3; // GC ranges -96 ~ 96 (192 values, PSX has 256)
@@ -122,6 +120,7 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 	int i;
 
 	PADStatus *Pad = (PADStatus*)(0x93003100); //PadBuff
+	HidFormatData(0);
 	for(i = 0; i < PAD_CHANMAX; ++i)
 	{
 		PAD_Pressed |= Pad[i].button;
@@ -251,12 +250,14 @@ controller_t controller_HidGC =
 static void refreshAvailable(void){
 	if (hidPadNeedScan)
 	{
-		hidGcConnected = (hidControllerConnected > 0) ? 1 : 0;
-		ReadHidData(0);
+		if (hidControllerConnected)
+		{
+			HIDReadData();
+		}
 		hidPadNeedScan = 0;
 	}
 
-	controller_HidGC.available[0] = hidGcConnected;
+	controller_HidGC.available[0] = hidControllerConnected;
 	controller_HidGC.available[1] = 0;
 	controller_HidGC.available[2] = 0;
 	controller_HidGC.available[3] = 0;

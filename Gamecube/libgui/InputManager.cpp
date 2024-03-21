@@ -103,18 +103,15 @@ void Input::refreshInput()
 
 	if (hidPadNeedScan)
 	{
-	    //static controller *HID_CTRL = (controller*)HID_CTRL_ADDR;
-		//hidGcConnected = (HID_CTRL->VID > 0) ? 1 : 0;
-		hidGcConnected = hidControllerConnected;
 		#ifdef DISP_DEBUG
-        //sprintf(txtbuffer, "NeedScan %05x \r\n", HID_CTRL->VID);
-        //writeLogFile(txtbuffer);
+        sprintf(txtbuffer, "NeedScan hidConnected %d\r\n", hidControllerConnected);
+        writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
 		hidPadNeedScan = 0;
-		if (hidGcConnected)
+		if (hidControllerConnected)
 		{
 			HIDUpdateControllerIni();
-		    ReadHidData(0);
+		    HIDReadData();
 		    #ifdef DISP_DEBUG
 		    //PADStatusKernel *Pad = (PADStatusKernel*)(0x93003100); //PadBuff
             //sprintf(txtbuffer, "BTN %08x\r\n", Pad[0].button);
