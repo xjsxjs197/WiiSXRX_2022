@@ -3,7 +3,7 @@
  * Copyright (C) 2007, 2008, 2009 Mike Slegeir
  * Copyright (C) 2007, 2008, 2009 emu_kidid
  * Copyright (C) 2007, 2008, 2009, 2010 sepp256
- * 
+ *
  * Standard prototypes for accessing different controllers
  *
  * WiiSX homepage: http://www.emulatemii.com
@@ -30,7 +30,7 @@
 
 #include <stdio.h>
 
-extern char padNeedScan, wpadNeedScan;
+extern char padNeedScan, wpadNeedScan, hidPadNeedScan;
 extern u32 gc_connected;
 
 void control_info_init(void);
@@ -54,7 +54,7 @@ typedef union {
 		unsigned START_BUTTON     : 1;
 		unsigned L3_BUTTON        : 1;
 		unsigned R3_BUTTON        : 1;
-		unsigned SELECT_BUTTON    : 1;	
+		unsigned SELECT_BUTTON    : 1;
 	};
 } _BUTTONS;
 
@@ -65,7 +65,7 @@ typedef struct {
 	u8 rightStickX;
 	u8 rightStickY;
 } BUTTONS;
-  
+
 
 typedef struct {
 	int index;
@@ -86,6 +86,19 @@ typedef struct {
 	float sensitivity;
 	button_tp fastf;
 } controller_config_t;
+
+typedef struct HidController
+{
+	u32 VID;
+	u32 PID;
+	u32 Polltype;
+	u32 DPAD;
+	u32 DPADMask;
+	u32 DigitalLR;
+	u32 MultiIn;
+	u32 MultiInValue;
+
+} hidController;
 
 typedef struct {
 	// Identifier used in configuration file names
@@ -122,11 +135,11 @@ typedef struct {
 	// Pointer to analog sources for this controller type
 	button_t* menu_combos;
 	// Default controller mapping
-	controller_config_t config_default; 
+	controller_config_t config_default;
 	// Current controller mapping
-	controller_config_t config[4]; 
+	controller_config_t config[4];
 	// Saved controller mappings
-	controller_config_t config_slot[4]; 
+	controller_config_t config_slot[4];
 } controller_t;
 
 typedef struct _virtualControllers_t {
@@ -141,13 +154,14 @@ extern virtualControllers_t virtualControllers[10];
 // List of all the defined controller_t's
 #if defined(WII) && !defined(NO_BT)
 
-#define num_controller_t 6
+#define num_controller_t 7
 extern controller_t controller_GC;
 extern controller_t controller_Classic;
 extern controller_t controller_WiiUPro;
 extern controller_t controller_WiiUGamepad;
 extern controller_t controller_WiimoteNunchuk;
 extern controller_t controller_Wiimote;
+extern controller_t controller_HidGC;
 extern controller_t* controller_ts[num_controller_t];
 
 #else // WII && !NO_BT

@@ -24,7 +24,7 @@ GPU = Soft
 TARGET		:=	WiiSXRX_Release
 BUILD		:=	build_release
 SOURCES		:=	../lang ../fonts \
-                . ./gc_input/ ./libgui/ ./menu/ ./fileBrowser/ .. \
+                ../Nintendont/ . ./gc_input/ ./libgui/ ./menu/ ./fileBrowser/ .. \
                 ../gpulib/ ../SoftGPU/ \
 				./libgui/gui2 ../dfsound/ ./vm ../ppc
 

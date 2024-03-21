@@ -62,7 +62,7 @@ FILE* fdebug = NULL;
 
 static FILE* fdebugLog = NULL;
 static char *debugLogFile = "sd:/wiisxrx/debugLog.txt";
-bool canWriteLog = false;
+bool canWriteLog = true;
 
 void openLogFile() {
     if (!canWriteLog) return;
