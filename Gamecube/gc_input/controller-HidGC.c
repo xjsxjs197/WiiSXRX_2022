@@ -29,7 +29,7 @@
 #include <ogc/pad.h>
 #include "controller.h"
 #include "../wiiSXconfig.h"
-#include "../../Nintendont/KernelHID.h"
+#include "../../HidController/KernelHID.h"
 #include "../DEBUG.h"
 
 enum {
@@ -178,11 +178,11 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 	c->rightStickX = GCtoPSXAnalog(stickX);
 	c->rightStickY = GCtoPSXAnalog(config->invertedYR ? stickY : -stickY);
 
-	// Return 1 if exit, 2 if fastforward TODO
-	//if (!isHeld(config->exit)) return 1;
+	// Return 1 if exit, 2 if fastforward
+	if (!isHeld(config->exit)) return 1;
 	//if (!isHeld(config->fastf)) return 2;
 	//else
-		return 0;
+	return 0;
 }
 
 static u32* MotorCommand = (u32*)(0x93003020);

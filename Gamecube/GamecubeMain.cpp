@@ -61,7 +61,7 @@ extern "C" {
 
 #include "libgui/gui2/gettext.h"
 
-#include "../Nintendont/KernelHID.h"
+#include "../HidController/KernelHID.h"
 
 #ifdef WII
 unsigned int MALLOC_MEM2 = 0;

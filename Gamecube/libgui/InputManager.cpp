@@ -25,7 +25,7 @@
 #include "../gc_input/controller.h"
 #include "../DEBUG.h"
 
-#include "../../Nintendont/KernelHID.h"
+#include "../../HidController/KernelHID.h"
 bool isWiiVC = false;
 
 void ShutdownWii();

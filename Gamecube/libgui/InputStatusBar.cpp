@@ -33,7 +33,7 @@ extern "C" {
 }
 #include "../../psxcommon.h"
 
-#include "../../Nintendont/KernelHID.h"
+#include "../../HidController/KernelHID.h"
 
 namespace menu {
 

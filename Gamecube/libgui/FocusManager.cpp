@@ -23,7 +23,7 @@
 #include "Frame.h"
 #include "IPLFont.h"
 
-#include "../../Nintendont/KernelHID.h"
+#include "../../HidController/KernelHID.h"
 
 namespace menu {
 
