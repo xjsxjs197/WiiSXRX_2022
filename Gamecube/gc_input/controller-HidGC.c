@@ -120,7 +120,7 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 	int i;
 
 	PADStatus *Pad = (PADStatus*)(0x93003100); //PadBuff
-	HidFormatData(0);
+	HidFormatData();
 	for(i = 0; i < PAD_CHANMAX; ++i)
 	{
 		PAD_Pressed |= Pad[i].button;

@@ -58,7 +58,7 @@ void Focus::updateFocus()
 	PADStatus* hidGcPad = (PADStatus*)(0x93003100); //PadBuff
 	if (hidControllerConnected)
 	{
-		HidFormatData(0);
+		HidFormatData();
 	}
 #endif
 //	PADStatus* gcPad = Input::getInstance().getPad();

@@ -111,8 +111,6 @@ static void SetPs3ControllerIni();
 static controller *HID_CTRL = (controller*)HID_CTRL_ADDR;
 static void *HID_Packet = (void*)HID_Packet_ADDR;
 
-#define RESET_STATUS 0x93003420
-
 #define HID_STATUS 0x93003440
 #define HID_CHANGE HID_STATUS + 4
 #define HID_CFG_SIZE HID_STATUS + 8
@@ -441,8 +439,8 @@ static s32 HIDOpen( u32 LoaderRequest )
 
                     if(Data != NULL) //initial check
                     {
-                        HID_CTRL->VID = ConfigGetValue( Data, "VID", 0 );
-                        HID_CTRL->PID = ConfigGetValue( Data, "PID", 0 );
+                        HID_CTRL->VID = ConfigGetValue( Data, INI_KYY_VID, 0 );
+                        HID_CTRL->PID = ConfigGetValue( Data, INI_KYY_PID, 0 );
 
                         if( DeviceVID != HID_CTRL->VID || DevicePID != HID_CTRL->PID )
                         {
@@ -466,14 +464,14 @@ static s32 HIDOpen( u32 LoaderRequest )
                     }
                     else
                     {
-                        HID_CTRL->DPAD        = ConfigGetValue( Data, "DPAD", 0 );
-                        HID_CTRL->DigitalLR    = ConfigGetValue( Data, "DigitalLR", 0 );
-                        HID_CTRL->Polltype    = ConfigGetValue( Data, "Polltype", 0 );
-                        HID_CTRL->MultiIn    = ConfigGetValue( Data, "MultiIn", 0 );
+                        HID_CTRL->DPAD        = ConfigGetValue( Data, INI_KYY_DPAD, 0 );
+                        HID_CTRL->DigitalLR    = ConfigGetValue( Data, INI_KYY_DIGITAl_LR, 0 );
+                        HID_CTRL->Polltype    = ConfigGetValue( Data, INI_KYY_POLL_TYPE, 0 );
+                        HID_CTRL->MultiIn    = ConfigGetValue( Data, INI_KYY_MULTI_IN, 0 );
 
                         if( HID_CTRL->MultiIn )
                         {
-                            HID_CTRL->MultiInValue= ConfigGetValue( Data, "MultiInValue", 0 );
+                            HID_CTRL->MultiInValue= ConfigGetValue( Data, INI_KYY_MULTI_IN_VAL, 0 );
 
                             dbgprintf("HID:MultIn:%u\r\n", HID_CTRL->MultiIn );
                             dbgprintf("HID:MultiInValue:%u\r\n", HID_CTRL->MultiInValue );
@@ -490,70 +488,64 @@ static s32 HIDOpen( u32 LoaderRequest )
                             continue;
                         }
 
-                        HID_CTRL->Power.Offset    = ConfigGetValue( Data, "Power", 0 );
-                        HID_CTRL->Power.Mask    = ConfigGetValue( Data, "Power", 1 );
+                        HID_CTRL->A.Offset    = ConfigGetValue( Data, INI_KYY_A, 0 );
+                        HID_CTRL->A.Mask    = ConfigGetValue( Data, INI_KYY_A, 1 );
 
-                        HID_CTRL->A.Offset    = ConfigGetValue( Data, "A", 0 );
-                        HID_CTRL->A.Mask    = ConfigGetValue( Data, "A", 1 );
+                        HID_CTRL->B.Offset    = ConfigGetValue( Data, INI_KYY_B, 0 );
+                        HID_CTRL->B.Mask    = ConfigGetValue( Data, INI_KYY_B, 1 );
 
-                        HID_CTRL->B.Offset    = ConfigGetValue( Data, "B", 0 );
-                        HID_CTRL->B.Mask    = ConfigGetValue( Data, "B", 1 );
+                        HID_CTRL->X.Offset    = ConfigGetValue( Data, INI_KYY_X, 0 );
+                        HID_CTRL->X.Mask    = ConfigGetValue( Data, INI_KYY_X, 1 );
 
-                        HID_CTRL->X.Offset    = ConfigGetValue( Data, "X", 0 );
-                        HID_CTRL->X.Mask    = ConfigGetValue( Data, "X", 1 );
+                        HID_CTRL->Y.Offset    = ConfigGetValue( Data, INI_KYY_Y, 0 );
+                        HID_CTRL->Y.Mask    = ConfigGetValue( Data, INI_KYY_Y, 1 );
 
-                        HID_CTRL->Y.Offset    = ConfigGetValue( Data, "Y", 0 );
-                        HID_CTRL->Y.Mask    = ConfigGetValue( Data, "Y", 1 );
+                        HID_CTRL->ZL.Offset    = ConfigGetValue( Data, INI_KYY_ZL, 0 );
+                        HID_CTRL->ZL.Mask    = ConfigGetValue( Data, INI_KYY_ZL, 1 );
 
-                        HID_CTRL->ZL.Offset    = ConfigGetValue( Data, "ZL", 0 );
-                        HID_CTRL->ZL.Mask    = ConfigGetValue( Data, "ZL", 1 );
+                        HID_CTRL->L.Offset    = ConfigGetValue( Data, INI_KYY_L2, 0 );
+                        HID_CTRL->L.Mask    = ConfigGetValue( Data, INI_KYY_L2, 1 );
 
-                        HID_CTRL->Z.Offset    = ConfigGetValue( Data, "Z", 0 );
-                        HID_CTRL->Z.Mask    = ConfigGetValue( Data, "Z", 1 );
+                        HID_CTRL->R.Offset    = ConfigGetValue( Data, INI_KYY_R2, 0 );
+                        HID_CTRL->R.Mask    = ConfigGetValue( Data, INI_KYY_R2, 1 );
 
-                        HID_CTRL->L.Offset    = ConfigGetValue( Data, "L", 0 );
-                        HID_CTRL->L.Mask    = ConfigGetValue( Data, "L", 1 );
+                        HID_CTRL->L1.Offset    = ConfigGetValue( Data, INI_KYY_L1, 0 );
+                        HID_CTRL->L1.Mask    = ConfigGetValue( Data, INI_KYY_L1, 1 );
 
-                        HID_CTRL->R.Offset    = ConfigGetValue( Data, "R", 0 );
-                        HID_CTRL->R.Mask    = ConfigGetValue( Data, "R", 1 );
+                        HID_CTRL->R1.Offset    = ConfigGetValue( Data, INI_KYY_R1, 0 );
+                        HID_CTRL->R1.Mask    = ConfigGetValue( Data, INI_KYY_R1, 1 );
 
-//                        HID_CTRL->L1.Offset    = ConfigGetValue( Data, "L1", 0 );
-//                        HID_CTRL->L1.Mask    = ConfigGetValue( Data, "L1", 1 );
-//
-//                        HID_CTRL->R1.Offset    = ConfigGetValue( Data, "R1", 0 );
-//                        HID_CTRL->R1.Mask    = ConfigGetValue( Data, "R1", 1 );
+                        HID_CTRL->S.Offset    = ConfigGetValue( Data, INI_KYY_START, 0 );
+                        HID_CTRL->S.Mask    = ConfigGetValue( Data, INI_KYY_START, 1 );
 
-                        HID_CTRL->S.Offset    = ConfigGetValue( Data, "S", 0 );
-                        HID_CTRL->S.Mask    = ConfigGetValue( Data, "S", 1 );
+                        HID_CTRL->Select.Offset    = ConfigGetValue( Data, INI_KYY_SELECT, 0 );
+                        HID_CTRL->Select.Mask    = ConfigGetValue( Data, INI_KYY_SELECT, 1 );
 
-//                        HID_CTRL->Select.Offset    = ConfigGetValue( Data, "Select", 0 );
-//                        HID_CTRL->Select.Mask    = ConfigGetValue( Data, "Select", 1 );
+                        HID_CTRL->Left.Offset    = ConfigGetValue( Data, INI_KYY_LEFT, 0 );
+                        HID_CTRL->Left.Mask        = ConfigGetValue( Data, INI_KYY_LEFT, 1 );
 
-                        HID_CTRL->Left.Offset    = ConfigGetValue( Data, "Left", 0 );
-                        HID_CTRL->Left.Mask        = ConfigGetValue( Data, "Left", 1 );
+                        HID_CTRL->Down.Offset    = ConfigGetValue( Data, INI_KYY_DOWN, 0 );
+                        HID_CTRL->Down.Mask        = ConfigGetValue( Data, INI_KYY_DOWN, 1 );
 
-                        HID_CTRL->Down.Offset    = ConfigGetValue( Data, "Down", 0 );
-                        HID_CTRL->Down.Mask        = ConfigGetValue( Data, "Down", 1 );
+                        HID_CTRL->Right.Offset    = ConfigGetValue( Data, INI_KYY_RIGHT, 0 );
+                        HID_CTRL->Right.Mask    = ConfigGetValue( Data, INI_KYY_RIGHT, 1 );
 
-                        HID_CTRL->Right.Offset    = ConfigGetValue( Data, "Right", 0 );
-                        HID_CTRL->Right.Mask    = ConfigGetValue( Data, "Right", 1 );
-
-                        HID_CTRL->Up.Offset        = ConfigGetValue( Data, "Up", 0 );
-                        HID_CTRL->Up.Mask        = ConfigGetValue( Data, "Up", 1 );
+                        HID_CTRL->Up.Offset        = ConfigGetValue( Data, INI_KYY_UP, 0 );
+                        HID_CTRL->Up.Mask        = ConfigGetValue( Data, INI_KYY_UP, 1 );
 
                         if( HID_CTRL->DPAD )
                         {
-                            HID_CTRL->RightUp.Offset    = ConfigGetValue( Data, "RightUp", 0 );
-                            HID_CTRL->RightUp.Mask        = ConfigGetValue( Data, "RightUp", 1 );
+                            HID_CTRL->RightUp.Offset    = ConfigGetValue( Data, INI_KYY_RIGHT_UP, 0 );
+                            HID_CTRL->RightUp.Mask        = ConfigGetValue( Data, INI_KYY_RIGHT_UP, 1 );
 
-                            HID_CTRL->DownRight.Offset    = ConfigGetValue( Data, "DownRight", 0 );
-                            HID_CTRL->DownRight.Mask    = ConfigGetValue( Data, "DownRight", 1 );
+                            HID_CTRL->DownRight.Offset    = ConfigGetValue( Data, INI_KYY_DOWN_RIGHT, 0 );
+                            HID_CTRL->DownRight.Mask    = ConfigGetValue( Data, INI_KYY_DOWN_RIGHT, 1 );
 
-                            HID_CTRL->DownLeft.Offset    = ConfigGetValue( Data, "DownLeft", 0 );
-                            HID_CTRL->DownLeft.Mask        = ConfigGetValue( Data, "DownLeft", 1 );
+                            HID_CTRL->DownLeft.Offset    = ConfigGetValue( Data, INI_KYY_DOWN_LEFT, 0 );
+                            HID_CTRL->DownLeft.Mask        = ConfigGetValue( Data, INI_KYY_DOWN_LEFT, 1 );
 
-                            HID_CTRL->UpLeft.Offset        = ConfigGetValue( Data, "UpLeft", 0 );
-                            HID_CTRL->UpLeft.Mask        = ConfigGetValue( Data, "UpLeft", 1 );
+                            HID_CTRL->UpLeft.Offset        = ConfigGetValue( Data, INI_KYY_UP_LEFT, 0 );
+                            HID_CTRL->UpLeft.Mask        = ConfigGetValue( Data, INI_KYY_UP_LEFT, 1 );
                         }
 
                         if( HID_CTRL->DPAD  &&    //DPAD == 1 and all offsets the same
@@ -575,44 +567,44 @@ static s32 HIDOpen( u32 LoaderRequest )
                         else
                             HID_CTRL->DPADMask = 0xFFFF;    //check all the bits
 
-                        HID_CTRL->StickX.Offset        = ConfigGetValue( Data, "StickX", 0 );
-                        HID_CTRL->StickX.DeadZone    = ConfigGetValue( Data, "StickX", 1 );
-                        HID_CTRL->StickX.Radius        = ConfigGetDecValue( Data, "StickX", 2 );
+                        HID_CTRL->StickX.Offset        = ConfigGetValue( Data, INI_KYY_STICKX, 0 );
+                        HID_CTRL->StickX.DeadZone    = ConfigGetValue( Data, INI_KYY_STICKX, 1 );
+                        HID_CTRL->StickX.Radius        = ConfigGetDecValue( Data, INI_KYY_STICKX, 2 );
                         if (HID_CTRL->StickX.Radius == 0)
                             HID_CTRL->StickX.Radius = 80;
                         HID_CTRL->StickX.Radius = (u64)HID_CTRL->StickX.Radius * 1280 / (128 - HID_CTRL->StickX.DeadZone);    //adjust for DeadZone
                     //        dbgprintf("HID:StickX:  Offset=%3X Deadzone=%3X Radius=%d\r\n", HID_CTRL->StickX.Offset, HID_CTRL->StickX.DeadZone, HID_CTRL->StickX.Radius);
 
-                        HID_CTRL->StickY.Offset        = ConfigGetValue( Data, "StickY", 0 );
-                        HID_CTRL->StickY.DeadZone    = ConfigGetValue( Data, "StickY", 1 );
-                        HID_CTRL->StickY.Radius        = ConfigGetDecValue( Data, "StickY", 2 );
+                        HID_CTRL->StickY.Offset        = ConfigGetValue( Data, INI_KYY_STICKY, 0 );
+                        HID_CTRL->StickY.DeadZone    = ConfigGetValue( Data, INI_KYY_STICKY, 1 );
+                        HID_CTRL->StickY.Radius        = ConfigGetDecValue( Data, INI_KYY_STICKY, 2 );
                         if (HID_CTRL->StickY.Radius == 0)
                             HID_CTRL->StickY.Radius = 80;
                         HID_CTRL->StickY.Radius = (u64)HID_CTRL->StickY.Radius * 1280 / (128 - HID_CTRL->StickY.DeadZone);    //adjust for DeadZone
                     //        dbgprintf("HID:StickY:  Offset=%3X Deadzone=%3X Radius=%d\r\n", HID_CTRL->StickY.Offset, HID_CTRL->StickY.DeadZone, HID_CTRL->StickY.Radius);
 
-                        HID_CTRL->CStickX.Offset    = ConfigGetValue( Data, "CStickX", 0 );
-                        HID_CTRL->CStickX.DeadZone    = ConfigGetValue( Data, "CStickX", 1 );
-                        HID_CTRL->CStickX.Radius    = ConfigGetDecValue( Data, "CStickX", 2 );
+                        HID_CTRL->CStickX.Offset    = ConfigGetValue( Data, INI_KYY_CSTICKX, 0 );
+                        HID_CTRL->CStickX.DeadZone    = ConfigGetValue( Data, INI_KYY_CSTICKX, 1 );
+                        HID_CTRL->CStickX.Radius    = ConfigGetDecValue( Data, INI_KYY_CSTICKX, 2 );
                         if (HID_CTRL->CStickX.Radius == 0)
                             HID_CTRL->CStickX.Radius = 80;
                         HID_CTRL->CStickX.Radius = (u64)HID_CTRL->CStickX.Radius * 1280 / (128 - HID_CTRL->CStickX.DeadZone);    //adjust for DeadZone
                     //        dbgprintf("HID:CStickX: Offset=%3X Deadzone=%3X Radius=%d\r\n", HID_CTRL->CStickX.Offset, HID_CTRL->CStickX.DeadZone, HID_CTRL->CStickX.Radius);
 
-                        HID_CTRL->CStickY.Offset    = ConfigGetValue( Data, "CStickY", 0 );
-                        HID_CTRL->CStickY.DeadZone    = ConfigGetValue( Data, "CStickY", 1 );
-                        HID_CTRL->CStickY.Radius    = ConfigGetDecValue( Data, "CStickY", 2 );
+                        HID_CTRL->CStickY.Offset    = ConfigGetValue( Data, INI_KYY_CSTICKY, 0 );
+                        HID_CTRL->CStickY.DeadZone    = ConfigGetValue( Data, INI_KYY_CSTICKY, 1 );
+                        HID_CTRL->CStickY.Radius    = ConfigGetDecValue( Data, INI_KYY_CSTICKY, 2 );
                         if (HID_CTRL->CStickY.Radius == 0)
                             HID_CTRL->CStickY.Radius = 80;
                         HID_CTRL->CStickY.Radius = (u64)HID_CTRL->CStickY.Radius * 1280 / (128 - HID_CTRL->CStickY.DeadZone);    //adjust for DeadZone
                     //        dbgprintf("HID:CStickY: Offset=%3X Deadzone=%3X Radius=%d\r\n", HID_CTRL->CStickY.Offset, HID_CTRL->CStickY.DeadZone, HID_CTRL->CStickY.Radius);
 
-                        HID_CTRL->LAnalog    = ConfigGetValue( Data, "LAnalog", 0 );
-                        HID_CTRL->RAnalog    = ConfigGetValue( Data, "RAnalog", 0 );
+                        HID_CTRL->LAnalog    = ConfigGetValue( Data, INI_KYY_LANALOG, 0 );
+                        HID_CTRL->RAnalog    = ConfigGetValue( Data, INI_KYY_RANALOG, 0 );
 
-                        if(ConfigGetValue( Data, "Rumble", 0 ))
+                        if(ConfigGetValue( Data, INI_KYY_RUMBLE, 0 ))
                         {
-                            RawRumbleDataLen = ConfigGetValue( Data, "RumbleDataLen", 0 );
+                            RawRumbleDataLen = ConfigGetValue( Data, INI_KYY_RUMBLE_DATA_LEN, 0 );
                             if(RawRumbleDataLen > 0)
                             {
                                 RumbleEnabled = 1;
@@ -620,15 +612,15 @@ static s32 HIDOpen( u32 LoaderRequest )
 
                                 if (RawRumbleDataOn == NULL) RawRumbleDataOn = (u8*)iosAlloc(hId, DataAligned);
                                 memset(RawRumbleDataOn, 0, DataAligned);
-                                ConfigGetValue( Data, "RumbleDataOn", 3 );
+                                ConfigGetValue( Data, INI_KYY_RUMBLE_DATA_ON, 3 );
 
                                 if (RawRumbleDataOff == NULL) RawRumbleDataOff = (u8*)iosAlloc(hId, DataAligned);
                                 memset(RawRumbleDataOff, 0, DataAligned);
-                                ConfigGetValue( Data, "RumbleDataOff", 4 );
+                                ConfigGetValue( Data, INI_KYY_RUMBLE_DATA_OFF, 4 );
 
-                                RumbleType = ConfigGetValue( Data, "RumbleType", 0 );
-                                RumbleTransferLen = ConfigGetValue( Data, "RumbleTransferLen", 0 );
-                                RumbleTransfers = ConfigGetValue( Data, "RumbleTransfers", 0 );
+                                RumbleType = ConfigGetValue( Data, INI_KYY_RUMBLE_TYPE, 0 );
+                                RumbleTransferLen = ConfigGetValue( Data, INI_KYY_RUMBLE_TRANS_LEN, 0 );
+                                RumbleTransfers = ConfigGetValue( Data, INI_KYY_RUMBLE_TRANS, 0 );
                             }
                         }
                         iosFree(hId, Data);
@@ -890,9 +882,6 @@ static void SetPs3ControllerIni()
     HID_CTRL->MultiIn      = 0;
     HID_CTRL->MultiInValue = 0;
 
-    HID_CTRL->Power.Offset = 0x2;
-    HID_CTRL->Power.Mask   = 0x1;
-
     HID_CTRL->A.Offset     = 0x3;
     HID_CTRL->A.Mask       = 0x80;
 
@@ -904,9 +893,6 @@ static void SetPs3ControllerIni()
 
     HID_CTRL->Y.Offset     = 0x3;
     HID_CTRL->Y.Mask       = 0x10;
-
-    HID_CTRL->Z.Offset     = 0x3;
-    HID_CTRL->Z.Mask       = 0x08;
 
     HID_CTRL->L.Offset     = 0x03;
     HID_CTRL->L.Mask       = 0x01;
@@ -971,6 +957,7 @@ static void HIDPS3Read()
         PS3LedSet = 1;
     }
     memcpy(HID_Packet, Packet, SS_DATA_LEN);
+    DCFlushRange((void*)HID_Packet, SS_DATA_LEN);
     #ifdef DISP_DEBUG
     sprintf(txtbuffer, "HIDPS3Read %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
     writeLogFile(txtbuffer);
@@ -1039,6 +1026,7 @@ static void HIDIRQRead()
             break;
     }
     memcpy(HID_Packet, Packet, wMaxPacketSize);
+    DCFlushRange((void*)HID_Packet, wMaxPacketSize);
     #ifdef DISP_DEBUG
     sprintf(txtbuffer, "HIDIRQRead %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
     writeLogFile(txtbuffer);

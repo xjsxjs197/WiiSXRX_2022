@@ -1,17 +1,11 @@
 #include <stdio.h>
 #include "global.h"
 #include "KernelHID.h"
-//#include "hidmem.h"
 #include "wiidrc.h"
 #include "../Gamecube/DEBUG.h"
 
 #define PAD_CHAN0_BIT                0x80000000
 
-//from our asm
-extern int disableIRQs(void);
-extern int restoreIRQs(int val);
-extern void disableCaches(void);
-extern void bootStub(void);
 
 static u32 stubsize = 0x1800;
 static vu32 *stubdest = (vu32*)0x80004000;
@@ -20,7 +14,6 @@ static vu16* const _memReg = (vu16*)0xCC004000;
 static vu16* const _dspReg = (vu16*)0xCC005000;
 static vu32* const _siReg = (vu32*)0xCD006400;
 static vu32* const MotorCommand = (vu32*)0x93003010;
-static vu32* RESET_STATUS = (vu32*)0x93003420;
 static vu32* HID_STATUS = (vu32*)0x93003440;
 static vu32* HID_CHANGE = (vu32*)0x93003444;
 static vu32* HID_CFG_SIZE = (vu32*)0x93003448;
@@ -130,8 +123,7 @@ void HIDUpdateControllerIni()
     *(vu32*)HID_CHANGE = 0;
 }
 
-// CalledByGame is always 0
-u32 HidFormatData(u32 calledByGame)
+u32 HidFormatData(void)
 {
     // Registers r1,r13-r31 automatically restored if used.
     // Registers r0, r3-r12 should be handled by calling function
@@ -222,11 +214,6 @@ u32 HidFormatData(u32 calledByGame)
             }
         }
 
-//        if(calledByGame && HID_CTRL->Power.Mask &&    //exit if power configured and all power buttons pressed
-//        ((HID_Packet[HID_CTRL->Power.Offset] & HID_CTRL->Power.Mask) == HID_CTRL->Power.Mask))
-//        {
-//            goto DoExit;
-//        }
         used |= (1<<chan);
 
         Rumble |= ((1<<31)>>chan);
@@ -268,8 +255,6 @@ u32 HidFormatData(u32 calledByGame)
             button |= PAD_BUTTON_X;
         if(HID_Packet[HID_CTRL->Y.Offset] & HID_CTRL->Y.Mask)
             button |= PAD_BUTTON_Y;
-        if(HID_Packet[HID_CTRL->Z.Offset] & HID_CTRL->Z.Mask)
-            button |= PAD_TRIGGER_Z;
 
         if( HID_CTRL->DigitalLR == 1)    //digital trigger buttons only
         {
@@ -348,14 +333,6 @@ u32 HidFormatData(u32 calledByGame)
             button |= PAD_BUTTON_SELECT;
 
         Pad[chan].button = button;
-
-        if((Pad[chan].button&0x1030) == 0x1030)    //reset by pressing start, Z, R
-        {
-            /* reset status 3 */
-            *RESET_STATUS = 0x3DEA;
-        }
-        else /* for held status */
-            *RESET_STATUS = 0;
 
         /* then analog sticks */
         s8 stickX, stickY, substickX, substickY;
@@ -1146,8 +1123,6 @@ u32 HidFormatData(u32 calledByGame)
             }
             if(BTPad[chan].button & WM_BUTTON_ONE)
                 button |= PAD_BUTTON_START;
-            if(BTPad[chan].button & WM_BUTTON_HOME)
-                goto DoExit;
         }    //end nunchuck configs
 
         if(BTPad[chan].used & (C_CC | C_CCP))
@@ -1185,9 +1160,6 @@ u32 HidFormatData(u32 calledByGame)
                 button |= PAD_BUTTON_DOWN;
             if(BTPad[chan].button & BT_DPAD_UP)
                 button |= PAD_BUTTON_UP;
-
-            if(BTPad[chan].button & BT_BUTTON_HOME)
-                goto DoExit;
         }
 
         Pad[chan].button = button;
@@ -1205,19 +1177,6 @@ u32 HidFormatData(u32 calledByGame)
             Pad[chan].stickX = Pad[chan].triggerRight;
             Pad[chan].stickY = Pad[chan].triggerLeft;
         #endif
-
-        //exit by pressing B,Z,R,PAD_BUTTON_DOWN
-        if((Pad[chan].button&0x234) == 0x234)
-        {
-            goto DoExit;
-        }
-        if((Pad[chan].button&0x1030) == 0x1030)    //reset by pressing start, Z, R
-        {
-            /* reset status 3 */
-            *RESET_STATUS = 0x3DEA;
-        }
-        else // for held status
-            *RESET_STATUS = 0;
     }
 
     /* Some games always need the controllers "used" */
@@ -1246,45 +1205,7 @@ u32 HidFormatData(u32 calledByGame)
     asm volatile("dcbf 0,%0" : : "b"(memFlush) : "memory");
     //make sure its actually sent
     asm volatile("sync");
-    //execute codehandler if its there
-//    if(*(vu32*)0x800010A0 == 0x9421FF58)
-//    {
-//        u32 level = disableIRQs();
-//        ((void(*)(void))0x800010A0)();
-//        restoreIRQs(level);
-//    }
-    return Rumble;
 
-DoExit:
-    /* disable interrupts */
-    //disableIRQs();
-    /* stop audio dma */
-    _dspReg[27] = (_dspReg[27]&~0x8000);
-    /* reset status 1 (DoExit) */
-    //*RESET_STATUS = 0x1DEA;
-    //while(*RESET_STATUS == 0x1DEA) ;
-    /* disable dcache and icache */
-    //disableCaches();
-    /* disable memory protection */
-    _memReg[15] = 0xF;
-    _memReg[16] = 0;
-    _memReg[8] = 0xFF;
-    /* load in stub */
-//    do {
-//        *stubdest++ = *stubsrc++;
-//    } while((stubsize-=4) > 0);
-    /* Allow all IOS IRQs again */
-    *(vu32*)0xCD800004 = 0x36;
-    /* jump to it */
-    //bootStub();
-    return 0;
-DoShutdown:
-    /* disable interrupts */
-    //disableIRQs();
-    /* stop audio dma */
-    _dspReg[27] = (_dspReg[27]&~0x8000);
-    /* reset status 7 (DoShutdown) */
-    //*RESET_STATUS = 0x7DEA;
-    //while(1) ;
+    return Rumble;
 }
 

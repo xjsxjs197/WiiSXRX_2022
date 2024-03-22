@@ -38,6 +38,50 @@ extern "C" {
 #define USB_REQTYPE_INTERFACE_GET       (USB_CTRLTYPE_DIR_DEVICE2HOST|USB_CTRLTYPE_TYPE_CLASS|USB_CTRLTYPE_REC_INTERFACE)
 #define USB_REQTYPE_INTERFACE_SET       (USB_CTRLTYPE_DIR_HOST2DEVICE|USB_CTRLTYPE_TYPE_CLASS|USB_CTRLTYPE_REC_INTERFACE)
 
+#define INI_KYY_A                    "KeyA"
+#define INI_KYY_B                    "KeyB"
+#define INI_KYY_X                    "KeyX"
+#define INI_KYY_Y                    "KeyY"
+#define INI_KYY_L1                   "KeyL1"
+#define INI_KYY_L2                   "KeyL2"
+#define INI_KYY_R1                   "KeyR1"
+#define INI_KYY_R2                   "KeyR2"
+#define INI_KYY_START                "KeyStart"
+#define INI_KYY_SELECT               "KeySelect"
+#define INI_KYY_LEFT                 "KeyLeft"
+#define INI_KYY_DOWN                 "KeyDown"
+#define INI_KYY_RIGHT                "KeyRight"
+#define INI_KYY_UP                   "KeyUp"
+#define INI_KYY_STICKX               "StickX"
+#define INI_KYY_STICKY               "StickY"
+#define INI_KYY_CSTICKX              "CStickX"
+#define INI_KYY_CSTICKY              "CStickY"
+#define INI_KYY_LANALOG              "LAnalog"
+#define INI_KYY_RANALOG              "RAnalog"
+
+#define INI_KYY_RIGHT_UP             "RightUp"
+#define INI_KYY_DOWN_RIGHT           "DownRight"
+#define INI_KYY_DOWN_LEFT            "DownLeft"
+#define INI_KYY_UP_LEFT              "UpLeft"
+
+#define INI_KYY_ZL                   "KeyZL"
+
+#define INI_KYY_VID                  "VID"
+#define INI_KYY_PID                  "PID"
+#define INI_KYY_POLL_TYPE            "Polltype"
+#define INI_KYY_DPAD                 "DPAD"
+#define INI_KYY_DIGITAl_LR           "DigitalLR"
+#define INI_KYY_MULTI_IN             "MultiIn"
+#define INI_KYY_MULTI_IN_VAL         "MultiInValue"
+
+#define INI_KYY_RUMBLE               "Rumble"
+#define INI_KYY_RUMBLE_DATA_LEN      "RumbleDataLen"
+#define INI_KYY_RUMBLE_DATA_ON       "RumbleDataOn"
+#define INI_KYY_RUMBLE_DATA_OFF      "RumbleDataOff"
+#define INI_KYY_RUMBLE_TYPE          "RumbleType"
+#define INI_KYY_RUMBLE_TRANS_LEN     "RumbleTransferLen"
+#define INI_KYY_RUMBLE_TRANS         "RumbleTransfers"
+
 typedef struct Layout
 {
 	u32 Offset;
@@ -135,7 +179,7 @@ void HIDInit(u32 ios);
 void HIDClose();
 
 
-u32 HidFormatData(u32 calledByGame);
+u32 HidFormatData(void);
 void HIDUpdateControllerIni();
 
 void HIDReadData(void);
