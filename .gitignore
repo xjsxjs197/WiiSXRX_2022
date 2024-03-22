@@ -7,3 +7,6 @@ Gamecube/build_debug/*.*
 Gamecube/build_release/*.*
 deps/lightrec/lib/*
 
+deps/libchdr/lib/libchdr.a
+deps/libchdr/deps/lzma-19.00/lib/liblzma.a
+deps/libchdr/deps/zlib-1.3.1/bin/lib/libzlibstatic.a
