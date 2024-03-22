@@ -2,7 +2,7 @@
 
 # WiiStation
 
-WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emulator, forked from the original WiiSX-RX (http://github.com/niuus/WiiSXRX) emulator by NiuuS, originally a port of PCSX-Reloaded, but with many changes from PCSX-ReARMed, for the Nintendo Wii/Wii U.
+WiiStation (formerly WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emulator, forked from the original WiiSX-RX (https://github.com/niuus/WiiSXRX) emulator by NiuuS, originally a port of PCSX-Reloaded, but with many changes from PCSX-ReARMed, for the Nintendo Wii/Wii U.
 
 ## The following changes have been made to the code based on WiiSXRX.
 
@@ -32,7 +32,7 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 
 * Support for BIN+CUE, ISO, IMG, and eboot PBP (a compressed format for PS1 games on PSP) formats.
 
-* CHD v1-v5 compressed format support with the [libchdr](https://github.com/rtissera/libchdr) library from [MAME](https://github.com/mamedev/mame).
+* CHD v1-v5 compressed format support with the [libCHDr](https://github.com/rtissera/libchdr) library from [MAME](https://github.com/mamedev/mame).
 
 * Support for multiple languages.
   At first, I wanted to refer to Snes9x GX and support TTF font library.
@@ -59,15 +59,15 @@ WiiStation (formely WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emula
 ## Goals
 
 * Improve GTE (Geometry Transformation Engine) code to provide 3D game speed.
-  By using the paired single instruction, most of the GTE logic has been rewritten, and FPS has indeed improved by about 2 frames,
-  However, due to accuracy issues, there may be minor image issues.
+  By using the paired single instruction, most of the GTE logic has been rewritten, and FPS has indeed improved by about 2 frames.
+  However, due to accuracy issues, there may be minor image/graphical issues.
 
 * HID controller support via USB.
-  By reading the code of Nintendont, have understood the working principle of the HID controller,
-  It is still a little bit short to port Nintendont's HID control logic to WiiStation.
+  By reading and checking the code of [Nintendont](https://github.com/FIX94/Nintendont), we have understood the working principle of the HID controller,
+  but it is still a little bit short to port Nintendont's HID control logic to WiiStation.
 
 * Use the graphics display mode of GL to provide image quality and performance.
-  (At least transplant the texture caching logic in OpenGL, it may improve running efficiency).
+  (At least transplant the texture caching logic in OpenGL, it may improve running efficiency/performance.)
 
 Any help is appreciated.
 
@@ -83,19 +83,19 @@ Any help is appreciated.
 
 ## WiiStation Credits
 
-WiiStation (formely WiiSXRX_2022) - developed by xjsxjs197 - https://github.com/xjsxjs197/WiiSXRX_2022
+WiiStation (formerly WiiSXRX_2022) - developed by xjsxjs197 - https://github.com/xjsxjs197/WiiSXRX_2022
 
 240p/Lightgun/Mouse/Multitap support, some fixes and additional improvements by Jokippo - http://github.com/Jokippo
 
 WiiStation icon - made by Dakangel (high quality logo made by saulfabreg)
 
-WiiSX-RX fork - developed by NiuuS - https://github.com/niuus/WiiSXRX
+WiiSX-RX fork - developed by NiuuS - https://github.com/NiuuS/WiiSXRX
 
 WiiSX-R fork - developed by Mystro256 - https://github.com/Mystro256/WiiSXR
 
 PCSX-Revolution - developed by Firnis - https://code.google.com/archive/p/pcsx-revolution/downloads ; https://github.com/Firnis/pcsx-revolution
 
-WiiSX - developed by emu_kidid, tehpola, sepp256 - https://github.com/emukidid/pcsxgc ; https://code.google.com/archive/p/pcsxgc/downloads
+WiiSX - developed by emu_kidid, tehpola, sepp256 - https://github.com/emukidid/PCSXGC ; https://code.google.com/archive/p/pcsxgc/downloads
 
 PCSX-ReARMed - developed by notaz - https://github.com/notaz/pcsx_rearmed ; some other changes by Libretro - https://github.com/libretro/pcsx_rearmed
 
@@ -103,6 +103,6 @@ libOGC2 - developed by Extrems - https://github.com/extremscorner/libogc2
 
 Lightrec - developed by pcercuei - https://github.com/pcercuei/lightrec
 
-libchdr - developed by MAME Team and rtissera - https://github.com/rtissera/libchdr
+libCHDr - developed by MAME Team and rtissera - https://github.com/rtissera/libchdr
 
 Thanks for everyone's attention and enthusiasm, which gives me the motivation to continue this project.
