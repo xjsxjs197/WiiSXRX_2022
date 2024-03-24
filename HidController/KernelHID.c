@@ -120,6 +120,8 @@ static void *HID_Packet = (void*)HID_Packet_ADDR;
 #define HID_CHANGE_MSG        3
 #define HID_ATTACH_MSG        4
 
+#define HID_SET_RUMBLE        5
+
 #define USBV4_IOCTL_GETVERSION                   6 // returns 0x40001
 #define USBV5_IOCTL_GETVERSION                   0 // should return 0x50001
 
@@ -127,6 +129,7 @@ static void *HID_Packet = (void*)HID_Packet_ADDR;
 static s32 hId = -1;
 static struct _usb_msg *msg = NULL;
 s32 hidControllerConnected = 0;
+s32 loadingControllerIni = 0;
 
 static s32 ipcCallBack(s32 result, void *usrdata)
 {
@@ -395,8 +398,8 @@ static s32 HIDOpen( u32 LoaderRequest )
                     RumbleEnabled = 1;
                     HIDPS3SetRumble( 0, 0, 0, 0 );
 
-                    SetPs3ControllerIni();
-                    needLoadControllerIni = false;
+                    //SetPs3ControllerIni();
+                    //needLoadControllerIni = false;
                 }
                 else if( DeviceVID == 0x057e && DevicePID == 0x0337 )
                     HIDGCInit();
@@ -413,11 +416,17 @@ static s32 HIDOpen( u32 LoaderRequest )
                         *((u32*)(HID_CFG_SIZE)) = DevicePID;
                         HID_CTRL->VID = DeviceVID;
 
+                        #ifdef DISP_DEBUG
+                        sprintf(txtbuffer, "Waiting LoadHIDControllerIni\r\n");
+                        writeLogFile(txtbuffer);
+                        #endif // DISP_DEBUG
+                        loadingControllerIni = 1;
                         while (hidRun)
                         {
                             if(*((u32*)(HID_CHANGE)) == 0) break;
                             usleep(100);
                         }
+                        loadingControllerIni = 0;
                         u32 cfgsize = *((u32*)(HID_CFG_SIZE));
                         if (cfgsize == 0)
                         {
@@ -938,10 +947,16 @@ static void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left
 {
     ps3buf[3] = power_left;
     ps3buf[5] = power_right;
+    DCFlushRange((void*)ps3buf, 64);
 
-    s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, 0);
-    if( ret < 0 )
-        dbgprintf("ES:IOS_Ioctl():%d\r\n", ret );
+    s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, HID_SET_RUMBLE);
+    #ifdef DISP_DEBUG
+    if ( ret < 0 )
+    {
+        sprintf(txtbuffer, "HIDPS3SetRumble Err %08x\r\n", ret);
+        writeLogFile(txtbuffer);
+    }
+    #endif // DISP_DEBUG
 }
 
 static vu32 HIDRumbleCurrent = 0, HIDRumbleLast = 0;
@@ -957,8 +972,8 @@ static void HIDPS3Read()
     memcpy(HID_Packet, Packet, SS_DATA_LEN);
     DCFlushRange((void*)HID_Packet, SS_DATA_LEN);
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "HIDPS3Read %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
-    writeLogFile(txtbuffer);
+    //sprintf(txtbuffer, "HIDPS3Read %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
+    //writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
     HIDControlMessage(0, Packet, SS_DATA_LEN, USB_REQTYPE_INTERFACE_GET,
@@ -974,7 +989,7 @@ static void HIDGCRumble(u32 input)
     gcbuf[3] = (input >> 2) & 1;
     gcbuf[4] = (input >> 3) & 1;
 
-    HIDInterruptMessage(0, gcbuf, 5, bEndpointAddressOut, 0);
+    HIDInterruptMessage(0, gcbuf, 5, bEndpointAddressOut, HID_SET_RUMBLE);
 }
 
 static void HIDIRQRumble(u32 Enable)
@@ -982,7 +997,7 @@ static void HIDIRQRumble(u32 Enable)
     u8 *buf = (Enable == 1) ? RawRumbleDataOn : RawRumbleDataOff;
     u32 i = 0;
 irqrumblerepeat:
-    HIDInterruptMessage(0, buf, RumbleTransferLen, bEndpointAddressOut, 0);
+    HIDInterruptMessage(0, buf, RumbleTransferLen, bEndpointAddressOut, HID_SET_RUMBLE);
     i++;
     if(i < RumbleTransfers)
     {
@@ -998,7 +1013,7 @@ static void HIDCTRLRumble(u32 Enable)
 ctrlrumblerepeat:
     i++;
     HIDControlMessage(0, buf, RumbleTransferLen, USB_REQTYPE_INTERFACE_SET,
-            USB_REQ_SETREPORT, (USB_REPTYPE_OUTPUT<<8) | 0x1, 0);
+            USB_REQ_SETREPORT, (USB_REPTYPE_OUTPUT<<8) | 0x1, HID_SET_RUMBLE);
     if(i < RumbleTransfers)
     {
         buf += RumbleTransferLen;
@@ -1199,14 +1214,14 @@ static void KeyboardRead()
 static void HIDUpdateRegisters(u32 LoaderRequest)
 {
     //u32 nextTimer = gettime();
-    //if (diff_usec(HID_Timer, nextTimer) > 20000) // about 50 times a second
+    if (diff_usec(HID_Timer, gettime()) > 2500) // about 50 times a second
     {
         if (hidchange == 1)
         {
             hidattached = 0;
             //wait half a second for devices to
             //actually attach properly
-            if (hidwaittimer < 12)
+            if (hidwaittimer < 60)
                 hidwaittimer++;
             else
             {
@@ -1222,17 +1237,17 @@ static void HIDUpdateRegisters(u32 LoaderRequest)
                 //hidattach = 1;
             }
         }
-        if(hidattach == 1)
+        if (hidattach == 1)
         {
             hidattach = 0;
             hidattached = 1;
             HIDOpen(LoaderRequest);
+            msg->msgData = HID_CHANGE_MSG;
+            u32 checkRet = IOS_IoctlAsync(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, ATTACHED_DEVICES_SIZE, ipcCallBack, msg);
             #ifdef DISP_DEBUG
-            sprintf(txtbuffer, "GetDeviceChange\r\n");
+            sprintf(txtbuffer, "GetDeviceChange %08x\r\n", checkRet);
             writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
-            msg->msgData = HID_CHANGE_MSG;
-            IOS_IoctlAsync(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, ATTACHED_DEVICES_SIZE, ipcCallBack, msg);
             //hidchange = 1;
         }
 //        if (hidattached)
@@ -1257,7 +1272,7 @@ static void HIDUpdateRegisters(u32 LoaderRequest)
 //                }
 //            }
 //        }
-        //HID_Timer = gettime();
+        HID_Timer = gettime();
     }
 }
 
@@ -1284,5 +1299,12 @@ void HIDReadData(void)
                 HIDRumbleLast = HIDRumbleCurrent;
             }
         }
+    }
+    else
+    {
+        #ifdef DISP_DEBUG
+        sprintf(txtbuffer, "HIDReadData hidattached0\r\n");
+        writeLogFile(txtbuffer);
+        #endif // DISP_DEBUG
     }
 }

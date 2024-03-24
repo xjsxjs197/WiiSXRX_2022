@@ -30,6 +30,7 @@
 #include "controller.h"
 #include "../wiiSXconfig.h"
 #include "../../HidController/KernelHID.h"
+#include "../../HidController/global.h"
 #include "../DEBUG.h"
 
 enum {
@@ -100,6 +101,8 @@ static s8  PAD_SubStick_X = 0;
 
 static void refreshAvailable(void);
 
+#define SET_KEY(mask, keyVal) { if (b & mask) c->btns.All &= ~keyVal; }
+
 static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 {
 	refreshAvailable();
@@ -112,7 +115,7 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 
 	if (!controller_HidGC.available[Control]) return 0;
 
-    PAD_Pressed = 0;
+	PAD_Pressed = 0;
 	PAD_Stick_Y = 0;
 	PAD_Stick_X = 0;
 	PAD_SubStick_Y = 0;
@@ -121,7 +124,8 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 
 	PADStatus *Pad = (PADStatus*)(0x93003100); //PadBuff
 	HidFormatData();
-	for(i = 0; i < PAD_CHANMAX; ++i)
+	//for(i = 0; i < PAD_CHANMAX; ++i)
+	for(i = 0; i < 1; ++i)
 	{
 		PAD_Pressed |= Pad[i].button;
 		PAD_Stick_Y |= Pad[i].stickY;
@@ -129,57 +133,84 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 		PAD_SubStick_Y |= Pad[i].substickY;
 		PAD_SubStick_X |= Pad[i].substickX;
 	}
+	#ifdef DISP_DEBUG
+	if ((PAD_Pressed & PAD_TRIGGER_R1) == PAD_TRIGGER_R1
+		|| (PAD_Pressed & PAD_TRIGGER_L1) == PAD_TRIGGER_L1
+		|| (PAD_Pressed & PAD_TRIGGER_R) == PAD_TRIGGER_R
+		|| (PAD_Pressed & PAD_TRIGGER_L) == PAD_TRIGGER_L
+		|| (PAD_Pressed & PAD_BUTTON_A) || (PAD_Pressed & PAD_BUTTON_B) || (PAD_Pressed & PAD_BUTTON_X) || (PAD_Pressed & PAD_BUTTON_Y)
+		)
+	{
+		sprintf(txtbuffer, "GetKeys %08x %08x\r\n", Pad[0].button, PAD_Pressed);
+	    writeLogFile(txtbuffer);
+	}
 
-	//unsigned int b = getButtons(Control);
+	#endif // DISP_DEBUG
+
 	unsigned int b = PAD_Pressed;
 	inline int isHeld(button_tp button){
 		return (b & button->mask) == button->mask ? 0 : 1;
 	}
+    SET_KEY(PAD_BUTTON_A, 0x8000);
+    SET_KEY(PAD_BUTTON_B, 0x4000);
+    SET_KEY(PAD_BUTTON_X, 0x2000);
+    SET_KEY(PAD_BUTTON_Y, 0x1000);
+    SET_KEY(PAD_TRIGGER_R1, 0x0800);
+    SET_KEY(PAD_TRIGGER_L1, 0x0400);
+    SET_KEY(PAD_TRIGGER_R, 0x0200);
+    SET_KEY(PAD_TRIGGER_L, 0x0100);
 
-	c->btns.SQUARE_BUTTON    = isHeld(config->SQU);
-	c->btns.CROSS_BUTTON     = isHeld(config->CRO);
-	c->btns.CIRCLE_BUTTON    = isHeld(config->CIR);
-	c->btns.TRIANGLE_BUTTON  = isHeld(config->TRI);
+    SET_KEY(PAD_BUTTON_LEFT, 0x0080);
+    SET_KEY(PAD_BUTTON_DOWN, 0x0040);
+    SET_KEY(PAD_BUTTON_RIGHT, 0x0020);
+    SET_KEY(PAD_BUTTON_UP, 0x0010);
+    SET_KEY(PAD_BUTTON_START, 0x0008);
+    SET_KEY(PAD_BUTTON_SELECT, 0x0001);
 
-	c->btns.R1_BUTTON    = isHeld(config->R1);
-	c->btns.L1_BUTTON    = isHeld(config->L1);
-	c->btns.R2_BUTTON    = isHeld(config->R2);
-	c->btns.L2_BUTTON    = isHeld(config->L2);
-
-	c->btns.L_DPAD       = isHeld(config->DL);
-	c->btns.R_DPAD       = isHeld(config->DR);
-	c->btns.U_DPAD       = isHeld(config->DU);
-	c->btns.D_DPAD       = isHeld(config->DD);
-
-	c->btns.START_BUTTON  = isHeld(config->START);
-	c->btns.R3_BUTTON    = isHeld(config->R3);
-	c->btns.L3_BUTTON    = isHeld(config->L3);
-	c->btns.SELECT_BUTTON = isHeld(config->SELECT);
+//	c->btns.SQUARE_BUTTON    = isHeld(PAD_BUTTON_A);
+//	c->btns.CROSS_BUTTON     = isHeld(PAD_BUTTON_B);
+//	c->btns.CIRCLE_BUTTON    = isHeld(PAD_BUTTON_X);
+//	c->btns.TRIANGLE_BUTTON  = isHeld(PAD_BUTTON_Y);
+//
+//	c->btns.R1_BUTTON    = isHeld(PAD_TRIGGER_R1);
+//	c->btns.L1_BUTTON    = isHeld(PAD_TRIGGER_L1);
+//	c->btns.R2_BUTTON    = isHeld(PAD_TRIGGER_R);
+//	c->btns.L2_BUTTON    = isHeld(PAD_TRIGGER_L);
+//
+//	c->btns.L_DPAD       = isHeld(PAD_BUTTON_LEFT);
+//	c->btns.R_DPAD       = isHeld(PAD_BUTTON_RIGHT);
+//	c->btns.U_DPAD       = isHeld(PAD_BUTTON_UP);
+//	c->btns.D_DPAD       = isHeld(PAD_BUTTON_DOWN);
+//
+//	c->btns.START_BUTTON  = isHeld(PAD_BUTTON_START);
+//	//c->btns.R3_BUTTON    = isHeld(config->R3);
+//	//c->btns.L3_BUTTON    = isHeld(config->L3);
+//	c->btns.SELECT_BUTTON = isHeld(PAD_BUTTON_SELECT);
 
 	//adjust values by 128 cause PSX sticks range 0-255 with a 128 center pos
 	int stickX = 0, stickY = 0;
-	if(config->analogL->mask == ANALOG_AS_ANALOG){
-		stickX = PAD_Stick_X;
-		stickY = PAD_Stick_Y;
-	} else if(config->analogL->mask == C_STICK_AS_ANALOG){
-		stickX = PAD_SubStick_X;
-		stickY = PAD_SubStick_Y;
-	}
+	stickX = PAD_Stick_X;
+	stickY = PAD_Stick_Y;
 	c->leftStickX = GCtoPSXAnalog(stickX);
 	c->leftStickY = GCtoPSXAnalog(config->invertedYL ? stickY : -stickY);
 
-	if(config->analogR->mask == ANALOG_AS_ANALOG){
-		stickX = PAD_Stick_X;
-		stickY = PAD_Stick_Y;
-	} else if(config->analogR->mask == C_STICK_AS_ANALOG){
-		stickX = PAD_SubStick_X;
-		stickY = PAD_SubStick_Y;
-	}
+	stickX = PAD_SubStick_X;
+	stickY = PAD_SubStick_Y;
 	c->rightStickX = GCtoPSXAnalog(stickX);
 	c->rightStickY = GCtoPSXAnalog(config->invertedYR ? stickY : -stickY);
 
+	DCFlushRange((void*)c, sizeof(BUTTONS));
+
 	// Return 1 if exit, 2 if fastforward
-	if (!isHeld(config->exit)) return 1;
+	if (!isHeld(config->exit))
+	{
+		return 1;
+		#ifdef DISP_DEBUG
+        //sprintf(txtbuffer, "Exit %08x\r\n", PAD_Pressed);
+        //writeLogFile(txtbuffer);
+        #endif // DISP_DEBUG
+	}
+
 	//if (!isHeld(config->fastf)) return 2;
 	//else
 	return 0;
@@ -188,13 +219,13 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 static u32* MotorCommand = (u32*)(0x93003020);
 
 static void pause(int Control){
-	*MotorCommand = PAD_MOTOR_STOP;
+	//*MotorCommand = PAD_MOTOR_STOP;
 }
 
 static void resume(int Control){ }
 
 static void rumble(int Control, int rumble){
-	*MotorCommand = (rumble && rumbleEnabled) ? PAD_MOTOR_RUMBLE : PAD_MOTOR_STOP;
+	//*MotorCommand = (rumble && rumbleEnabled) ? PAD_MOTOR_RUMBLE : PAD_MOTOR_STOP;
 }
 
 static void configure(int Control, controller_config_t* config){
@@ -250,6 +281,10 @@ controller_t controller_HidGC =
 static void refreshAvailable(void){
 	if (hidPadNeedScan)
 	{
+		if (loadingControllerIni)
+        {
+            HIDUpdateControllerIni();
+        }
 		if (hidControllerConnected)
 		{
 			HIDReadData();

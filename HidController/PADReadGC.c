@@ -165,8 +165,8 @@ u32 HidFormatData(void)
 
     vu8* HID_Packet = (vu8*)HID_Packet_ADDR;
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "HidFormat %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
-    writeLogFile(txtbuffer);
+    //sprintf(txtbuffer, "HidFormat %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
+    //writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
     for (chan = HIDPad; (chan < HID_PAD_NONE); (HID_CTRL->MultiIn == 3) ? (++chan) : (chan = HID_PAD_NONE)) // Run once unless MultiIn == 3
     {
@@ -306,9 +306,9 @@ u32 HidFormatData(void)
             }
             else    //standard no digital trigger button
             {
-                if(HID_Packet[HID_CTRL->L.Offset] >= HID_CTRL->L.Mask)
+                if(HID_Packet[HID_CTRL->L.Offset] & HID_CTRL->L.Mask)
                     button |= PAD_TRIGGER_L;
-                if(HID_Packet[HID_CTRL->R.Offset] >= HID_CTRL->R.Mask)
+                if(HID_Packet[HID_CTRL->R.Offset] & HID_CTRL->R.Mask)
                     button |= PAD_TRIGGER_R;
 
                 if(HID_Packet[HID_CTRL->L1.Offset] & HID_CTRL->L1.Mask)
@@ -509,694 +509,694 @@ u32 HidFormatData(void)
         }
     }
 
-    if(MaxPads == 0) //wiiu
-        MaxPads = 4;
-
-    for(chan = 0; chan < MaxPads; ++chan)    //bluetooth controller loop
-    {
-        if(used & (1<<chan))
-        {
-            BTPadFree[chan] = 0;
-            continue;
-        }
-        BTPadFree[chan] = 1;
-
-        memInvalidate = (u32)&BTPad[chan];
-        asm volatile("dcbi 0,%0; sync" : : "b"(memInvalidate) : "memory");
-
-        if(BTPad[chan].used == C_NOT_SET)
-            continue;
-
-        used |= (1<<chan);
-
-        Rumble |= ((1<<31)>>chan);
-        BTMotor[chan] = MotorCommand[chan]&0x3;
-
-        s8 tmp_stick = 0;
-        //Normal Stick
-        if(BTPad[chan].xAxisL > 0x7F)
-            tmp_stick = 0x7F;
-        else if(BTPad[chan].xAxisL < -0x80)
-            tmp_stick = -0x80;
-        else
-            tmp_stick = BTPad[chan].xAxisL;
-        Pad[chan].stickX = tmp_stick;
-
-        if(BTPad[chan].yAxisL > 0x7F)
-            tmp_stick = 0x7F;
-        else if(BTPad[chan].yAxisL < -0x80)
-            tmp_stick = -0x80;
-        else
-            tmp_stick = BTPad[chan].yAxisL;
-        Pad[chan].stickY = tmp_stick;
-
-        // Normal cStick
-        if((BTPad[chan].used & (C_CC | C_CCP))
-          ||((BTPad[chan].used & C_NUN) && (BTPad[chan].used & C_ISWAP)))
-        {
-            if(BTPad[chan].xAxisR > 0x7F)
-                tmp_stick = 0x7F;
-            else if(BTPad[chan].xAxisR < -0x80)
-                tmp_stick = -0x80;
-            else
-                tmp_stick = BTPad[chan].xAxisR;
-            Pad[chan].substickX = tmp_stick;
-
-            if(BTPad[chan].yAxisR > 0x7F)
-                tmp_stick = 0x7F;
-            else if(BTPad[chan].yAxisR < -0x80)
-                tmp_stick = -0x80;
-            else
-                tmp_stick = BTPad[chan].yAxisR;
-            Pad[chan].substickY = tmp_stick;
-        }
-
-        u16 button = 0;
-
-        if(BTPad[chan].used & C_CC)
-        {
-            Pad[chan].triggerLeft = BTPad[chan].triggerL;
-            if(BTPad[chan].button & BT_TRIGGER_L)
-                button |= PAD_TRIGGER_L;
-
-            Pad[chan].triggerRight = BTPad[chan].triggerR;
-            if(BTPad[chan].button & BT_TRIGGER_R)
-                button |= PAD_TRIGGER_R;
-
-            if(BTPad[chan].button & BT_TRIGGER_ZR)
-                button |= PAD_TRIGGER_Z;
-        }
-        else if(BTPad[chan].used & C_CCP)    //digital triggers
-        {
-            if(BTPad[chan].button & BT_TRIGGER_ZL)
-            {
-                if(BTPad[chan].button & BT_TRIGGER_L)
-                    Pad[chan].triggerLeft = 0x7F;
-                else
-                {
-                    button |= PAD_TRIGGER_L;
-                    Pad[chan].triggerLeft = 0xFF;
-                }
-            }
-            else
-                Pad[chan].triggerLeft = 0;
-
-            if(BTPad[chan].button & BT_TRIGGER_ZR)
-            {
-                if(BTPad[chan].button & BT_TRIGGER_L)
-                    Pad[chan].triggerRight = 0x7F;
-                else
-                {
-                    button |= PAD_TRIGGER_R;
-                    Pad[chan].triggerRight = 0xFF;
-                }
-            }
-            else
-                Pad[chan].triggerRight = 0;
-
-            if(BTPad[chan].button & BT_TRIGGER_R)
-                button |= PAD_TRIGGER_Z;
-        }
-
-// Nunchuck Buttons
-        if((BTPad[chan].used & C_NUN) && !(BTPad[chan].button & WM_BUTTON_TWO))    //nunchuck not being configured
-        {
-            switch ((BTPad[chan].used & (C_NSWAP1 | C_NSWAP2 | C_NSWAP3)) >> 5)
-            {
-                case 0:    // (2)
-                default:
-                {    //Howards general config
-                    //A=A B=B Z=Z +=X -=Y Dpad=Standard
-                    //C not pressed L R tilt tied to L R analog triggers.
-                    //C        pressed tilt control the cStick
-                    if((BTPad[chan].button & NUN_BUTTON_C)    //tilt as camera control
-                     && !(BTPad[chan].used & C_ISWAP))
-                    {
-                        //tilt as cStick
-                        /* xAccel  L=300 C=512 R=740 */
-                        if(BTPad[chan].xAccel < 350)
-                            Pad[chan].substickX = -0x78;
-                        else if(BTPad[chan].xAccel > 674)
-                            Pad[chan].substickX = 0x78;
-                        else
-                            Pad[chan].substickX = (BTPad[chan].xAccel - 512) * 0xF0 / (674 - 350);
-
-                        /* yAccel  up=280 C=512 down=720 */
-                        if(BTPad[chan].yAccel < 344)
-                            Pad[chan].substickY = -0x78;
-                        else if(BTPad[chan].yAccel > 680)
-                            Pad[chan].substickY = 0x78;
-                        else
-                            Pad[chan].substickY = (BTPad[chan].yAccel - 512) * 0xF0 / (680 - 344);
-                    }
-                    else    //    use tilt as AnalogL and AnalogR
-                    {
-                        /* xAccel  L=300 C=512 R=740 */
-                        if(BTPad[chan].xAccel < 340)
-                        {
-                            button |= PAD_TRIGGER_L;
-                            Pad[chan].triggerLeft = 0xFF;
-                        }
-                        else if(BTPad[chan].xAccel < 475)
-                            Pad[chan].triggerLeft = (475 - BTPad[chan].xAccel) * 0xF0 / (475 - 340);
-                        else
-                            Pad[chan].triggerLeft = 0;
-
-                        if(BTPad[chan].xAccel > 670)
-                        {
-                            button |= PAD_TRIGGER_R;
-                            Pad[chan].triggerRight = 0xFF;
-                        }
-                        else if(BTPad[chan].xAccel > 550)
-                            Pad[chan].triggerRight = (BTPad[chan].xAccel - 550) * 0xF0 / (670 - 550);
-                        else
-                            Pad[chan].triggerRight = 0;
-
-                        if (!(BTPad[chan].used & C_ISWAP))    //not using IR
-                        {
-                            Pad[chan].substickX = 0;
-                            Pad[chan].substickY = 0;
-                        }
-                    }
-
-                    if(BTPad[chan].button & WM_BUTTON_A)
-                        button |= PAD_BUTTON_A;
-                    if(BTPad[chan].button & WM_BUTTON_B)
-                        button |= PAD_BUTTON_B;
-                    if(BTPad[chan].button & NUN_BUTTON_Z)
-                        button |= PAD_TRIGGER_Z;
-                    if(BTPad[chan].button & WM_BUTTON_MINUS)
-                        button |= PAD_BUTTON_Y;
+//    if(MaxPads == 0) //wiiu
+//        MaxPads = 4;
+//
+//    for(chan = 0; chan < MaxPads; ++chan)    //bluetooth controller loop
+//    {
+//        if(used & (1<<chan))
+//        {
+//            BTPadFree[chan] = 0;
+//            continue;
+//        }
+//        BTPadFree[chan] = 1;
+//
+//        memInvalidate = (u32)&BTPad[chan];
+//        asm volatile("dcbi 0,%0; sync" : : "b"(memInvalidate) : "memory");
+//
+//        if(BTPad[chan].used == C_NOT_SET)
+//            continue;
+//
+//        used |= (1<<chan);
+//
+//        Rumble |= ((1<<31)>>chan);
+//        BTMotor[chan] = MotorCommand[chan]&0x3;
+//
+//        s8 tmp_stick = 0;
+//        //Normal Stick
+//        if(BTPad[chan].xAxisL > 0x7F)
+//            tmp_stick = 0x7F;
+//        else if(BTPad[chan].xAxisL < -0x80)
+//            tmp_stick = -0x80;
+//        else
+//            tmp_stick = BTPad[chan].xAxisL;
+//        Pad[chan].stickX = tmp_stick;
+//
+//        if(BTPad[chan].yAxisL > 0x7F)
+//            tmp_stick = 0x7F;
+//        else if(BTPad[chan].yAxisL < -0x80)
+//            tmp_stick = -0x80;
+//        else
+//            tmp_stick = BTPad[chan].yAxisL;
+//        Pad[chan].stickY = tmp_stick;
+//
+//        // Normal cStick
+//        if((BTPad[chan].used & (C_CC | C_CCP))
+//          ||((BTPad[chan].used & C_NUN) && (BTPad[chan].used & C_ISWAP)))
+//        {
+//            if(BTPad[chan].xAxisR > 0x7F)
+//                tmp_stick = 0x7F;
+//            else if(BTPad[chan].xAxisR < -0x80)
+//                tmp_stick = -0x80;
+//            else
+//                tmp_stick = BTPad[chan].xAxisR;
+//            Pad[chan].substickX = tmp_stick;
+//
+//            if(BTPad[chan].yAxisR > 0x7F)
+//                tmp_stick = 0x7F;
+//            else if(BTPad[chan].yAxisR < -0x80)
+//                tmp_stick = -0x80;
+//            else
+//                tmp_stick = BTPad[chan].yAxisR;
+//            Pad[chan].substickY = tmp_stick;
+//        }
+//
+//        u16 button = 0;
+//
+//        if(BTPad[chan].used & C_CC)
+//        {
+//            Pad[chan].triggerLeft = BTPad[chan].triggerL;
+//            if(BTPad[chan].button & BT_TRIGGER_L)
+//                button |= PAD_TRIGGER_L;
+//
+//            Pad[chan].triggerRight = BTPad[chan].triggerR;
+//            if(BTPad[chan].button & BT_TRIGGER_R)
+//                button |= PAD_TRIGGER_R;
+//
+//            if(BTPad[chan].button & BT_TRIGGER_ZR)
+//                button |= PAD_TRIGGER_Z;
+//        }
+//        else if(BTPad[chan].used & C_CCP)    //digital triggers
+//        {
+//            if(BTPad[chan].button & BT_TRIGGER_ZL)
+//            {
+//                if(BTPad[chan].button & BT_TRIGGER_L)
+//                    Pad[chan].triggerLeft = 0x7F;
+//                else
+//                {
+//                    button |= PAD_TRIGGER_L;
+//                    Pad[chan].triggerLeft = 0xFF;
+//                }
+//            }
+//            else
+//                Pad[chan].triggerLeft = 0;
+//
+//            if(BTPad[chan].button & BT_TRIGGER_ZR)
+//            {
+//                if(BTPad[chan].button & BT_TRIGGER_L)
+//                    Pad[chan].triggerRight = 0x7F;
+//                else
+//                {
+//                    button |= PAD_TRIGGER_R;
+//                    Pad[chan].triggerRight = 0xFF;
+//                }
+//            }
+//            else
+//                Pad[chan].triggerRight = 0;
+//
+//            if(BTPad[chan].button & BT_TRIGGER_R)
+//                button |= PAD_TRIGGER_Z;
+//        }
+//
+//// Nunchuck Buttons
+//        if((BTPad[chan].used & C_NUN) && !(BTPad[chan].button & WM_BUTTON_TWO))    //nunchuck not being configured
+//        {
+//            switch ((BTPad[chan].used & (C_NSWAP1 | C_NSWAP2 | C_NSWAP3)) >> 5)
+//            {
+//                case 0:    // (2)
+//                default:
+//                {    //Howards general config
+//                    //A=A B=B Z=Z +=X -=Y Dpad=Standard
+//                    //C not pressed L R tilt tied to L R analog triggers.
+//                    //C        pressed tilt control the cStick
+//                    if((BTPad[chan].button & NUN_BUTTON_C)    //tilt as camera control
+//                     && !(BTPad[chan].used & C_ISWAP))
+//                    {
+//                        //tilt as cStick
+//                        /* xAccel  L=300 C=512 R=740 */
+//                        if(BTPad[chan].xAccel < 350)
+//                            Pad[chan].substickX = -0x78;
+//                        else if(BTPad[chan].xAccel > 674)
+//                            Pad[chan].substickX = 0x78;
+//                        else
+//                            Pad[chan].substickX = (BTPad[chan].xAccel - 512) * 0xF0 / (674 - 350);
+//
+//                        /* yAccel  up=280 C=512 down=720 */
+//                        if(BTPad[chan].yAccel < 344)
+//                            Pad[chan].substickY = -0x78;
+//                        else if(BTPad[chan].yAccel > 680)
+//                            Pad[chan].substickY = 0x78;
+//                        else
+//                            Pad[chan].substickY = (BTPad[chan].yAccel - 512) * 0xF0 / (680 - 344);
+//                    }
+//                    else    //    use tilt as AnalogL and AnalogR
+//                    {
+//                        /* xAccel  L=300 C=512 R=740 */
+//                        if(BTPad[chan].xAccel < 340)
+//                        {
+//                            button |= PAD_TRIGGER_L;
+//                            Pad[chan].triggerLeft = 0xFF;
+//                        }
+//                        else if(BTPad[chan].xAccel < 475)
+//                            Pad[chan].triggerLeft = (475 - BTPad[chan].xAccel) * 0xF0 / (475 - 340);
+//                        else
+//                            Pad[chan].triggerLeft = 0;
+//
+//                        if(BTPad[chan].xAccel > 670)
+//                        {
+//                            button |= PAD_TRIGGER_R;
+//                            Pad[chan].triggerRight = 0xFF;
+//                        }
+//                        else if(BTPad[chan].xAccel > 550)
+//                            Pad[chan].triggerRight = (BTPad[chan].xAccel - 550) * 0xF0 / (670 - 550);
+//                        else
+//                            Pad[chan].triggerRight = 0;
+//
+//                        if (!(BTPad[chan].used & C_ISWAP))    //not using IR
+//                        {
+//                            Pad[chan].substickX = 0;
+//                            Pad[chan].substickY = 0;
+//                        }
+//                    }
+//
+//                    if(BTPad[chan].button & WM_BUTTON_A)
+//                        button |= PAD_BUTTON_A;
+//                    if(BTPad[chan].button & WM_BUTTON_B)
+//                        button |= PAD_BUTTON_B;
+//                    if(BTPad[chan].button & NUN_BUTTON_Z)
+//                        button |= PAD_TRIGGER_Z;
+//                    if(BTPad[chan].button & WM_BUTTON_MINUS)
+//                        button |= PAD_BUTTON_Y;
+////                    if(BTPad[chan].button & NUN_BUTTON_C)
+////                        button |= PAD_BUTTON_X;
+//                    if(BTPad[chan].button & WM_BUTTON_PLUS)
+//                        button |= PAD_BUTTON_X;
+//
+//                    if(BTPad[chan].button & WM_BUTTON_LEFT)
+//                        button |= PAD_BUTTON_LEFT;
+//                    if(BTPad[chan].button & WM_BUTTON_RIGHT)
+//                        button |= PAD_BUTTON_RIGHT;
+//                    if(BTPad[chan].button & WM_BUTTON_DOWN)
+//                        button |= PAD_BUTTON_DOWN;
+//                    if(BTPad[chan].button & WM_BUTTON_UP)
+//                        button |= PAD_BUTTON_UP;
+//                }break;
+//                case 1:    // (2 & left)
+//                {    //AbdallahTerro general config
+//                    //A=A B=B C=X Z=Y -=Z +=R Dpad=Standard
+//                    if (!(BTPad[chan].used & C_ISWAP))    //not using IR
+//                    {
+//                        Pad[chan].substickX = 0;
+//                        Pad[chan].substickY = 0;
+//                    }
+//
+//                    if(BTPad[chan].button & WM_BUTTON_A)
+//                        button |= PAD_BUTTON_A;
+//                    if(BTPad[chan].button & WM_BUTTON_B)
+//                        button |= PAD_BUTTON_B;
 //                    if(BTPad[chan].button & NUN_BUTTON_C)
 //                        button |= PAD_BUTTON_X;
-                    if(BTPad[chan].button & WM_BUTTON_PLUS)
-                        button |= PAD_BUTTON_X;
-
-                    if(BTPad[chan].button & WM_BUTTON_LEFT)
-                        button |= PAD_BUTTON_LEFT;
-                    if(BTPad[chan].button & WM_BUTTON_RIGHT)
-                        button |= PAD_BUTTON_RIGHT;
-                    if(BTPad[chan].button & WM_BUTTON_DOWN)
-                        button |= PAD_BUTTON_DOWN;
-                    if(BTPad[chan].button & WM_BUTTON_UP)
-                        button |= PAD_BUTTON_UP;
-                }break;
-                case 1:    // (2 & left)
-                {    //AbdallahTerro general config
-                    //A=A B=B C=X Z=Y -=Z +=R Dpad=Standard
-                    if (!(BTPad[chan].used & C_ISWAP))    //not using IR
-                    {
-                        Pad[chan].substickX = 0;
-                        Pad[chan].substickY = 0;
-                    }
-
-                    if(BTPad[chan].button & WM_BUTTON_A)
-                        button |= PAD_BUTTON_A;
-                    if(BTPad[chan].button & WM_BUTTON_B)
-                        button |= PAD_BUTTON_B;
-                    if(BTPad[chan].button & NUN_BUTTON_C)
-                        button |= PAD_BUTTON_X;
-                    if(BTPad[chan].button & NUN_BUTTON_Z)
-                        button |= PAD_BUTTON_Y;
-                    if(BTPad[chan].button & WM_BUTTON_MINUS)
-                        button |= PAD_TRIGGER_Z;
-
-                    if(BTPad[chan].button & WM_BUTTON_DOWN)
-                        button |= PAD_BUTTON_DOWN;
-                    if(BTPad[chan].button & WM_BUTTON_UP)
-                        button |= PAD_BUTTON_UP;
-                    if(BTPad[chan].button & WM_BUTTON_RIGHT)
-                        button |= PAD_BUTTON_RIGHT;
-                    if(BTPad[chan].button & WM_BUTTON_LEFT)
-                        button |= PAD_BUTTON_LEFT;
-
-                    //Pad[chan].triggerLeft = BTPad[chan].triggerL;
-                    if(BTPad[chan].button & WM_BUTTON_PLUS)
-                    {
-                        button |= PAD_TRIGGER_R;
-                        Pad[chan].triggerRight = 0xFF;
-                    }
-                    else
-                        Pad[chan].triggerRight = 0;
-                }break;
-                case 2:    // (2 & right)
-                {    //config asked for by naggers
-                    //A=A
-                    //C not pressed U=Z D=B R=X L=Y B=R Z=L
-                    //C        pressed Dpad=Standard B=R1/2 Z=L1/2 tilt controls cStick
-                    if((BTPad[chan].button & NUN_BUTTON_Z) &&
-                       (BTPad[chan].button & NUN_BUTTON_C))
-                        Pad[chan].triggerLeft = 0x7F;
-                    else
-                    if(BTPad[chan].button & NUN_BUTTON_Z)
-                    {
-                        button |= PAD_TRIGGER_L;
-                        Pad[chan].triggerLeft = 0xFF;
-                    }
+//                    if(BTPad[chan].button & NUN_BUTTON_Z)
+//                        button |= PAD_BUTTON_Y;
+//                    if(BTPad[chan].button & WM_BUTTON_MINUS)
+//                        button |= PAD_TRIGGER_Z;
+//
+//                    if(BTPad[chan].button & WM_BUTTON_DOWN)
+//                        button |= PAD_BUTTON_DOWN;
+//                    if(BTPad[chan].button & WM_BUTTON_UP)
+//                        button |= PAD_BUTTON_UP;
+//                    if(BTPad[chan].button & WM_BUTTON_RIGHT)
+//                        button |= PAD_BUTTON_RIGHT;
+//                    if(BTPad[chan].button & WM_BUTTON_LEFT)
+//                        button |= PAD_BUTTON_LEFT;
+//
+//                    //Pad[chan].triggerLeft = BTPad[chan].triggerL;
+//                    if(BTPad[chan].button & WM_BUTTON_PLUS)
+//                    {
+//                        button |= PAD_TRIGGER_R;
+//                        Pad[chan].triggerRight = 0xFF;
+//                    }
+//                    else
+//                        Pad[chan].triggerRight = 0;
+//                }break;
+//                case 2:    // (2 & right)
+//                {    //config asked for by naggers
+//                    //A=A
+//                    //C not pressed U=Z D=B R=X L=Y B=R Z=L
+//                    //C        pressed Dpad=Standard B=R1/2 Z=L1/2 tilt controls cStick
+//                    if((BTPad[chan].button & NUN_BUTTON_Z) &&
+//                       (BTPad[chan].button & NUN_BUTTON_C))
+//                        Pad[chan].triggerLeft = 0x7F;
+//                    else
+//                    if(BTPad[chan].button & NUN_BUTTON_Z)
+//                    {
+//                        button |= PAD_TRIGGER_L;
+//                        Pad[chan].triggerLeft = 0xFF;
+//                    }
+////                    else if(BTPad[chan].button & WM_BUTTON_MINUS)
+////                        Pad[chan].triggerLeft = 0x7F;
+//                    else
+//                        Pad[chan].triggerLeft = 0;
+//
+//                    if((BTPad[chan].button & WM_BUTTON_B) &&
+//                       (BTPad[chan].button & NUN_BUTTON_C))
+//                        Pad[chan].triggerRight = 0x7F;
+//                    else
+//                    if(BTPad[chan].button & WM_BUTTON_B)
+//                    {
+//                        button |= PAD_TRIGGER_R;
+//                        Pad[chan].triggerRight = 0xFF;
+//                    }
+////                    else if(BTPad[chan].button & WM_BUTTON_PLUS)
+////                        Pad[chan].triggerRight = 0x7F;
+//                    else
+//                        Pad[chan].triggerRight = 0;
+//
+//                    if(BTPad[chan].button & WM_BUTTON_A)
+//                        button |= PAD_BUTTON_A;
+//
+//                    if(BTPad[chan].button & NUN_BUTTON_C)
+//                    {
+//                        if (!(BTPad[chan].used & C_ISWAP))    //not using IR
+//                        {
+//                            //tilt as cStick
+//                            /* xAccel  L=300 C=512 R=740 */
+//                            if(BTPad[chan].xAccel < 350)
+//                                Pad[chan].substickX = -0x78;
+//                            else if(BTPad[chan].xAccel > 674)
+//                                Pad[chan].substickX = 0x78;
+//                            else
+//                                Pad[chan].substickX = (BTPad[chan].xAccel - 512) * 0xF0 / (674 - 350);
+//
+//                            /* yAccel  up=280 C=512 down=720 */
+//                            if(BTPad[chan].yAccel < 344)
+//                                Pad[chan].substickY = -0x78;
+//                            else if(BTPad[chan].yAccel > 680)
+//                                Pad[chan].substickY = 0x78;
+//                            else
+//                                Pad[chan].substickY = (BTPad[chan].yAccel - 512) * 0xF0 / (680 - 344);
+//                        }
+//
+//                        if(BTPad[chan].button & WM_BUTTON_LEFT)
+//                            button |= PAD_BUTTON_LEFT;
+//                        if(BTPad[chan].button & WM_BUTTON_RIGHT)
+//                            button |= PAD_BUTTON_RIGHT;
+//                        if(BTPad[chan].button & WM_BUTTON_DOWN)
+//                            button |= PAD_BUTTON_DOWN;
+//                        if(BTPad[chan].button & WM_BUTTON_UP)
+//                            button |= PAD_BUTTON_UP;
+//                    }
+//                    else
+//                    {
+//                        if (!(BTPad[chan].used & C_ISWAP))    //not using IR
+//                        {
+//                            Pad[chan].substickX = 0;
+//                            Pad[chan].substickY = 0;
+//                        }
+//
+//                        if(BTPad[chan].button & WM_BUTTON_UP)
+//                            button |= PAD_TRIGGER_Z;
+//                        if(BTPad[chan].button & WM_BUTTON_DOWN)
+//                            button |= PAD_BUTTON_B;
+//                        if(BTPad[chan].button & WM_BUTTON_RIGHT)
+//                            button |= PAD_BUTTON_X;
+//                        if(BTPad[chan].button & WM_BUTTON_LEFT)
+//                            button |= PAD_BUTTON_Y;
+//                    }
+//                }break;
+//                case 3:    // (2 & up)
+//                {    //racing games that use AnalogR and AnalogL for gas and break
+//                    //A=A B=B Z=Z +=X -=Y Dpad=Standard
+//                    //C not pressed backwards forward tilt tied to L R analog triggers.
+//                    //C        pressed tilt control the cStick
+//                    if((BTPad[chan].button & NUN_BUTTON_C)    //tilt as camera control
+//                      && !(BTPad[chan].used & C_ISWAP))    //not using IR
+//                    {
+//                        //tilt as cStick
+//                        /* xAccel  L=300 C=512 R=740 */
+//                        if(BTPad[chan].xAccel < 350)
+//                            Pad[chan].substickX = -0x78;
+//                        else if(BTPad[chan].xAccel > 674)
+//                            Pad[chan].substickX = 0x78;
+//                        else
+//                            Pad[chan].substickX = (BTPad[chan].xAccel - 512) * 0xF0 / (674 - 350);
+//
+//                        /* yAccel  up=280 C=512 down=720 */
+//                        if(BTPad[chan].yAccel < 344)
+//                            Pad[chan].substickY = -0x78;
+//                        else if(BTPad[chan].yAccel > 680)
+//                            Pad[chan].substickY = 0x78;
+//                        else
+//                            Pad[chan].substickY = (BTPad[chan].yAccel - 512) * 0xF0 / (680 - 344);
+//                    }
+//                    else    //    gas use forward and back ward tilt as AnalogL and AnalogR
+//                    {
+//                        /* yAccel  up=280 C=512 down=720 */
+//                        //break pedal
+//                        if(BTPad[chan].yAccel < 357)
+//                        {
+//                            button |= PAD_TRIGGER_L;
+//                            Pad[chan].triggerLeft = 0xFF;
+//                        }
+//                        else if(BTPad[chan].yAccel < 485)
+//                            Pad[chan].triggerLeft = (485 - BTPad[chan].yAccel) * 0xF0 / (485 - 357);
+//                        else
+//                            Pad[chan].triggerLeft = 0;
+//
+//                        //gas pedal
+//                        if(BTPad[chan].yAccel > 668)
+//                        {
+//                            button |= PAD_TRIGGER_R;
+//                            Pad[chan].triggerRight = 0xFF;
+//                        }
+//                        else if(BTPad[chan].yAccel > 540)
+//                            Pad[chan].triggerRight = (BTPad[chan].yAccel - 540) * 0xF0 / (668 - 540);
+//                        else
+//                            Pad[chan].triggerRight = 0;
+//
+//                        if (!(BTPad[chan].used & C_ISWAP))    //not using IR
+//                        {
+//                            Pad[chan].substickX = 0;
+//                            Pad[chan].substickY = 0;
+//                        }
+//                    }
+//
+//                    if(BTPad[chan].button & WM_BUTTON_A)
+//                        button |= PAD_BUTTON_A;
+//                    if(BTPad[chan].button & WM_BUTTON_B)
+//                        button |= PAD_BUTTON_B;
+//                    if(BTPad[chan].button & NUN_BUTTON_Z)
+//                        button |= PAD_TRIGGER_Z;
+//                    if(BTPad[chan].button & WM_BUTTON_MINUS)
+//                        button |= PAD_BUTTON_Y;
+//                    if(BTPad[chan].button & WM_BUTTON_PLUS)
+//                        button |= PAD_BUTTON_X;
+//
+//                    if(BTPad[chan].button & WM_BUTTON_LEFT)
+//                        button |= PAD_BUTTON_LEFT;
+//                    if(BTPad[chan].button & WM_BUTTON_RIGHT)
+//                        button |= PAD_BUTTON_RIGHT;
+//                    if(BTPad[chan].button & WM_BUTTON_DOWN)
+//                        button |= PAD_BUTTON_DOWN;
+//                    if(BTPad[chan].button & WM_BUTTON_UP)
+//                        button |= PAD_BUTTON_UP;
+//                }break;
+//                case 4:    // (2 & down)
+//                {    //racing games that require A held  for gas
+//                    //A=Z B=B Z=A +=X -=Y Dpad=Standard
+//                    //C not pressed L R tilt tied to L R analog triggers.
+//                    //C        pressed tilt control the cStick
+//                    if((BTPad[chan].button & NUN_BUTTON_C)    //tilt as camera control
+//                      && !(BTPad[chan].used & C_ISWAP))    //not using IR
+//                    {
+//                        //tilt as cStick
+//                        /* xAccel  L=300 C=512 R=740 */
+//                        if(BTPad[chan].xAccel < 350)
+//                            Pad[chan].substickX = -0x78;
+//                        else if(BTPad[chan].xAccel > 674)
+//                            Pad[chan].substickX = 0x78;
+//                        else
+//                            Pad[chan].substickX = (BTPad[chan].xAccel - 512) * 0xF0 / (674 - 350);
+//
+//                        /* yAccel  up=280 C=512 down=720 */
+//                        if(BTPad[chan].yAccel < 344)
+//                            Pad[chan].substickY = -0x78;
+//                        else if(BTPad[chan].yAccel > 680)
+//                            Pad[chan].substickY = 0x78;
+//                        else
+//                            Pad[chan].substickY = (BTPad[chan].yAccel - 512) * 0xF0 / (680 - 344);
+//                    }
+//                    else    //    use tilt as AnalogL and AnalogR
+//                    {
+//                        /* xAccel  L=300 C=512 R=740 */
+//                        if(BTPad[chan].xAccel < 340)
+//                        {
+//                            button |= PAD_TRIGGER_L;
+//                            Pad[chan].triggerLeft = 0xFF;
+//                        }
+//                        else if(BTPad[chan].xAccel < 475)
+//                            Pad[chan].triggerLeft = (475 - BTPad[chan].xAccel) * 0xF0 / (475 - 340);
+//                        else
+//                            Pad[chan].triggerLeft = 0;
+//
+//                        if(BTPad[chan].xAccel > 670)
+//                        {
+//                            button |= PAD_TRIGGER_R;
+//                            Pad[chan].triggerRight = 0xFF;
+//                        }
+//                        else if(BTPad[chan].xAccel > 550)
+//                            Pad[chan].triggerRight = (BTPad[chan].xAccel - 550) * 0xF0 / (670 - 550);
+//                        else
+//                            Pad[chan].triggerRight = 0;
+//
+//                        if (!(BTPad[chan].used & C_ISWAP))    //not using IR
+//                        {
+//                            Pad[chan].substickX = 0;
+//                            Pad[chan].    substickY = 0;
+//                        }
+//                    }
+//
+//                    if(BTPad[chan].button & WM_BUTTON_A)
+//                        button |= PAD_TRIGGER_Z;
+//                    if(BTPad[chan].button & WM_BUTTON_B)
+//                        button |= PAD_BUTTON_B;
+//                    if(BTPad[chan].button & NUN_BUTTON_Z)
+//                        button |= PAD_BUTTON_A;
+//                    if(BTPad[chan].button & WM_BUTTON_MINUS)
+//                        button |= PAD_BUTTON_Y;
+//                    if(BTPad[chan].button & WM_BUTTON_PLUS)
+//                        button |= PAD_BUTTON_X;
+//
+//                    if(BTPad[chan].button & WM_BUTTON_LEFT)
+//                        button |= PAD_BUTTON_LEFT;
+//                    if(BTPad[chan].button & WM_BUTTON_RIGHT)
+//                        button |= PAD_BUTTON_RIGHT;
+//                    if(BTPad[chan].button & WM_BUTTON_DOWN)
+//                        button |= PAD_BUTTON_DOWN;
+//                    if(BTPad[chan].button & WM_BUTTON_UP)
+//                        button |= PAD_BUTTON_UP;
+//                }break;
+//                case 5:    // (2 & minus)
+//                {    //Troopage config
+//                    //A=A
+//                    //C not pressed +=X -=B Z=L    B=R    Dpad=cStick
+//                    //C        pressed +=Y -=Z Z=1/2L B=1/2R Dpad=Standard
+//                    if(BTPad[chan].button & NUN_BUTTON_C)
+//                    {
+//                        if(BTPad[chan].button & WM_BUTTON_PLUS)
+//                            button |= PAD_BUTTON_Y;
+//                        if(BTPad[chan].button & WM_BUTTON_MINUS)
+//                            button |= PAD_TRIGGER_Z;
+//                    }
+//                    else
+//                    {
+//                        if(BTPad[chan].button & WM_BUTTON_PLUS)
+//                            button |= PAD_BUTTON_X;
+//                        if(BTPad[chan].button & WM_BUTTON_MINUS)
+//                            button |= PAD_BUTTON_B;
+//                    }
+//
+//                    if((BTPad[chan].button & NUN_BUTTON_C)
+//                      || (BTPad[chan].used & C_ISWAP))        //using IR
+//                    {
+//                        if (!(BTPad[chan].used & C_ISWAP))    //not using IR
+//                        {
+//                            Pad[chan].substickX = 0;
+//                            Pad[chan].substickY = 0;
+//                        }
+//
+//                        if(BTPad[chan].button & WM_BUTTON_LEFT)
+//                            button |= PAD_BUTTON_LEFT;
+//                        if(BTPad[chan].button & WM_BUTTON_RIGHT)
+//                            button |= PAD_BUTTON_RIGHT;
+//                        if(BTPad[chan].button & WM_BUTTON_DOWN)
+//                            button |= PAD_BUTTON_DOWN;
+//                        if(BTPad[chan].button & WM_BUTTON_UP)
+//                            button |= PAD_BUTTON_UP;
+//                    }
+//                    else
+//                    // D-Pad as C-stick
+//                    {
+//                        if(BTPad[chan].button & WM_BUTTON_LEFT)
+//                            Pad[chan].substickX = -0x78;
+//                        else if(BTPad[chan].button & WM_BUTTON_RIGHT)
+//                            Pad[chan].substickX = 0x78;
+//                        else
+//                            Pad[chan].substickX = 0;
+//
+//                        if(BTPad[chan].button & WM_BUTTON_DOWN)
+//                            Pad[chan].substickY = -0x78;
+//                        else if(BTPad[chan].button & WM_BUTTON_UP)
+//                            Pad[chan].substickY = 0x78;
+//                        else
+//                            Pad[chan].substickY = 0;
+//                    }
+//
+//                    if((BTPad[chan].button & NUN_BUTTON_Z) && (BTPad[chan].button & NUN_BUTTON_C))
+//                        Pad[chan].triggerLeft = 0x7F;
+//                    else if(BTPad[chan].button & NUN_BUTTON_Z)
+//                    {
+//                        button |= PAD_TRIGGER_L;
+//                        Pad[chan].triggerLeft = 0xFF;
+//                    }
+//                    else
+//                        Pad[chan].triggerLeft = 0;
+//
+//                    if((BTPad[chan].button & WM_BUTTON_B) && (BTPad[chan].button & NUN_BUTTON_C))
+//                        Pad[chan].triggerRight = 0x7F;
+//                    else if(BTPad[chan].button & WM_BUTTON_B)
+//                    {
+//                        button |= PAD_TRIGGER_R;
+//                        Pad[chan].triggerRight = 0xFF;
+//                    }
+//                    else
+//                        Pad[chan].triggerRight = 0;
+//
+//                    if(BTPad[chan].button & WM_BUTTON_A)
+//                        button |= PAD_BUTTON_A;
+//                }break;
+//                case 6:    // (2 & 1)
+//                {    //FPS using IR as cStick alt based on naggers
+//                    //A=A B=R Z=L +=R1/2 -=L1/2
+//                    //C not pressed U=Z D=B R=X L=Y
+//                    //C        pressed Dpad=Standard, L R tilt tied to L R analog triggers.
+//                    //IR controls the cStick
+//
+//                    if(BTPad[chan].button & NUN_BUTTON_Z)
+//                    {
+//                        button |= PAD_TRIGGER_L;
+//                        Pad[chan].triggerLeft = 0xFF;
+//                    }
 //                    else if(BTPad[chan].button & WM_BUTTON_MINUS)
 //                        Pad[chan].triggerLeft = 0x7F;
-                    else
-                        Pad[chan].triggerLeft = 0;
-
-                    if((BTPad[chan].button & WM_BUTTON_B) &&
-                       (BTPad[chan].button & NUN_BUTTON_C))
-                        Pad[chan].triggerRight = 0x7F;
-                    else
-                    if(BTPad[chan].button & WM_BUTTON_B)
-                    {
-                        button |= PAD_TRIGGER_R;
-                        Pad[chan].triggerRight = 0xFF;
-                    }
+//                    else if(BTPad[chan].button & NUN_BUTTON_C)
+//                    {
+//                        //    use tilt as AnalogL
+//                        /* xAccel  L=300 C=512 R=740 */
+//                        if(BTPad[chan].xAccel < 340)
+//                        {
+//                            button |= PAD_TRIGGER_L;
+//                            Pad[chan].triggerLeft = 0xFF;
+//                        }
+//                        else if(BTPad[chan].xAccel < 475)
+//                            Pad[chan].triggerLeft = (475 - BTPad[chan].xAccel) * 0xF0 / (475 - 340);
+//                        else
+//                            Pad[chan].triggerLeft = 0;
+//                    }
+//                    else
+//                        Pad[chan].triggerLeft = 0;
+//
+//                    if(BTPad[chan].button & WM_BUTTON_B)
+//                    {
+//                        button |= PAD_TRIGGER_R;
+//                        Pad[chan].triggerRight = 0xFF;
+//                    }
 //                    else if(BTPad[chan].button & WM_BUTTON_PLUS)
 //                        Pad[chan].triggerRight = 0x7F;
-                    else
-                        Pad[chan].triggerRight = 0;
-
-                    if(BTPad[chan].button & WM_BUTTON_A)
-                        button |= PAD_BUTTON_A;
-
-                    if(BTPad[chan].button & NUN_BUTTON_C)
-                    {
-                        if (!(BTPad[chan].used & C_ISWAP))    //not using IR
-                        {
-                            //tilt as cStick
-                            /* xAccel  L=300 C=512 R=740 */
-                            if(BTPad[chan].xAccel < 350)
-                                Pad[chan].substickX = -0x78;
-                            else if(BTPad[chan].xAccel > 674)
-                                Pad[chan].substickX = 0x78;
-                            else
-                                Pad[chan].substickX = (BTPad[chan].xAccel - 512) * 0xF0 / (674 - 350);
-
-                            /* yAccel  up=280 C=512 down=720 */
-                            if(BTPad[chan].yAccel < 344)
-                                Pad[chan].substickY = -0x78;
-                            else if(BTPad[chan].yAccel > 680)
-                                Pad[chan].substickY = 0x78;
-                            else
-                                Pad[chan].substickY = (BTPad[chan].yAccel - 512) * 0xF0 / (680 - 344);
-                        }
-
-                        if(BTPad[chan].button & WM_BUTTON_LEFT)
-                            button |= PAD_BUTTON_LEFT;
-                        if(BTPad[chan].button & WM_BUTTON_RIGHT)
-                            button |= PAD_BUTTON_RIGHT;
-                        if(BTPad[chan].button & WM_BUTTON_DOWN)
-                            button |= PAD_BUTTON_DOWN;
-                        if(BTPad[chan].button & WM_BUTTON_UP)
-                            button |= PAD_BUTTON_UP;
-                    }
-                    else
-                    {
-                        if (!(BTPad[chan].used & C_ISWAP))    //not using IR
-                        {
-                            Pad[chan].substickX = 0;
-                            Pad[chan].substickY = 0;
-                        }
-
-                        if(BTPad[chan].button & WM_BUTTON_UP)
-                            button |= PAD_TRIGGER_Z;
-                        if(BTPad[chan].button & WM_BUTTON_DOWN)
-                            button |= PAD_BUTTON_B;
-                        if(BTPad[chan].button & WM_BUTTON_RIGHT)
-                            button |= PAD_BUTTON_X;
-                        if(BTPad[chan].button & WM_BUTTON_LEFT)
-                            button |= PAD_BUTTON_Y;
-                    }
-                }break;
-                case 3:    // (2 & up)
-                {    //racing games that use AnalogR and AnalogL for gas and break
-                    //A=A B=B Z=Z +=X -=Y Dpad=Standard
-                    //C not pressed backwards forward tilt tied to L R analog triggers.
-                    //C        pressed tilt control the cStick
-                    if((BTPad[chan].button & NUN_BUTTON_C)    //tilt as camera control
-                      && !(BTPad[chan].used & C_ISWAP))    //not using IR
-                    {
-                        //tilt as cStick
-                        /* xAccel  L=300 C=512 R=740 */
-                        if(BTPad[chan].xAccel < 350)
-                            Pad[chan].substickX = -0x78;
-                        else if(BTPad[chan].xAccel > 674)
-                            Pad[chan].substickX = 0x78;
-                        else
-                            Pad[chan].substickX = (BTPad[chan].xAccel - 512) * 0xF0 / (674 - 350);
-
-                        /* yAccel  up=280 C=512 down=720 */
-                        if(BTPad[chan].yAccel < 344)
-                            Pad[chan].substickY = -0x78;
-                        else if(BTPad[chan].yAccel > 680)
-                            Pad[chan].substickY = 0x78;
-                        else
-                            Pad[chan].substickY = (BTPad[chan].yAccel - 512) * 0xF0 / (680 - 344);
-                    }
-                    else    //    gas use forward and back ward tilt as AnalogL and AnalogR
-                    {
-                        /* yAccel  up=280 C=512 down=720 */
-                        //break pedal
-                        if(BTPad[chan].yAccel < 357)
-                        {
-                            button |= PAD_TRIGGER_L;
-                            Pad[chan].triggerLeft = 0xFF;
-                        }
-                        else if(BTPad[chan].yAccel < 485)
-                            Pad[chan].triggerLeft = (485 - BTPad[chan].yAccel) * 0xF0 / (485 - 357);
-                        else
-                            Pad[chan].triggerLeft = 0;
-
-                        //gas pedal
-                        if(BTPad[chan].yAccel > 668)
-                        {
-                            button |= PAD_TRIGGER_R;
-                            Pad[chan].triggerRight = 0xFF;
-                        }
-                        else if(BTPad[chan].yAccel > 540)
-                            Pad[chan].triggerRight = (BTPad[chan].yAccel - 540) * 0xF0 / (668 - 540);
-                        else
-                            Pad[chan].triggerRight = 0;
-
-                        if (!(BTPad[chan].used & C_ISWAP))    //not using IR
-                        {
-                            Pad[chan].substickX = 0;
-                            Pad[chan].substickY = 0;
-                        }
-                    }
-
-                    if(BTPad[chan].button & WM_BUTTON_A)
-                        button |= PAD_BUTTON_A;
-                    if(BTPad[chan].button & WM_BUTTON_B)
-                        button |= PAD_BUTTON_B;
-                    if(BTPad[chan].button & NUN_BUTTON_Z)
-                        button |= PAD_TRIGGER_Z;
-                    if(BTPad[chan].button & WM_BUTTON_MINUS)
-                        button |= PAD_BUTTON_Y;
-                    if(BTPad[chan].button & WM_BUTTON_PLUS)
-                        button |= PAD_BUTTON_X;
-
-                    if(BTPad[chan].button & WM_BUTTON_LEFT)
-                        button |= PAD_BUTTON_LEFT;
-                    if(BTPad[chan].button & WM_BUTTON_RIGHT)
-                        button |= PAD_BUTTON_RIGHT;
-                    if(BTPad[chan].button & WM_BUTTON_DOWN)
-                        button |= PAD_BUTTON_DOWN;
-                    if(BTPad[chan].button & WM_BUTTON_UP)
-                        button |= PAD_BUTTON_UP;
-                }break;
-                case 4:    // (2 & down)
-                {    //racing games that require A held  for gas
-                    //A=Z B=B Z=A +=X -=Y Dpad=Standard
-                    //C not pressed L R tilt tied to L R analog triggers.
-                    //C        pressed tilt control the cStick
-                    if((BTPad[chan].button & NUN_BUTTON_C)    //tilt as camera control
-                      && !(BTPad[chan].used & C_ISWAP))    //not using IR
-                    {
-                        //tilt as cStick
-                        /* xAccel  L=300 C=512 R=740 */
-                        if(BTPad[chan].xAccel < 350)
-                            Pad[chan].substickX = -0x78;
-                        else if(BTPad[chan].xAccel > 674)
-                            Pad[chan].substickX = 0x78;
-                        else
-                            Pad[chan].substickX = (BTPad[chan].xAccel - 512) * 0xF0 / (674 - 350);
-
-                        /* yAccel  up=280 C=512 down=720 */
-                        if(BTPad[chan].yAccel < 344)
-                            Pad[chan].substickY = -0x78;
-                        else if(BTPad[chan].yAccel > 680)
-                            Pad[chan].substickY = 0x78;
-                        else
-                            Pad[chan].substickY = (BTPad[chan].yAccel - 512) * 0xF0 / (680 - 344);
-                    }
-                    else    //    use tilt as AnalogL and AnalogR
-                    {
-                        /* xAccel  L=300 C=512 R=740 */
-                        if(BTPad[chan].xAccel < 340)
-                        {
-                            button |= PAD_TRIGGER_L;
-                            Pad[chan].triggerLeft = 0xFF;
-                        }
-                        else if(BTPad[chan].xAccel < 475)
-                            Pad[chan].triggerLeft = (475 - BTPad[chan].xAccel) * 0xF0 / (475 - 340);
-                        else
-                            Pad[chan].triggerLeft = 0;
-
-                        if(BTPad[chan].xAccel > 670)
-                        {
-                            button |= PAD_TRIGGER_R;
-                            Pad[chan].triggerRight = 0xFF;
-                        }
-                        else if(BTPad[chan].xAccel > 550)
-                            Pad[chan].triggerRight = (BTPad[chan].xAccel - 550) * 0xF0 / (670 - 550);
-                        else
-                            Pad[chan].triggerRight = 0;
-
-                        if (!(BTPad[chan].used & C_ISWAP))    //not using IR
-                        {
-                            Pad[chan].substickX = 0;
-                            Pad[chan].    substickY = 0;
-                        }
-                    }
-
-                    if(BTPad[chan].button & WM_BUTTON_A)
-                        button |= PAD_TRIGGER_Z;
-                    if(BTPad[chan].button & WM_BUTTON_B)
-                        button |= PAD_BUTTON_B;
-                    if(BTPad[chan].button & NUN_BUTTON_Z)
-                        button |= PAD_BUTTON_A;
-                    if(BTPad[chan].button & WM_BUTTON_MINUS)
-                        button |= PAD_BUTTON_Y;
-                    if(BTPad[chan].button & WM_BUTTON_PLUS)
-                        button |= PAD_BUTTON_X;
-
-                    if(BTPad[chan].button & WM_BUTTON_LEFT)
-                        button |= PAD_BUTTON_LEFT;
-                    if(BTPad[chan].button & WM_BUTTON_RIGHT)
-                        button |= PAD_BUTTON_RIGHT;
-                    if(BTPad[chan].button & WM_BUTTON_DOWN)
-                        button |= PAD_BUTTON_DOWN;
-                    if(BTPad[chan].button & WM_BUTTON_UP)
-                        button |= PAD_BUTTON_UP;
-                }break;
-                case 5:    // (2 & minus)
-                {    //Troopage config
-                    //A=A
-                    //C not pressed +=X -=B Z=L    B=R    Dpad=cStick
-                    //C        pressed +=Y -=Z Z=1/2L B=1/2R Dpad=Standard
-                    if(BTPad[chan].button & NUN_BUTTON_C)
-                    {
-                        if(BTPad[chan].button & WM_BUTTON_PLUS)
-                            button |= PAD_BUTTON_Y;
-                        if(BTPad[chan].button & WM_BUTTON_MINUS)
-                            button |= PAD_TRIGGER_Z;
-                    }
-                    else
-                    {
-                        if(BTPad[chan].button & WM_BUTTON_PLUS)
-                            button |= PAD_BUTTON_X;
-                        if(BTPad[chan].button & WM_BUTTON_MINUS)
-                            button |= PAD_BUTTON_B;
-                    }
-
-                    if((BTPad[chan].button & NUN_BUTTON_C)
-                      || (BTPad[chan].used & C_ISWAP))        //using IR
-                    {
-                        if (!(BTPad[chan].used & C_ISWAP))    //not using IR
-                        {
-                            Pad[chan].substickX = 0;
-                            Pad[chan].substickY = 0;
-                        }
-
-                        if(BTPad[chan].button & WM_BUTTON_LEFT)
-                            button |= PAD_BUTTON_LEFT;
-                        if(BTPad[chan].button & WM_BUTTON_RIGHT)
-                            button |= PAD_BUTTON_RIGHT;
-                        if(BTPad[chan].button & WM_BUTTON_DOWN)
-                            button |= PAD_BUTTON_DOWN;
-                        if(BTPad[chan].button & WM_BUTTON_UP)
-                            button |= PAD_BUTTON_UP;
-                    }
-                    else
-                    // D-Pad as C-stick
-                    {
-                        if(BTPad[chan].button & WM_BUTTON_LEFT)
-                            Pad[chan].substickX = -0x78;
-                        else if(BTPad[chan].button & WM_BUTTON_RIGHT)
-                            Pad[chan].substickX = 0x78;
-                        else
-                            Pad[chan].substickX = 0;
-
-                        if(BTPad[chan].button & WM_BUTTON_DOWN)
-                            Pad[chan].substickY = -0x78;
-                        else if(BTPad[chan].button & WM_BUTTON_UP)
-                            Pad[chan].substickY = 0x78;
-                        else
-                            Pad[chan].substickY = 0;
-                    }
-
-                    if((BTPad[chan].button & NUN_BUTTON_Z) && (BTPad[chan].button & NUN_BUTTON_C))
-                        Pad[chan].triggerLeft = 0x7F;
-                    else if(BTPad[chan].button & NUN_BUTTON_Z)
-                    {
-                        button |= PAD_TRIGGER_L;
-                        Pad[chan].triggerLeft = 0xFF;
-                    }
-                    else
-                        Pad[chan].triggerLeft = 0;
-
-                    if((BTPad[chan].button & WM_BUTTON_B) && (BTPad[chan].button & NUN_BUTTON_C))
-                        Pad[chan].triggerRight = 0x7F;
-                    else if(BTPad[chan].button & WM_BUTTON_B)
-                    {
-                        button |= PAD_TRIGGER_R;
-                        Pad[chan].triggerRight = 0xFF;
-                    }
-                    else
-                        Pad[chan].triggerRight = 0;
-
-                    if(BTPad[chan].button & WM_BUTTON_A)
-                        button |= PAD_BUTTON_A;
-                }break;
-                case 6:    // (2 & 1)
-                {    //FPS using IR as cStick alt based on naggers
-                    //A=A B=R Z=L +=R1/2 -=L1/2
-                    //C not pressed U=Z D=B R=X L=Y
-                    //C        pressed Dpad=Standard, L R tilt tied to L R analog triggers.
-                    //IR controls the cStick
-
-                    if(BTPad[chan].button & NUN_BUTTON_Z)
-                    {
-                        button |= PAD_TRIGGER_L;
-                        Pad[chan].triggerLeft = 0xFF;
-                    }
-                    else if(BTPad[chan].button & WM_BUTTON_MINUS)
-                        Pad[chan].triggerLeft = 0x7F;
-                    else if(BTPad[chan].button & NUN_BUTTON_C)
-                    {
-                        //    use tilt as AnalogL
-                        /* xAccel  L=300 C=512 R=740 */
-                        if(BTPad[chan].xAccel < 340)
-                        {
-                            button |= PAD_TRIGGER_L;
-                            Pad[chan].triggerLeft = 0xFF;
-                        }
-                        else if(BTPad[chan].xAccel < 475)
-                            Pad[chan].triggerLeft = (475 - BTPad[chan].xAccel) * 0xF0 / (475 - 340);
-                        else
-                            Pad[chan].triggerLeft = 0;
-                    }
-                    else
-                        Pad[chan].triggerLeft = 0;
-
-                    if(BTPad[chan].button & WM_BUTTON_B)
-                    {
-                        button |= PAD_TRIGGER_R;
-                        Pad[chan].triggerRight = 0xFF;
-                    }
-                    else if(BTPad[chan].button & WM_BUTTON_PLUS)
-                        Pad[chan].triggerRight = 0x7F;
-                    else if(BTPad[chan].button & NUN_BUTTON_C)
-                    {
-                        //    use tilt as AnalogR
-                        /* xAccel  L=300 C=512 R=740 */
-                        if(BTPad[chan].xAccel > 670)
-                        {
-                            button |= PAD_TRIGGER_R;
-                            Pad[chan].triggerRight = 0xFF;
-                        }
-                        else if(BTPad[chan].xAccel > 550)
-                            Pad[chan].triggerRight = (BTPad[chan].xAccel - 550) * 0xF0 / (670 - 550);
-                        else
-                            Pad[chan].triggerRight = 0;
-                    }
-                    else
-                        Pad[chan].triggerRight = 0;
-
-                    if(BTPad[chan].button & WM_BUTTON_A)
-                        button |= PAD_BUTTON_A;
-
-                    if(BTPad[chan].button & NUN_BUTTON_C)
-                    {
-                        if(BTPad[chan].button & WM_BUTTON_LEFT)
-                            button |= PAD_BUTTON_LEFT;
-                        if(BTPad[chan].button & WM_BUTTON_RIGHT)
-                            button |= PAD_BUTTON_RIGHT;
-                        if(BTPad[chan].button & WM_BUTTON_DOWN)
-                            button |= PAD_BUTTON_DOWN;
-                        if(BTPad[chan].button & WM_BUTTON_UP)
-                            button |= PAD_BUTTON_UP;
-                    }
-                    else
-                    {
-                        if(BTPad[chan].button & WM_BUTTON_UP)
-                            button |= PAD_TRIGGER_Z;
-                        if(BTPad[chan].button & WM_BUTTON_DOWN)
-                            button |= PAD_BUTTON_B;
-                        if(BTPad[chan].button & WM_BUTTON_RIGHT)
-                            button |= PAD_BUTTON_X;
-                        if(BTPad[chan].button & WM_BUTTON_LEFT)
-                            button |= PAD_BUTTON_Y;
-                    }
-                }break;
-//                case 7:    // (2 & plus)
-//                {
+//                    else if(BTPad[chan].button & NUN_BUTTON_C)
+//                    {
+//                        //    use tilt as AnalogR
+//                        /* xAccel  L=300 C=512 R=740 */
+//                        if(BTPad[chan].xAccel > 670)
+//                        {
+//                            button |= PAD_TRIGGER_R;
+//                            Pad[chan].triggerRight = 0xFF;
+//                        }
+//                        else if(BTPad[chan].xAccel > 550)
+//                            Pad[chan].triggerRight = (BTPad[chan].xAccel - 550) * 0xF0 / (670 - 550);
+//                        else
+//                            Pad[chan].triggerRight = 0;
+//                    }
+//                    else
+//                        Pad[chan].triggerRight = 0;
+//
+//                    if(BTPad[chan].button & WM_BUTTON_A)
+//                        button |= PAD_BUTTON_A;
+//
+//                    if(BTPad[chan].button & NUN_BUTTON_C)
+//                    {
+//                        if(BTPad[chan].button & WM_BUTTON_LEFT)
+//                            button |= PAD_BUTTON_LEFT;
+//                        if(BTPad[chan].button & WM_BUTTON_RIGHT)
+//                            button |= PAD_BUTTON_RIGHT;
+//                        if(BTPad[chan].button & WM_BUTTON_DOWN)
+//                            button |= PAD_BUTTON_DOWN;
+//                        if(BTPad[chan].button & WM_BUTTON_UP)
+//                            button |= PAD_BUTTON_UP;
+//                    }
+//                    else
+//                    {
+//                        if(BTPad[chan].button & WM_BUTTON_UP)
+//                            button |= PAD_TRIGGER_Z;
+//                        if(BTPad[chan].button & WM_BUTTON_DOWN)
+//                            button |= PAD_BUTTON_B;
+//                        if(BTPad[chan].button & WM_BUTTON_RIGHT)
+//                            button |= PAD_BUTTON_X;
+//                        if(BTPad[chan].button & WM_BUTTON_LEFT)
+//                            button |= PAD_BUTTON_Y;
+//                    }
 //                }break;
-            }
-            if(BTPad[chan].button & WM_BUTTON_ONE)
-                button |= PAD_BUTTON_START;
-        }    //end nunchuck configs
-
-        if(BTPad[chan].used & (C_CC | C_CCP))
-        {
-            if(BTPad[chan].used & C_SWAP)
-            {    /* turn buttons quarter clockwise */
-                if(BTPad[chan].button & BT_BUTTON_B)
-                    button |= PAD_BUTTON_A;
-                if(BTPad[chan].button & BT_BUTTON_Y)
-                    button |= PAD_BUTTON_B;
-                if(BTPad[chan].button & BT_BUTTON_A)
-                    button |= PAD_BUTTON_X;
-                if(BTPad[chan].button & BT_BUTTON_X)
-                    button |= PAD_BUTTON_Y;
-            }
-            else
-            {
-                if(BTPad[chan].button & BT_BUTTON_A)
-                    button |= PAD_BUTTON_A;
-                if(BTPad[chan].button & BT_BUTTON_B)
-                    button |= PAD_BUTTON_B;
-                if(BTPad[chan].button & BT_BUTTON_X)
-                    button |= PAD_BUTTON_X;
-                if(BTPad[chan].button & BT_BUTTON_Y)
-                    button |= PAD_BUTTON_Y;
-            }
-            if(BTPad[chan].button & BT_BUTTON_START)
-                button |= PAD_BUTTON_START;
-
-            if(BTPad[chan].button & BT_DPAD_LEFT)
-                button |= PAD_BUTTON_LEFT;
-            if(BTPad[chan].button & BT_DPAD_RIGHT)
-                button |= PAD_BUTTON_RIGHT;
-            if(BTPad[chan].button & BT_DPAD_DOWN)
-                button |= PAD_BUTTON_DOWN;
-            if(BTPad[chan].button & BT_DPAD_UP)
-                button |= PAD_BUTTON_UP;
-        }
-
-        Pad[chan].button = button;
-
-//#define DEBUG_cStick    1
-        #ifdef DEBUG_cStick
-            //mirrors cStick on main Stick so f-Zero GX calibration can be used
-            Pad[chan].stickX = Pad[chan].substickX;
-            Pad[chan].stickY = Pad[chan].substickY;
-        #endif
-
-//#define DEBUG_Triggers    1
-        #ifdef DEBUG_Triggers
-            //mirrors triggers on main Stick so f-Zero GX calibration can be used
-            Pad[chan].stickX = Pad[chan].triggerRight;
-            Pad[chan].stickY = Pad[chan].triggerLeft;
-        #endif
-    }
+////                case 7:    // (2 & plus)
+////                {
+////                }break;
+//            }
+//            if(BTPad[chan].button & WM_BUTTON_ONE)
+//                button |= PAD_BUTTON_START;
+//        }    //end nunchuck configs
+//
+//        if(BTPad[chan].used & (C_CC | C_CCP))
+//        {
+//            if(BTPad[chan].used & C_SWAP)
+//            {    /* turn buttons quarter clockwise */
+//                if(BTPad[chan].button & BT_BUTTON_B)
+//                    button |= PAD_BUTTON_A;
+//                if(BTPad[chan].button & BT_BUTTON_Y)
+//                    button |= PAD_BUTTON_B;
+//                if(BTPad[chan].button & BT_BUTTON_A)
+//                    button |= PAD_BUTTON_X;
+//                if(BTPad[chan].button & BT_BUTTON_X)
+//                    button |= PAD_BUTTON_Y;
+//            }
+//            else
+//            {
+//                if(BTPad[chan].button & BT_BUTTON_A)
+//                    button |= PAD_BUTTON_A;
+//                if(BTPad[chan].button & BT_BUTTON_B)
+//                    button |= PAD_BUTTON_B;
+//                if(BTPad[chan].button & BT_BUTTON_X)
+//                    button |= PAD_BUTTON_X;
+//                if(BTPad[chan].button & BT_BUTTON_Y)
+//                    button |= PAD_BUTTON_Y;
+//            }
+//            if(BTPad[chan].button & BT_BUTTON_START)
+//                button |= PAD_BUTTON_START;
+//
+//            if(BTPad[chan].button & BT_DPAD_LEFT)
+//                button |= PAD_BUTTON_LEFT;
+//            if(BTPad[chan].button & BT_DPAD_RIGHT)
+//                button |= PAD_BUTTON_RIGHT;
+//            if(BTPad[chan].button & BT_DPAD_DOWN)
+//                button |= PAD_BUTTON_DOWN;
+//            if(BTPad[chan].button & BT_DPAD_UP)
+//                button |= PAD_BUTTON_UP;
+//        }
+//
+//        Pad[chan].button = button;
+//
+////#define DEBUG_cStick    1
+//        #ifdef DEBUG_cStick
+//            //mirrors cStick on main Stick so f-Zero GX calibration can be used
+//            Pad[chan].stickX = Pad[chan].substickX;
+//            Pad[chan].stickY = Pad[chan].substickY;
+//        #endif
+//
+////#define DEBUG_Triggers    1
+//        #ifdef DEBUG_Triggers
+//            //mirrors triggers on main Stick so f-Zero GX calibration can be used
+//            Pad[chan].stickX = Pad[chan].triggerRight;
+//            Pad[chan].stickY = Pad[chan].triggerLeft;
+//        #endif
+//    }
 
     /* Some games always need the controllers "used" */
     if(*PADForceConnected)

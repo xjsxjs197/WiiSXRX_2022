@@ -104,13 +104,16 @@ void Input::refreshInput()
 	if (hidPadNeedScan)
 	{
 		#ifdef DISP_DEBUG
-        sprintf(txtbuffer, "NeedScan hidConnected %d\r\n", hidControllerConnected);
-        writeLogFile(txtbuffer);
+        //sprintf(txtbuffer, "NeedScan hidConnected %d\r\n", hidControllerConnected);
+        //writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
 		hidPadNeedScan = 0;
+		if (loadingControllerIni)
+        {
+            HIDUpdateControllerIni();
+        }
 		if (hidControllerConnected)
 		{
-			HIDUpdateControllerIni();
 		    HIDReadData();
 		    #ifdef DISP_DEBUG
 		    //PADStatusKernel *Pad = (PADStatusKernel*)(0x93003100); //PadBuff

@@ -185,6 +185,7 @@ void HIDUpdateControllerIni();
 void HIDReadData(void);
 
 extern s32 hidControllerConnected;
+extern s32 loadingControllerIni;
 
 #ifdef __cplusplus
 }
