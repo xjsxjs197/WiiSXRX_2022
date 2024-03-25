@@ -1218,12 +1218,12 @@ u32 HidFormatData(void)
     }
     *PadUsed = (*SIInited ? used : 0);
 
-    memFlush = (u32)HIDMotor;
-    asm volatile("dcbf 0,%0" : : "b"(memFlush) : "memory");
-    memFlush = (u32)BTMotor;
-    asm volatile("dcbf 0,%0" : : "b"(memFlush) : "memory");
+    //memFlush = (u32)HIDMotor;
+    //asm volatile("dcbf 0,%0" : : "b"(memFlush) : "memory");
+    //memFlush = (u32)BTMotor;
+    //asm volatile("dcbf 0,%0" : : "b"(memFlush) : "memory");
     //make sure its actually sent
-    asm volatile("sync");
+    //asm volatile("sync");
 
     return Rumble;
 }

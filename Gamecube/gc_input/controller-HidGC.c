@@ -195,13 +195,21 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 static u32* MotorCommand = (u32*)(0x93003020);
 
 static void pause(int Control){
-	//*MotorCommand = PAD_MOTOR_STOP;
+	#ifdef DISP_DEBUG
+    sprintf(txtbuffer, "HidPause\r\n");
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
+	*MotorCommand = PAD_MOTOR_STOP;
 }
 
 static void resume(int Control){ }
 
 static void rumble(int Control, int rumble){
-	//*MotorCommand = (rumble && rumbleEnabled) ? PAD_MOTOR_RUMBLE : PAD_MOTOR_STOP;
+	#ifdef DISP_DEBUG
+    sprintf(txtbuffer, "HidRumble %d\r\n", rumble);
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
+	*MotorCommand = (rumble && rumbleEnabled) ? PAD_MOTOR_RUMBLE : PAD_MOTOR_STOP;
 }
 
 static void configure(int Control, controller_config_t* config){

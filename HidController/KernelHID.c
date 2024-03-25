@@ -885,6 +885,7 @@ static void HIDPS3Init()
 static void HIDPS3SetLED( u8 led )
 {
     ps3buf[10] = ss_led_pattern[led];
+    DCFlushRange((void*)ps3buf, 64);
 
     s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, 0);
     if( ret < 0 )
@@ -957,8 +958,13 @@ static void SetPs3ControllerIni()
 
 static void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left, u8 power_left)
 {
+    #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "PS3Rumble %d %d %d %d\r\n", duration_right, power_right, duration_left, power_left);
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
     ps3buf[3] = power_left;
     ps3buf[5] = power_right;
+    DCFlushRange((void*)ps3buf, 64);
 
     s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, HID_SET_RUMBLE);
     #ifdef DISP_DEBUG
@@ -999,12 +1005,17 @@ static void HIDGCRumble(u32 input)
     gcbuf[2] = (input >> 1) & 1;
     gcbuf[3] = (input >> 2) & 1;
     gcbuf[4] = (input >> 3) & 1;
+    DCFlushRange((void*)gcbuf, 32);
 
     HIDInterruptMessage(0, gcbuf, 5, bEndpointAddressOut, HID_SET_RUMBLE);
 }
 
 static void HIDIRQRumble(u32 Enable)
 {
+    #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "HIDIRQRumble %d\r\n", Enable);
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
     u8 *buf = (Enable == 1) ? RawRumbleDataOn : RawRumbleDataOff;
     u32 i = 0;
 irqrumblerepeat:
@@ -1019,6 +1030,10 @@ irqrumblerepeat:
 
 static void HIDCTRLRumble(u32 Enable)
 {
+    #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "HIDCTRLRumble %d\r\n", Enable);
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
     u8 *buf = (Enable == 1) ? RawRumbleDataOn : RawRumbleDataOff;
     u32 i = 0;
 ctrlrumblerepeat:
