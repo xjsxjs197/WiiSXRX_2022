@@ -104,7 +104,6 @@ static s32 HIDInterruptMessage(u32 isKBreq, u8 *Data, u32 Length, u32 Endpoint, 
 static s32 HIDControlMessage(u32 isKBreq, u8 *Data, u32 Length, u32 RequestType, u32 Request, u32 Value, s32 msgData);
 
 static s32 ipcCallBack(s32 result, void *usrdata);
-static void SetPs3ControllerIni();
 
 static controller *HID_CTRL = (controller*)HID_CTRL_ADDR;
 static void *HID_Packet = (void*)HID_Packet_ADDR;
@@ -389,7 +388,6 @@ static s32 HIDOpen( u32 LoaderRequest )
 
                 ControllerID = DeviceID;
                 bEndpointAddressController = bEndpointAddress;
-                bool needLoadControllerIni = true;
 
                 if( DeviceVID == 0x054c && DevicePID == 0x0268 )
                 {
@@ -398,14 +396,11 @@ static s32 HIDOpen( u32 LoaderRequest )
                     HIDPS3Init();
                     RumbleEnabled = 1;
                     HIDPS3SetRumble( 0, 0, 0, 0 );
-
-                    //SetPs3ControllerIni();
-                    //needLoadControllerIni = false;
                 }
                 else if( DeviceVID == 0x057e && DevicePID == 0x0337 )
                     HIDGCInit();
 
-                if (needLoadControllerIni)
+                //if (needLoadControllerIni)
                 {
                     //Load controller config
                     char *Data = NULL;
@@ -890,70 +885,6 @@ static void HIDPS3SetLED( u8 led )
     s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, 0);
     if( ret < 0 )
         dbgprintf("ES:IOS_Ioctl():%d\r\n", ret );
-}
-
-static void SetPs3ControllerIni()
-{
-    HID_CTRL->VID          = 0x054C;
-    HID_CTRL->PID          = 0x0268;
-    HID_CTRL->DPAD         = 0;
-    HID_CTRL->DigitalLR    = 2;
-    HID_CTRL->Polltype     = 0;
-    HID_CTRL->MultiIn      = 0;
-    HID_CTRL->MultiInValue = 0;
-
-    HID_CTRL->A.Offset     = 0x3;
-    HID_CTRL->A.Mask       = 0x80;
-
-    HID_CTRL->B.Offset     = 0x3;
-    HID_CTRL->B.Mask       = 0x40;
-
-    HID_CTRL->X.Offset     = 0x3;
-    HID_CTRL->X.Mask       = 0x20;
-
-    HID_CTRL->Y.Offset     = 0x3;
-    HID_CTRL->Y.Mask       = 0x10;
-
-    HID_CTRL->L.Offset     = 0x03;
-    HID_CTRL->L.Mask       = 0x01;
-
-    HID_CTRL->R.Offset     = 0x03;
-    HID_CTRL->R.Mask       = 0x02;
-
-    HID_CTRL->L1.Offset    = 0x03;
-    HID_CTRL->L1.Mask      = 0x04;
-
-    HID_CTRL->R1.Offset    = 0x03;
-    HID_CTRL->R1.Mask      = 0x08;
-
-    HID_CTRL->S.Offset     = 0x2;
-    HID_CTRL->S.Mask       = 0x08;
-
-    HID_CTRL->Select.Offset= 0x02;
-    HID_CTRL->Select.Mask  = 0x01;
-
-    HID_CTRL->Left.Offset  = 0x02;
-    HID_CTRL->Left.Mask    = 0x80;
-
-    HID_CTRL->Down.Offset  = 0x02;
-    HID_CTRL->Down.Mask    = 0x40;
-
-    HID_CTRL->Right.Offset = 0x02;
-    HID_CTRL->Right.Mask   = 0x20;
-
-    HID_CTRL->Up.Offset    = 0x02;
-    HID_CTRL->Up.Mask      = 0x10;
-
-    HID_CTRL->StickX.Offset   = 0x6;
-    HID_CTRL->StickX.Radius   = 0x320;
-    HID_CTRL->StickY.Offset   = 0x7;
-    HID_CTRL->StickY.Radius   = 0x320;
-    HID_CTRL->CStickX.Offset  = 0x8;
-    HID_CTRL->CStickX.Radius  = 0x320;
-    HID_CTRL->CStickY.Offset  = 0x9;
-    HID_CTRL->CStickY.Radius  = 0x320;
-    HID_CTRL->LAnalog         = 0x12;
-    HID_CTRL->RAnalog         = 0x13;
 }
 
 static void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left, u8 power_left)
