@@ -124,7 +124,7 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 
 	PADStatus *Pad = (PADStatus*)(0x93003100); //PadBuff
 	HidFormatData();
-	//for(i = 0; i < PAD_CHANMAX; ++i)
+	//for(i = 0; i < PAD_CHANMAX; ++i) TODO
 	for(i = 0; i < 1; ++i)
 	{
 		PAD_Pressed |= Pad[i].button;
@@ -134,14 +134,13 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 		PAD_SubStick_X |= Pad[i].substickX;
 	}
 	#ifdef DISP_DEBUG
-	if ((PAD_Pressed & PAD_TRIGGER_R1) == PAD_TRIGGER_R1
-		|| (PAD_Pressed & PAD_TRIGGER_L1) == PAD_TRIGGER_L1
-		|| (PAD_Pressed & PAD_TRIGGER_R) == PAD_TRIGGER_R
-		|| (PAD_Pressed & PAD_TRIGGER_L) == PAD_TRIGGER_L
-		|| (PAD_Pressed & PAD_BUTTON_A) || (PAD_Pressed & PAD_BUTTON_B) || (PAD_Pressed & PAD_BUTTON_X) || (PAD_Pressed & PAD_BUTTON_Y)
+	if ((PAD_Stick_X > 80 || PAD_Stick_X < -80)
+		|| (PAD_Stick_Y > 80 || PAD_Stick_Y < -80)
+		|| (PAD_SubStick_Y > 80 || PAD_SubStick_Y < -80)
+		|| (PAD_SubStick_X > 80 || PAD_SubStick_X < -80)
 		)
 	{
-		sprintf(txtbuffer, "GetKeys %08x %08x\r\n", Pad[0].button, PAD_Pressed);
+		sprintf(txtbuffer, "GetKeys %d %d %d %d\r\n", PAD_Stick_X, PAD_Stick_Y, PAD_SubStick_X, PAD_SubStick_Y);
 	    writeLogFile(txtbuffer);
 	}
 
@@ -167,25 +166,6 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
     SET_KEY(PAD_BUTTON_START, 0x0008);
     SET_KEY(PAD_BUTTON_SELECT, 0x0001);
 
-//	c->btns.SQUARE_BUTTON    = isHeld(PAD_BUTTON_A);
-//	c->btns.CROSS_BUTTON     = isHeld(PAD_BUTTON_B);
-//	c->btns.CIRCLE_BUTTON    = isHeld(PAD_BUTTON_X);
-//	c->btns.TRIANGLE_BUTTON  = isHeld(PAD_BUTTON_Y);
-//
-//	c->btns.R1_BUTTON    = isHeld(PAD_TRIGGER_R1);
-//	c->btns.L1_BUTTON    = isHeld(PAD_TRIGGER_L1);
-//	c->btns.R2_BUTTON    = isHeld(PAD_TRIGGER_R);
-//	c->btns.L2_BUTTON    = isHeld(PAD_TRIGGER_L);
-//
-//	c->btns.L_DPAD       = isHeld(PAD_BUTTON_LEFT);
-//	c->btns.R_DPAD       = isHeld(PAD_BUTTON_RIGHT);
-//	c->btns.U_DPAD       = isHeld(PAD_BUTTON_UP);
-//	c->btns.D_DPAD       = isHeld(PAD_BUTTON_DOWN);
-//
-//	c->btns.START_BUTTON  = isHeld(PAD_BUTTON_START);
-//	//c->btns.R3_BUTTON    = isHeld(config->R3);
-//	//c->btns.L3_BUTTON    = isHeld(config->L3);
-//	c->btns.SELECT_BUTTON = isHeld(PAD_BUTTON_SELECT);
 
 	//adjust values by 128 cause PSX sticks range 0-255 with a 128 center pos
 	int stickX = 0, stickY = 0;
@@ -199,20 +179,16 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 	c->rightStickX = GCtoPSXAnalog(stickX);
 	c->rightStickY = GCtoPSXAnalog(config->invertedYR ? stickY : -stickY);
 
-	DCFlushRange((void*)c, sizeof(BUTTONS));
-
 	// Return 1 if exit, 2 if fastforward
 	if (!isHeld(config->exit))
 	{
 		return 1;
-		#ifdef DISP_DEBUG
-        //sprintf(txtbuffer, "Exit %08x\r\n", PAD_Pressed);
-        //writeLogFile(txtbuffer);
-        #endif // DISP_DEBUG
+	}
+	if (!isHeld(config->fastf))
+	{
+		return 2;
 	}
 
-	//if (!isHeld(config->fastf)) return 2;
-	//else
 	return 0;
 }
 

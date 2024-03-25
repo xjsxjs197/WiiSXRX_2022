@@ -377,6 +377,7 @@ static s32 HIDOpen( u32 LoaderRequest )
 
                 memset(ps3buf, 0, 64);
                 memcpy(ps3buf, rawData, sizeof(rawData));
+                DCFlushRange((void*)ps3buf, 64);
 
                 memset(gcbuf, 0, 32);
                 gcbuf[0] = 0x13;
@@ -608,6 +609,17 @@ static s32 HIDOpen( u32 LoaderRequest )
 
                         HID_CTRL->LAnalog    = ConfigGetValue( Data, INI_KYY_LANALOG, 0 );
                         HID_CTRL->RAnalog    = ConfigGetValue( Data, INI_KYY_RANALOG, 0 );
+
+                        #ifdef DISP_DEBUG
+                        sprintf(txtbuffer, "StickX %d %d %d\r\n", HID_CTRL->StickX.Offset, HID_CTRL->StickX.DeadZone, HID_CTRL->StickX.Radius);
+                        writeLogFile(txtbuffer);
+                        sprintf(txtbuffer, "StickY %d %d %d\r\n", HID_CTRL->StickY.Offset, HID_CTRL->StickY.DeadZone, HID_CTRL->StickY.Radius);
+                        writeLogFile(txtbuffer);
+                        sprintf(txtbuffer, "CStickX %d %d %d\r\n", HID_CTRL->CStickX.Offset, HID_CTRL->CStickX.DeadZone, HID_CTRL->CStickX.Radius);
+                        writeLogFile(txtbuffer);
+                        sprintf(txtbuffer, "CStickY %d %d %d\r\n", HID_CTRL->CStickY.Offset, HID_CTRL->CStickY.DeadZone, HID_CTRL->CStickY.Radius);
+                        writeLogFile(txtbuffer);
+                        #endif // DISP_DEBUG
 
                         if(ConfigGetValue( Data, INI_KYY_RUMBLE, 0 ))
                         {
@@ -947,7 +959,6 @@ static void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left
 {
     ps3buf[3] = power_left;
     ps3buf[5] = power_right;
-    DCFlushRange((void*)ps3buf, 64);
 
     s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, HID_SET_RUMBLE);
     #ifdef DISP_DEBUG
