@@ -150,21 +150,40 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 	inline int isHeld(button_tp button){
 		return (b & button->mask) == button->mask ? 0 : 1;
 	}
-    SET_KEY(PAD_BUTTON_A, 0x8000);
-    SET_KEY(PAD_BUTTON_B, 0x4000);
-    SET_KEY(PAD_BUTTON_X, 0x2000);
-    SET_KEY(PAD_BUTTON_Y, 0x1000);
-    SET_KEY(PAD_TRIGGER_R1, 0x0800);
-    SET_KEY(PAD_TRIGGER_L1, 0x0400);
-    SET_KEY(PAD_TRIGGER_R, 0x0200);
-    SET_KEY(PAD_TRIGGER_L, 0x0100);
+//    SET_KEY(PAD_BUTTON_A, 0x8000);
+//    SET_KEY(PAD_BUTTON_B, 0x4000);
+//    SET_KEY(PAD_BUTTON_X, 0x2000);
+//    SET_KEY(PAD_BUTTON_Y, 0x1000);
+//    SET_KEY(PAD_TRIGGER_R1, 0x0800);
+//    SET_KEY(PAD_TRIGGER_L1, 0x0400);
+//    SET_KEY(PAD_TRIGGER_R, 0x0200);
+//    SET_KEY(PAD_TRIGGER_L, 0x0100);
+//
+//    SET_KEY(PAD_BUTTON_LEFT, 0x0080);
+//    SET_KEY(PAD_BUTTON_DOWN, 0x0040);
+//    SET_KEY(PAD_BUTTON_RIGHT, 0x0020);
+//    SET_KEY(PAD_BUTTON_UP, 0x0010);
+//    SET_KEY(PAD_BUTTON_START, 0x0008);
+//    SET_KEY(PAD_BUTTON_SELECT, 0x0001);
+	c->btns.SQUARE_BUTTON    = isHeld(config->SQU);
+	c->btns.CROSS_BUTTON     = isHeld(config->CRO);
+	c->btns.CIRCLE_BUTTON    = isHeld(config->CIR);
+	c->btns.TRIANGLE_BUTTON  = isHeld(config->TRI);
 
-    SET_KEY(PAD_BUTTON_LEFT, 0x0080);
-    SET_KEY(PAD_BUTTON_DOWN, 0x0040);
-    SET_KEY(PAD_BUTTON_RIGHT, 0x0020);
-    SET_KEY(PAD_BUTTON_UP, 0x0010);
-    SET_KEY(PAD_BUTTON_START, 0x0008);
-    SET_KEY(PAD_BUTTON_SELECT, 0x0001);
+	c->btns.R1_BUTTON    = isHeld(config->R1);
+	c->btns.L1_BUTTON    = isHeld(config->L1);
+	c->btns.R2_BUTTON    = isHeld(config->R2);
+	c->btns.L2_BUTTON    = isHeld(config->L2);
+
+	c->btns.L_DPAD       = isHeld(config->DL);
+	c->btns.R_DPAD       = isHeld(config->DR);
+	c->btns.U_DPAD       = isHeld(config->DU);
+	c->btns.D_DPAD       = isHeld(config->DD);
+
+	c->btns.START_BUTTON  = isHeld(config->START);
+	c->btns.R3_BUTTON    = isHeld(config->R3);
+	c->btns.L3_BUTTON    = isHeld(config->L3);
+	c->btns.SELECT_BUTTON = isHeld(config->SELECT);
 
 
 	//adjust values by 128 cause PSX sticks range 0-255 with a 128 center pos
