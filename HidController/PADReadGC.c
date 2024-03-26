@@ -419,6 +419,10 @@ u32 HidFormatData(void)
             substickX    = HID_Packet[HID_CTRL->CStickX.Offset] - 128;
             substickY    = 127 - HID_Packet[HID_CTRL->CStickY.Offset];
         }
+        #ifdef DISP_DEBUG
+        sprintf(txtbuffer, "Stick %d %d %d %d %d\r\n", PADIsBarrel[chan], stickX, stickY, substickX, substickY);
+        DEBUG_print(txtbuffer, DBG_GPU1);
+        #endif // DISP_DEBUG
 
         s8 tmp_stick = 0;
         if(stickX > HID_CTRL->StickX.DeadZone && stickX > 0)

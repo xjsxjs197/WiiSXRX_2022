@@ -82,8 +82,8 @@ void Input::initHid()
 //		*(vu32*)0x92FFFFC4 = 0;
 //	DCFlushRange((void*)0x92FFFFC0,0x20);
 
-	//memset((void*)0x93003010, 0, 0x190); //clears alot of pad stuff
-	//DCFlushRange((void*)0x93003010, 0x190);
+	memset((void*)0x93003010, 0, 0x190); //clears alot of pad stuff
+	DCFlushRange((void*)0x93003010, 0x190);
 	struct BTPadCont *BTPad = (struct BTPadCont*)0x932F0000;
 	for(i = 0; i < WPAD_MAX_WIIMOTES; ++i)
 		BTPad[i].used = C_NOT_SET;

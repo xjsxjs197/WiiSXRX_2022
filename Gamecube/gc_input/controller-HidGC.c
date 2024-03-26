@@ -134,16 +134,8 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 		PAD_SubStick_X |= Pad[i].substickX;
 	}
 	#ifdef DISP_DEBUG
-	if ((PAD_Stick_X > 80 || PAD_Stick_X < -80)
-		|| (PAD_Stick_Y > 80 || PAD_Stick_Y < -80)
-		|| (PAD_SubStick_Y > 80 || PAD_SubStick_Y < -80)
-		|| (PAD_SubStick_X > 80 || PAD_SubStick_X < -80)
-		)
-	{
-		sprintf(txtbuffer, "GetKeys %d %d %d %d\r\n", PAD_Stick_X, PAD_Stick_Y, PAD_SubStick_X, PAD_SubStick_Y);
-	    writeLogFile(txtbuffer);
-	}
-
+	sprintf(txtbuffer, "GetStick %d %d %d %d\r\n", PAD_Stick_X, PAD_Stick_Y, PAD_SubStick_X, PAD_SubStick_Y);
+	DEBUG_print(txtbuffer, DBG_GPU2);
 	#endif // DISP_DEBUG
 
 	unsigned int b = PAD_Pressed;

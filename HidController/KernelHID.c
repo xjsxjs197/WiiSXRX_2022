@@ -605,17 +605,6 @@ static s32 HIDOpen( u32 LoaderRequest )
                         HID_CTRL->LAnalog    = ConfigGetValue( Data, INI_KYY_LANALOG, 0 );
                         HID_CTRL->RAnalog    = ConfigGetValue( Data, INI_KYY_RANALOG, 0 );
 
-                        #ifdef DISP_DEBUG
-                        sprintf(txtbuffer, "StickX %d %d %d\r\n", HID_CTRL->StickX.Offset, HID_CTRL->StickX.DeadZone, HID_CTRL->StickX.Radius);
-                        writeLogFile(txtbuffer);
-                        sprintf(txtbuffer, "StickY %d %d %d\r\n", HID_CTRL->StickY.Offset, HID_CTRL->StickY.DeadZone, HID_CTRL->StickY.Radius);
-                        writeLogFile(txtbuffer);
-                        sprintf(txtbuffer, "CStickX %d %d %d\r\n", HID_CTRL->CStickX.Offset, HID_CTRL->CStickX.DeadZone, HID_CTRL->CStickX.Radius);
-                        writeLogFile(txtbuffer);
-                        sprintf(txtbuffer, "CStickY %d %d %d\r\n", HID_CTRL->CStickY.Offset, HID_CTRL->CStickY.DeadZone, HID_CTRL->CStickY.Radius);
-                        writeLogFile(txtbuffer);
-                        #endif // DISP_DEBUG
-
                         if(ConfigGetValue( Data, INI_KYY_RUMBLE, 0 ))
                         {
                             RawRumbleDataLen = ConfigGetValue( Data, INI_KYY_RUMBLE_DATA_LEN, 0 );
@@ -891,7 +880,7 @@ static void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left
 {
     #ifdef DISP_DEBUG
     sprintf(txtbuffer, "PS3Rumble %d %d %d %d\r\n", duration_right, power_right, duration_left, power_left);
-    writeLogFile(txtbuffer);
+    DEBUG_print(txtbuffer, DBG_GPU3);
     #endif // DISP_DEBUG
     ps3buf[3] = power_left;
     ps3buf[5] = power_right;
@@ -902,7 +891,7 @@ static void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left
     if ( ret < 0 )
     {
         sprintf(txtbuffer, "HIDPS3SetRumble Err %08x\r\n", ret);
-        writeLogFile(txtbuffer);
+        DEBUG_print(txtbuffer, DBG_CORE3);
     }
     #endif // DISP_DEBUG
 }
@@ -998,8 +987,8 @@ static void HIDIRQRead()
     memcpy(HID_Packet, Packet, wMaxPacketSize);
     DCFlushRange((void*)HID_Packet, wMaxPacketSize);
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "HIDIRQRead %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
-    writeLogFile(txtbuffer);
+    //sprintf(txtbuffer, "HIDIRQRead %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
+    //writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 dohidirqread:
     HIDInterruptMessage(0, Packet, wMaxPacketSize, bEndpointAddressController, READ_CONTROLLER_MSG);
