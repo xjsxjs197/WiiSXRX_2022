@@ -255,14 +255,14 @@ controller_t controller_HidGC =
 	  analog_sources,
 	  sizeof(menu_combos)/sizeof(menu_combos[0]),
 	  menu_combos,
-	  { .SQU        = &buttons[10], // B
-	    .CRO        = &buttons[9],  // A
+	  { .SQU        = &buttons[9],  // A
+	    .CRO        = &buttons[10], // B
 	    .CIR        = &buttons[11], // X
 	    .TRI        = &buttons[12], // Y
-	    .R1         = &buttons[6],  // Right Trigger - Z
-	    .L1         = &buttons[5],  // Left Trigger - Z
-	    .R2         = &buttons[8],  // Right Trigger + Z
-	    .L2         = &buttons[7],  // Left Trigger + Z
+	    .R1         = &buttons[8],  // Right Trigger - Z
+	    .L1         = &buttons[7],  // Left Trigger - Z
+	    .R2         = &buttons[6],  // Right Trigger + Z
+	    .L2         = &buttons[5],  // Left Trigger + Z
 	    .R3         = &buttons[0],  // None
 	    .L3         = &buttons[0],  // None
 	    .DL         = &buttons[2],  // D-Pad Left
