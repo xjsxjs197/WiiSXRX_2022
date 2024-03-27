@@ -63,10 +63,18 @@ static u32 RumbleTransfers = 0;
 
 static const unsigned char rawData[] =
 {
-    0x01, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xFF, 0x27, 0x10, 0x00, 0x32,
-    0xFF, 0x27, 0x10, 0x00, 0x32, 0xFF, 0x27, 0x10, 0x00, 0x32, 0xFF, 0x27, 0x10, 0x00, 0x32, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00,
+    0x00,                         /* Padding */
+    0xFF, 0x00, 0xFF, 0x00,       /* Rumble (r, r, l, l) */
+    0x00, 0x00, 0x00, 0x00,       /* Padding */
+    0x02,                         /* LED_1 = 0x02, LED_2 = 0x04, ... */
+    0xFF, 0x27, 0x10, 0x00, 0x32, /* LED_4 */
+    0xFF, 0x27, 0x10, 0x00, 0x32, /* LED_3 */
+    0xFF, 0x27, 0x10, 0x00, 0x32, /* LED_2 */
+    0xFF, 0x27, 0x10, 0x00, 0x32, /* LED_1 */
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00,
 };
 
 static u8 *ps3buf = (u8*)NULL;
@@ -94,7 +102,7 @@ static void HIDPS3Read( void );
 static void HIDIRQRead( void );
 static void HIDPS3SetLED( u8 led );
 static void HIDGCRumble( u32 Enable );
-static void HIDPS3Rumble( u32 Enable );
+static void HIDPS3Rumble( u32 rumblePower );
 static void HIDIRQRumble( u32 Enable );
 static void HIDCTRLRumble( u32 Enable );
 static u32 ConfigGetValue( char *Data, const char *EntryName, u32 Entry );
@@ -120,6 +128,7 @@ static void *HID_Packet = (void*)HID_Packet_ADDR;
 #define HID_ATTACH_MSG        4
 
 #define HID_SET_RUMBLE        5
+#define HID_SET_LEDS          6
 
 #define USBV4_IOCTL_GETVERSION                   6 // returns 0x40001
 #define USBV5_IOCTL_GETVERSION                   0 // should return 0x50001
@@ -868,10 +877,12 @@ static void HIDPS3Init()
 
 static void HIDPS3SetLED( u8 led )
 {
-    ps3buf[10] = ss_led_pattern[led];
+    ps3buf[9] = ss_led_pattern[led];
     DCFlushRange((void*)ps3buf, 64);
 
-    s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, 0);
+    //s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, 0);
+    s32 ret = HIDControlMessage(0, ps3buf, 64, USB_REQTYPE_INTERFACE_GET,
+            USB_REQ_GETREPORT, (USB_REPTYPE_INPUT<<8) | 0x1, HID_SET_LEDS);
     if( ret < 0 )
         dbgprintf("ES:IOS_Ioctl():%d\r\n", ret );
 }
@@ -882,11 +893,15 @@ static void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left
     sprintf(txtbuffer, "PS3Rumble %d %d %d %d\r\n", duration_right, power_right, duration_left, power_left);
     DEBUG_print(txtbuffer, DBG_GPU3);
     #endif // DISP_DEBUG
-    ps3buf[3] = power_left;
-    ps3buf[5] = power_right;
+    ps3buf[1] = duration_right;
+    ps3buf[2] = power_right;
+    ps3buf[3] = duration_left;
+    ps3buf[4] = power_left;
     DCFlushRange((void*)ps3buf, 64);
 
-    s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, HID_SET_RUMBLE);
+    //s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, HID_SET_RUMBLE);
+    s32 ret = HIDControlMessage(0, ps3buf, 64, USB_REQTYPE_INTERFACE_GET,
+            USB_REQ_GETREPORT, (USB_REPTYPE_INPUT<<8) | 0x1, HID_SET_RUMBLE);
     #ifdef DISP_DEBUG
     if ( ret < 0 )
     {
@@ -908,14 +923,9 @@ static void HIDPS3Read()
     }
     memcpy(HID_Packet, Packet, SS_DATA_LEN);
     DCFlushRange((void*)HID_Packet, SS_DATA_LEN);
-    #ifdef DISP_DEBUG
-    //sprintf(txtbuffer, "HIDPS3Read %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
-    //writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
 
     HIDControlMessage(0, Packet, SS_DATA_LEN, USB_REQTYPE_INTERFACE_GET,
             USB_REQ_GETREPORT, (USB_REPTYPE_INPUT<<8) | 0x1, READ_CONTROLLER_MSG);
-    //hidread = 1;
 }
 
 static void HIDGCRumble(u32 input)
@@ -995,17 +1005,15 @@ dohidirqread:
     //hidread = 1;
 }
 
-static void HIDPS3Rumble( u32 Enable )
+static void HIDPS3Rumble( u32 rumblePower )
 {
-    switch( Enable )
+    if (rumblePower)
     {
-        case 0:    // stop
-        case 2:    // hard stop
-            HIDPS3SetRumble( 0, 0, 0, 0 );
-        break;
-        case 1: // start
-            HIDPS3SetRumble( 0, 0xFF, 0, 1 );
-        break;
+        HIDPS3SetRumble( 0xFF, rumblePower, 0, 0 );
+    }
+    else
+    {
+        HIDPS3SetRumble( 0, 0, 0, 0 );
     }
 }
 

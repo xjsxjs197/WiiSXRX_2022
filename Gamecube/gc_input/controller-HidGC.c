@@ -101,8 +101,6 @@ static s8  PAD_SubStick_X = 0;
 
 static void refreshAvailable(void);
 
-#define SET_KEY(mask, keyVal) { if (b & mask) c->btns.All &= ~keyVal; }
-
 static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 {
 	refreshAvailable();
@@ -142,21 +140,7 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 	inline int isHeld(button_tp button){
 		return (b & button->mask) == button->mask ? 0 : 1;
 	}
-//    SET_KEY(PAD_BUTTON_A, 0x8000);
-//    SET_KEY(PAD_BUTTON_B, 0x4000);
-//    SET_KEY(PAD_BUTTON_X, 0x2000);
-//    SET_KEY(PAD_BUTTON_Y, 0x1000);
-//    SET_KEY(PAD_TRIGGER_R1, 0x0800);
-//    SET_KEY(PAD_TRIGGER_L1, 0x0400);
-//    SET_KEY(PAD_TRIGGER_R, 0x0200);
-//    SET_KEY(PAD_TRIGGER_L, 0x0100);
-//
-//    SET_KEY(PAD_BUTTON_LEFT, 0x0080);
-//    SET_KEY(PAD_BUTTON_DOWN, 0x0040);
-//    SET_KEY(PAD_BUTTON_RIGHT, 0x0020);
-//    SET_KEY(PAD_BUTTON_UP, 0x0010);
-//    SET_KEY(PAD_BUTTON_START, 0x0008);
-//    SET_KEY(PAD_BUTTON_SELECT, 0x0001);
+
 	c->btns.SQUARE_BUTTON    = isHeld(config->SQU);
 	c->btns.CROSS_BUTTON     = isHeld(config->CRO);
 	c->btns.CIRCLE_BUTTON    = isHeld(config->CIR);
@@ -206,21 +190,13 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 static u32* MotorCommand = (u32*)(0x93003020);
 
 static void pause(int Control){
-	#ifdef DISP_DEBUG
-    sprintf(txtbuffer, "HidPause\r\n");
-    writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
 	*MotorCommand = PAD_MOTOR_STOP;
 }
 
 static void resume(int Control){ }
 
 static void rumble(int Control, int rumble){
-	#ifdef DISP_DEBUG
-    sprintf(txtbuffer, "HidRumble %d\r\n", rumble);
-    writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
-	*MotorCommand = (rumble && rumbleEnabled) ? PAD_MOTOR_RUMBLE : PAD_MOTOR_STOP;
+	*MotorCommand = (rumble && rumbleEnabled) ? rumble : PAD_MOTOR_STOP;
 }
 
 static void configure(int Control, controller_config_t* config){
