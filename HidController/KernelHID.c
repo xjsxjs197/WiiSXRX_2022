@@ -99,6 +99,7 @@ static void HIDUpdateRegisters(u32 LoaderRequest);
 static void HIDGCInit( void );
 static void HIDPS3Init( void );
 static void HIDPS3Read( void );
+static void HIDPS4Init( void );
 static void HIDIRQRead( void );
 static void HIDPS3SetLED( u8 led );
 static void HIDGCRumble( u32 Enable );
@@ -398,7 +399,7 @@ static s32 HIDOpen( u32 LoaderRequest )
                 ControllerID = DeviceID;
                 bEndpointAddressController = bEndpointAddress;
 
-                if( DeviceVID == 0x054c && DevicePID == 0x0268 )
+                if ( DeviceVID == 0x054c && DevicePID == 0x0268 )
                 {
                     dbgprintf("HID:PS3 Dualshock Controller detected\r\n");
                     MemPacketSize = SS_DATA_LEN;
@@ -406,8 +407,14 @@ static s32 HIDOpen( u32 LoaderRequest )
                     RumbleEnabled = 1;
                     HIDPS3SetRumble( 0, 0, 0, 0 );
                 }
-                else if( DeviceVID == 0x057e && DevicePID == 0x0337 )
+                else if ( DeviceVID == 0x057e && DevicePID == 0x0337 )
+                {
                     HIDGCInit();
+                }
+                else if( DeviceVID == 0x054C && (DevicePID == 0x09CC || DevicePID == 0x05C4) )
+                {
+                    HIDPS4Init();
+                }
 
                 //if (needLoadControllerIni)
                 {
@@ -872,6 +879,26 @@ static void HIDPS3Init()
         writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
     }
+    iosFree(hId, buf);
+}
+
+static void HIDPS4Init()
+{
+    static u8 ps4Buf[0x20] ATTRIBUTE_ALIGN(32) = {
+        0x05, // Report ID
+        0x03, 0x00, 0x00,
+        0, // Fast motor
+        0, // Slow motor
+        0, 0, 32, // RGB
+        0x00, // LED on duration
+        0x00  // LED off duration
+    };
+    u8 *buf = (u8*)iosAlloc(hId, 32);
+    memset( buf, 0, 0x20 );
+    memcpy(buf, ps4Buf, 0x20);
+
+    HIDInterruptMessage(0, buf, 11, bEndpointAddressController, HID_SET_LEDS);
+
     iosFree(hId, buf);
 }
 
