@@ -71,10 +71,7 @@ static const unsigned char rawData[] =
     0xFF, 0x27, 0x10, 0x00, 0x32, /* LED_3 */
     0xFF, 0x27, 0x10, 0x00, 0x32, /* LED_2 */
     0xFF, 0x27, 0x10, 0x00, 0x32, /* LED_1 */
-    0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00  /* LED_5 (not soldered) */
 };
 
 static u8 *ps3buf = (u8*)NULL;
@@ -884,7 +881,7 @@ static void HIDPS3Init()
 
 static void HIDPS4Init()
 {
-    static u8 ps4Buf[0x20] ATTRIBUTE_ALIGN(32) = {
+    static u8 ps4Buf[] ATTRIBUTE_ALIGN(32) = {
         0x05, // Report ID
         0x03, 0x00, 0x00,
         0, // Fast motor
@@ -895,9 +892,9 @@ static void HIDPS4Init()
     };
     u8 *buf = (u8*)iosAlloc(hId, 32);
     memset( buf, 0, 0x20 );
-    memcpy(buf, ps4Buf, 0x20);
+    memcpy(buf, ps4Buf, sizeof(ps4Buf));
 
-    HIDInterruptMessage(0, buf, 11, bEndpointAddressController, HID_SET_LEDS);
+    HIDInterruptMessage(0, buf, sizeof(ps4Buf), bEndpointAddressController, HID_SET_LEDS);
 
     iosFree(hId, buf);
 }
@@ -908,8 +905,8 @@ static void HIDPS3SetLED( u8 led )
     DCFlushRange((void*)ps3buf, 64);
 
     //s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, 0);
-    s32 ret = HIDControlMessage(0, ps3buf, 64, USB_REQTYPE_INTERFACE_GET,
-            USB_REQ_GETREPORT, (USB_REPTYPE_INPUT<<8) | 0x1, HID_SET_LEDS);
+    s32 ret = HIDControlMessage(0, ps3buf, sizeof(rawData), USB_REQTYPE_INTERFACE_SET,
+            USB_REQ_SETREPORT, (USB_REPTYPE_OUTPUT<<8) | 0x1, HID_SET_LEDS);
     if( ret < 0 )
         dbgprintf("ES:IOS_Ioctl():%d\r\n", ret );
 }
@@ -927,8 +924,8 @@ static void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left
     DCFlushRange((void*)ps3buf, 64);
 
     //s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, HID_SET_RUMBLE);
-    s32 ret = HIDControlMessage(0, ps3buf, 64, USB_REQTYPE_INTERFACE_GET,
-            USB_REQ_GETREPORT, (USB_REPTYPE_INPUT<<8) | 0x1, HID_SET_RUMBLE);
+    s32 ret = HIDControlMessage(0, ps3buf, sizeof(rawData), USB_REQTYPE_INTERFACE_SET,
+            USB_REQ_SETREPORT, (USB_REPTYPE_OUTPUT<<8) | 0x1, HID_SET_RUMBLE);
     #ifdef DISP_DEBUG
     if ( ret < 0 )
     {
