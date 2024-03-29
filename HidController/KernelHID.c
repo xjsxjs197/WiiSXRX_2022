@@ -63,6 +63,7 @@ static u32 RumbleTransfers = 0;
 
 static const unsigned char rawData[] =
 {
+    0x01,                         /* ??? */
     0x00,                         /* Padding */
     0xFF, 0x00, 0xFF, 0x00,       /* Rumble (r, r, l, l) */
     0x00, 0x00, 0x00, 0x00,       /* Padding */
@@ -269,6 +270,7 @@ static s32 HIDOpen( u32 LoaderRequest )
             #ifdef DISP_DEBUG
             sprintf(txtbuffer, "Device VID %05x PID %05x\r\n", AttachedDevices[i].vid, AttachedDevices[i].pid);
             writeLogFile(txtbuffer);
+            DEBUG_print(txtbuffer, DBG_CORE3);
             #endif // DISP_DEBUG
             u32 DeviceID = AttachedDevices[i].device_id;
             if(DeviceID == ControllerID)
@@ -770,7 +772,7 @@ static u32 *HIDRun(void *param)
             break;
         }
         HIDUpdateRegisters(1);
-        usleep(2000);
+        usleep(1000);
     }
     return 0;
 }
@@ -901,12 +903,12 @@ static void HIDPS4Init()
 
 static void HIDPS3SetLED( u8 led )
 {
-    ps3buf[9] = ss_led_pattern[led];
+    ps3buf[10] = ss_led_pattern[led];
     DCFlushRange((void*)ps3buf, 64);
 
-    //s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, 0);
-    s32 ret = HIDControlMessage(0, ps3buf, sizeof(rawData), USB_REQTYPE_INTERFACE_SET,
-            USB_REQ_SETREPORT, (USB_REPTYPE_OUTPUT<<8) | 0x1, HID_SET_LEDS);
+    s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, 0);
+    //s32 ret = HIDControlMessage(0, ps3buf, sizeof(rawData), USB_REQTYPE_INTERFACE_SET,
+    //        USB_REQ_SETREPORT, (USB_REPTYPE_OUTPUT<<8) | 0x1, HID_SET_LEDS);
     if( ret < 0 )
         dbgprintf("ES:IOS_Ioctl():%d\r\n", ret );
 }
@@ -917,15 +919,16 @@ static void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left
     sprintf(txtbuffer, "PS3Rumble %d %d %d %d\r\n", duration_right, power_right, duration_left, power_left);
     DEBUG_print(txtbuffer, DBG_GPU3);
     #endif // DISP_DEBUG
-    ps3buf[1] = duration_right;
-    ps3buf[2] = power_right;
-    ps3buf[3] = duration_left;
-    ps3buf[4] = power_left;
+    ps3buf[0] = power_right ? 1 : 0;
+    ps3buf[2] = duration_right;
+    ps3buf[3] = power_right;
+    ps3buf[4] = duration_left;
+    ps3buf[5] = power_left;
     DCFlushRange((void*)ps3buf, 64);
 
-    //s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, HID_SET_RUMBLE);
-    s32 ret = HIDControlMessage(0, ps3buf, sizeof(rawData), USB_REQTYPE_INTERFACE_SET,
-            USB_REQ_SETREPORT, (USB_REPTYPE_OUTPUT<<8) | 0x1, HID_SET_RUMBLE);
+    s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, HID_SET_RUMBLE);
+    //s32 ret = HIDControlMessage(0, ps3buf, sizeof(rawData), USB_REQTYPE_INTERFACE_SET,
+    //        USB_REQ_SETREPORT, (USB_REPTYPE_OUTPUT<<8) | 0x1, HID_SET_RUMBLE);
     #ifdef DISP_DEBUG
     if ( ret < 0 )
     {
@@ -947,6 +950,9 @@ static void HIDPS3Read()
     }
     memcpy(HID_Packet, Packet, SS_DATA_LEN);
     DCFlushRange((void*)HID_Packet, SS_DATA_LEN);
+
+    memcpy(Packet, 0, SS_DATA_LEN);
+    DCFlushRange((void*)Packet, SS_DATA_LEN);
 
     HIDControlMessage(0, Packet, SS_DATA_LEN, USB_REQTYPE_INTERFACE_GET,
             USB_REQ_GETREPORT, (USB_REPTYPE_INPUT<<8) | 0x1, READ_CONTROLLER_MSG);
@@ -1228,28 +1234,28 @@ static void HIDUpdateRegisters(u32 LoaderRequest)
             #endif // DISP_DEBUG
             //hidchange = 1;
         }
-//        if (hidattached)
-//        {
-//            if(hidread == 1)
-//            {
-//                hidread = 0;
-//                if(HIDRead) HIDRead();
-//            }
-//            if(keyboardread == 1)
-//            {
-//                keyboardread = 0;
-//                KeyboardRead();
-//            }
-//            if(RumbleEnabled)
-//            {
-//                HIDRumbleCurrent = *((u32*)(MotorCommand));
-//                if( HIDRumbleLast != HIDRumbleCurrent )
-//                {
-//                    if(HIDRumble) HIDRumble( HIDRumbleCurrent );
-//                    HIDRumbleLast = HIDRumbleCurrent;
-//                }
-//            }
-//        }
+        if (hidattached)
+        {
+            if(hidread == 1)
+            {
+                hidread = 0;
+                if(HIDRead) HIDRead();
+            }
+            if(keyboardread == 1)
+            {
+                keyboardread = 0;
+                KeyboardRead();
+            }
+            if(RumbleEnabled)
+            {
+                HIDRumbleCurrent = *((u32*)(MotorCommand));
+                if( HIDRumbleLast != HIDRumbleCurrent )
+                {
+                    if(HIDRumble) HIDRumble( HIDRumbleCurrent );
+                    HIDRumbleLast = HIDRumbleCurrent;
+                }
+            }
+        }
         HID_Timer = gettime();
     }
 }

@@ -136,8 +136,8 @@ u32 HidFormatData(void)
     u32 HIDMemPrep = 0;
     vu8* HID_Packet = (vu8*)HID_Packet_ADDR;
     #ifdef DISP_DEBUG
-    //sprintf(txtbuffer, "HidFormat %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
-    //writeLogFile(txtbuffer);
+    sprintf(txtbuffer, "HID %08x %08x\r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1));
+    DEBUG_print(txtbuffer, DBG_GPU1);
     #endif // DISP_DEBUG
     for (chan = 0; (chan < HID_PAD_NONE); (HID_CTRL->MultiIn == 3) ? (++chan) : (chan = HID_PAD_NONE)) // Run once unless MultiIn == 3
     {
@@ -390,10 +390,6 @@ u32 HidFormatData(void)
             substickX    = HID_Packet[HID_CTRL->CStickX.Offset] - 128;
             substickY    = 127 - HID_Packet[HID_CTRL->CStickY.Offset];
         }
-        #ifdef DISP_DEBUG
-        sprintf(txtbuffer, "Stick %d %d %d %d %d\r\n", PADIsBarrel[chan], stickX, stickY, substickX, substickY);
-        DEBUG_print(txtbuffer, DBG_GPU1);
-        #endif // DISP_DEBUG
 
         s8 tmp_stick = 0;
         if(stickX > HID_CTRL->StickX.DeadZone && stickX > 0)

@@ -74,13 +74,6 @@ void Input::initHid()
     int i;
     WiiDRC_Init();
     isWiiVC = WiiDRC_Inited();
-	//Set some important kernel regs
-//	*(vu32*)0x92FFFFC0 = isWiiVC; //cant be detected in IOS
-//	if(WiiDRC_Connected()) //used in PADReadGC.c
-//		*(vu32*)0x92FFFFC4 = (u32)WiiDRC_GetRawI2CAddr();
-//	else //will disable gamepad spot for player 1
-//		*(vu32*)0x92FFFFC4 = 0;
-//	DCFlushRange((void*)0x92FFFFC0,0x20);
 
 	memset((void*)0x93003010, 0, 0x190); //clears alot of pad stuff
 	DCFlushRange((void*)0x93003010, 0x190);
@@ -103,24 +96,11 @@ void Input::refreshInput()
 
 	if (hidPadNeedScan)
 	{
-		#ifdef DISP_DEBUG
-        //sprintf(txtbuffer, "NeedScan hidConnected %d\r\n", hidControllerConnected);
-        //writeLogFile(txtbuffer);
-        #endif // DISP_DEBUG
 		hidPadNeedScan = 0;
 		if (loadingControllerIni)
         {
             HIDUpdateControllerIni();
         }
-		if (hidControllerConnected)
-		{
-		    HIDReadData();
-		    #ifdef DISP_DEBUG
-		    //PADStatusKernel *Pad = (PADStatusKernel*)(0x93003100); //PadBuff
-            //sprintf(txtbuffer, "BTN %08x\r\n", Pad[0].button);
-            //writeLogFile(txtbuffer);
-            #endif // DISP_DEBUG
-		}
 	}
 #endif
 }

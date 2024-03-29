@@ -131,10 +131,6 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 		PAD_SubStick_Y |= Pad[i].substickY;
 		PAD_SubStick_X |= Pad[i].substickX;
 	}
-	#ifdef DISP_DEBUG
-	sprintf(txtbuffer, "GetStick %d %d %d %d\r\n", PAD_Stick_X, PAD_Stick_Y, PAD_SubStick_X, PAD_SubStick_Y);
-	DEBUG_print(txtbuffer, DBG_GPU2);
-	#endif // DISP_DEBUG
 
 	unsigned int b = PAD_Pressed;
 	inline int isHeld(button_tp button){
@@ -256,10 +252,6 @@ static void refreshAvailable(void){
         {
             HIDUpdateControllerIni();
         }
-		if (hidControllerConnected)
-		{
-			HIDReadData();
-		}
 		hidPadNeedScan = 0;
 	}
 
