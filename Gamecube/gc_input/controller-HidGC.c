@@ -252,6 +252,10 @@ static void refreshAvailable(void){
         {
             HIDUpdateControllerIni();
         }
+//        if (hidControllerConnected)
+//		{
+//			HIDReadData();
+//		}
 		hidPadNeedScan = 0;
 	}
 

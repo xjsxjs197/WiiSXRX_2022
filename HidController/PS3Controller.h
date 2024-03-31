@@ -3,7 +3,7 @@
 
 #include "global.h"
 
-#define SS_DATA_LEN        53 //Should be 49
+#define SS_DATA_LEN        64 //Should be 49
 #define SS_LEDS_RUMBLE_LEN 32
 #define SS_VENDOR_ID       0x054C //Sony Corp.
 #define SS_PRODUCT_ID      0x0268 //Sixaxis and DS3
@@ -20,7 +20,7 @@ struct SS_BUTTONS    //Big endian
 	u8 R3       : 1;
 	u8 L3       : 1;
 	u8 select   : 1;
-	
+
 	u8 square   : 1;
 	u8 cross    : 1;
 	u8 circle   : 1;
@@ -29,7 +29,7 @@ struct SS_BUTTONS    //Big endian
 	u8 L1       : 1;
 	u8 R2       : 1;
 	u8 L2       : 1;
-	 
+
     u8 not_used : 7;
     u8 PS       : 1;
 };
@@ -98,9 +98,9 @@ struct SS_GAMEPAD
 struct SickSaxis
 {
     struct SS_GAMEPAD gamepad;
-    u8  leds_rumble[SS_LEDS_RUMBLE_LEN];  
+    u8  leds_rumble[SS_LEDS_RUMBLE_LEN];
 	u8 connected;
-	
+
     s32 fd, dev_id;
 };
 

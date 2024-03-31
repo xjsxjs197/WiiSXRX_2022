@@ -63,16 +63,20 @@ static u32 RumbleTransfers = 0;
 
 static const unsigned char rawData[] =
 {
-    0x01,                         /* ??? */
-    0x00,                         /* Padding */
-    0xFF, 0x00, 0xFF, 0x00,       /* Rumble (r, r, l, l) */
-    0x00, 0x00, 0x00, 0x00,       /* Padding */
-    0x02,                         /* LED_1 = 0x02, LED_2 = 0x04, ... */
-    0xFF, 0x27, 0x10, 0x00, 0x32, /* LED_4 */
-    0xFF, 0x27, 0x10, 0x00, 0x32, /* LED_3 */
-    0xFF, 0x27, 0x10, 0x00, 0x32, /* LED_2 */
-    0xFF, 0x27, 0x10, 0x00, 0x32, /* LED_1 */
-    0x00, 0x00, 0x00, 0x00, 0x00  /* LED_5 (not soldered) */
+    0x01, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xFF, 0x27, 0x10, 0x00, 0x32,
+    0xFF, 0x27, 0x10, 0x00, 0x32, 0xFF, 0x27, 0x10, 0x00, 0x32, 0xFF, 0x27, 0x10, 0x00, 0x32, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00,
+//    0x01,                         /* ??? */
+//    0x00,                         /* Padding */
+//    0xFF, 0x00, 0xFF, 0x00,       /* Rumble (r, r, l, l) */
+//    0x00, 0x00, 0x00, 0x00,       /* Padding */
+//    0x02,                         /* LED_1 = 0x02, LED_2 = 0x04, ... */
+//    0xFF, 0x27, 0x10, 0x00, 0x32, /* LED_4 */
+//    0xFF, 0x27, 0x10, 0x00, 0x32, /* LED_3 */
+//    0xFF, 0x27, 0x10, 0x00, 0x32, /* LED_2 */
+//    0xFF, 0x27, 0x10, 0x00, 0x32, /* LED_1 */
+//    0x00, 0x00, 0x00, 0x00, 0x00  /* LED_5 (not soldered) */
 };
 
 static u8 *ps3buf = (u8*)NULL;
@@ -919,14 +923,13 @@ static void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left
     sprintf(txtbuffer, "PS3Rumble %d %d %d %d\r\n", duration_right, power_right, duration_left, power_left);
     DEBUG_print(txtbuffer, DBG_GPU3);
     #endif // DISP_DEBUG
-    ps3buf[0] = power_right ? 1 : 0;
-    ps3buf[2] = duration_right;
+    //ps3buf[2] = duration_right;
     ps3buf[3] = power_right;
-    ps3buf[4] = duration_left;
+    //ps3buf[4] = duration_left;
     ps3buf[5] = power_left;
     DCFlushRange((void*)ps3buf, 64);
 
-    s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, HID_SET_RUMBLE);
+    s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, 0);
     //s32 ret = HIDControlMessage(0, ps3buf, sizeof(rawData), USB_REQTYPE_INTERFACE_SET,
     //        USB_REQ_SETREPORT, (USB_REPTYPE_OUTPUT<<8) | 0x1, HID_SET_RUMBLE);
     #ifdef DISP_DEBUG
@@ -948,14 +951,14 @@ static void HIDPS3Read()
         HIDPS3SetLED(1);
         PS3LedSet = 1;
     }
+
+    // Because there is a conflict between reading data and vibration, synchronous data reading is adopted here
+    HIDControlMessage(0, Packet, SS_DATA_LEN, USB_REQTYPE_INTERFACE_GET,
+            USB_REQ_GETREPORT, (USB_REPTYPE_INPUT<<8) | 0x1, 0);
+    hidread = 1;
+
     memcpy(HID_Packet, Packet, SS_DATA_LEN);
     DCFlushRange((void*)HID_Packet, SS_DATA_LEN);
-
-    memcpy(Packet, 0, SS_DATA_LEN);
-    DCFlushRange((void*)Packet, SS_DATA_LEN);
-
-    HIDControlMessage(0, Packet, SS_DATA_LEN, USB_REQTYPE_INTERFACE_GET,
-            USB_REQ_GETREPORT, (USB_REPTYPE_INPUT<<8) | 0x1, READ_CONTROLLER_MSG);
 }
 
 static void HIDGCRumble(u32 input)
@@ -1039,7 +1042,7 @@ static void HIDPS3Rumble( u32 rumblePower )
 {
     if (rumblePower)
     {
-        HIDPS3SetRumble( 0xFF, rumblePower, 0, 0 );
+        HIDPS3SetRumble( 0xFF, 0, 0, 0xFF );
     }
     else
     {
@@ -1236,16 +1239,6 @@ static void HIDUpdateRegisters(u32 LoaderRequest)
         }
         if (hidattached)
         {
-            if(hidread == 1)
-            {
-                hidread = 0;
-                if(HIDRead) HIDRead();
-            }
-            if(keyboardread == 1)
-            {
-                keyboardread = 0;
-                KeyboardRead();
-            }
             if(RumbleEnabled)
             {
                 HIDRumbleCurrent = *((u32*)(MotorCommand));
@@ -1254,6 +1247,17 @@ static void HIDUpdateRegisters(u32 LoaderRequest)
                     if(HIDRumble) HIDRumble( HIDRumbleCurrent );
                     HIDRumbleLast = HIDRumbleCurrent;
                 }
+            }
+
+            if (hidread == 1)
+            {
+                hidread = 0;
+                if(HIDRead) HIDRead();
+            }
+            if(keyboardread == 1)
+            {
+                keyboardread = 0;
+                KeyboardRead();
             }
         }
         HID_Timer = gettime();

@@ -101,6 +101,10 @@ void Input::refreshInput()
         {
             HIDUpdateControllerIni();
         }
+//        if (hidControllerConnected)
+//		{
+//		    HIDReadData();
+//		}
 	}
 #endif
 }
