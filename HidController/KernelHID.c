@@ -824,12 +824,12 @@ static s32 HIDControlMessage(u32 isKBreq, u8 *Data, u32 Length, u32 RequestType,
 
     if(isKBreq)
     {
-        msg = request_dir ? &read_kb_ctrl_req : &write_kb_ctrl_req;
+        msg = request_dir ? read_kb_ctrl_req : write_kb_ctrl_req;
         msg->fd = KeyboardID;
     }
     else
     {
-        msg = request_dir ? &read_ctrl_req : &write_ctrl_req;
+        msg = request_dir ? read_ctrl_req : write_ctrl_req;
         msg->fd = ControllerID;
     }
 
@@ -866,12 +866,12 @@ static s32 HIDInterruptMessage(u32 isKBreq, u8 *Data, u32 Length, u32 Endpoint, 
 
     if(isKBreq)
     {
-        msg = endpoint_dir ? &read_kb_irq_req : &write_kb_irq_req;
+        msg = endpoint_dir ? read_kb_irq_req : write_kb_irq_req;
         msg->fd = KeyboardID;
     }
     else
     {
-        msg = endpoint_dir ? &read_irq_req : &write_irq_req;
+        msg = endpoint_dir ? read_irq_req : write_irq_req;
         msg->fd = ControllerID;
     }
     msg->hid_intr_dir = !endpoint_dir;
@@ -959,9 +959,9 @@ static void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left
     sprintf(txtbuffer, "PS3Rumble %d %d %d %d\r\n", duration_right, power_right, duration_left, power_left);
     DEBUG_print(txtbuffer, DBG_GPU3);
     #endif // DISP_DEBUG
-    ps3buf[2] = duration_right;
+    //ps3buf[2] = duration_right;
     ps3buf[3] = power_right;
-    ps3buf[4] = duration_left;
+    //ps3buf[4] = duration_left;
     ps3buf[5] = power_left;
     DCFlushRange((void*)ps3buf, 64);
 
