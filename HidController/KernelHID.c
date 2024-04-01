@@ -138,7 +138,17 @@ static void *HID_Packet = (void*)HID_Packet_ADDR;
 
 #define USB_HEAPSIZE          32768
 static s32 hId = -1;
-static struct _usb_msg *msg = NULL;
+
+static struct _usb_msg *comMsg = NULL;
+static struct _usb_msg *read_ctrl_req = NULL;
+static struct _usb_msg *write_ctrl_req = NULL;
+static struct _usb_msg *read_irq_req = NULL;
+static struct _usb_msg *write_irq_req = NULL;
+static struct _usb_msg *read_kb_ctrl_req = NULL;
+static struct _usb_msg *write_kb_ctrl_req = NULL;
+static struct _usb_msg *read_kb_irq_req = NULL;
+static struct _usb_msg *write_kb_irq_req = NULL;
+
 s32 hidControllerConnected = 0;
 s32 loadingControllerIni = 0;
 
@@ -223,15 +233,31 @@ void HIDInit( u32 ios )
     gcbuf = (u8*)iosAlloc(hId, 32);
     kbbuf = (u8*)iosAlloc(hId, 32);
 
-    msg = (struct _usb_msg*)iosAlloc(hId, sizeof(struct _usb_msg));
-    memset(msg, 0, sizeof(struct _usb_msg));
+    comMsg = (struct _usb_msg*)iosAlloc(hId, sizeof(struct _usb_msg));
+    read_ctrl_req = (struct _usb_msg*)iosAlloc(hId, sizeof(struct _usb_msg));
+    write_ctrl_req = (struct _usb_msg*)iosAlloc(hId, sizeof(struct _usb_msg));
+    read_irq_req = (struct _usb_msg*)iosAlloc(hId, sizeof(struct _usb_msg));
+    write_irq_req = (struct _usb_msg*)iosAlloc(hId, sizeof(struct _usb_msg));
+    read_kb_ctrl_req = (struct _usb_msg*)iosAlloc(hId, sizeof(struct _usb_msg));
+    write_kb_ctrl_req = (struct _usb_msg*)iosAlloc(hId, sizeof(struct _usb_msg));
+    read_kb_irq_req = (struct _usb_msg*)iosAlloc(hId, sizeof(struct _usb_msg));
+    write_kb_irq_req = (struct _usb_msg*)iosAlloc(hId, sizeof(struct _usb_msg));
+    memset(comMsg, 0, sizeof(struct _usb_msg));
+    memset(read_ctrl_req, 0, sizeof(struct _usb_msg));
+    memset(write_ctrl_req, 0, sizeof(struct _usb_msg));
+    memset(read_irq_req, 0, sizeof(struct _usb_msg));
+    memset(write_irq_req, 0, sizeof(struct _usb_msg));
+    memset(read_kb_ctrl_req, 0, sizeof(struct _usb_msg));
+    memset(write_kb_ctrl_req, 0, sizeof(struct _usb_msg));
+    memset(read_kb_irq_req, 0, sizeof(struct _usb_msg));
+    memset(write_kb_irq_req, 0, sizeof(struct _usb_msg));
 
     hidattached = 0;
     hidwaittimer = 0;
     AttachedDevices = (struct usb_device_entry*)iosAlloc(hId, ATTACHED_DEVICES_SIZE);
     memset(AttachedDevices, 0, ATTACHED_DEVICES_SIZE);
-    msg->msgData = HID_CHANGE_MSG;
-    checkRet = IOS_IoctlAsync(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, ATTACHED_DEVICES_SIZE, ipcCallBack, msg);
+    comMsg->msgData = HID_CHANGE_MSG;
+    checkRet = IOS_IoctlAsync(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, ATTACHED_DEVICES_SIZE, ipcCallBack, comMsg);
     //hidchange = 1;
     #ifdef DISP_DEBUG
     sprintf(txtbuffer, "GetDeviceChange %08x\r\n", checkRet);
@@ -759,7 +785,17 @@ void HIDClose()
     if (ps3buf != NULL) iosFree(hId, ps3buf);
     if (gcbuf != NULL) iosFree(hId, gcbuf);
     if (kbbuf != NULL) iosFree(hId, kbbuf);
-    if (msg != NULL) iosFree(hId, msg);
+
+    if (read_ctrl_req != NULL) iosFree(hId, read_ctrl_req);
+    if (write_ctrl_req != NULL) iosFree(hId, write_ctrl_req);
+    if (read_irq_req != NULL) iosFree(hId, read_irq_req);
+    if (write_irq_req != NULL) iosFree(hId, write_irq_req);
+    if (read_kb_ctrl_req != NULL) iosFree(hId, read_kb_ctrl_req);
+    if (write_kb_ctrl_req != NULL) iosFree(hId, write_kb_ctrl_req);
+    if (read_kb_irq_req != NULL) iosFree(hId, read_kb_irq_req);
+    if (write_kb_irq_req != NULL) iosFree(hId, write_kb_irq_req);
+    if (comMsg != NULL) iosFree(hId, comMsg);
+
     if (AttachedDevices != NULL) iosFree(hId, AttachedDevices);
     if (Packet != NULL) iosFree(hId, Packet);
     if (RawRumbleDataOn != NULL) iosFree(hId, RawRumbleDataOn);
@@ -784,14 +820,16 @@ static u32 *HIDRun(void *param)
 static s32 HIDControlMessage(u32 isKBreq, u8 *Data, u32 Length, u32 RequestType, u32 Request, u32 Value, s32 msgData)
 {
     u8 request_dir = !!(RequestType & USB_CTRLTYPE_DIR_DEVICE2HOST);
-    memset(msg, 0, sizeof(struct _usb_msg));
+    struct _usb_msg *msg;
 
     if(isKBreq)
     {
+        msg = request_dir ? &read_kb_ctrl_req : &write_kb_ctrl_req;
         msg->fd = KeyboardID;
     }
     else
     {
+        msg = request_dir ? &read_ctrl_req : &write_ctrl_req;
         msg->fd = ControllerID;
     }
 
@@ -824,16 +862,16 @@ static s32 HIDControlMessage(u32 isKBreq, u8 *Data, u32 Length, u32 RequestType,
 static s32 HIDInterruptMessage(u32 isKBreq, u8 *Data, u32 Length, u32 Endpoint, s32 msgData)
 {
     u8 endpoint_dir = !!(Endpoint & USB_ENDPOINT_IN);
-    memset(msg, 0, sizeof(struct _usb_msg));
+    struct _usb_msg *msg;
 
     if(isKBreq)
     {
-        //msg = endpoint_dir ? &read_kb_irq_req : &write_kb_irq_req;
+        msg = endpoint_dir ? &read_kb_irq_req : &write_kb_irq_req;
         msg->fd = KeyboardID;
     }
     else
     {
-        //msg = endpoint_dir ? &read_irq_req : &write_irq_req;
+        msg = endpoint_dir ? &read_irq_req : &write_irq_req;
         msg->fd = ControllerID;
     }
     msg->hid_intr_dir = !endpoint_dir;
@@ -911,8 +949,6 @@ static void HIDPS3SetLED( u8 led )
     DCFlushRange((void*)ps3buf, 64);
 
     s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, 0);
-    //s32 ret = HIDControlMessage(0, ps3buf, sizeof(rawData), USB_REQTYPE_INTERFACE_SET,
-    //        USB_REQ_SETREPORT, (USB_REPTYPE_OUTPUT<<8) | 0x1, HID_SET_LEDS);
     if( ret < 0 )
         dbgprintf("ES:IOS_Ioctl():%d\r\n", ret );
 }
@@ -923,22 +959,13 @@ static void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left
     sprintf(txtbuffer, "PS3Rumble %d %d %d %d\r\n", duration_right, power_right, duration_left, power_left);
     DEBUG_print(txtbuffer, DBG_GPU3);
     #endif // DISP_DEBUG
-    //ps3buf[2] = duration_right;
+    ps3buf[2] = duration_right;
     ps3buf[3] = power_right;
-    //ps3buf[4] = duration_left;
+    ps3buf[4] = duration_left;
     ps3buf[5] = power_left;
     DCFlushRange((void*)ps3buf, 64);
 
-    s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, 0);
-    //s32 ret = HIDControlMessage(0, ps3buf, sizeof(rawData), USB_REQTYPE_INTERFACE_SET,
-    //        USB_REQ_SETREPORT, (USB_REPTYPE_OUTPUT<<8) | 0x1, HID_SET_RUMBLE);
-    #ifdef DISP_DEBUG
-    if ( ret < 0 )
-    {
-        sprintf(txtbuffer, "HIDPS3SetRumble Err %08x\r\n", ret);
-        DEBUG_print(txtbuffer, DBG_CORE3);
-    }
-    #endif // DISP_DEBUG
+    s32 ret = HIDInterruptMessage(0, ps3buf, sizeof(rawData), 0x02, HID_SET_RUMBLE);
 }
 
 static vu32 HIDRumbleCurrent = 0, HIDRumbleLast = 0;
@@ -952,17 +979,20 @@ static void HIDPS3Read()
         PS3LedSet = 1;
     }
 
-    // Because there is a conflict between reading data and vibration, synchronous data reading is adopted here
-    HIDControlMessage(0, Packet, SS_DATA_LEN, USB_REQTYPE_INTERFACE_GET,
-            USB_REQ_GETREPORT, (USB_REPTYPE_INPUT<<8) | 0x1, 0);
-    hidread = 1;
-
     memcpy(HID_Packet, Packet, SS_DATA_LEN);
     DCFlushRange((void*)HID_Packet, SS_DATA_LEN);
+
+    HIDControlMessage(0, Packet, SS_DATA_LEN, USB_REQTYPE_INTERFACE_GET,
+            USB_REQ_GETREPORT, (USB_REPTYPE_INPUT<<8) | 0x1, READ_CONTROLLER_MSG);
+    //hidread = 1;
 }
 
 static void HIDGCRumble(u32 input)
 {
+    #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "HIDGCRumble %08x\r\n", input);
+    DEBUG_print(txtbuffer, DBG_GPU3);
+    #endif // DISP_DEBUG
     gcbuf[0] = 0x11;
     gcbuf[1] = input & 1;
     gcbuf[2] = (input >> 1) & 1;
@@ -977,7 +1007,7 @@ static void HIDIRQRumble(u32 Enable)
 {
     #ifdef DISP_DEBUG
     sprintf(txtbuffer, "HIDIRQRumble %d\r\n", Enable);
-    writeLogFile(txtbuffer);
+    DEBUG_print(txtbuffer, DBG_GPU3);
     #endif // DISP_DEBUG
     u8 *buf = (Enable == 1) ? RawRumbleDataOn : RawRumbleDataOff;
     u32 i = 0;
@@ -995,7 +1025,7 @@ static void HIDCTRLRumble(u32 Enable)
 {
     #ifdef DISP_DEBUG
     sprintf(txtbuffer, "HIDCTRLRumble %d\r\n", Enable);
-    writeLogFile(txtbuffer);
+    DEBUG_print(txtbuffer, DBG_GPU3);
     #endif // DISP_DEBUG
     u8 *buf = (Enable == 1) ? RawRumbleDataOn : RawRumbleDataOff;
     u32 i = 0;
@@ -1030,8 +1060,8 @@ static void HIDIRQRead()
     memcpy(HID_Packet, Packet, wMaxPacketSize);
     DCFlushRange((void*)HID_Packet, wMaxPacketSize);
     #ifdef DISP_DEBUG
-    //sprintf(txtbuffer, "HIDIRQRead %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
-    //writeLogFile(txtbuffer);
+    sprintf(txtbuffer, "HIDIRQRead %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
+    DEBUG_print(txtbuffer, DBG_GPU3);
     #endif // DISP_DEBUG
 dohidirqread:
     HIDInterruptMessage(0, Packet, wMaxPacketSize, bEndpointAddressController, READ_CONTROLLER_MSG);
@@ -1195,7 +1225,6 @@ static void KeyboardRead()
 {
     memcpy(kb_input, kbbuf, 8);
     HIDInterruptMessage(1, kbbuf, 8, bEndpointAddressKeyboard, READ_KEYBOARD_MSG);
-    //keyboardread = 1;
 }
 
 static void HIDUpdateRegisters(u32 LoaderRequest)
@@ -1219,8 +1248,8 @@ static void HIDUpdateRegisters(u32 LoaderRequest)
                 hidchange = 0;
                 hidwaittimer = 0;
                 //If you dont do that it wont update anymore
-                msg->msgData = HID_ATTACH_MSG;
-                IOS_IoctlAsync(HIDHandle, AttachFinish, NULL, 0, NULL, 0, ipcCallBack, msg);
+                comMsg->msgData = HID_ATTACH_MSG;
+                IOS_IoctlAsync(HIDHandle, AttachFinish, NULL, 0, NULL, 0, ipcCallBack, comMsg);
                 //hidattach = 1;
             }
         }
@@ -1229,8 +1258,8 @@ static void HIDUpdateRegisters(u32 LoaderRequest)
             hidattach = 0;
             hidattached = 1;
             HIDOpen(LoaderRequest);
-            msg->msgData = HID_CHANGE_MSG;
-            u32 checkRet = IOS_IoctlAsync(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, ATTACHED_DEVICES_SIZE, ipcCallBack, msg);
+            comMsg->msgData = HID_CHANGE_MSG;
+            u32 checkRet = IOS_IoctlAsync(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, ATTACHED_DEVICES_SIZE, ipcCallBack, comMsg);
             #ifdef DISP_DEBUG
             sprintf(txtbuffer, "GetDeviceChange %08x\r\n", checkRet);
             writeLogFile(txtbuffer);
@@ -1264,6 +1293,8 @@ static void HIDUpdateRegisters(u32 LoaderRequest)
     }
 }
 
+// Functions for synchronously reading data
+// However, due to its impact on overall efficiency, it will not be used temporarily
 void HIDReadData(void)
 {
     if (hidattached)
@@ -1287,12 +1318,5 @@ void HIDReadData(void)
                 HIDRumbleLast = HIDRumbleCurrent;
             }
         }
-    }
-    else
-    {
-        #ifdef DISP_DEBUG
-        sprintf(txtbuffer, "HIDReadData hidattached0\r\n");
-        writeLogFile(txtbuffer);
-        #endif // DISP_DEBUG
     }
 }
