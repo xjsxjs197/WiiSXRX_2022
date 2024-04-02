@@ -192,8 +192,8 @@ struct TextBoxInfo
 ConfigureButtonsFrame::ConfigureButtonsFrame()
 {
 	for (int i = 0; i < NUM_FRAME_BUTTONS; i++)
-		FRAME_BUTTONS[i].button = new menu::Button(FRAME_BUTTONS[i].buttonStyle, &FRAME_BUTTONS[i].buttonString, 
-										FRAME_BUTTONS[i].x, FRAME_BUTTONS[i].y, 
+		FRAME_BUTTONS[i].button = new menu::Button(FRAME_BUTTONS[i].buttonStyle, &FRAME_BUTTONS[i].buttonString,
+										FRAME_BUTTONS[i].x, FRAME_BUTTONS[i].y,
 										FRAME_BUTTONS[i].width, FRAME_BUTTONS[i].height);
 
 	for (int i = 0; i < NUM_FRAME_BUTTONS; i++)
@@ -206,16 +206,16 @@ ConfigureButtonsFrame::ConfigureButtonsFrame()
 		if (FRAME_BUTTONS[i].clickedFunc) FRAME_BUTTONS[i].button->setClicked(FRAME_BUTTONS[i].clickedFunc);
 		if (FRAME_BUTTONS[i].returnFunc) FRAME_BUTTONS[i].button->setReturn(FRAME_BUTTONS[i].returnFunc);
 		add(FRAME_BUTTONS[i].button);
-		menu::Cursor::getInstance().addComponent(this, FRAME_BUTTONS[i].button, FRAME_BUTTONS[i].x, 
-												FRAME_BUTTONS[i].x+FRAME_BUTTONS[i].width, FRAME_BUTTONS[i].y, 
+		menu::Cursor::getInstance().addComponent(this, FRAME_BUTTONS[i].button, FRAME_BUTTONS[i].x,
+												FRAME_BUTTONS[i].x+FRAME_BUTTONS[i].width, FRAME_BUTTONS[i].y,
 												FRAME_BUTTONS[i].y+FRAME_BUTTONS[i].height);
 	}
 
 
 	for (int i = 0; i < NUM_FRAME_TEXTBOXES; i++)
 	{
-		FRAME_TEXTBOXES[i].textBox = new menu::TextBox(&FRAME_TEXTBOXES[i].textBoxString, 
-										FRAME_TEXTBOXES[i].x, FRAME_TEXTBOXES[i].y, 
+		FRAME_TEXTBOXES[i].textBox = new menu::TextBox(&FRAME_TEXTBOXES[i].textBoxString,
+										FRAME_TEXTBOXES[i].x, FRAME_TEXTBOXES[i].y,
 										FRAME_TEXTBOXES[i].scale, FRAME_TEXTBOXES[i].centered);
 		add(FRAME_TEXTBOXES[i].textBox);
 	}
@@ -238,15 +238,16 @@ ConfigureButtonsFrame::~ConfigureButtonsFrame()
 
 }
 
-static char controllerTypeStrings[7][17] =
+static char controllerTypeStrings[8][17] =
 	{ "Gamecube",
 	  "Classic",
 	  "Wiimote+Nunchuck",
 	  "Wiimote",
 	  "Wii U Pro",
 	  "Wii U Gamepad",
+	  "HID Gamepad",
 	  "NULL"};
-	  
+
 static char padNames[10][3] = {"1","2","1A","1B","1C","1D",
 							"2A","2B","2C","2D"};
 
@@ -258,6 +259,7 @@ enum ActivePadType
 	ACTIVEPADTYPE_WIIMOTE,
 	ACTIVEPADTYPE_WIIUPRO,
 	ACTIVEPADTYPE_WIIUGAMEPAD,
+	ACTIVEPADTYPE_HID,
 	ACTIVEPADTYPE_NONE,
 };
 
@@ -306,6 +308,8 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 		activePadType = ACTIVEPADTYPE_WIIUPRO;
 	else if (virtualControllers[activePad].control == &controller_WiiUGamepad)
 		activePadType = ACTIVEPADTYPE_WIIUGAMEPAD;
+	else if (virtualControllers[activePad].control == &controller_HidGC)
+		activePadType = ACTIVEPADTYPE_HID;
 #endif //HW_RVL
 	else
 		activePadType = ACTIVEPADTYPE_NONE;
@@ -332,7 +336,7 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 	else
 	{
 		sprintf(TITLE_STRING, "PSX Pad %s: %s Pad %d Mapping", padNames[activePad], controllerTypeStrings[activePadType], virtualControllers[activePad].number+1 );
-	
+
 		controller_config_t* currentConfig = virtualControllers[activePad].config;
 
 		if (activePadAssigned == ACTIVEPADASSIGNED_FALSE) //Reset to "Next Pad" button
@@ -344,9 +348,9 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 		FRAME_TEXTBOXES[2].textBox->setVisible(true);
 		if (padLightgun[activePad] == PADLIGHTGUN_ENABLE)
 			FRAME_BUTTONS[29].button->setSelected(true);
-		else 
+		else
 			FRAME_BUTTONS[29].button->setSelected(false);
-		
+
 		if ((lightGun == LIGHTGUN_DISABLE) || !isLightgun || padLightgun[activePad] == PADLIGHTGUN_DISABLE){
 			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_UP, FRAME_BUTTONS[FRAME_BUTTONS[0].focusUp].button);
 			FRAME_BUTTONS[0].button->setNextFocus(menu::Focus::DIRECTION_DOWN, FRAME_BUTTONS[FRAME_BUTTONS[0].focusDown].button);
@@ -367,7 +371,7 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 				FRAME_BUTTONS[i].button->setVisible(true);
 			}
 			FRAME_TEXTBOXES[1].textBox->setVisible(true);
-			
+
 			if (!isLightgun){
 				FRAME_BUTTONS[29].button->setActive(false);
 				FRAME_BUTTONS[29].button->setSelected(false);
@@ -384,17 +388,17 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 			FRAME_BUTTONS[18].button->setNextFocus(menu::Focus::DIRECTION_RIGHT, NULL);
 			FRAME_BUTTONS[19].button->setNextFocus(menu::Focus::DIRECTION_LEFT, NULL);
 			FRAME_BUTTONS[19].button->setNextFocus(menu::Focus::DIRECTION_RIGHT, NULL);
-			
+
 			for (int i = 6; i < NUM_FRAME_BUTTONS; i++){
 				FRAME_BUTTONS[i].button->setActive(false);
 				FRAME_BUTTONS[i].button->setVisible(false);
 			}
 			for (int i = 1; i < 6; i++)
 				FRAME_BUTTONS[i].button->setActive(true);
-			
+
 			FRAME_BUTTONS[19].button->setActive(true);
 			FRAME_BUTTONS[19].button->setVisible(true);
-			
+
 			FRAME_BUTTONS[28].button->setActive(true);
 			FRAME_BUTTONS[28].button->setVisible(true);
 			FRAME_BUTTONS[29].button->setActive(true);
@@ -425,7 +429,7 @@ void ConfigureButtonsFrame::activateSubmenu(int submenu)
 				FRAME_BUTTONS[11].button->setActive(true);
 				FRAME_BUTTONS[11].button->setVisible(true);
 			}
-			
+
 		}
 
 		//Assign text to each button
@@ -485,25 +489,25 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 								   {420, 200, 408, 204}, //R2 (204,16)
 								   {250, 345, 278, 294}, //AnalogL (74,106)
 								   {390, 345, 362, 294}}; //AnalogR (158,106)
-								   
+
 		int linesSens[6][4] = 	  {{300, 310, 288, 294}, //AnalogL (74,106)
 								   {340, 310, 352, 294}, //AnalogR (158,106
 								   {295, 310, 345, 310},
 								   {295, 335, 345, 335},
 								   {295, 310, 295, 335},
 								   {345, 310, 345, 335}};
-		int baseGCon_x = 133;	
-		int baseGCon_y = 215;		
+		int baseGCon_x = 133;
+		int baseGCon_y = 215;
 		int linesGCon[3][4] =     {{560, 310, 270, 300}, //Cir
 								   {506, 365, 372, 290}, //Cro
 								   {365, 160, 372, 290}}; //START
-		int baseJust_x = 120;	
-		int baseJust_y = 220;		
+		int baseJust_x = 120;
+		int baseJust_y = 220;
 		int linesJust[3][4] =     {{500, 310, 315, 300}, //Squ
 								   {490, 380, 370, 275}, //Cro
 								   {365, 160, 343, 270}}; //START
-								   
-		int basePSMouse_x = 105;	
+
+		int basePSMouse_x = 105;
 		int basePSMouse_y = 135;
 		int linesPSMouse[2][4] =  {{170, 240, 460, 150}, //Left
 								   {220, 240, 460, 200}}; //Right
@@ -529,7 +533,7 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 			controllerIcon = menu::Resources::getInstance().getImage(menu::Resources::IMAGE_JUST);
 		else
 			controllerIcon = menu::Resources::getInstance().getImage(menu::Resources::IMAGE_PSMOUSE);
-		
+
 		controllerIcon->activateImage(GX_TEXMAP0);
 //		GX_SetTevColorIn(GX_TEVSTAGE0,GX_CC_ZERO,GX_CC_ZERO,GX_CC_ZERO,GX_CC_RASC);
 		GX_SetTevColorIn(GX_TEVSTAGE0,GX_CC_ZERO,GX_CC_TEXC,GX_CC_RASC,GX_CC_ZERO);
@@ -572,7 +576,7 @@ void ConfigureButtonsFrame::drawChildren(menu::Graphics &gfx)
 			for (int i=0; i<2; i++)
 				gfx.drawLine(linesPSMouse[i][0], linesPSMouse[i][1], linesPSMouse[i][2], linesPSMouse[i][3]);
 		}
-			
+
 
 		//Draw buttons
 		menu::ComponentList::const_iterator iteration;
@@ -588,12 +592,12 @@ extern MenuContext *pMenuContext;
 void Func_NextPad()
 {
 	activePad = (activePad+1) %10;
-	
+
 	if (activePad == 2 && padType[0]!=PADTYPE_MULTITAP)
 		activePad += 4;
 	if (activePad == 6 && padType[1]!=PADTYPE_MULTITAP)
 		activePad = 0;
-	
+
 
 	pMenuContext->getFrame(MenuContext::FRAME_CONFIGUREBUTTONS)->activateSubmenu(activePad);
 }

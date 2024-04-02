@@ -14,10 +14,10 @@
 #define NUM_HW_REGISTERS 28
 
 /* general defines */
-#define write8(val)  *(u8 *)ppcPtr = val; ppcPtr++;
-#define write16(val) *(u16*)ppcPtr = val; ppcPtr+=2;
-#define write32(val) *(u32*)ppcPtr = val; ppcPtr+=4;
-#define write64(val) *(u64*)ppcPtr = val; ppcPtr+=8;
+//#define write8(val)  *(u8 *)ppcPtr = val; ppcPtr++;
+//#define write16(val) *(u16*)ppcPtr = val; ppcPtr+=2;
+//#define write32(val) *(u32*)ppcPtr = val; ppcPtr+=4;
+//#define write64(val) *(u64*)ppcPtr = val; ppcPtr+=8;
 
 #define CALLFunc(FUNC) \
 { \

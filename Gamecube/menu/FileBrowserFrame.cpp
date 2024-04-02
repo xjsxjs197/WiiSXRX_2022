@@ -31,6 +31,8 @@
 
 #include "../../psxcommon.h"
 
+#include "../../HidController/KernelHID.h"
+
 extern "C" {
 #include "../fileBrowser/fileBrowser.h"
 #include "../fileBrowser/fileBrowser-libfat.h"
@@ -168,6 +170,7 @@ void FileBrowserFrame::drawChildren(menu::Graphics &gfx)
 	{
 #ifdef HW_RVL
 		WPADData* wiiPad = menu::Input::getInstance().getWpad();
+		PADStatus* hidGcPad = (PADStatus*)(0x93003100); //PadBuff
 #endif
 		for (int i=0; i<4; i++)
 		{
@@ -268,6 +271,37 @@ void FileBrowserFrame::drawChildren(menu::Graphics &gfx)
 						menu::Focus::getInstance().clearPrimaryFocus();
 						break;
 					}
+				}
+			}
+			else if (hidControllerConnected && (hidGcPad[i].button ^ previousButtonsGCHid[i]))
+			{
+				previousButtonsGCHid[i] = hidGcPad[i].button;
+				if (hidGcPad[i].button & PAD_TRIGGER_R1)
+				{
+					// Change sort method
+					fileSortMode ^= 1;
+					// Resort the list
+					qsort(dir_entries, num_entries, sizeof(fileBrowser_file), dir_comparator);
+					current_page = 0;
+					fileBrowserFrame_FillPage();
+					menu::Focus::getInstance().clearPrimaryFocus();
+					break;
+				}
+				else if (hidGcPad[i].button & PAD_TRIGGER_R)
+				{
+					//move to next set & return
+					current_page = (current_page + 1) % max_page;
+					fileBrowserFrame_FillPage();
+					menu::Focus::getInstance().clearPrimaryFocus();
+					break;
+				}
+				else if (hidGcPad[i].button & PAD_TRIGGER_L)
+				{
+					//move to the previous set & return
+					current_page = (max_page + current_page - 1) % max_page;
+					fileBrowserFrame_FillPage();
+					menu::Focus::getInstance().clearPrimaryFocus();
+					break;
 				}
 			}
 #endif //HW_RVL

@@ -17,34 +17,45 @@
  * See the GNU General Public Licence for more details.
  *
 **/
+#include <ogc/machine/processor.h>
 
 #include "InputManager.h"
 #include "FocusManager.h"
 #include "CursorManager.h"
 #include "../gc_input/controller.h"
+#include "../DEBUG.h"
 
+#include "../../HidController/KernelHID.h"
 bool isWiiVC = false;
 
 void ShutdownWii();
+void initHid();
 
 
 
 namespace menu {
-	
+
 Input::Input()
 {
+#ifdef HW_RVL
+	initHid();
+#endif // HW_RVL
+
 	PAD_Init();
 #ifdef HW_RVL
 	CONF_Init();
 	WUPC_Init();
-	WiiDRC_Init();
-	isWiiVC = WiiDRC_Inited();
+	//WiiDRC_Init();
+	//isWiiVC = WiiDRC_Inited();
 	WPAD_Init();
 	WPAD_SetIdleTimeout(120);
 	WPAD_SetVRes(WPAD_CHAN_ALL, 640, 480);
-	WPAD_SetDataFormat(WPAD_CHAN_ALL, WPAD_FMT_BTNS_ACC_IR); 
+	WPAD_SetDataFormat(WPAD_CHAN_ALL, WPAD_FMT_BTNS_ACC_IR);
 	WPAD_SetPowerButtonCallback((WPADShutdownCallback)ShutdownWii);
 	SYS_SetPowerCallback(ShutdownWii);
+
+	/* HID */
+	HIDUpdateControllerIni();
 
 #endif
 //	VIDEO_SetPostRetraceCallback (PAD_ScanPads);
@@ -58,6 +69,19 @@ Input::~Input()
 #endif
 }
 
+void Input::initHid()
+{
+    int i;
+    WiiDRC_Init();
+    isWiiVC = WiiDRC_Inited();
+
+	memset((void*)0x93003010, 0, 0x190); //clears alot of pad stuff
+	DCFlushRange((void*)0x93003010, 0x190);
+	struct BTPadCont *BTPad = (struct BTPadCont*)0x932F0000;
+	for(i = 0; i < WPAD_MAX_WIIMOTES; ++i)
+		BTPad[i].used = C_NOT_SET;
+}
+
 void Input::refreshInput()
 {
 	if(padNeedScan){ gc_connected = PAD_ScanPads(); padNeedScan = 0; }
@@ -69,6 +93,15 @@ void Input::refreshInput()
 	wiiPad = WPAD_Data(0);
 	wupcData = WUPC_Data(0);
 	wiidrcData = WiiDRC_Data();
+
+	if (hidPadNeedScan)
+	{
+		hidPadNeedScan = 0;
+		if (loadingControllerIni)
+        {
+            HIDUpdateControllerIni();
+        }
+	}
 #endif
 }
 
@@ -100,4 +133,4 @@ void Input::clearInputData()
 	Cursor::getInstance().clearInputData();
 }
 
-} //namespace menu 
+} //namespace menu
