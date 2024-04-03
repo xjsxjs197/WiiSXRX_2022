@@ -1491,6 +1491,12 @@ void Func_SaveButtonsSD()
 			num_written++;
 		}
 #ifdef HW_RVL
+        f = fopen( "sd:/wiisxrx/controlH.cfg", "wb" );  //attempt to open file
+		if(f) {
+			save_configurations(f, &controller_HidGC);			//write out HID controller mappings
+			fclose(f);
+			num_written++;
+		}
 		f = fopen( "sd:/wiisxrx/controlC.cfg", "wb" );  //attempt to open file
 		if(f) {
 			save_configurations(f, &controller_Classic);			//write out Classic controller mappings
@@ -1543,6 +1549,12 @@ void Func_SaveButtonsUSB()
 			num_written++;
 		}
 #ifdef HW_RVL
+        f = fopen( "usb:/wiisxrx/controlH.cfg", "wb" );  //attempt to open file
+		if(f) {
+			save_configurations(f, &controller_HidGC);			//write out HID controller mappings
+			fclose(f);
+			num_written++;
+		}
 		f = fopen( "usb:/wiisxrx/controlC.cfg", "wb" );  //attempt to open file
 		if(f) {
 			save_configurations(f, &controller_Classic);			//write out Classic controller mappings
