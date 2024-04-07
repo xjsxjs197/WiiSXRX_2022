@@ -104,6 +104,8 @@ cycle_multiplier_overrides[] =
      * changing memcard settings is enough to break/unbreak it */
     { "SLPS02528", 190 },
     { "SLPS02636", 190 },
+    /* Colin McRae Rally PAL - language selection menu does not work with 175 */
+    { "SLES00477", 174 },
     /* Brave Fencer Musashi - cd sectors arrive too fast */
     { "SLUS00726", 170 },
     { "SLPS01490", 170 },
