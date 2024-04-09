@@ -993,6 +993,7 @@ void do_samples(unsigned int cycles_to, int do_direct)
 
   spu.cycles_played += ns_to * 768;
   spu.decode_pos = (spu.decode_pos + ns_to) & 0x1ff;
+  spu.spuStat = (spu.spuStat & ~0x800) | ((spu.decode_pos << 3) & 0x800);
 
   return ns_to;
 }
