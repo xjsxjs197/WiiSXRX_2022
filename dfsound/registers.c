@@ -150,7 +150,7 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
       break;
     //-------------------------------------------------//
     case H_SPUctrl:
-      spu.spuStat = (spu.spuStat & ~0x3f) | (val & 0x3f);
+      spu.spuStat = (spu.spuStat & ~0xbf) | (val & 0x3f) | ((val << 2) & 0x80);
       spu.spuStat &= ~STAT_IRQ | val;
       if (!(spu.spuCtrl & CTRL_IRQ)) {
         if (val & CTRL_IRQ)
