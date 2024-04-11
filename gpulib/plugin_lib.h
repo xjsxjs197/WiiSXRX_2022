@@ -118,7 +118,7 @@ struct rearmed_cbs {
 	int screen_centering_y;
 };
 
-extern struct rearmed_cbs pl_rearmed_cbs;
+extern struct rearmed_cbs *cbs;
 
 enum gpu_plugin_caps {
 	GPU_CAP_OWNS_DISPLAY = (1 << 0),

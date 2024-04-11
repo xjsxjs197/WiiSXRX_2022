@@ -15,7 +15,7 @@
 
 extern int backFromMenu;
 
-static const struct rearmed_cbs *cbs;
+struct rearmed_cbs *cbs;
 
 int vout_init(void)
 {

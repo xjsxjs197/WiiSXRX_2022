@@ -902,6 +902,8 @@ void LIB_GPUupdateLace(void)
     flush_cmd_buffer();
   renderer_flush_queues();
 
+  //CheckFrameRate();
+
   if (lightGun == LIGHTGUN_GUNCON || lightGun == LIGHTGUN_JUST)
   {
     memset(gMouse, 0, sizeof(gMouse));

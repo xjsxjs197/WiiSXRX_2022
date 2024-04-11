@@ -38,22 +38,10 @@
 ////////////////////////////////////////////////////////////////////////////////////
 // misc globals
 ////////////////////////////////////////////////////////////////////////////////////
-char           szDispBuf[64];
 int            iResX;
 int            iResY;
-//long           lLowerpart;
 BOOL           bIsFirstFrame = TRUE;
-//BOOL           bCheckMask=FALSE;
-//unsigned short sSetMask=0;
-//unsigned long  lSetMask=0;
-int            iDesktopCol=16;
-int            iShowFPS=1;
-int            iWinSize;
-int            iUseScanLines=0;
-int            iUseNoStretchBlt=0;
 int            iFastFwd=0;
-int            iDebugMode=0;
-int            iFVDisplay=0;
 PSXPoint_t     ptCursorPoint[8];
 unsigned short usCursorActive=0;
 int            backFromMenu=0;
@@ -67,7 +55,6 @@ char *	pCaptionText;
 extern char text[DEBUG_TEXT_HEIGHT][DEBUG_TEXT_WIDTH]; /*** DEBUG textbuffer ***/
 extern char menuActive;
 extern char screenMode;
-static char fpsInfo[32];
 
 // prototypes
 static void GX_Flip(const void *buffer, int pitch, u8 fmt,
@@ -121,6 +108,19 @@ static void gc_vout_drawdone(void)
 
 static void gc_vout_render(void)
 {
+	// reset swap table from GUI/DEBUG
+	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED ,GX_CH_ALPHA);
+	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
+
+//	GX_DrawDone();
+//
+//	gc_vout_copydone();
+//	GX_CopyDisp(xfb[FB_BACK], GX_TRUE);
+//	GX_DrawDone();
+//
+//    VIDEO_SetNextFramebuffer(xfb[FB_BACK]);
+//	VIDEO_Flush();
+
 	GX_SetDrawDoneCallback(gc_vout_drawdone);
 	GX_SetDrawDone();
 }
@@ -355,7 +355,7 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 		}
 	}
 
-	//Write menu/debug text on screen
+	// Write menu/debug text on screen
 	if (showFPSonScreen == FPS_SHOW)
     {
         GXColor fontColor = {150,255,150,255};
@@ -422,36 +422,42 @@ static void gc_vout_close(void) {}
 
 static void gc_vout_flip(const void *vram, int stride, int bgr24,
 			      int x, int y, int w, int h, int dims_changed) {
-	if(vram == NULL) {
+	if (vram == NULL) {
 		memset(GXtexture,0,sizeof(GXtexture));
 		if (menuActive) return;
 
-		#ifdef DISP_DEBUG
-		// clear the screen, and flush it
-		//DEBUG_print("gc_vout_flip_null_vram",DBG_GPU1);
-
-		//Write menu/debug text on screen
-		GXColor fontColor = {150,255,150,255};
-		IplFont_drawInit(fontColor);
-		//if(showFPSonScreen)
-		//	IplFont_drawString(10,35,szDispBuf, 1.0, false);
-
-		int i = 0;
-		DEBUG_update();
-		for (i=0;i<DEBUG_TEXT_HEIGHT;i++)
-			IplFont_drawString(10,(24*i+60),text[i], 0.5, false);
-		#endif // DISP_DEBUG
+		// Write menu/debug text on screen
+		if (showFPSonScreen == FPS_SHOW)
+		{
+			GXColor fontColor = {150,255,150,255};
+			IplFont_drawInit(fontColor);
+			IplFont_drawString(10,35,fpsInfo, 1.0, false);
+			#ifdef SHOW_DEBUG
+			int i = 0;
+			DEBUG_update();
+			for (i=0;i<DEBUG_TEXT_HEIGHT;i++)
+			{
+				IplFont_drawString(10,(24*i+60),text[i], 0.5, false);
+			}
+			#endif // SHOW_DEBUG
+		}
 
 		gc_vout_render();
 		return;
 	}
 	if (menuActive) return;
 
-	//reset swap table from GUI/DEBUG
-	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED ,GX_CH_ALPHA);
-	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
-
-	GX_Flip(vram, stride * 2, bgr24 ? GX_TF_RGBA8 : GX_TF_RGB5A3, x, y, w, h);
+//	if (cbs->frameskip)
+//	{
+//		if (!bSkipNextFrame)
+//			GX_Flip(vram, stride * 2, bgr24 ? GX_TF_RGBA8 : GX_TF_RGB5A3, x, y, w, h);
+//
+//		FrameSkip();
+//	}
+//	else
+	{
+		GX_Flip(vram, stride * 2, bgr24 ? GX_TF_RGBA8 : GX_TF_RGB5A3, x, y, w, h);
+	}
 }
 
 static void gc_vout_set_mode(int w, int h, int raw_w, int raw_h, int bpp) {
@@ -550,9 +556,9 @@ void pl_frame_limit(void)
 	}
 
 	if (frameLimit[0] == FRAMELIMIT_AUTO && diff > frame_interval) {
-		if (vsync_enable)
-			VIDEO_WaitVSync();
-		else
+		//if (vsync_enable)
+		//	VIDEO_WaitVSync();
+		//else
 			usleep(diff - frame_interval);
 	}
 
@@ -580,11 +586,19 @@ void pl_chg_psxtype(int is_pal_)
 	frame_interval1024 = is_pal ? 20000*1024 : 17066667;
 
 	// used by P.E.Op.S. frameskip code
-	gc_rearmed_cbs.gpu_peops.fFrameRateHz = is_pal ? 50.0f : 59.94f;
-	gc_rearmed_cbs.gpu_peops.dwFrameRateTicks =
-		(100000*100 / (unsigned long)(gc_rearmed_cbs.gpu_peops.fFrameRateHz*100));
+	if (PSXDisplay.Interlaced)
+	{
+		gc_rearmed_cbs.gpu_peops.fFrameRateHz = is_pal ? 50.00238f : 59.94146f;
+	}
+	else
+	{
+		gc_rearmed_cbs.gpu_peops.fFrameRateHz = is_pal ? 49.76351f : 59.82750f;
+	}
 
-	vsync_enable = !is_pal && frameLimit[0] == FRAMELIMIT_AUTO;
+	gc_rearmed_cbs.gpu_peops.dwFrameRateTicks =
+		(unsigned long) (TIMEBASE / gc_rearmed_cbs.gpu_peops.fFrameRateHz);
+
+	//vsync_enable = !is_pal && frameLimit[0] == FRAMELIMIT_AUTO;
 }
 
 void plugin_call_rearmed_cbs(unsigned long autoDwActFixes, int cfgUseDithering)

@@ -983,8 +983,10 @@ void SysUpdate()
 	framesdone++;
 	// reamed hack
 	{
-		extern void pl_frame_limit(void);
-		pl_frame_limit();
+		//extern void pl_frame_limit(void);
+		//pl_frame_limit();
+		extern void CheckFrameRate(void);
+		CheckFrameRate();
 	}
 #ifdef PROFILE
 	refresh_stat();

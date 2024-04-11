@@ -183,7 +183,6 @@ extern long           GlobalTextREST,GlobalTextABR,GlobalTextPAGE;
 extern short          ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;
 extern long           lLowerpart;
 extern BOOL           bIsFirstFrame;
-extern int            iWinSize;
 extern BOOL           bCheckMask;
 extern unsigned short sSetMask;
 extern unsigned long  lSetMask;
@@ -193,13 +192,7 @@ extern short          g_m2;
 extern short          g_m3;
 extern short          DrawSemiTrans;
 extern int            iUseGammaVal;
-extern int            iUseScanLines;
-extern int            iDesktopCol;
-extern int            iUseNoStretchBlt;
-extern int            iShowFPS;
 extern int            iFastFwd;
-extern int            iDebugMode;
-extern int            iFVDisplay;
 extern PSXPoint_t     ptCursorPoint[];
 extern unsigned short usCursorActive;
 
@@ -239,8 +232,6 @@ extern DATAREGISTERMODES DataWriteMode;
 extern DATAREGISTERMODES DataReadMode;
 extern int            iColDepth;
 extern int            iWindowMode;
-extern char           szDispBuf[];
-extern char           szMenuBuf[];
 extern char           szDebugText[];
 extern short          sDispWidths[];
 extern BOOL           bDebugText;
@@ -261,7 +252,6 @@ extern signed long    * psxVsl;
 extern unsigned short * psxVuw_eom;
 extern BOOL           bChangeWinMode;
 extern long           lSelectedSlot;
-extern DWORD          dwLaceCnt;
 extern unsigned long  lGPUInfoVals[];
 extern unsigned long  ulStatusControl[];
 extern int            iRumbleVal;
@@ -289,15 +279,17 @@ extern unsigned long  ulKeybits;
 
 #ifndef _IN_FPS
 
-extern BOOL           bInitCap;
+#define TIMEBASE 100000
+
 extern int            UseFrameLimit;
 extern int            UseFrameSkip;
 extern float          fFrameRate;
 extern int            iFrameLimit;
 extern float          fFrameRateHz;
-extern float          fps_skip;
-extern float          fps_cur;
 extern BOOL           bSSSPSXLimit;
+extern char           fpsInfo[32];
+extern void           CheckFrameRate(void);
+extern void           FrameSkip(void);
 
 #endif
 
