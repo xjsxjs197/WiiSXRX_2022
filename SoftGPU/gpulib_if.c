@@ -277,7 +277,7 @@ void renderer_notify_res_change(uint32_t gdata)
     PSXDisplay.Interlaced = ((gdata & 0x24) ^ 0x24)?FALSE:TRUE; // if 0 - Interlace
 }
 
-void renderer_notify_scanout_x_change(int x, int w)
+void renderer_notify_scanout_change(int x, int y)
 {
 }
 
