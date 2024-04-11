@@ -163,6 +163,7 @@ INLINE void MixCD(int *SSumLR, int *RVB, int ns_to, int decode_pos)
 	 }
   spu.cdClearSamples -= ns_to;
   spu.XALastVal = 0;
+ }
 }
 
 ////////////////////////////////////////////////////////////////////////
