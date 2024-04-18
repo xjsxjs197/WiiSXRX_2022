@@ -1,5 +1,5 @@
 README : WiiStation
-Ver 3.2
+Ver Beta 4.0
 
 LICENSE:
     This software is licensed under the GNU General Public License v2
@@ -26,6 +26,7 @@ QUICK USAGE:
         (Note: this must be done to save your game; it will not be done automatically)
 
 Controls:
+ * The HID(PS2 PS3) controller is recommended.
  * While the GameCube pad is compatible, a Wii Classic Controller, Wii Classic Controller Pro, or Wii U Pro Controller is recommended.
  * The Wii U GamePad is also compatible, but only when doing Wii U VC injections (no, you can't use it on vWii).
  * Controls are now fully configurable so any button on your controller can be mapped
@@ -116,6 +117,14 @@ LATER UPDATES BY:
  * Jokippo
 
 WiiStation CHANGE LOG:
+Ver Beta 4.0:
+* HID controllers support.
+  (The PS3 controller(includes vibration) has been fully tested.)
+  (The PS2 controller has also undergone complete testing, but currently does not support vibration)
+* Using the speed limit logic of old video plugins.
+* Merged some code from pcsxRearm to reduce the occurrence of some issues.
+* Reduced the use of MEM1 memory and fixed errors in games such as Rayman 2
+
 Ver 3.2:
 * SPU: Correction for overflow of 16 digit numbers.
 * psxbios: implement yet more memcard details.

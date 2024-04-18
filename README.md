@@ -6,6 +6,14 @@ WiiStation (formerly WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emul
 
 ## The following changes have been made to the code based on WiiSXRX.
 
+* HID controllers support.
+  Supported controllers refer to [Nintendont]（ https://github.com/FIX94/Nintendont ）
+  If you want to add controllers beyond what nintendont supports, you need to add a new INI configuration file. The process should be as follows:
+  Connect your HID controller to the Wii, and then start HID_Test.dol (please modify it to boot. dol). If the controller is supported, you will see normal connection information and information when each button is pressed.
+  Send me the information when each button is pressed, and I will create an INI file. Or, refer to 0810_0003.ini to create your INI file.
+  You can refer to the information in this link:
+  https://gbatemp.net/threads/nintendont-custom-controller-configuration-file.633068/#post-10164777
+
 * Incorporating the latest CDROM and CDRISO codes from PCSX-ReARMed, the compatibility of the system has been greatly improved.
   Many games that could not be run or had problems before can be run now.
 
