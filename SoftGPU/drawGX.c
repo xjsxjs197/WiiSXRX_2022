@@ -121,6 +121,10 @@ static void gc_vout_drawdone(void)
 
 static void gc_vout_render(void)
 {
+	// reset swap table from GUI/DEBUG
+	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED ,GX_CH_ALPHA);
+	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
+
 	GX_SetDrawDoneCallback(gc_vout_drawdone);
 	GX_SetDrawDone();
 }
@@ -422,34 +426,30 @@ static void gc_vout_close(void) {}
 
 static void gc_vout_flip(const void *vram, int stride, int bgr24,
 			      int x, int y, int w, int h, int dims_changed) {
-	if(vram == NULL) {
+	if (vram == NULL) {
 		memset(GXtexture,0,sizeof(GXtexture));
 		if (menuActive) return;
 
-		#ifdef DISP_DEBUG
-		// clear the screen, and flush it
-		//DEBUG_print("gc_vout_flip_null_vram",DBG_GPU1);
-
-		//Write menu/debug text on screen
-		GXColor fontColor = {150,255,150,255};
-		IplFont_drawInit(fontColor);
-		//if(showFPSonScreen)
-		//	IplFont_drawString(10,35,szDispBuf, 1.0, false);
-
-		int i = 0;
-		DEBUG_update();
-		for (i=0;i<DEBUG_TEXT_HEIGHT;i++)
-			IplFont_drawString(10,(24*i+60),text[i], 0.5, false);
-		#endif // DISP_DEBUG
+		// Write menu/debug text on screen
+		if (showFPSonScreen == FPS_SHOW)
+		{
+			GXColor fontColor = {150,255,150,255};
+			IplFont_drawInit(fontColor);
+			IplFont_drawString(10,35,fpsInfo, 1.0, false);
+			#ifdef SHOW_DEBUG
+			int i = 0;
+			DEBUG_update();
+			for (i=0;i<DEBUG_TEXT_HEIGHT;i++)
+			{
+				IplFont_drawString(10,(24*i+60),text[i], 0.5, false);
+			}
+			#endif // SHOW_DEBUG
+		}
 
 		gc_vout_render();
 		return;
 	}
 	if (menuActive) return;
-
-	//reset swap table from GUI/DEBUG
-	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED ,GX_CH_ALPHA);
-	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
 
 	GX_Flip(vram, stride * 2, bgr24 ? GX_TF_RGBA8 : GX_TF_RGB5A3, x, y, w, h);
 }
@@ -500,6 +500,128 @@ static int vsync_usec_time;
 #define tvdiff(tv, tv_old) \
 	((tv.tv_sec - tv_old.tv_sec) * 1000000 + tv.tv_usec - tv_old.tv_usec)
 
+#define       MAXSKIP 120
+#define       MAXLACE 16
+static DWORD  dwLaceCnt = 0;
+static BOOL   bInitCap = TRUE;
+static float  fps_skip = 0;
+static float  fps_cur  = 0;
+
+static unsigned long timeGetTime()
+{
+    long long nowTick = gettime();
+    return diff_usec(0, nowTick) / 10;
+}
+
+static void FrameCap (void)
+{
+    static unsigned long curticks, lastticks, _ticks_since_last_update;
+    static unsigned long TicksToWait = 0;
+
+    curticks = timeGetTime();
+    _ticks_since_last_update = curticks - lastticks;
+
+    if ((_ticks_since_last_update > TicksToWait) ||
+            (curticks <lastticks))
+    {
+        lastticks = curticks;
+
+        if ((_ticks_since_last_update-TicksToWait) > gc_rearmed_cbs.gpu_peops.dwFrameRateTicks)
+            TicksToWait = 0;
+        else TicksToWait = gc_rearmed_cbs.gpu_peops.dwFrameRateTicks - (_ticks_since_last_update - TicksToWait);
+    }
+    else
+    {
+        BOOL Waiting = TRUE;
+        while (Waiting)
+        {
+            curticks = timeGetTime();
+            _ticks_since_last_update = curticks - lastticks;
+            if ((_ticks_since_last_update > TicksToWait) ||
+                    (curticks < lastticks))
+            {
+                Waiting = FALSE;
+                lastticks = curticks;
+                TicksToWait = gc_rearmed_cbs.gpu_peops.dwFrameRateTicks;
+            }
+        }
+    }
+}
+
+static void CalcFps(void)
+{
+    static unsigned long _ticks_since_last_update;
+    static unsigned long fps_cnt = 0;
+    static unsigned long fps_tck = 1;
+    {
+        static unsigned long lastticks;
+        static unsigned long curticks;
+
+        curticks = timeGetTime();
+        _ticks_since_last_update = curticks - lastticks;
+
+        if (gc_rearmed_cbs.frameskip && (frameLimit[0] != FRAMELIMIT_AUTO) && _ticks_since_last_update)
+            fps_skip = min(fps_skip, ((float)TIMEBASE / (float)_ticks_since_last_update + 1.0f));
+
+        lastticks = curticks;
+    }
+
+    if (gc_rearmed_cbs.frameskip && (frameLimit[0] == FRAMELIMIT_AUTO))
+    {
+        static unsigned long fpsskip_cnt = 0;
+        static unsigned long fpsskip_tck = 1;
+
+        fpsskip_tck += _ticks_since_last_update;
+
+        if (++fpsskip_cnt == 2)
+        {
+            fps_skip = (float)2000 / (float)fpsskip_tck;
+            fps_skip += 6.0f;
+            fpsskip_cnt = 0;
+            fpsskip_tck = 1;
+        }
+    }
+
+    fps_tck += _ticks_since_last_update;
+
+    if (++fps_cnt == 10)
+    {
+        fps_cur = (float)(TIMEBASE * 10) / (float)fps_tck;
+
+        fps_cnt = 0;
+        fps_tck = 1;
+
+        if ((frameLimit[0] == FRAMELIMIT_AUTO) && fps_cur > gc_rearmed_cbs.gpu_peops.fFrameRateHz)    // optical adjust ;) avoids flickering fps display
+            fps_cur = gc_rearmed_cbs.gpu_peops.fFrameRateHz;
+    }
+
+    sprintf(fpsInfo, "FPS %.2f", fps_cur);
+}
+
+static void CheckFrameRate(void)
+{
+//    if (gc_rearmed_cbs.frameskip)                           // skipping mode?
+//    {
+//        dwLaceCnt++;                                     // -> store cnt of vsync between frames
+//        if (dwLaceCnt >= MAXLACE && frameLimit[0] == FRAMELIMIT_AUTO)       // -> if there are many laces without screen toggling,
+//        {                                                //    do std frame limitation
+//            if (dwLaceCnt == MAXLACE) bInitCap = TRUE;
+//
+//            FrameCap();
+//        }
+//        CalcFps();        // -> calc fps display in skipping mode
+//        if (fps_cur < gc_rearmed_cbs.gpu_peops.fFrameRateHz)
+//            gc_rearmed_cbs.fskip_advice = 1;
+//        else
+//            gc_rearmed_cbs.fskip_advice = 0;
+//    }
+//    else                                                  // non-skipping mode:
+    {
+        if (frameLimit[0] == FRAMELIMIT_AUTO) FrameCap();                      // -> do it
+        if (showFPSonScreen == FPS_SHOW) CalcFps();          // -> and calc fps display
+    }
+}
+
 /* called on every vsync */
 void pl_frame_limit(void)
 {
@@ -511,57 +633,60 @@ void pl_frame_limit(void)
 	if (g_emu_resetting)
 		return;
 
-	vsync_cnt++;
-	gettimeofday(&now, 0);
+    // used by P.E.Op.S. frame limit code
+    CheckFrameRate();
 
-	if (now.tv_sec != tv_old.tv_sec) {
-		diff = tvdiff(now, tv_old);
-		gc_rearmed_cbs.vsps_cur = 0.0f;
-		if (0 < diff && diff < 2000000)
-			gc_rearmed_cbs.vsps_cur = 1000000.0f * (vsync_cnt - vsync_cnt_prev) / diff;
-		vsync_cnt_prev = vsync_cnt;
+//	vsync_cnt++;
+//	gettimeofday(&now, 0);
+//
+//	if (now.tv_sec != tv_old.tv_sec) {
+//		diff = tvdiff(now, tv_old);
+//		gc_rearmed_cbs.vsps_cur = 0.0f;
+//		if (0 < diff && diff < 2000000)
+//			gc_rearmed_cbs.vsps_cur = 1000000.0f * (vsync_cnt - vsync_cnt_prev) / diff;
+//		vsync_cnt_prev = vsync_cnt;
+//
+//		gc_rearmed_cbs.flips_per_sec = gc_rearmed_cbs.flip_cnt;
+//		sprintf(fpsInfo, "FPS %.2f", gc_rearmed_cbs.vsps_cur);
+//
+//		gc_rearmed_cbs.flip_cnt = 0;
+//
+//		tv_old = now;
+//		//new_dynarec_print_stats();
+//	}
+//
+//	// tv_expect uses usec*1024 units instead of usecs for better accuracy
+//	tv_expect.tv_usec += frame_interval1024;
+//	if (tv_expect.tv_usec >= (1000000 << 10)) {
+//		tv_expect.tv_usec -= (1000000 << 10);
+//		tv_expect.tv_sec++;
+//	}
+//	diff = (tv_expect.tv_sec - now.tv_sec) * 1000000 + (tv_expect.tv_usec >> 10) - now.tv_usec;
+//
+//	if (diff > MAX_LAG_FRAMES * frame_interval || diff < -MAX_LAG_FRAMES * frame_interval) {
+//		//printf("pl_frame_limit reset, diff=%d, iv %d\n", diff, frame_interval);
+//		tv_expect = now;
+//		diff = 0;
+//		// try to align with vsync
+//		usadj = vsync_usec_time;
+//		while (usadj < tv_expect.tv_usec - frame_interval)
+//			usadj += frame_interval;
+//		tv_expect.tv_usec = usadj << 10;
+//	}
+//
+//	if (frameLimit[0] == FRAMELIMIT_AUTO && diff > frame_interval) {
+//		//if (vsync_enable)
+//		//	VIDEO_WaitVSync();
+//		//else
+//			usleep(diff - frame_interval);
+//	}
 
-		gc_rearmed_cbs.flips_per_sec = gc_rearmed_cbs.flip_cnt;
-		sprintf(fpsInfo, "FPS %.2f", gc_rearmed_cbs.vsps_cur);
-
-		gc_rearmed_cbs.flip_cnt = 0;
-
-		tv_old = now;
-		//new_dynarec_print_stats();
-	}
-
-	// tv_expect uses usec*1024 units instead of usecs for better accuracy
-	tv_expect.tv_usec += frame_interval1024;
-	if (tv_expect.tv_usec >= (1000000 << 10)) {
-		tv_expect.tv_usec -= (1000000 << 10);
-		tv_expect.tv_sec++;
-	}
-	diff = (tv_expect.tv_sec - now.tv_sec) * 1000000 + (tv_expect.tv_usec >> 10) - now.tv_usec;
-
-	if (diff > MAX_LAG_FRAMES * frame_interval || diff < -MAX_LAG_FRAMES * frame_interval) {
-		//printf("pl_frame_limit reset, diff=%d, iv %d\n", diff, frame_interval);
-		tv_expect = now;
-		diff = 0;
-		// try to align with vsync
-		usadj = vsync_usec_time;
-		while (usadj < tv_expect.tv_usec - frame_interval)
-			usadj += frame_interval;
-		tv_expect.tv_usec = usadj << 10;
-	}
-
-	if (frameLimit[0] == FRAMELIMIT_AUTO && diff > frame_interval) {
-		if (vsync_enable)
-			VIDEO_WaitVSync();
-		else
-			usleep(diff - frame_interval);
-	}
-
-	if (gc_rearmed_cbs.frameskip) {
-		if (diff < -frame_interval)
-			gc_rearmed_cbs.fskip_advice = 1;
-		else if (diff >= 0)
-			gc_rearmed_cbs.fskip_advice = 0;
-	}
+//	if (gc_rearmed_cbs.frameskip) {
+//		if (diff < -frame_interval)
+//			gc_rearmed_cbs.fskip_advice = 1;
+//		else if (diff >= 0)
+//			gc_rearmed_cbs.fskip_advice = 0;
+//	}
 }
 
 void pl_timing_prepare(int is_pal_)
@@ -579,12 +704,20 @@ void pl_chg_psxtype(int is_pal_)
 	frame_interval = is_pal ? 20000 : 16667;
 	frame_interval1024 = is_pal ? 20000*1024 : 17066667;
 
-	// used by P.E.Op.S. frameskip code
-	gc_rearmed_cbs.gpu_peops.fFrameRateHz = is_pal ? 50.0f : 59.94f;
-	gc_rearmed_cbs.gpu_peops.dwFrameRateTicks =
-		(100000*100 / (unsigned long)(gc_rearmed_cbs.gpu_peops.fFrameRateHz*100));
+	// used by P.E.Op.S. frame limit code
+	if (PSXDisplay.Interlaced)
+	{
+		gc_rearmed_cbs.gpu_peops.fFrameRateHz = is_pal ? 50.00238f : 59.94146f;
+	}
+	else
+	{
+		gc_rearmed_cbs.gpu_peops.fFrameRateHz = is_pal ? 49.76351f : 59.82750f;
+	}
 
-	vsync_enable = !is_pal && frameLimit[0] == FRAMELIMIT_AUTO;
+	gc_rearmed_cbs.gpu_peops.dwFrameRateTicks =
+		(unsigned long) (TIMEBASE / gc_rearmed_cbs.gpu_peops.fFrameRateHz);
+
+	//vsync_enable = !is_pal && frameLimit[0] == FRAMELIMIT_AUTO;
 }
 
 void plugin_call_rearmed_cbs(unsigned long autoDwActFixes, int cfgUseDithering)
