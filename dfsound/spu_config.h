@@ -12,7 +12,6 @@ typedef struct
  int        iTempo;
  int        idiablofix;
  int        iUseThread;
- //int        iUseFixedUpdates;  // output fixed number of samples/frame
 
  // status
  int        iThreadAvail;

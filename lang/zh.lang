@@ -580,3 +580,12 @@ msgstr "单独保存"
 
 msgid "Unable to read different versions of Save State"
 msgstr "无法读取不同版本的即时存档"
+
+msgid "Interpolation"
+msgstr "音频插值"
+
+msgid "Simple"
+msgstr "简单插值"
+
+msgid "Gaussi"
+msgstr "高斯插值"

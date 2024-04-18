@@ -88,18 +88,7 @@ typedef struct
  int            EnvelopeVol;
  int            EnvelopeCounter;
 } ADSRInfoEx;
-
-///////////////////////////////////////////////////////////
-
-// Tmp Flags
-
-// used for debug channel muting
-#define FLAG_MUTE  1
-
-// used for simple interpolation
-#define FLAG_IPOL0 2
-#define FLAG_IPOL1 4
-
+              
 ///////////////////////////////////////////////////////////
 
 // MAIN CHANNEL STRUCT
@@ -185,8 +174,21 @@ typedef struct
 
 // psx buffers / addresses
 
-#define SB_SIZE (32 + 4)
-#define NUM_SPU_BUFFERS 4
+typedef union
+{
+ s16 SB[28 + 4 + 4];
+ struct {
+  s16 sample[28];
+  union {
+   struct {
+    s16 pos;
+    s16 val[4];
+   } gauss;
+   s16 simple[5]; // 28-32
+  } interp;
+  int sinc_old;
+ };
+} sample_buf;
 
 typedef struct
 {
@@ -251,10 +253,9 @@ typedef struct
  unsigned int  * CDDAStart;
  unsigned int  * CDDAEnd;
 
- // buffers
- s16           * SB;
-
  unsigned short  regArea[0x400];
+
+ sample_buf      sb[MAXCHAN];
  int             interpolation;
 } SPUInfo;
 

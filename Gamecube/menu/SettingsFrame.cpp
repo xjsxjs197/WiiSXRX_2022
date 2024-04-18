@@ -143,6 +143,7 @@ FILE* IplFont_getFontFile(char* sdUsb);
 void psxResetRcntRate();
 void pl_chg_psxtype(int is_pal_);
 void gpuChangePsxType();
+void setSpuInterpolation(int spuInterpolation);
 }
 
 #define NUM_FRAME_BUTTONS 64
@@ -238,9 +239,9 @@ static char FRAME_STRINGS[79][24] =
 	  "Disable Audio",
 	  "Disable XA",
 	  "Disable CDDA",
-	  "Volume",
-	  "loudest",	//iVolume=1
-	  "loud",
+	  "Interpolation",
+	  "Simple",	//iVolume=1
+	  "Gaussi",
 	  "medium",
 	  "low",		//iVolume=4
 	//Strings for Saves tab (starting at FRAME_STRINGS[51]) ..was[55]
@@ -640,18 +641,12 @@ void SettingsFrame::activateSubmenu(int submenu)
 			else								FRAME_BUTTONS[42].button->setSelected(true);
 			if (Config.Cdda == CDDA_DISABLE)	FRAME_BUTTONS[43].button->setSelected(true);
 			else								FRAME_BUTTONS[44].button->setSelected(true);
-			FRAME_BUTTONS[45].buttonString = FRAME_STRINGS[46+iVolume];
+			FRAME_BUTTONS[45].buttonString = FRAME_STRINGS[46 + spuInterpolation];
 			for (int i = 39; i < 46; i++)
 			{
 				FRAME_BUTTONS[i].button->setVisible(true);
 				FRAME_BUTTONS[i].button->setActive(true);
 			}
-			// upd xjsxjs197 start
-			/*for (int i = 43; i <= 44; i++)	//disable CDDA buttons
-			{
-				FRAME_BUTTONS[i].button->setActive(false);
-			}*/
-			// upd xjsxjs197 end
 			break;
 		case SUBMENU_SAVES:
 			setDefaultFocus(FRAME_BUTTONS[4].button);
@@ -1669,16 +1664,18 @@ void Func_DisableCddaNo()
 	//menu::MessageBox::getInstance().setMessage("CDDA audio is not implemented");
 }
 
-extern "C" void SetVolume(void);
-
 void Func_VolumeToggle()
 {
-	iVolume--;
-	if (iVolume<1)
-		iVolume = 4;
-	FRAME_BUTTONS[45].buttonString = FRAME_STRINGS[46+iVolume];
-	volume = iVolume;
-	SetVolume();
+	if (spuInterpolation == SIMPLE_INTERPOLATION)
+	{
+		spuInterpolation = GAUSSI_INTERPOLATION;
+	}
+	else
+	{
+		spuInterpolation = SIMPLE_INTERPOLATION;
+	}
+	FRAME_BUTTONS[45].buttonString = FRAME_STRINGS[46 + spuInterpolation];
+	setSpuInterpolation(spuInterpolation);
 }
 
 void Func_MemcardSaveSD()

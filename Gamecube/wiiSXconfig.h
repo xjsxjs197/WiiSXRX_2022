@@ -44,14 +44,11 @@ enum ConfigCdda //Config.Cdda
 	CDDA_DISABLE
 };
 
-extern int iVolume;
-extern char volume;
-enum iVolume
+extern char spuInterpolation;
+enum spuInterpolationEnum
 {
-	VOLUME_LOUDEST=1,
-	VOLUME_LOUD,
-	VOLUME_MEDIUM,
-	VOLUME_LOW
+	SIMPLE_INTERPOLATION = 1,
+	GAUSSI_INTERPOLATION,
 };
 
 extern char showFPSonScreen;

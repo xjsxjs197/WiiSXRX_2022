@@ -18,6 +18,7 @@
  *                                                                         *
  ***************************************************************************/
 
+#include <assert.h>
 #include "stdafx.h"
 
 #define _IN_SPU
@@ -127,8 +128,14 @@ int ChanBuf[NSSIZE];
 //          /
 //
 
-static void InterpolateUp(s16 *SB, int sinc)
+static void InterpolateUp(sample_buf *sb, int sinc)
 {
+    s16 *SB = sb->SB;
+    if (sb->sinc_old != sinc)
+    {
+        sb->sinc_old = sinc;
+        SB[32] = 1;
+    }
     if (SB[32] == 1)                                         // flag == 1? calc step and set flag... and don't change the value in this pass
     {
         int id1 = SB[30] - SB[29];                        // curr delta to next val
@@ -190,8 +197,9 @@ static void InterpolateUp(s16 *SB, int sinc)
 // even easier interpolation on downsampling, also no special filter, again just "Pete's common sense" tm
 //
 
-static void InterpolateDown(s16 *SB, int sinc)
+static void InterpolateDown(sample_buf *sb, int sinc)
 {
+    s16 *SB = sb->SB;
     if (sinc >= 0x20000L)                                 // we would skip at least one val?
     {
         int temp;
@@ -204,15 +212,8 @@ static void InterpolateDown(s16 *SB, int sinc)
 }
 
 ////////////////////////////////////////////////////////////////////////
-// helpers for gauss interpolation
-
-#define gval0 (((short*)(&SB[29]))[gpos&3])
-#define gval(x) ((int)((short*)(&SB[29]))[(gpos+x)&3])
 
 #include "gauss_i.h"
-
-////////////////////////////////////////////////////////////////////////
-
 #include "xa.c"
 
 static void do_irq(int cycles_after)
@@ -261,15 +262,17 @@ void do_irq_io(int cycles_after)
 // START SOUND... called by main thread to setup a new sound on a channel
 ////////////////////////////////////////////////////////////////////////
 
-static void StartSoundSB(s16 *SB)
+static void ResetInterpolation(sample_buf *sb)
 {
- SB[26]=0;                                             // init mixing vars
- SB[27]=0;
+    memset(&sb->interp, 0, sizeof(sb->interp));
+    sb->sinc_old = -1;
+}
 
- SB[28]=0;
- SB[29]=0;                                             // init our interpolation helpers
- SB[30]=0;
- SB[31]=0;
+static void StartSoundSB(sample_buf *sb)
+{
+    sb->SB[26]=0;                                             // init mixing vars
+    sb->SB[27]=0;
+    ResetInterpolation(sb);
 }
 
 static void StartSoundMain(int ch)
@@ -297,123 +300,67 @@ static void StartSoundMain(int ch)
 static void StartSound(int ch)
 {
  StartSoundMain(ch);
- StartSoundSB(spu.SB + ch * SB_SIZE);
+ StartSoundSB(&spu.sb[ch]);
 }
 
 ////////////////////////////////////////////////////////////////////////
 // ALL KIND OF HELPERS
 ////////////////////////////////////////////////////////////////////////
 
-INLINE int FModChangeFrequency(s16 *SB, int pitch, int ns)
+INLINE int FModChangeFrequency(int pitch, int ns, int *fmod_buf)
 {
- unsigned int NP=pitch;
- int sinc;
+ pitch = (signed short)pitch;
+ pitch = ((32768 + fmod_buf[ns]) * pitch) >> 15;
+ pitch &= 0xffff;
+ if (pitch > 0x3fff)
+  pitch = 0x3fff;
 
- NP=((32768L+iFMod[ns])*NP)>>15;
+ fmod_buf[ns] = 0;
 
- if(NP>0x3fff) NP=0x3fff;
- if(NP<0x1)    NP=0x1;
-
- sinc=NP<<4;                                           // calc frequency
- iFMod[ns]=0;
- SB[32]=1;                                             // reset interpolation
-
- return sinc;
+ return pitch << 4;
 }
 
-////////////////////////////////////////////////////////////////////////
-
-INLINE void StoreInterpolationVal(s16 *SB, int sinc, s16 fa, int fmod_freq)
+INLINE void StoreInterpolationGaussCubic(sample_buf *sb, s16 fa)
 {
- if(fmod_freq)                                         // fmod freq channel
-  SB[29]=fa;
- else
-  {
-   //ssat32_to_16(fa);
-
-   /*if(spu_config.iUseInterpolation>=2)                 // gauss/cubic interpolation
-    {
-     int gpos = SB[28];
-     gval0 = fa;
-     gpos = (gpos+1) & 3;
-     SB[28] = gpos;
-    }
-   else
-   if(spu_config.iUseInterpolation==1)*/                 // simple interpolation
-    {
-     SB[28] = 0;
-     SB[29] = SB[30];                                  // -> helpers for simple linear interpolation: delay real val for two slots, and calc the two deltas, for a 'look at the future behaviour'
-     SB[30] = SB[31];
-     SB[31] = fa;
-     SB[32] = 1;                                       // -> flag: calc new interolation
-    }
-   //else SB[29]=fa;                                     // no interpolation
-  }
+ int gpos = sb->interp.gauss.pos & 3;
+ sb->interp.gauss.val[gpos++] = fa;
+ sb->interp.gauss.pos = gpos & 3;
 }
 
-////////////////////////////////////////////////////////////////////////
+#define gval(x) (int)sb->interp.gauss.val[(gpos + x) & 3]
 
-INLINE int iGetInterpolationVal(s16 *SB, int sinc, int spos, int fmod_freq)
+INLINE int GetInterpolationCubic(const sample_buf *sb, int spos)
 {
+ int gpos = sb->interp.gauss.pos;
+ int xd = (spos >> 1) + 1;
  int fa;
 
- if(fmod_freq) return (int)(SB[29]);
-
- /*switch(spu_config.iUseInterpolation)
-  {
-   //--------------------------------------------------//
-   case 3:                                             // cubic interpolation
-    {
-     long xd;int gpos;
-     xd = (spos >> 1)+1;
-     gpos = SB[28];
-
-     fa  = gval(3) - 3*gval(2) + 3*gval(1) - gval0;
-     fa *= (xd - (2<<15)) / 6;
-     fa >>= 15;
-     fa += gval(2) - gval(1) - gval(1) + gval0;
-     fa *= (xd - (1<<15)) >> 1;
-     fa >>= 15;
-     fa += gval(1) - gval0;
-     fa *= xd;
-     fa >>= 15;
-     fa = fa + gval0;
-
-    } break;
-   //--------------------------------------------------//
-   case 2:                                             // gauss interpolation
-    {
-     int vl, vr;int gpos;
-     vl = (spos >> 6) & ~3;
-     gpos = SB[28];
-     vr=(gauss[vl]*(int)gval0) >> 15;
-     vr+=(gauss[vl+1]*gval(1)) >> 15;
-     vr+=(gauss[vl+2]*gval(2)) >> 15;
-     vr+=(gauss[vl+3]*gval(3)) >> 15;
-     fa = vr;
-    } break;
-   //--------------------------------------------------//
-   case 1:                                             // simple interpolation
-    {
-     if(sinc<0x10000L)                                 // -> upsampling?
-          InterpolateUp(SB, sinc);                     // --> interpolate up
-     else InterpolateDown(SB, sinc);                   // --> else down
-     fa=SB[29];
-    } break;
-   //--------------------------------------------------//
-   default:                                            // no interpolation
-    {
-     fa=SB[29];
-    } break;
-   //--------------------------------------------------//
-  }*/
-  if(sinc<0x10000L)                                 // -> upsampling?
-      InterpolateUp(SB, sinc);                     // --> interpolate up
-  else
-      InterpolateDown(SB, sinc);                   // --> else down
-   fa=(int)(SB[29]);
-
+ fa  = gval(3) - 3*gval(2) + 3*gval(1) - gval(0);
+ fa *= (xd - (2<<15)) / 6;
+ fa >>= 15;
+ fa += gval(2) - gval(1) - gval(1) + gval(0);
+ fa *= (xd - (1<<15)) >> 1;
+ fa >>= 15;
+ fa += gval(1) - gval(0);
+ fa *= xd;
+ fa >>= 15;
+ fa = fa + gval(0);
+ //ssat32_to_16(fa);
  return fa;
+}
+
+
+INLINE int GetInterpolationGauss(const sample_buf *sb, int spos)
+{
+ int gpos = sb->interp.gauss.pos;
+ int vl = (spos >> 6) & ~3;
+ int vr;
+ vr  = (gauss[vl+0] * gval(0)) >> 15;
+ vr += (gauss[vl+1] * gval(1)) >> 15;
+ vr += (gauss[vl+2] * gval(2)) >> 15;
+ vr += (gauss[vl+3] * gval(3)) >> 15;
+ //ssat32_to_16(vr);
+ return vr;
 }
 
 static f32 FK0[16] = {
@@ -486,8 +433,11 @@ static int decode_block(void *unused, int ch, s16 *SB)
  int ret = 0;
 
  start = s_chan->pCurr;                    // set up the current pos
- if (start == spu.spuMemC)                 // ?
+ if (start - spu.spuMemC < 0x1000) {       // ?
+  //log_unhandled("ch%02d plays decode bufs @%05lx\n",
+  //  ch, (long)(start - spu.spuMemC));
   ret = 1;
+ }
 
  if (s_chan->prevflags & 1)                // 1: stop/loop
  {
@@ -589,10 +539,10 @@ static void scan_for_irq(int ch, unsigned int *upd_samples)
  }
 }
 
-#define make_do_samples(name, fmod_code, interp_start, interp1_code, interp2_code, interp_end) \
-static noinline int do_samples_##name( \
+#define make_do_samples(name, fmod_code, interp_start, interp_store, interp_get, interp_end) \
+static noinline int name(int *dst, \
  int (*decode_f)(void *context, int ch, int *SB), void *ctx, \
- int ch, int ns_to, s16 *SB, int sinc, int *spos, int *sbpos) \
+ int ch, int ns_to, sample_buf *sb, int sinc, int *spos, int *sbpos) \
 {                                            \
  int ns, d;                                  \
  s16 fa;                                     \
@@ -606,20 +556,20 @@ static noinline int do_samples_##name( \
   *spos += sinc;                             \
   while (*spos >= 0x10000)                   \
   {                                          \
-   fa = SB[(*sbpos)++];                      \
+   fa = sb->SB[(*sbpos)++];                  \
    if (*sbpos >= 28)                         \
    {                                         \
     *sbpos = 0;                              \
-    d = decode_f(ctx, ch, SB);               \
+    d = decode_f(ctx, ch, sb->SB);           \
     if (d && ns < ret)                       \
      ret = ns;                               \
    }                                         \
                                              \
-   interp1_code;                             \
+   interp_store;                             \
    *spos -= 0x10000;                         \
   }                                          \
                                              \
-  interp2_code;                              \
+  interp_get;                                \
  }                                           \
                                              \
  interp_end;                                 \
@@ -627,30 +577,56 @@ static noinline int do_samples_##name( \
  return ret;                                 \
 }
 
-#define fmod_recv_check \
-  if(spu.s_chan[ch].bFMod==1 && iFMod[ns]) \
-    sinc = FModChangeFrequency(SB, spu.s_chan[ch].iRawPitch, ns)
-
-make_do_samples(default, fmod_recv_check, ,
-  StoreInterpolationVal(SB, sinc, fa, spu.s_chan[ch].bFMod==2),
-  ChanBuf[ns] = iGetInterpolationVal(SB, sinc, *spos, spu.s_chan[ch].bFMod==2), )
-make_do_samples(noint, , fa = SB[29], , ChanBuf[ns] = fa, SB[29] = fa)
-
+// helpers for simple linear interpolation: delay real val for two slots,
+// and calc the two deltas, for a 'look at the future behaviour'
 #define simple_interp_store \
-  SB[28] = 0; \
-  SB[29] = SB[30]; \
-  SB[30] = SB[31]; \
-  SB[31] = fa; \
-  SB[32] = 1
+  sb->SB[28] = 0; \
+  sb->SB[29] = sb->SB[30]; \
+  sb->SB[30] = sb->SB[31]; \
+  sb->SB[31] = fa; \
+  sb->SB[32] = 1
 
 #define simple_interp_get \
   if(sinc<0x10000)                /* -> upsampling? */ \
-       InterpolateUp(SB, sinc);   /* --> interpolate up */ \
-  else InterpolateDown(SB, sinc); /* --> else down */ \
-  ChanBuf[ns] = (int)(SB[29])
+       InterpolateUp(sb, sinc);   /* --> interpolate up */ \
+  else InterpolateDown(sb, sinc); /* --> else down */ \
+  dst[ns] = sb->SB[29]
 
-make_do_samples(simple, , ,
+make_do_samples(do_samples_nointerp, , fa = sb->SB[29],
+   , dst[ns] = fa, sb->SB[29] = fa)
+make_do_samples(do_samples_simple, , ,
   simple_interp_store, simple_interp_get, )
+make_do_samples(do_samples_gauss, , ,
+  StoreInterpolationGaussCubic(sb, fa),
+  dst[ns] = GetInterpolationGauss(sb, *spos), )
+make_do_samples(do_samples_cubic, , ,
+  StoreInterpolationGaussCubic(sb, fa),
+  dst[ns] = GetInterpolationCubic(sb, *spos), )
+make_do_samples(do_samples_fmod,
+  sinc = FModChangeFrequency(spu.s_chan[ch].iRawPitch, ns, iFMod), ,
+  StoreInterpolationGaussCubic(sb, fa),
+  dst[ns] = GetInterpolationGauss(sb, *spos), )
+
+INLINE int do_samples_adpcm(int *dst,
+ int (*decode_f)(void *context, int ch, s16 *SB), void *ctx,
+ int ch, int ns_to, int fmod, sample_buf *sb, int sinc, int *spos, int *sbpos)
+{
+ int interp = spu.interpolation;
+ if (fmod == 1)
+  return do_samples_fmod(dst, decode_f, ctx, ch, ns_to, sb, sinc, spos, sbpos);
+ if (fmod)
+  interp = 2;
+ switch (interp) {
+  case 0:
+   return do_samples_nointerp(dst, decode_f, ctx, ch, ns_to, sb, sinc, spos, sbpos);
+  case 1:
+   return do_samples_simple  (dst, decode_f, ctx, ch, ns_to, sb, sinc, spos, sbpos);
+  default:
+   return do_samples_gauss   (dst, decode_f, ctx, ch, ns_to, sb, sinc, spos, sbpos);
+  case 3:
+   return do_samples_cubic   (dst, decode_f, ctx, ch, ns_to, sb, sinc, spos, sbpos);
+ }
+}
 
 static int do_samples_skip(int ch, int ns_to)
 {
@@ -679,7 +655,33 @@ static int do_samples_skip(int ch, int ns_to)
  return ret;
 }
 
-static void do_lsfr_samples(int ns_to, int ctrl,
+static int do_samples_skip_fmod(int ch, int ns_to, int *fmod_buf)
+{
+ SPUCHAN *s_chan = &spu.s_chan[ch];
+ int spos = s_chan->spos;
+ int ret = ns_to, ns, d;
+
+ spos += s_chan->iSBPos << 16;
+
+ for (ns = 0; ns < ns_to; ns++)
+ {
+  spos += FModChangeFrequency(s_chan->iRawPitch, ns, fmod_buf);
+  while (spos >= 28*0x10000)
+  {
+   d = skip_block(ch);
+   if (d && ns < ret)
+    ret = ns;
+   spos -= 28*0x10000;
+  }
+ }
+
+ s_chan->iSBPos = spos >> 16;
+ s_chan->spos = spos & 0xffff;
+
+ return ret;
+}
+
+static void do_lsfr_samples(int *dst, int ns_to, int ctrl,
  unsigned int *dwNoiseCount, unsigned int *dwNoiseVal)
 {
  unsigned int counter = *dwNoiseCount;
@@ -703,20 +705,20 @@ static void do_lsfr_samples(int ns_to, int ctrl,
    val = (val << 1) | bit;
   }
 
-  ChanBuf[ns] = (signed short)val;
+  dst[ns] = (signed short)val;
  }
 
  *dwNoiseCount = counter;
  *dwNoiseVal = val;
 }
 
-static int do_samples_noise(int ch, int ns_to)
+static int do_samples_noise(int *dst, int ch, int ns_to)
 {
  int ret;
 
  ret = do_samples_skip(ch, ns_to);
 
- do_lsfr_samples(ns_to, spu.spuCtrl, &spu.dwNoiseCount, &spu.dwNoiseVal);
+ do_lsfr_samples(dst, ns_to, spu.spuCtrl, &spu.dwNoiseCount, &spu.dwNoiseVal);
 
  return ret;
 }
@@ -825,8 +827,15 @@ static void do_channels(int ns_to)
  unsigned int mask;
  int do_rvb, ch, d;
  SPUCHAN *s_chan;
- s16 *SB;
- int sinc;
+
+ if (unlikely(spu.interpolation != spu_config.iUseInterpolation))
+ {
+  spu.interpolation = spu_config.iUseInterpolation;
+  mask = spu.dwChannelsAudible & 0xffffff;
+  for (ch = 0; mask != 0; ch++, mask >>= 1)
+   if (mask & 1)
+    ResetInterpolation(&spu.sb[ch]);
+ }
 
  do_rvb = spu.rvb->StartAddr && spu_config.iUseReverb;
  if (do_rvb)
@@ -844,24 +853,11 @@ static void do_channels(int ns_to)
    if (!(mask & 1)) continue;                      // channel not playing? next
 
    s_chan = &spu.s_chan[ch];
-   SB = spu.SB + ch * SB_SIZE;
-   sinc = s_chan->sinc;
-   //if (spu.s_chan[ch].bNewPitch)
-   // SB[32] = 1;                                    // reset interpolation
-   //spu.s_chan[ch].bNewPitch = 0;
-
    if (s_chan->bNoise)
-    d = do_samples_noise(ch, ns_to);
-   else if (s_chan->bFMod == 2
-         || (s_chan->bFMod == 0 && spu_config.iUseInterpolation == 0))
-    d = do_samples_noint(decode_block, NULL, ch, ns_to,
-          SB, sinc, &s_chan->spos, &s_chan->iSBPos);
-   else if (s_chan->bFMod == 0 && spu_config.iUseInterpolation == 1)
-    d = do_samples_simple(decode_block, NULL, ch, ns_to,
-          SB, sinc, &s_chan->spos, &s_chan->iSBPos);
+    d = do_samples_noise(ChanBuf, ch, ns_to);
    else
-    d = do_samples_default(decode_block, NULL, ch, ns_to,
-          SB, sinc, &s_chan->spos, &s_chan->iSBPos);
+    d = do_samples_adpcm(ChanBuf, decode_block, NULL, ch, ns_to, s_chan->bFMod,
+          &spu.sb[ch], s_chan->sinc, &s_chan->spos, &s_chan->iSBPos);
 
    if (!s_chan->bStarting) {
     d = MixADSR(&s_chan->ADSRX, d);
@@ -911,7 +907,7 @@ static void do_samples_finish(int *SSumLR, int ns_to,
 // here is the main job handler...
 ////////////////////////////////////////////////////////////////////////
 
-void do_samples(unsigned int cycles_to, int do_direct)
+void do_samples(unsigned int cycles_to, int force_no_thread)
 {
  unsigned int silentch;
  int cycle_diff;
@@ -927,7 +923,7 @@ void do_samples(unsigned int cycles_to, int do_direct)
 
  silentch = ~(spu.dwChannelsAudible | spu.dwNewChannel) & 0xffffff;
 
- do_direct |= (silentch == 0xffffff);
+ force_no_thread |= (silentch == 0xffffff);
 
  if (cycle_diff < 4 * 768)
  {
@@ -1018,8 +1014,8 @@ static void do_samples_finish(int *SSumLR, int ns_to,
     spu.decode_dirty_ch &= ~(1<<3);
    }
 
-  vol_l = vol_l * spu_config.iVolume >> 10;
-  vol_r = vol_r * spu_config.iVolume >> 10;
+  //vol_l = vol_l * spu_config.iVolume >> 10;
+  //vol_r = vol_r * spu_config.iVolume >> 10;
 
   if (!(vol_l | vol_r))
    {
@@ -1095,7 +1091,6 @@ void CALLBACK DF_SPUasync(unsigned int cycle, unsigned int flags, unsigned int p
     schedule_next_irq();
 
  if (flags & 1) {
-  //lastBytes = out_current->feed(spu.pSpuBuffer, (unsigned char *)spu.pS - spu.pSpuBuffer);
   out_current->feed(spu.pSpuBuffer, (unsigned char *)spu.pS - spu.pSpuBuffer);
   spu.pS = (short *)spu.pSpuBuffer;
 
@@ -1103,11 +1098,7 @@ void CALLBACK DF_SPUasync(unsigned int cycle, unsigned int flags, unsigned int p
    if (!out_current->busy()) {
     // cause more samples to be generated
     // (and break some games because of bad sync)
-    //if (psxType) {
-    //    spu.cycles_played -= PS_SPU_FREQ / 50 / 2 * 768;  // Config.PsxType = 1, PAL 50Fps/1s
-    //} else {
         spu.cycles_played -= PS_SPU_FREQ / 60 / 2 * 768;  // Config.PsxType = 0, PAL 60Fps/1s
-    //}
    }
  }
 }
@@ -1174,10 +1165,8 @@ void ClearWorkingState(void)
  spu.pS=(short *)spu.pSpuBuffer;                       // setup soundbuffer pointer
 }
 
-//extern char spuMemC[512 * 1024];
 extern char s_chan[(MAXCHAN + 1) * sizeof(spu.s_chan[0])];
 extern char rvb[sizeof(REVERBInfo)];
-extern char SB[MAXCHAN * sizeof(spu.SB[0]) * SB_SIZE];
 
 extern char pSpuBuffer[WII_SPU_FREQ];
 extern char SSumLR[NSSIZE * 2 * sizeof(spu.SSumLR[0])];
@@ -1244,22 +1233,17 @@ long DF_SPUinit(void)
 
   spu_config.iUseReverb = 1;
   spu_config.idiablofix = 0;
-  spu_config.iUseInterpolation = 1;
+  //spu_config.iUseInterpolation = 2;
   spu_config.iXAPitch = 0;
-  spu_config.iVolume = 768;
+  spu_config.iVolume = 1024;
   spu_config.iTempo = 0;
   spu_config.iUseThread = 0; // no effect if only 1 core is detected
 
-  //spu.spuMemC = calloc(1, 512 * 1024);
   spu.spuMemC = (unsigned char  *)SPU_BUF_LO;
   InitADSR();
 
-  //     spu.s_chan = calloc(MAXCHAN+1, sizeof(spu.s_chan[0])); // channel + 1 infos (1 is security for fmod handling)
-  //     spu.rvb = calloc(1, sizeof(REVERBInfo));
-  //     spu.SB = calloc(MAXCHAN, sizeof(spu.SB[0]) * SB_SIZE);
   spu.s_chan = (SPUCHAN *)s_chan;
   spu.rvb = (REVERBInfo *)rvb;
-  spu.SB = (s16 *)SB;
 
  spu.spuAddr = 0;
  spu.decode_pos = 0;
@@ -1268,7 +1252,7 @@ long DF_SPUinit(void)
  SetupStreams();                                       // prepare streaming
 
  if (spu_config.iVolume == 0)
-  spu_config.iVolume = 768; // 1024 is 1.0
+  spu_config.iVolume = 1024; // 1024 is 1.0
 
  for (i = 0; i < MAXCHAN; i++)                         // loop sound channels
   {

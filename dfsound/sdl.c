@@ -62,9 +62,8 @@ static void SOUND_FillAudio(void *unused, Uint8 *stream, int len) {
             sposTmp -= 0x10000L;
         }
 
-        // Because it is in BIG_ENDIAN format, it is necessary to swap the left and right audio channels.
-        *p++ = lastSampleR;
         *p++ = lastSampleL;
+        *p++ = lastSampleR;
         sposTmp += SINC;
         --len;
     }

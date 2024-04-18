@@ -313,7 +313,7 @@ void FeedXA(const xa_decode_t *xap)
     {
      for(i=0;i<iSize;i++)
       {
-       /*if(spu_config.iUseInterpolation==2)
+       if(spu_config.iUseInterpolation==2)
         {
          while(spos>=0x10000L)
           {
@@ -335,7 +335,7 @@ void FeedXA(const xa_decode_t *xap)
          vr+=(gauss[vl+3]*gvalr(3)) >> 15;
          l |= vr << 16;
         }
-       else*/
+       else
         {
          while(spos>=0x10000L)
           {
@@ -412,7 +412,7 @@ void FeedXA(const xa_decode_t *xap)
     {
      for(i=0;i<iSize;i++)
       {
-       /*if(spu_config.iUseInterpolation==2)
+       if(spu_config.iUseInterpolation==2)
         {
          while(spos>=0x10000L)
           {
@@ -427,7 +427,7 @@ void FeedXA(const xa_decode_t *xap)
          vr+=(gauss[vl+3]*gvall(3)) >> 15;
          l=s= vr;
         }
-       else*/
+       else
         {
          while(spos>=0x10000L)
           {

@@ -23,11 +23,10 @@
 
 #include "spu.h"
 #include "dfsound/externals.h"
+#include "dfsound/spu_config.h"
 
-//char spuMemC[512 * 1024] __attribute__((aligned(32)));
 char s_chan[(MAXCHAN + 1) * sizeof(spu.s_chan[0])] __attribute__((aligned(32)));
 char rvb[sizeof(REVERBInfo)] __attribute__((aligned(32)));
-char SB[MAXCHAN * sizeof(spu.SB[0]) * SB_SIZE] __attribute__((aligned(32)));
 
 char pSpuBuffer[WII_SPU_FREQ] __attribute__((aligned(32)));
 char SSumLR[NSSIZE * 2 * sizeof(spu.SSumLR[0])] __attribute__((aligned(32)));
@@ -56,4 +55,9 @@ void CALLBACK SPUschedule(unsigned int cycles_after) {
 
 void spuUpdate() {
 	SPU_async(psxRegs.cycle, 0, Config.PsxType);
+}
+
+void setSpuInterpolation(int spuInterpolation)
+{
+    spu_config.iUseInterpolation = spuInterpolation;
 }

@@ -85,6 +85,7 @@ void LidInterrupt();
 void CheckPsxType();
 void psxResetRcntRate();
 void plugin_call_rearmed_cbs(unsigned long autoDwActFixes, int cfgUseDithering);
+void setSpuInterpolation(int spuInterpolation);
 }
 
 u32* xfb[3] = { NULL, NULL, NULL };	/*** Framebuffers ***/
@@ -108,7 +109,7 @@ char frameLimit[2];
 char frameSkip;
 char useDithering;
 extern char audioEnabled;
-char volume;
+char spuInterpolation;
 char showFPSonScreen;
 char printToScreen;
 char menuActive;
@@ -163,7 +164,7 @@ static struct {
 	char  min, max;
 } OPTIONS[] =
 { { "Audio", &audioEnabled, AUDIO_DISABLE, AUDIO_ENABLE },
-  { "Volume", &volume, VOLUME_LOUDEST, VOLUME_LOW },
+  { "Interpolation", &spuInterpolation, SIMPLE_INTERPOLATION, GAUSSI_INTERPOLATION },
   { "FPS", &showFPSonScreen, FPS_HIDE, FPS_SHOW },
 //  { "Debug", &printToScreen, DEBUG_HIDE, DEBUG_SHOW },
   { "ScreenMode", &screenMode, SCREENMODE_4x3, SCREENMODE_16x9_PILLARBOX },
@@ -331,7 +332,7 @@ void loadSettings(int argc, char *argv[])
 {
 	// Default Settings
 	audioEnabled     = 1; // Audio
-	volume           = VOLUME_MEDIUM;
+	spuInterpolation = SIMPLE_INTERPOLATION;
 #ifdef RELEASE
 	showFPSonScreen  = 0; // Don't show FPS on Screen
 #else
@@ -376,7 +377,6 @@ void loadSettings(int argc, char *argv[])
 	Config.Xa = 0;  //XA enabled
 	Config.Cdda = 0; //CDDA enabled
 	Config.cycle_multiplier = CYCLE_MULT_DEFAULT;
-	iVolume = volume; //Volume="medium" in PEOPSspu
 	Config.PsxAuto = 1; //Autodetect
 	LoadCdBios = BOOTTHRUBIOS_NO;
 	lang = 0;
@@ -433,7 +433,7 @@ void loadSettings(int argc, char *argv[])
 	//Synch settings with Config
 	Config.Cpu=dynacore;
 	//iUseDither = useDithering;
-	iVolume = volume;
+	setSpuInterpolation(spuInterpolation);
 }
 
 void ScanPADSandReset(u32 dummy)
