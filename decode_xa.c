@@ -310,24 +310,24 @@ static int parse_xa_audio_sector( xa_decode_t *xdp,
 //================================================================
 #ifdef DISP_DEBUG
 // prototypes
-long long gettime(void);
-unsigned int diff_usec(long long start, long long end);
-u32 diff_nsec(u64 start,u64 end);
+//long long gettime(void);
+//unsigned int diff_usec(long long start, long long end);
+//u32 diff_nsec(u64 start,u64 end);
 #endif // DISP_DEBUG
 s32 xa_decode_sector( xa_decode_t *xdp, const unsigned char *sectorp, int is_first_sector ) {
     #ifdef DISP_DEBUG
-    long long curticks;
-    curticks = gettime();
+//    long long curticks;
+//    curticks = gettime();
     #endif // DISP_DEBUG
     if (parse_xa_audio_sector(xdp, (xa_subheader_t *)sectorp, sectorp + sizeof(xa_subheader_t), is_first_sector))
         return -1;
 
     #ifdef DISP_DEBUG
-    long long lastticks;
-    lastticks = gettime();
-    sprintf(txtbuffer, "XA %d ", diff_nsec(curticks, lastticks));
-    DEBUG_print(txtbuffer, DBG_CORE2);
-    curticks = lastticks;
+//    long long lastticks;
+//    lastticks = gettime();
+//    sprintf(txtbuffer, "XA %d ", diff_nsec(curticks, lastticks));
+//    DEBUG_print(txtbuffer, DBG_CORE2);
+//    curticks = lastticks;
     #endif // DISP_DEBUG
     return 0;
 }

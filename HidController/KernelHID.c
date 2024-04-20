@@ -1009,7 +1009,7 @@ static void HIDIRQRumble(u32 Enable)
     sprintf(txtbuffer, "HIDIRQRumble %d\r\n", Enable);
     DEBUG_print(txtbuffer, DBG_GPU3);
     #endif // DISP_DEBUG
-    u8 *buf = (Enable == 1) ? RawRumbleDataOn : RawRumbleDataOff;
+    u8 *buf = (Enable) ? RawRumbleDataOn : RawRumbleDataOff;
     u32 i = 0;
 irqrumblerepeat:
     HIDInterruptMessage(0, buf, RumbleTransferLen, bEndpointAddressOut, HID_SET_RUMBLE);
@@ -1027,7 +1027,7 @@ static void HIDCTRLRumble(u32 Enable)
     sprintf(txtbuffer, "HIDCTRLRumble %d\r\n", Enable);
     DEBUG_print(txtbuffer, DBG_GPU3);
     #endif // DISP_DEBUG
-    u8 *buf = (Enable == 1) ? RawRumbleDataOn : RawRumbleDataOff;
+    u8 *buf = (Enable) ? RawRumbleDataOn : RawRumbleDataOff;
     u32 i = 0;
 ctrlrumblerepeat:
     i++;
@@ -1060,8 +1060,8 @@ static void HIDIRQRead()
     memcpy(HID_Packet, Packet, wMaxPacketSize);
     DCFlushRange((void*)HID_Packet, wMaxPacketSize);
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "HIDIRQRead %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
-    DEBUG_print(txtbuffer, DBG_GPU3);
+    //sprintf(txtbuffer, "HIDIRQRead %08x %08x %08x %08x \r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1), *((u32*)HID_Packet + 2), *((u32*)HID_Packet + 3));
+    //DEBUG_print(txtbuffer, DBG_GPU3);
     #endif // DISP_DEBUG
 dohidirqread:
     HIDInterruptMessage(0, Packet, wMaxPacketSize, bEndpointAddressController, READ_CONTROLLER_MSG);

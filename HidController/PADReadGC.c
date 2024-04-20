@@ -136,8 +136,8 @@ u32 HidFormatData(void)
     u32 HIDMemPrep = 0;
     vu8* HID_Packet = (vu8*)HID_Packet_ADDR;
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "HID %08x %08x\r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1));
-    DEBUG_print(txtbuffer, DBG_GPU1);
+    //sprintf(txtbuffer, "HID %08x %08x\r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1));
+    //DEBUG_print(txtbuffer, DBG_GPU1);
     #endif // DISP_DEBUG
     for (chan = 0; (chan < HID_PAD_NONE); (HID_CTRL->MultiIn == 3) ? (++chan) : (chan = HID_PAD_NONE)) // Run once unless MultiIn == 3
     {
