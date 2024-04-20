@@ -65,6 +65,22 @@ static const char * const dualshock_timing1024_hack_db[] =
 	"SLUS00630", "SLES00755",
 };
 
+static const char * const fractional_Framerate_hack_db[] =
+{
+	/* Dance Dance Revolution */
+	"SLPM86503", // 3rd Mix
+	"SLPM86752", // 4th Mix
+	"SLPM86266", // 4thMix: The Beat Goes On
+	"SLPM86831", // Extra Mix
+	"SLUS01446", // Konamix
+	/* Dancing Stage Fever */
+	"SLES04097",
+	/* Dancing Stage Fusion */
+	"SLES04163",
+	/* Spyro 2 */
+	"SCUS94425", "SCES02104",
+};
+
 // For special game correction
 static const char * const special_game_hack_db[] =
 {
@@ -88,6 +104,7 @@ hack_db[] =
 	HACK_ENTRY(gpu_slow_list_walking, gpu_slow_llist_db),
 	HACK_ENTRY(gpu_busy_hack, gpu_busy_hack_db),
 	HACK_ENTRY(gpu_timing1024, dualshock_timing1024_hack_db),
+	HACK_ENTRY(fractional_Framerate, fractional_Framerate_hack_db),
 };
 
 static const struct
