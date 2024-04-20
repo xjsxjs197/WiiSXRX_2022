@@ -69,6 +69,7 @@ extern char text[DEBUG_TEXT_HEIGHT][DEBUG_TEXT_WIDTH]; /*** DEBUG textbuffer ***
 extern char menuActive;
 extern char screenMode;
 static char fpsInfo[32];
+int max_vid_fps;
 
 // prototypes
 static void GX_Flip(const void *buffer, int pitch, u8 fmt,
@@ -692,7 +693,7 @@ void pl_frame_limit(void)
 
 void pl_timing_prepare(int is_pal_)
 {
-	fps_cur;
+	double max_vid_fps;
 	gc_rearmed_cbs.fskip_advice = 0;
 	gc_rearmed_cbs.flips_per_sec = 0;
 	gc_rearmed_cbs.cpu_usage = 0;
@@ -703,9 +704,9 @@ void pl_timing_prepare(int is_pal_)
 void pl_chg_psxtype(int is_pal_)
 {
 	is_pal = is_pal_;
-	fps_cur = psxGetFps();
-	frame_interval = (int)(1000000.0 / fps_cur);
-	frame_interval1024 = (int)(1000000.0 * 1024.0 / fps_cur);
+	max_vid_fps = psxGetFps();
+	frame_interval = (int)(1000000.0 / max_vid_fps);
+	frame_interval1024 = (int)(1000000.0 * 1024.0 / max_vid_fps);
 
 	// used by P.E.Op.S. frame limit code
 	if (PSXDisplay.Interlaced)
@@ -714,7 +715,7 @@ void pl_chg_psxtype(int is_pal_)
 	}
 	else
 	{
-		gc_rearmed_cbs.gpu_peops.fFrameRateHz = (float)fps_cur;
+		gc_rearmed_cbs.gpu_peops.fFrameRateHz = (float)max_vid_fps;
 	}
 
 	gc_rearmed_cbs.gpu_peops.dwFrameRateTicks =
