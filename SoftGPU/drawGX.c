@@ -69,7 +69,6 @@ extern char text[DEBUG_TEXT_HEIGHT][DEBUG_TEXT_WIDTH]; /*** DEBUG textbuffer ***
 extern char menuActive;
 extern char screenMode;
 static char fpsInfo[32];
-int max_vid_fps;
 
 // prototypes
 static void GX_Flip(const void *buffer, int pitch, u8 fmt,
@@ -690,6 +689,8 @@ void pl_frame_limit(void)
 //			gc_rearmed_cbs.fskip_advice = 0;
 //	}
 }
+
+double max_vid_fps;
 
 void pl_timing_prepare(int is_pal_)
 {
