@@ -729,7 +729,7 @@ void plugin_call_rearmed_cbs(unsigned long autoDwActFixes, int cfgUseDithering)
 	extern void *hGPUDriver;
 	void (*rearmed_set_cbs)(const struct rearmed_cbs *cbs);
 
-	pl_rearmed_cbs.screen_centering_type_default =
+	gc_rearmed_cbs.screen_centering_type_default =
 		Config.hacks.gpu_centering ? 1 : 0;
 
 	rearmed_set_cbs = SysLoadSym(hGPUDriver, "GPUrearmedCallbacks");
