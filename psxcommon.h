@@ -129,6 +129,7 @@ typedef struct {
 		bool cdr_read_timing;
 		bool gpu_slow_list_walking;
 		bool gpu_busy_hack;
+		bool gpu_centering;
 		bool gpu_timing1024;
 		bool fractional_Framerate;
 		// variable for see if game has special correction (dwActFixes) autoFix

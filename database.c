@@ -59,6 +59,14 @@ static const char * const gpu_busy_hack_db[] =
 	"SLUS00859", "SLES02343",
 };
 
+static const char * const gpu_centering_hack_db[] =
+{
+	/* Gradius Gaiden */
+	"SLPM86042", "SLPM86103", "SLPM87323",
+	/* Sexy Parodius */
+	"SLPM86009",
+};
+
 static const char * const dualshock_timing1024_hack_db[] =
 {
 	/* Judge Dredd - could also be poor cdrom+mdec+dma timing */
@@ -105,6 +113,7 @@ hack_db[] =
 	HACK_ENTRY(cdr_read_timing, cdr_read_hack_db),
 	HACK_ENTRY(gpu_slow_list_walking, gpu_slow_llist_db),
 	HACK_ENTRY(gpu_busy_hack, gpu_busy_hack_db),
+	HACK_ENTRY(gpu_centering, gpu_centering_hack_db),
 	HACK_ENTRY(gpu_timing1024, dualshock_timing1024_hack_db),
 	HACK_ENTRY(fractional_Framerate, fractional_Framerate_hack_db),
 };
