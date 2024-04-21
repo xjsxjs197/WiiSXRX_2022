@@ -85,7 +85,7 @@ static noinline void update_width(void)
   int sw = gpu.screen.x2 - gpu.screen.x1;
   int type = gpu.state.screen_centering_type;
   int x = 0, x_auto;
-  if (type == C_AUTO)
+  if (type == 0)
     type = gpu.state.screen_centering_type_default;
   if (sw <= 0)
     /* nothing displayed? */;
