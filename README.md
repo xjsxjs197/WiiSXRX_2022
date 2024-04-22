@@ -6,10 +6,13 @@ WiiStation (formerly WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emul
 
 ## The following changes have been made to the code based on WiiSXRX.
 
-* HID controllers support.
-  Supported controllers refer to [Nintendont]（ https://github.com/FIX94/Nintendont ）
-  If you want to add controllers beyond what nintendont supports, you need to add a new INI configuration file. The process should be as follows:
-  Connect your HID controller to the Wii, and then start HID_Test.dol (please modify it to boot. dol). If the controller is supported, you will see normal connection information and information when each button is pressed.
+* HID controllers support!
+
+  Supported controllers referred to [Nintendont](https://github.com/FIX94/Nintendont).
+
+  If you want to add controllers beyond what Nintendont supports, you need to add a new INI configuration file. The process should be as follows:
+  
+  Connect your HID controller to the Wii, and then start **HID_Test.dol** (please modify it to **boot.dol**). If the controller is supported, you will see normal connection information and information when each button is pressed.
   Send me the information when each button is pressed, and I will create an INI file. Or, refer to 0810_0003.ini to create your INI file.
   You can refer to the information in this link:
   https://gbatemp.net/threads/nintendont-custom-controller-configuration-file.633068/#post-10164777
@@ -70,7 +73,7 @@ WiiStation (formerly WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emul
   By using the paired single instruction, most of the GTE logic has been rewritten, and FPS has indeed improved by about 2 frames.
   However, due to accuracy issues, there may be minor image/graphical issues.
 
-* HID controller support via USB.
+* Further improvement of HID controller support via USB.
   By reading and checking the code of [Nintendont](https://github.com/FIX94/Nintendont), we have understood the working principle of the HID controller,
   but it is still a little bit short to port Nintendont's HID control logic to WiiStation.
 
