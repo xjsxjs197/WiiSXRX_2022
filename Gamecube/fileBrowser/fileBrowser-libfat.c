@@ -198,57 +198,65 @@ void InitRemovalThread()
 #endif
 }
 
-// add xjsxjs197 start
-bool isCueFileExist(const char *filePath, const char *fileName) {
-    char cuename[FILE_BROWSER_MAX_PATH_LEN];
+static bool isCueCcdFileExist(const char *filePath, const char *fileName, const char *fileType) {
+    static char cuename[FILE_BROWSER_MAX_PATH_LEN];
+    memset(cuename, 0, FILE_BROWSER_MAX_PATH_LEN);
     sprintf(cuename, "%s/%s", filePath, fileName);
-	cuename[FILE_BROWSER_MAX_PATH_LEN - 1] = '\0';
-	if (strlen(cuename) >= 4) {
-        FILE *fi;
+    cuename[FILE_BROWSER_MAX_PATH_LEN - 1] = '\0';
+
+    if (strlen(cuename) >= 4) {
         char *trackPos = strstr(cuename, " (Track");
         if (trackPos)
         {
-            strcpy(trackPos, ".cue");
+            strcpy(trackPos, fileType);
         }
         else
         {
-            strcpy(cuename + strlen(cuename) - 4, ".cue");
+            strcpy(cuename + strlen(cuename) - 4, fileType);
         }
 
-        if ((fi = fopen(cuename, "r")) == NULL) {
-		    return false;
-	    }
-	    else
-        {
-            fclose(fi);
+        if (access(cuename, F_OK) == 0) {
             return true;
         }
-	}
-	else
+        else
+        {
+            return false;
+        }
+    }
+    else
     {
-		return false;
-	}
+        return false;
+    }
 }
 
-bool isFileOk(const char *filePath, const char *fileName) {
-    if (strstr(fileName, ".cue") || strstr(fileName, ".CUE"))
+static bool isFileOk(const char *filePath, const char *fileName) {
+    if (strstr(fileName, ".cue")
+        || strstr(fileName, ".CUE")
+        || strstr(fileName, ".ccd")
+        || strstr(fileName, ".CCD")
+        || strstr(fileName, ".iso")
+        || strstr(fileName, ".ISO")
+        || strstr(fileName, ".chd")
+        || strstr(fileName, ".CHD"))
     {
         return true;
     }
-    else if (strstr(fileName, ".ccd")
-        || strstr(fileName, ".CCD")
-        || strstr(fileName, ".sub")
-        || strstr(fileName, ".SUB")) {
+    else if (strstr(fileName, ".sub") || strstr(fileName, ".SUB"))
+    {
         return false;
     }
-    else if (isCueFileExist(filePath, fileName))
+    else if (((strstr(fileName, ".bin") || strstr(fileName, ".BIN")) &&
+             (isCueCcdFileExist(filePath, fileName, ".cue") || isCueCcdFileExist(filePath, fileName, ".CUE")))
+             ||
+             ((strstr(fileName, ".img") || strstr(fileName, ".IMG")) &&
+             (isCueCcdFileExist(filePath, fileName, ".ccd") || isCueCcdFileExist(filePath, fileName, ".CCD")))
+             )
     {
         return false;
     }
 
     return true;
 }
-// add xjsxjs197 end
 
 int fileBrowser_libfat_readDir(fileBrowser_file* file, fileBrowser_file** dir){
 

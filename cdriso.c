@@ -368,6 +368,7 @@ static int parsecue(const char *isofile) {
 
 	file_len = 0;
 	sector_offs = 2 * 75;
+	isoFile.size = 0;
 
 	while (fgets(linebuf, sizeof(linebuf), fi) != NULL) {
 		strncpy(dummy, linebuf, sizeof(linebuf));
@@ -451,7 +452,9 @@ static int parsecue(const char *isofile) {
 				continue;
 			}
 			fseek(ti[numtracks + 1].handle, 0, SEEK_END);
-			file_len = ftell(ti[numtracks + 1].handle) / 2352;
+			int trackFileSize = ftell(ti[numtracks + 1].handle);
+			isoFile.size += trackFileSize;
+			file_len = trackFileSize / 2352;
 
 			if (numtracks == 0 && strlen(isofile) >= 4 &&
 				(strcmp(isofile + strlen(isofile) - 4, ".cue") == 0 ||
@@ -1417,6 +1420,8 @@ static long CALLBACK ISOopen(void) {
 			fclose(cdHandle);
 			cdHandle = tmpf;
 			fseeko(cdHandle, 0, SEEK_END);
+
+			isoFile.size = ftello(cdHandle);
 		}
 	}
 

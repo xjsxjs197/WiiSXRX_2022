@@ -480,12 +480,12 @@ int IplFont::getStringWidth(char *string, float scale)
     wchar_t *tmpPtr = utf8Txt;
     while(*utf8Txt)
     {
-        strWidth += this->getCharCode(*utf8Txt);
+        strWidth += this->getCharCode(*utf8Txt) + 1;
         utf8Txt++;
     }
     delete[] tmpPtr;
 
-    return strWidth;
+    return strWidth + 5;
 }
 
 int IplFont::getStringHeight(char *string, float scale)
