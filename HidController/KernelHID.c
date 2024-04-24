@@ -769,17 +769,18 @@ static s32 HIDOpen( u32 LoaderRequest )
 
 void HIDClose()
 {
+    hidRun = 0;
+    if (HID_Thread != LWP_THREAD_NULL)
+    {
+
+        LWP_JoinThread(HID_Thread, NULL);
+        HID_Thread = LWP_THREAD_NULL;
+    }
+
     if (HIDHandle)
     {
         IOS_Close(HIDHandle);
         HIDHandle = -1;
-    }
-
-    if (HID_Thread != LWP_THREAD_NULL)
-    {
-        hidRun = 0;
-        LWP_JoinThread(HID_Thread, NULL);
-        HID_Thread = LWP_THREAD_NULL;
     }
 
     if (ps3buf != NULL) iosFree(hId, ps3buf);

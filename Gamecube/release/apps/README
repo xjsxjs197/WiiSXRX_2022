@@ -119,8 +119,7 @@ LATER UPDATES BY:
 WiiStation CHANGE LOG:
 Ver Beta 4.0:
 * HID controllers support.
-  (The PS3 controller(includes vibration) has been fully tested.)
-  (The PS2 controller has also undergone complete testing, but currently does not support vibration)
+  (The PS2 and PS3 controllers(includes vibration) has been fully tested.)
 * Using the speed limit logic of old video plugins.
 * Merged some code from pcsxRearm to reduce the occurrence of some issues.
 * Reduced the use of MEM1 memory and fixed errors in games such as Rayman 2
