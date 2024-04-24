@@ -448,7 +448,7 @@ void ScanPADSandReset(u32 dummy)
 #ifdef HW_RVL
 void ShutdownWii()
 {
-    HIDClose();
+    HIDClose(0);
     shutdown = 1;
     stop = 1;
 }
@@ -568,6 +568,10 @@ int main(int argc, char *argv[])
 
 	// Shut down AESND
 	//AESND_Reset();
+
+	#ifdef HW_RVL
+	HIDClose(1);
+	#endif // HW_RVL
 
     menu::IplFont obj = menu::IplFont::getInstance();
 	delete &obj;
