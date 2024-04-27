@@ -131,6 +131,9 @@ cycle_multiplier_overrides[] =
     { 190, { "SLPS02528", "SLPS02636" } },
     /* Colin McRae Rally PAL - language selection menu does not work with 175 */
     { 174, { "SLES00477" } },
+    /* CTR: Crash Team Racing - sometimes slow in WiiStation */
+    { 200, { "SCUS94426", "SCUS94459", "SCES02105", "SCPS45470" } },
+    { 200, { "SCPS10118", "SCPS91230", "SCPS91328" } },
     /* Brave Fencer Musashi - cd sectors arrive too fast */
     { 170, { "SLUS00726", "SLPS01490" } },
     /* Vandal Hearts */
