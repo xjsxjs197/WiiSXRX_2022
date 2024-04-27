@@ -85,8 +85,6 @@ static const char * const fractional_Framerate_hack_db[] =
 	"SLES04097",
 	/* Dancing Stage Fusion */
 	"SLES04163",
-	/* Pro Pinball - Timeshock! */
-	"SLUS00639",
 	/* Spyro 2 */
 	"SCUS94425", "SCES02104",
 };
