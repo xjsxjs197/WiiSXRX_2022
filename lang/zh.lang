@@ -589,3 +589,21 @@ msgstr "简单插值"
 
 msgid "Gaussi"
 msgstr "高斯插值"
+
+msgid "Filters"
+msgstr "过滤器"
+
+msgid "Interlaced"
+msgstr "隔行"
+
+msgid "Bilinear"
+msgstr "双线性"
+
+msgid "Deflicker"
+msgstr "去除闪烁"
+
+msgid "Enable Memcard"
+msgstr "设置记忆卡可用"
+
+msgid "Force NTSC"
+msgstr "强制 NTSC"

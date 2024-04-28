@@ -220,7 +220,7 @@ static char FRAME_STRINGS[79][24] =
 	  "Auto",
 	  "4:3",
 	  "16:9",
-	  "Force 16:9 ",
+	  "Force 16:9",
 	  "None",
 	  "2xSaI",
 	  "Default",
@@ -231,7 +231,7 @@ static char FRAME_STRINGS[79][24] =
 	  "PSX Controller Type",
 	  "Disable Rumble",
 	  "Standard",
-	  "Analog ",
+	  "Analog",
 	  "Save Button Configs",
 	  "Auto Load Slot:",
 	  "Default",
@@ -263,12 +263,12 @@ static char FRAME_STRINGS[79][24] =
 	  "240p",
 	  "Bilinear",
 	  "Trap",
-	  "Interlaced ",
-	  "Deflicker ",
+	  "Interlaced",
+	  "Deflicker",
 	  "Lightrec",
-	  "Lightgun ",
+	  "Lightgun",
 	  "GunCon",
-	  "Justifier ",
+	  "Justifier",
 	  "Mouse",
 	  "Memcard 1",
 	  "Memcard 2",
@@ -408,7 +408,7 @@ struct TextBoxInfo
 	{	NULL,	FRAME_STRINGS[20],	110.0,	248.0,	 1.0,	true }, // Frame Skip: On/Off
 	{	NULL,	FRAME_STRINGS[21],	90.0,	308.0,	 1.0,	true }, // ScreenMode: 4x3/16x9/Force16x9/Interlaced/240p
 	{	NULL,	FRAME_STRINGS[22],	115.0,	368.0,	 1.0,	true }, // Dithering: None/Game Dependent/Always
-	{	NULL,	FRAME_STRINGS[23],	130.0,	428.0,	 1.0,	true }, // Filters
+	{	NULL,	FRAME_STRINGS[23],	110.0,	428.0,	 1.0,	true }, // Filters
 	//TextBoxes for Input Tab (starts at textBox[10])
 	{	NULL,	FRAME_STRINGS[36],	125.0,	198.0,	 1.0,	true }, // PSX Controller Type: Analog/Digital/Light Gun
 	{	NULL,	FRAME_STRINGS[37],	145.0,	268.0,	 1.0,	true }, // Disable Rumble: Yes/No

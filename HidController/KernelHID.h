@@ -176,7 +176,7 @@ typedef struct {
 } req_args; // 32 bytes
 
 void HIDInit(u32 ios);
-void HIDClose();
+void HIDClose(int closeType);
 
 
 u32 HidFormatData(void);

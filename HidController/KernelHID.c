@@ -767,39 +767,48 @@ static s32 HIDOpen( u32 LoaderRequest )
     return 0;
 }
 
-void HIDClose()
+void HIDClose(int closeType)
 {
-    if (HIDHandle)
-    {
-        IOS_Close(HIDHandle);
-        HIDHandle = -1;
-    }
-
-    if (HID_Thread != LWP_THREAD_NULL)
+    if (closeType == 0)
     {
         hidRun = 0;
-        LWP_JoinThread(HID_Thread, NULL);
-        HID_Thread = LWP_THREAD_NULL;
+        hidchange = 0;
+        hidattach = 0;
+        hidattached = 0;
     }
+    else
+    {
+        if (HID_Thread != LWP_THREAD_NULL)
+        {
+            LWP_JoinThread(HID_Thread, NULL);
+            HID_Thread = LWP_THREAD_NULL;
+        }
 
-    if (ps3buf != NULL) iosFree(hId, ps3buf);
-    if (gcbuf != NULL) iosFree(hId, gcbuf);
-    if (kbbuf != NULL) iosFree(hId, kbbuf);
+        if (HIDHandle)
+        {
+            IOS_Close(HIDHandle);
+            HIDHandle = -1;
+        }
 
-    if (read_ctrl_req != NULL) iosFree(hId, read_ctrl_req);
-    if (write_ctrl_req != NULL) iosFree(hId, write_ctrl_req);
-    if (read_irq_req != NULL) iosFree(hId, read_irq_req);
-    if (write_irq_req != NULL) iosFree(hId, write_irq_req);
-    if (read_kb_ctrl_req != NULL) iosFree(hId, read_kb_ctrl_req);
-    if (write_kb_ctrl_req != NULL) iosFree(hId, write_kb_ctrl_req);
-    if (read_kb_irq_req != NULL) iosFree(hId, read_kb_irq_req);
-    if (write_kb_irq_req != NULL) iosFree(hId, write_kb_irq_req);
-    if (comMsg != NULL) iosFree(hId, comMsg);
+        if (ps3buf != NULL) iosFree(hId, ps3buf);
+        if (gcbuf != NULL) iosFree(hId, gcbuf);
+        if (kbbuf != NULL) iosFree(hId, kbbuf);
 
-    if (AttachedDevices != NULL) iosFree(hId, AttachedDevices);
-    if (Packet != NULL) iosFree(hId, Packet);
-    if (RawRumbleDataOn != NULL) iosFree(hId, RawRumbleDataOn);
-    if (RawRumbleDataOff != NULL) iosFree(hId, RawRumbleDataOff);
+        if (read_ctrl_req != NULL) iosFree(hId, read_ctrl_req);
+        if (write_ctrl_req != NULL) iosFree(hId, write_ctrl_req);
+        if (read_irq_req != NULL) iosFree(hId, read_irq_req);
+        if (write_irq_req != NULL) iosFree(hId, write_irq_req);
+        if (read_kb_ctrl_req != NULL) iosFree(hId, read_kb_ctrl_req);
+        if (write_kb_ctrl_req != NULL) iosFree(hId, write_kb_ctrl_req);
+        if (read_kb_irq_req != NULL) iosFree(hId, read_kb_irq_req);
+        if (write_kb_irq_req != NULL) iosFree(hId, write_kb_irq_req);
+        if (comMsg != NULL) iosFree(hId, comMsg);
+
+        if (AttachedDevices != NULL) iosFree(hId, AttachedDevices);
+        if (Packet != NULL) iosFree(hId, Packet);
+        if (RawRumbleDataOn != NULL) iosFree(hId, RawRumbleDataOn);
+        if (RawRumbleDataOff != NULL) iosFree(hId, RawRumbleDataOff);
+    }
 }
 
 static u32 *HIDRun(void *param)

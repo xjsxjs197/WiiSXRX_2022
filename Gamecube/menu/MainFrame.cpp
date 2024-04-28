@@ -51,6 +51,7 @@ extern "C" {
 //#include "../main/gc_dvd.h"
 }
 #include <ogc/dvd.h>
+#include "../../HidController/KernelHID.h"
 
 void Func_LoadROM();
 void Func_CurrentROM();
@@ -212,8 +213,11 @@ extern "C" void SysClose();
 
 void Func_ExitToLoader()
 {
-	if (menu::MessageBox::getInstance().askMessage("Are you sure you want to exit to loader?"))
+    if (menu::MessageBox::getInstance().askMessage("Are you sure you want to exit to loader?"))
     {
+        #ifdef HW_RVL
+        HIDClose(0);
+        #endif
         shutdown = 2;
         if (hasLoadedISO)
         {
