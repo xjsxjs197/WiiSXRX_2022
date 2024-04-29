@@ -684,19 +684,15 @@ static int cdrSeekTime(unsigned char *target)
 	int cyclesSinceRS = psxRegs.cycle - cdr.LastReadSeekCycles;
 	seekTime = MAX_VALUE(seekTime, 20000);
 
-	// need this stupidly long penalty or else Spyro2 intro desyncs
-	// note: if misapplied this breaks MGS cutscenes among other things
-	if (cdr.DriveState == DRIVESTATE_PAUSED && cyclesSinceRS > cdReadTime * 50)
-		seekTime += cdReadTime * 25;
 	// Transformers Beast Wars Transmetals does Setloc(x),SeekL,Setloc(x),ReadN
 	// and then wants some slack time
-	else if (cdr.DriveState == DRIVESTATE_PAUSED || cyclesSinceRS < cdReadTime *3/2)
+	if (cdr.DriveState == DRIVESTATE_PAUSED || cyclesSinceRS < cdReadTime *3/2)
 		seekTime += cdReadTime;
 
 	seekTime = MIN_VALUE(seekTime, PSXCLK * 2 / 3);
-	CDR_LOG("seek: %.2f %.2f (%.2f) st %d\n", (float)seekTime / PSXCLK,
+	CDR_LOG("seek: %.2f %.2f (%.2f) st %d di %d\n", (float)seekTime / PSXCLK,
 		(float)seekTime / cdReadTime, (float)cyclesSinceRS / cdReadTime,
-		cdr.DriveState);
+		cdr.DriveState, diff);
 	return seekTime;
 }
 
@@ -1091,20 +1087,12 @@ void cdrInterrupt(void) {
 			cdr.sectorsRead = 0;
 
 			/*
-			Gundam Battle Assault 2: much slower (*)
-			- Fixes boot, gameplay
-
-			Hokuto no Ken 2: slower
-			- Fixes intro + subtitles
-
-			InuYasha - Feudal Fairy Tale: slower
-			- Fixes battles
+			Gundam Battle Assault 2
+			Hokuto no Ken 2
+			InuYasha - Feudal Fairy Tale
+			Dance Dance Revolution Konamix
+			...
 			*/
-			/* Gameblabla - Tightening the timings (as taken from Duckstation).
-			 * The timings from Duckstation are based upon hardware tests.
-			 * Mednafen's timing don't work for Gundam Battle Assault 2 in PAL/50hz mode,
-			 * seems to be timing sensitive as it can depend on the CPU's clock speed.
-			 * */
 			if (!(cdr.StatP & (STATUS_PLAY | STATUS_READ)))
 			{
 				second_resp_time = 7000;
@@ -1117,7 +1105,7 @@ void cdrInterrupt(void) {
 				}
 				else
 				{
-					second_resp_time = (((cdr.Mode & MODE_SPEED) ? 1 : 2) * 1097107);
+					second_resp_time = 2 * 1097107;
 				}
 			}
 			SetPlaySeekRead(cdr.StatP, 0);
@@ -1559,7 +1547,7 @@ static void cdrReadInterrupt(void)
 			subhdr->file, subhdr->chan, cdr.CurFile, cdr.CurChannel, cdr.FilterFile, cdr.FilterChannel);
 		if ((cdr.Mode & MODE_SF) && (subhdr->file != cdr.FilterFile || subhdr->chan != cdr.FilterChannel))
 			break;
-		if (subhdr->chan & 0xe0) { // ?
+		if (subhdr->chan & 0x80) { // ?
 			if (subhdr->chan != 0xff)
 				log_unhandled("adpcm %d:%d\n", subhdr->file, subhdr->chan);
 			break;

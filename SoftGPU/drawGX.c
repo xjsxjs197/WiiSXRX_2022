@@ -33,6 +33,7 @@
 #include "../Gamecube/DEBUG.h"
 #include "../Gamecube/wiiSXconfig.h"
 #include "../Gamecube/gc_input/controller.h"
+#include "../psxcounters.h"
 #include "../gpulib/plugin_lib.h"
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -689,8 +690,11 @@ void pl_frame_limit(void)
 //	}
 }
 
+double max_vid_fps;
+
 void pl_timing_prepare(int is_pal_)
 {
+	double max_vid_fps;
 	gc_rearmed_cbs.fskip_advice = 0;
 	gc_rearmed_cbs.flips_per_sec = 0;
 	gc_rearmed_cbs.cpu_usage = 0;
@@ -701,8 +705,9 @@ void pl_timing_prepare(int is_pal_)
 void pl_chg_psxtype(int is_pal_)
 {
 	is_pal = is_pal_;
-	frame_interval = is_pal ? 20000 : 16667;
-	frame_interval1024 = is_pal ? 20000*1024 : 17066667;
+	max_vid_fps = psxGetFps();
+	frame_interval = (int)(1000000.0 / max_vid_fps);
+	frame_interval1024 = (int)(1000000.0 * 1024.0 / max_vid_fps);
 
 	// used by P.E.Op.S. frame limit code
 	if (PSXDisplay.Interlaced)
@@ -711,11 +716,11 @@ void pl_chg_psxtype(int is_pal_)
 	}
 	else
 	{
-		gc_rearmed_cbs.gpu_peops.fFrameRateHz = is_pal ? 49.76351f : 59.82750f;
+		gc_rearmed_cbs.gpu_peops.fFrameRateHz = (float)max_vid_fps;
 	}
 
 	gc_rearmed_cbs.gpu_peops.dwFrameRateTicks =
-		(unsigned long) (TIMEBASE / gc_rearmed_cbs.gpu_peops.fFrameRateHz);
+		(int) (TIMEBASE / gc_rearmed_cbs.gpu_peops.fFrameRateHz);
 
 	//vsync_enable = !is_pal && frameLimit[0] == FRAMELIMIT_AUTO;
 }
@@ -724,6 +729,9 @@ void plugin_call_rearmed_cbs(unsigned long autoDwActFixes, int cfgUseDithering)
 {
 	extern void *hGPUDriver;
 	void (*rearmed_set_cbs)(const struct rearmed_cbs *cbs);
+
+	gc_rearmed_cbs.screen_centering_type_default =
+		Config.hacks.gpu_centering ? 1 : 0;
 
 	rearmed_set_cbs = SysLoadSym(hGPUDriver, "GPUrearmedCallbacks");
 	if (rearmed_set_cbs != NULL)

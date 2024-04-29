@@ -378,6 +378,8 @@ void loadSettings(int argc, char *argv[])
 	Config.Cdda = 0; //CDDA enabled
 	Config.cycle_multiplier = CYCLE_MULT_DEFAULT;
 	Config.PsxAuto = 1; //Autodetect
+	Config.GpuListWalking = -1;
+	Config.FractionalFramerate = -1;
 	LoadCdBios = BOOTTHRUBIOS_NO;
 	lang = 0;
 	fastLoad = 0;

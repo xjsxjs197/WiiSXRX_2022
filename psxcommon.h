@@ -121,14 +121,17 @@ typedef struct {
 	bool icache_emulation;
 	bool DisableStalls;
 	bool PreciseExceptions;
-	int GpuListWalking;
 	int cycle_multiplier; // 100 for 1.0
 	int cycle_multiplier_override;
+	s8 GpuListWalking;
+	s8 FractionalFramerate; // ~49.75 and ~59.81 instead of 50 and 60
 	struct {
 		bool cdr_read_timing;
 		bool gpu_slow_list_walking;
 		bool gpu_busy_hack;
+		bool gpu_centering;
 		bool gpu_timing1024;
+		bool fractional_Framerate;
 		// variable for see if game has special correction (dwActFixes) autoFix
 		unsigned long dwActFixes;
 		// variable for see if game uses hacks from Lightrec

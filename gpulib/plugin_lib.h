@@ -114,6 +114,7 @@ struct rearmed_cbs {
 	// misc
 	int gpu_caps;
 	int screen_centering_type; // 0 - auto, 1 - game conrolled, 2 - manual
+	int screen_centering_type_default;
 	int screen_centering_x;
 	int screen_centering_y;
 };

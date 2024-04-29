@@ -55,6 +55,8 @@ u32 psxRcntRtarget(u32 index);
 
 s32 psxRcntFreeze(gzFile f, s32 Mode);
 
+double psxGetFps();
+
 #ifdef __cplusplus
 }
 #endif

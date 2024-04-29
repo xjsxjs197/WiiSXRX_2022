@@ -59,10 +59,34 @@ static const char * const gpu_busy_hack_db[] =
 	"SLUS00859", "SLES02343",
 };
 
+static const char * const gpu_centering_hack_db[] =
+{
+	/* Gradius Gaiden */
+	"SLPM86042", "SLPM86103", "SLPM87323",
+	/* Sexy Parodius */
+	"SLPM86009",
+};
+
 static const char * const dualshock_timing1024_hack_db[] =
 {
 	/* Judge Dredd - could also be poor cdrom+mdec+dma timing */
 	"SLUS00630", "SLES00755",
+};
+
+static const char * const fractional_Framerate_hack_db[] =
+{
+	/* Dance Dance Revolution */
+	"SLPM86503", // 3rd Mix
+	"SLPM86752", // 4th Mix
+	"SLPM86266", // 4thMix: The Beat Goes On
+	"SLPM86831", // Extra Mix
+	"SLUS01446", // Konamix
+	/* Dancing Stage Fever */
+	"SLES04097",
+	/* Dancing Stage Fusion */
+	"SLES04163",
+	/* Spyro 2 */
+	"SCUS94425", "SCES02104",
 };
 
 // For special game correction
@@ -87,95 +111,55 @@ hack_db[] =
 	HACK_ENTRY(cdr_read_timing, cdr_read_hack_db),
 	HACK_ENTRY(gpu_slow_list_walking, gpu_slow_llist_db),
 	HACK_ENTRY(gpu_busy_hack, gpu_busy_hack_db),
+	HACK_ENTRY(gpu_centering, gpu_centering_hack_db),
 	HACK_ENTRY(gpu_timing1024, dualshock_timing1024_hack_db),
+	HACK_ENTRY(fractional_Framerate, fractional_Framerate_hack_db),
 };
 
 static const struct
 {
-    const char * const id;
     int mult;
+    const char * const id[4];
 }
 cycle_multiplier_overrides[] =
 {
     /* note: values are = (10000 / gui_option) */
     /* Internal Section - fussy about timings */
-    { "SLPS01868", 202 },
+    { 202, { "SLPS01868" } },
     /* Super Robot Taisen Alpha - on the edge with 175,
      * changing memcard settings is enough to break/unbreak it */
-    { "SLPS02528", 190 },
-    { "SLPS02636", 190 },
+    { 190, { "SLPS02528", "SLPS02636" } },
     /* Colin McRae Rally PAL - language selection menu does not work with 175 */
-    { "SLES00477", 174 },
+    { 174, { "SLES00477" } },
+    /* CTR: Crash Team Racing - sometimes slow in WiiStation */
+    { 200, { "SCUS94426", "SCUS94459", "SCES02105", "SCPS45470" } },
+    { 200, { "SCPS10118", "SCPS91230", "SCPS91328" } },
     /* Brave Fencer Musashi - cd sectors arrive too fast */
-    { "SLUS00726", 170 },
-    { "SLPS01490", 170 },
+    { 170, { "SLUS00726", "SLPS01490" } },
+    /* Vandal Hearts */
+    { 125, { "SLUS00447", "SLES00204", "SCPS45183" } },
+    { 125, { "SLPM86007", "SLPM86067", "SLPM87278" } },
+    /* Vandal Hearts II */
+    { 125, { "SLUS00940", "SLES02469", "SLES02496", "SLES02497" } },
+    { 125, { "SCPS45415", "SLPM86251", "SLPM86504", "SLPM87279" } },
     /* new_dynarec has a hack for this game */
     /* Parasite Eve II - internal timer checks */
-//    { "SLUS01042", 125 },
-//    { "SLUS01055", 125 },
-//    { "SLES02558", 125 },
-//    { "SLES12558", 125 },
-    { "SLUS00447", 125 }, // VANDAL HEARTS
-    { "SLUS00940", 125 }, // VANDAL HEARTS II
-
-    { "SLUS01042", 125 }, // PARASITE EVE 2(disk1)
-    { "SLUS01055", 125 }, // PARASITE EVE 2(disk2 ?)
-
-    { "SLES00204", 125 }, // VANDAL HEARTS
-    { "SLES02469", 125 }, // VANDAL HEARTS II
-    { "SLES02496", 125 }, // VANDAL HEARTS II
-    { "SLES02497", 125 }, // VANDAL HEARTS II
-
-    { "SLES02558", 125 }, // PARASITE EVE 2(disk1)
-    { "SLES12558", 125 }, // PARASITE EVE 2(disk2 ?)
-    { "SLES02559", 125 }, // PARASITE EVE 2(disk1)
-    { "SLES12559", 125 }, // PARASITE EVE 2(disk2 ?)
-    { "SLES02560", 125 }, // PARASITE EVE 2(disk1)
-    { "SLES12560", 125 }, // PARASITE EVE 2(disk2 ?)
-    { "SLES02561", 125 }, // PARASITE EVE 2(disk1)
-    { "SLES12561", 125 }, // PARASITE EVE 2(disk2 ?)
-    { "SLES02562", 125 }, // PARASITE EVE 2(disk1)
-    { "SLES12562", 125 }, // PARASITE EVE 2(disk2 ?)
-
-    { "SCPS45183", 125 }, // VANDAL HEARTS - USHINAWARETA KODAI BUNMEI
-    { "SLPM86007", 125 }, // VANDAL HEARTS - USHINAWARETA KODAI BUNMEI
-    { "SLPM86067", 125 }, // VANDAL HEARTS - USHINAWARETA KODAI BUNMEI [PLAYSTATION THE BEST]
-    { "SLPM87278", 125 }, // VANDAL HEARTS - USHINAWARETA KODAI BUNMEI [PSONE BOOKS]
-    { "SCPS45415", 125 }, // VANDAL HEARTS II - TENJOU NO MON
-    { "SLPM86251", 125 }, // VANDAL HEARTS II - TENJOU NO MON
-    { "SLPM86504", 125 }, // VANDAL HEARTS II - TENJOU NO MON [KONAMI THE BEST]
-    { "SLPM87279", 125 }, // VANDAL HEARTS II - TENJOU NO MON [PSONE BOOKS]
-
-    { "SCPS45467", 125 }, // PARASITE EVE II [ 2 DISCS ]
-    { "SCPS45468", 125 }, // PARASITE EVE II [ 2 DISCS ]
-    { "SLPS02480", 125 }, // PARASITE EVE II [ 2 DISCS ]
-    { "SLPS02481", 125 }, // PARASITE EVE II [ 2 DISCS ]
-    { "SLPS91479", 125 }, // PARASITE EVE II [PSONE BOOKS] [ 2 DISCS ]
-    { "SLPS91480", 125 }, // PARASITE EVE II [PSONE BOOKS] [ 2 DISCS ]
-    { "SLPS02779", 125 }, // PARASITE EVE II [SQUARESOFT MILLENNIUM COLLECTION]  -  [ 2 DISCS ]
-    { "SLPS02780", 125 }, // PARASITE EVE II [SQUARESOFT MILLENNIUM COLLECTION]  -  [ 2 DISCS ]
-
+    { 125, { "SLUS01042", "SLUS01055", "SLES02558", "SLES12558" } },
+    { 125, { "SLES02559", "SLES12559", "SLES02560", "SLES12560" } },
+    { 125, { "SLES02561", "SLES12561", "SLES02562", "SLES12562" } },
+    { 125, { "SCPS45467", "SCPS45468", "SLPS02480", "SLPS02481" } },
+    { 125, { "SLPS91479", "SLPS91480", "SLPS02779", "SLPS02780" } },
     /* Discworld Noir - audio skips if CPU runs too fast */
-    { "SLES01549", 222 },
-    { "SLES02063", 222 },
-    { "SLES02064", 222 },
+    { 222, { "SLES01549", "SLES02063", "SLES02064" } },
     /* Digimon World */
-    { "SLUS01032", 153 },
-    { "SLES02914", 153 },
+    { 153, { "SLUS01032", "SLES02914" } },
     /* Syphon Filter - reportedly hangs under unknown conditions */
-    { "SCUS94240", 169 },
+    { 169, { "SCUS94240" } },
     /* Psychic Detective - some weird race condition in the game's cdrom code */
-    { "SLUS00165", 222 },
-    { "SLUS00166", 222 },
-    { "SLUS00167", 222 },
-    { "SLES00070", 222 },
-    { "SLES10070", 222 },
-    { "SLES20070", 222 },
+    { 222, { "SLUS00165", "SLUS00166", "SLUS00167" } },
+    { 222, { "SLES00070", "SLES10070", "SLES20070" } },
     /* Zero Divide - sometimes too fast */
-    { "SLUS00183", 200 },
-    { "SLES00159", 200 },
-    { "SLPS00083", 200 },
-    { "SLPM80008", 200 },
+    { 200, { "SLUS00183", "SLES00159", "SLPS00083", "SLPM80008" } },
 };
 
 static const struct
@@ -245,7 +229,11 @@ void Apply_Hacks_Cdrom()
 
     for (i = 0; i < ARRAY_SIZE(cycle_multiplier_overrides); i++)
     {
-        if (strcmp(CdromId, cycle_multiplier_overrides[i].id) == 0)
+        const char * const * const ids = cycle_multiplier_overrides[i].id;
+		for (j = 0; j < ARRAY_SIZE(cycle_multiplier_overrides[i].id); j++)
+			if (ids[j] && strcmp(ids[j], CdromId) == 0)
+				break;
+		if (j < ARRAY_SIZE(cycle_multiplier_overrides[i].id))
         {
             Config.cycle_multiplier_override = cycle_multiplier_overrides[i].mult;
             //new_dynarec_hacks_pergame |= NDHACK_OVERRIDE_CYCLE_M;
