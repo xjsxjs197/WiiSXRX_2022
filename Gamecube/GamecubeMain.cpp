@@ -387,10 +387,13 @@ void loadSettings(int argc, char *argv[])
 
 	//config stuff
 	int (*configFile_init)(fileBrowser_file*) = fileBrowser_libfat_init;
+	fileBrowser_file* configFile_file = &saveDir_libfat_USB;
 #ifdef HW_RVL
+    // Because it is necessary to read the HID INI configuration file of the USB,
+    // it is always necessary to initialize the USB
+    int usbInitRet = configFile_init(configFile_file);
 	if(argc && argv[0][0] == 'u') {  //assume USB
-		fileBrowser_file* configFile_file = &saveDir_libfat_USB;
-		if(configFile_init(configFile_file)) {                //only if device initialized ok
+		if(usbInitRet) {                //only if device initialized ok
             memset(Config.PatchesDir, '\0', sizeof(Config.PatchesDir));
             strcpy(Config.PatchesDir, "usb:/wiisxrx/ppf/");
 			FILE* f = fopen( "usb:/wiisxrx/settingsRX2022.cfg", "r" );  //attempt to open file
@@ -404,7 +407,7 @@ void loadSettings(int argc, char *argv[])
 	else /*if((argv[0][0]=='s') || (argv[0][0]=='/'))*/
 #endif //HW_RVL
 	{ //assume SD
-		fileBrowser_file* configFile_file = &saveDir_libfat_Default;
+		configFile_file = &saveDir_libfat_Default;
 		if(configFile_init(configFile_file)) {                //only if device initialized ok
             // add xjsxjs197 start
             memset(Config.PatchesDir, '\0', sizeof(Config.PatchesDir));
