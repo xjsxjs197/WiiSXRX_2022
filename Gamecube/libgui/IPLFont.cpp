@@ -26,6 +26,10 @@
 
 #include "gui2/gettext.h"
 #include "../wiiSXconfig.h"
+extern "C" {
+#include "../fileBrowser/fileBrowser.h"
+#include "../fileBrowser/fileBrowser-libfat.h"
+}
 
 namespace menu {
 
@@ -136,6 +140,10 @@ extern "C" char menuActive;
 
 FILE* IplFont::getFontFile(char* sdUsb)
 {
+    int (*configFile_init)(fileBrowser_file*) = fileBrowser_libfat_init;
+    fileBrowser_file* configFile_file = (sdUsb[0] == 's' ? &saveDir_libfat_Default : &saveDir_libfat_USB);
+    configFile_init(configFile_file);
+
     char fontPathBuf[256];
     switch(lang)
     {

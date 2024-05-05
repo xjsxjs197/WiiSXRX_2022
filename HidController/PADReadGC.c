@@ -18,10 +18,14 @@
  ***************************************************************************/
 
 #include <stdio.h>
+#include <unistd.h>
+
 #include "global.h"
 #include "KernelHID.h"
 #include "wiidrc.h"
 #include "../Gamecube/DEBUG.h"
+#include "../Gamecube/fileBrowser/fileBrowser.h"
+#include "../Gamecube/fileBrowser/fileBrowser-libfat.h"
 
 #define PAD_CHAN0_BIT                0x80000000
 
@@ -83,8 +87,8 @@ void HIDUpdateControllerIni()
     //gprintf("Trying to get VID%04x PID%04x\n", DeviceVID, DevicePID);
 
     /* I hope this covers all possible ini files */
-    char file_sd[40];
-    char file_usb[40];
+    char file_sd[64];
+    char file_usb[64];
     snprintf(file_sd, sizeof(file_sd), "sd:/wiisxrx/controllers/%04X_%04X.ini", DeviceVID, DevicePID);
     snprintf(file_usb, sizeof(file_usb), "usb:/wiisxrx/controllers/%04X_%04X.ini", DeviceVID, DevicePID);
 
@@ -95,8 +99,22 @@ void HIDUpdateControllerIni()
 
     int i;
     FILE* f = NULL;
+    int (*configFile_init)(fileBrowser_file*) = fileBrowser_libfat_init;
     for (i = 0; i < 2; i++)
     {
+        fileBrowser_file* configFile_file = (i == 0 ? &saveDir_libfat_Default : &saveDir_libfat_USB);
+        configFile_init(configFile_file);
+        #ifdef DISP_DEBUG
+        if (access(filenames[i], F_OK) == 0) {
+            writeLogFile(filenames[i]);
+            writeLogFile(" exists \r\n");
+        }
+        else
+        {
+            writeLogFile(filenames[i]);
+            writeLogFile(" not exists \r\n");
+        }
+        #endif // DISP_DEBUG
         f = fopen(filenames[i], "r");
         if (f != NULL)
             break;

@@ -391,9 +391,9 @@ void loadSettings(int argc, char *argv[])
 #ifdef HW_RVL
     // Because it is necessary to read the HID INI configuration file of the USB,
     // it is always necessary to initialize the USB
-    int usbInitRet = configFile_init(configFile_file);
+    //int usbInitRet = configFile_init(configFile_file);
 	if(argc && argv[0][0] == 'u') {  //assume USB
-		if(usbInitRet) {                //only if device initialized ok
+		if(configFile_init(configFile_file)) {                //only if device initialized ok
             memset(Config.PatchesDir, '\0', sizeof(Config.PatchesDir));
             strcpy(Config.PatchesDir, "usb:/wiisxrx/ppf/");
 			FILE* f = fopen( "usb:/wiisxrx/settingsRX2022.cfg", "r" );  //attempt to open file
