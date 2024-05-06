@@ -150,8 +150,8 @@ struct TextBoxInfo
 ConfigureInputFrame::ConfigureInputFrame()
 {
 	for (int i = 0; i < NUM_FRAME_BUTTONS; i++)
-		FRAME_BUTTONS[i].button = new menu::Button(FRAME_BUTTONS[i].buttonStyle, &FRAME_BUTTONS[i].buttonString, 
-										FRAME_BUTTONS[i].x, FRAME_BUTTONS[i].y, 
+		FRAME_BUTTONS[i].button = new menu::Button(FRAME_BUTTONS[i].buttonStyle, &FRAME_BUTTONS[i].buttonString,
+										FRAME_BUTTONS[i].x, FRAME_BUTTONS[i].y,
 										FRAME_BUTTONS[i].width, FRAME_BUTTONS[i].height);
 
 	for (int i = 0; i < NUM_FRAME_BUTTONS; i++)
@@ -164,15 +164,15 @@ ConfigureInputFrame::ConfigureInputFrame()
 		if (FRAME_BUTTONS[i].clickedFunc) FRAME_BUTTONS[i].button->setClicked(FRAME_BUTTONS[i].clickedFunc);
 		if (FRAME_BUTTONS[i].returnFunc) FRAME_BUTTONS[i].button->setReturn(FRAME_BUTTONS[i].returnFunc);
 		add(FRAME_BUTTONS[i].button);
-		menu::Cursor::getInstance().addComponent(this, FRAME_BUTTONS[i].button, FRAME_BUTTONS[i].x, 
-												FRAME_BUTTONS[i].x+FRAME_BUTTONS[i].width, FRAME_BUTTONS[i].y, 
+		menu::Cursor::getInstance().addComponent(this, FRAME_BUTTONS[i].button, FRAME_BUTTONS[i].x,
+												FRAME_BUTTONS[i].x+FRAME_BUTTONS[i].width, FRAME_BUTTONS[i].y,
 												FRAME_BUTTONS[i].y+FRAME_BUTTONS[i].height);
 	}
 
 	for (int i = 0; i < NUM_FRAME_TEXTBOXES; i++)
 	{
-		FRAME_TEXTBOXES[i].textBox = new menu::TextBox(&FRAME_TEXTBOXES[i].textBoxString, 
-										FRAME_TEXTBOXES[i].x, FRAME_TEXTBOXES[i].y, 
+		FRAME_TEXTBOXES[i].textBox = new menu::TextBox(&FRAME_TEXTBOXES[i].textBoxString,
+										FRAME_TEXTBOXES[i].x, FRAME_TEXTBOXES[i].y,
 										FRAME_TEXTBOXES[i].scale, FRAME_TEXTBOXES[i].centered);
 		add(FRAME_TEXTBOXES[i].textBox);
 	}
@@ -232,6 +232,10 @@ void ConfigureInputFrame::activateSubmenu(int submenu)
 			{
 			    FRAME_BUTTONS[i+2].buttonString = FRAME_STRINGS[17];
 			}
+			else if (padType[i] == PADTYPE_MULTITAP)
+			{
+			    FRAME_BUTTONS[i+2].buttonString = FRAME_STRINGS[10];
+			}
 			else
 			{
 			    FRAME_BUTTONS[i+2].buttonString = FRAME_STRINGS[padType[i]+7];
@@ -239,10 +243,10 @@ void ConfigureInputFrame::activateSubmenu(int submenu)
 			FRAME_BUTTONS[i+12].button->setActive(true);
 			FRAME_BUTTONS[i+12].buttonString = FRAME_STRINGS[padAssign[i]+13];
 		}
-		
-		
+
+
 	}
-	
+
 	if (padType[0] != PADTYPE_MULTITAP){
 		for (int i = 2; i < 6; i++){
 			FRAME_BUTTONS[i+2].button->setActive(false);
@@ -258,7 +262,7 @@ void ConfigureInputFrame::activateSubmenu(int submenu)
 			FRAME_BUTTONS[i+12].button->setActive(false);
 			FRAME_BUTTONS[i+12].buttonString = FRAME_STRINGS[12];
 		}
-			
+
 	}
 }
 
@@ -312,12 +316,12 @@ void Func_TogglePad0Type()
 {
 	int i = PADASSIGN_INPUT0;
 #ifdef HW_RVL
-	padType[i] = (padType[i]+1) & 3;
+	padType[i] = (padType[i]+1) % 5;
 #else
 	padType[i] = (padType[i]+1) & 1;
 #endif
 
-	if (padType[i] == PADTYPE_MULTITAP){ 
+	if (padType[i] == PADTYPE_MULTITAP){
 		unassign_controller(i);
 		for(int j = 2;  j < 6; j++)
 			Func_AssignPad(j);
@@ -332,12 +336,12 @@ void Func_TogglePad1Type()
 {
 	int i = PADASSIGN_INPUT1;
 #ifdef HW_RVL
-	padType[i] = (padType[i]+1) & 3;
+	padType[i] = (padType[i]+1) % 5;
 #else
 	padType[i] = (padType[i]+1) & 1;
 #endif
-	
-	if (padType[i] == PADTYPE_MULTITAP){ 
+
+	if (padType[i] == PADTYPE_MULTITAP){
 		unassign_controller(i);
 		for(int j = 6;  j < 10; j++)
 			Func_AssignPad(j);
