@@ -385,7 +385,7 @@ void Func_TogglePad0AType()
 {
 	int i = PADASSIGN_INPUT0A;
 #ifdef HW_RVL
-	padType[i] = (padType[i]+1) %3;
+	padType[i] = (padType[i]+1) %4;
 #else
 	padType[i] = (padType[i]+1) %2;
 #endif
@@ -399,7 +399,7 @@ void Func_TogglePad0BType()
 {
 	int i = PADASSIGN_INPUT0B;
 #ifdef HW_RVL
-	padType[i] = (padType[i]+1) %3;
+	padType[i] = (padType[i]+1) %4;
 #else
 	padType[i] = (padType[i]+1) %2;
 #endif
@@ -413,7 +413,7 @@ void Func_TogglePad0CType()
 {
 	int i = PADASSIGN_INPUT0C;
 #ifdef HW_RVL
-	padType[i] = (padType[i]+1) %3;
+	padType[i] = (padType[i]+1) %4;
 #else
 	padType[i] = (padType[i]+1) %2;
 #endif
@@ -427,7 +427,7 @@ void Func_TogglePad0DType()
 {
 	int i = PADASSIGN_INPUT0D;
 #ifdef HW_RVL
-	padType[i] = (padType[i]+1) %3;
+	padType[i] = (padType[i]+1) %4;
 #else
 	padType[i] = (padType[i]+1) %2;
 #endif
@@ -443,7 +443,7 @@ void Func_TogglePad1AType()
 {
 	int i = PADASSIGN_INPUT1A;
 #ifdef HW_RVL
-	padType[i] = (padType[i]+1) %3;
+	padType[i] = (padType[i]+1) %4;
 #else
 	padType[i] = (padType[i]+1) %2;
 #endif
@@ -457,7 +457,7 @@ void Func_TogglePad1BType()
 {
 	int i = PADASSIGN_INPUT1B;
 #ifdef HW_RVL
-	padType[i] = (padType[i]+1) %3;
+	padType[i] = (padType[i]+1) %4;
 #else
 	padType[i] = (padType[i]+1) %2;
 #endif
@@ -471,7 +471,7 @@ void Func_TogglePad1CType()
 {
 	int i = PADASSIGN_INPUT1C;
 #ifdef HW_RVL
-	padType[i] = (padType[i]+1) %3;
+	padType[i] = (padType[i]+1) %4;
 #else
 	padType[i] = (padType[i]+1) %2;
 #endif
@@ -485,7 +485,7 @@ void Func_TogglePad1DType()
 {
 	int i = PADASSIGN_INPUT1D;
 #ifdef HW_RVL
-	padType[i] = (padType[i]+1) %3;
+	padType[i] = (padType[i]+1) %4;
 #else
 	padType[i] = (padType[i]+1) %2;
 #endif
