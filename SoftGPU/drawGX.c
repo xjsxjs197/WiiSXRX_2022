@@ -76,7 +76,7 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 void drawLine(float x1, float y1, float x2, float y2, char r, char g, char b);
 void drawCircle(int x, int y, int radius, int numSegments, char r, char g, char b);
 
-void switchToTVMode(short dWidth, short dHeight, bool retMenu);
+void switchToTVMode(short dWidth, short dHeight, int mode);
 
 static int vsync_enable;
 static int new_frame;
@@ -159,7 +159,7 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 		GX_InitTexObj(&GXtexobj, GXtexture, width, height, fmt, GX_CLAMP, GX_CLAMP, GX_FALSE);
 	}
 
-	if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_DISABLE)
+	if (zoomMode == MODE_240P || bilinearFilter == BILINEARFILTER_DISABLE)
 		GX_InitTexObjFilterMode(&GXtexobj, GX_NEAR, GX_NEAR);
 	else
 		GX_InitTexObjFilterMode(&GXtexobj, GX_LINEAR, GX_LINEAR);
@@ -297,24 +297,28 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 	GX_SetNumTexGens(1);
 	GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
 
-	float ymin = 1.0f - (float)((y + height) * 2) / (float)screen_h;
-	float ymax = 1.0f - (float)y / (float)screen_h;
-	float xmin = (float)x / (float)screen_w - 1.0f;
-	float xmax = (float)((x + width) * 2) / (float)screen_w - 1.0f;
 
-	if(screenMode == SCREENMODE_16x9_PILLARBOX) {
-		xmin *= 640.0f / 848.0f;
-		xmax *= 640.0f / 848.0f;
-	}
+    float xcoord = 1.0f;
+    float ycoord = 1.0f;
+
+    if (zoomMode != FULL_SCREEN_EXTEND)
+    {
+        extern GXRModeObj getGameVmode(void);
+        extern GXRModeObj getMenuVmode(void);
+        GXRModeObj gameVmode = getGameVmode();
+        GXRModeObj menuVmode = getMenuVmode();
+        xcoord = (float)gameVmode.viWidth / (float)menuVmode.viWidth;
+        ycoord = (float)gameVmode.viHeight / (float)menuVmode.viHeight;
+    }
 
 	GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
-	  GX_Position2f32(xmin, ymax);
+	  GX_Position2f32(-xcoord, ycoord);
 	  GX_TexCoord2f32( 0.0, 0.0);
-	  GX_Position2f32(xmax, ymax);
+	  GX_Position2f32( xcoord, ycoord);
 	  GX_TexCoord2f32( 1.0, 0.0);
-	  GX_Position2f32(xmax, ymin);
+	  GX_Position2f32( xcoord,-ycoord);
 	  GX_TexCoord2f32( 1.0, 1.0);
-	  GX_Position2f32(xmin, ymin);
+	  GX_Position2f32(-xcoord,-ycoord);
 	  GX_TexCoord2f32( 0.0, 1.0);
 	GX_End();
 
@@ -456,17 +460,27 @@ static void gc_vout_flip(const void *vram, int stride, int bgr24,
 }
 
 static void gc_vout_set_mode(int w, int h, int raw_w, int raw_h, int bpp) {
-    screen_w = raw_w;
-    screen_h = raw_h;
+    screen_w = w;
+    screen_h = h;
 
     if (menuActive) return;
 
+    #ifdef SHOW_DEBUG
+    sprintf(txtbuffer, "VI1 %d %d", w, h);
+    DEBUG_print(txtbuffer, DBG_CORE1);
+    #endif // SHOW_DEBUG
     // Check if TVMode needs to be changed (240 or 480 lines)
-    if (originalMode == ORIGINALMODE_ENABLE)
+    //if (originalMode == ORIGINALMODE_ENABLE)
     {
         backFromMenu = 0;
         switchToTVMode(w, h, 0);
     }
+    #ifdef SHOW_DEBUG
+    extern GXRModeObj getGameVmode(void);
+    GXRModeObj gameVmode = getGameVmode();
+    sprintf(txtbuffer, "VI2 %d %d", gameVmode.viWidth, gameVmode.viHeight);
+    DEBUG_print(txtbuffer, DBG_CORE2);
+    #endif // SHOW_DEBUG
 }
 
 extern u32 hSyncCount;

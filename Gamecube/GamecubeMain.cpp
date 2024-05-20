@@ -124,6 +124,8 @@ char saveStateDevice;
 char autoSave;
 signed char autoSaveLoaded = 0;
 char screenMode = 0;
+char zoomMode = ORIGINAL_PROPORTION;
+char oldZoomMode;
 char videoMode = 0;
 char fileSortMode = 1;
 char padAutoAssign;
@@ -136,7 +138,8 @@ char controllerType;
 char numMultitaps;
 char lang = 0;
 char fastLoad = 0;
-char originalMode = 0;
+short oldWidth = 640;
+short oldHeight = 480;
 char bilinearFilter = 1;
 char trapFilter = 1;
 char interlacedMode = 0;
@@ -210,7 +213,8 @@ static struct {
   { "smbipaddr", smbIpAddr, CONFIG_STRING_TYPE, CONFIG_STRING_TYPE },
   { "lang", &lang, ENGLISH, TURKISH },
   { "fastLoad", &fastLoad, 0, 1 },
-  { "TVMode", &originalMode, ORIGINALMODE_DISABLE, ORIGINALMODE_ENABLE },
+  //{ "TVMode", &originalMode, ORIGINALMODE_DISABLE, ORIGINALMODE_ENABLE },
+  { "ZoomMode", &zoomMode, MODE_240P, MULTIPLE_EXTEND },
   { "BilinearFilter", &bilinearFilter, BILINEARFILTER_DISABLE, BILINEARFILTER_ENABLE },
   { "TrapFilter", &trapFilter, TRAPFILTER_DISABLE, TRAPFILTER_ENABLE },
   { "Interlaced", &interlacedMode, INTERLACED_DISABLE, INTERLACED_ENABLE },
@@ -383,7 +387,9 @@ void loadSettings(int argc, char *argv[])
 	LoadCdBios = BOOTTHRUBIOS_NO;
 	lang = 0;
 	fastLoad = 0;
-	originalMode = 0;
+	//originalMode = 0;
+	zoomMode = ORIGINAL_PROPORTION;
+
 
 	//config stuff
 	int (*configFile_init)(fileBrowser_file*) = fileBrowser_libfat_init;

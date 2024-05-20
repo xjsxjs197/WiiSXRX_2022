@@ -247,7 +247,7 @@ extern "C" char mcd1Written;
 extern "C" char mcd2Written;
 extern "C" unsigned int usleep(unsigned int us);
 
-extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu);
+extern "C" void switchToTVMode(short dWidth, short dHeight, int mode);
 extern "C" void GPUsetframelimit(unsigned long option);
 
 void Func_PlayGame()
@@ -300,10 +300,22 @@ void Func_PlayGame()
 #ifdef DEBUGON
 	_break();
 #endif
-	if (originalMode)
+	if (zoomMode == MODE_240P)
 		backFromMenu = 1;
 	frameLimit[0] = frameLimit[1];
 	//GPUsetframelimit(0);
+	if (FRAME_BUTTONS[5].buttonString == FRAME_STRINGS[6])
+	{
+		// resume game
+		if (oldZoomMode == zoomMode)
+		{
+			switchToTVMode(0, 0, 2);
+		}
+		else
+		{
+			switchToTVMode(oldWidth, oldHeight, 0);
+		}
+	}
 	go();
 
 #ifdef DEBUGON
@@ -313,8 +325,8 @@ void Func_PlayGame()
 	pauseInput();
 	pauseAudio();
 
-	if (originalMode)
-		switchToTVMode(640, 480, 1);
+	//if (originalMode)
+		switchToTVMode(0, 0, 1);
 
 
   if(autoSave==AUTOSAVE_ENABLE) {

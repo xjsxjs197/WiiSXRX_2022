@@ -155,6 +155,18 @@ enum screenMode
 	SCREENMODE_16x9_PILLARBOX
 };
 
+extern short oldWidth;
+extern short oldHeight;
+extern char zoomMode;
+extern char oldZoomMode;
+enum zoomMode
+{
+	MODE_240P = 0,
+	FULL_SCREEN_EXTEND,
+	ORIGINAL_PROPORTION,
+	MULTIPLE_EXTEND
+};
+
 extern char videoMode;
 enum videoMode
 {
@@ -264,12 +276,12 @@ enum lang
 	TURKISH
 };
 
-extern char originalMode;
-enum originalMode
-{
-	ORIGINALMODE_DISABLE=0,
-	ORIGINALMODE_ENABLE,
-};
+//extern char originalMode;
+//enum originalMode
+//{
+//	ORIGINALMODE_DISABLE=0,
+//	ORIGINALMODE_ENABLE,
+//};
 
 extern char bilinearFilter;
 enum bilinearFilter

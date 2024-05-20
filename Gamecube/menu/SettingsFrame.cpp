@@ -75,7 +75,7 @@ void Func_FrameSkipOff();
 void Func_ScreenMode();
 void Func_Interlaced();
 void Func_DeflickerFilter();
-void Func_Screen240p();
+void Func_ZoomMode();
 void Func_BilinearFilter();
 void Func_TrapFilter();
 void Func_DitheringNone();
@@ -293,6 +293,13 @@ static char LANG_STRINGS[13][24] =
       "Tu" // TURKISH
       };
 
+static char ZOOM_MODE_STRINGS[4][24] =
+	{ "240P",
+      "Fill",
+      "Ratio",
+      "Multiple"
+      };
+
 struct ButtonInfo
 {
 	menu::Button	*button;
@@ -376,7 +383,7 @@ struct ButtonInfo
     //Buttons for Saves Tab (starts at button[55]) ..was[61]
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[16],	490.0,	310.0,	 75.0,	56.0,	12,	15,	54,	56,	Func_FastloadYes,		Func_ReturnFromSettingsFrame }, // Fast load: Yes
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[17],	570.0,	310.0,	 75.0,	56.0,	13,	15,	55,	54,	Func_FastloadNo,		Func_ReturnFromSettingsFrame }, // Fast load: No
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[64],	510.0,	280.0,	 75.0,	56.0,	21,	27,	23,	22,	Func_Screen240p,		Func_ReturnFromSettingsFrame },  // ScreenMode: 240p
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[64],	510.0,	280.0,	130.0,	56.0,	21,	27,	23,	22,	Func_ZoomMode,		    Func_ReturnFromSettingsFrame },  // ZoomMode: 240p...
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[11],	505.0,	100.0,	130.0,	56.0,	 0,	 9,	 6,	 5,	Func_CpuDynarec,		Func_ReturnFromSettingsFrame },  // CPU: Dynarec
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[70],	510.0,	170.0,	115.0,	56.0,	31,	35,	33,	32,	Func_PsxTypeLightgun,	Func_ReturnFromSettingsFrame },  // PSX Controller Type: Lightgun
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[74],	295.0,	310.0,	155.0,	56.0,	52,	4,	61,	61,	Func_Memcard1,			Func_ReturnFromSettingsFrame },  // Memcard 1 toggle
@@ -570,7 +577,7 @@ void SettingsFrame::activateSubmenu(int submenu)
 			else								FRAME_BUTTONS[19].button->setSelected(true);
 			if (frameSkip == FRAMESKIP_ENABLE)	FRAME_BUTTONS[20].button->setSelected(true);
 			else								FRAME_BUTTONS[21].button->setSelected(true);
-			if (originalMode == ORIGINALMODE_ENABLE)FRAME_BUTTONS[57].button->setSelected(true);
+			FRAME_BUTTONS[57].button->setSelected(true);
 			if (bilinearFilter == BILINEARFILTER_ENABLE)FRAME_BUTTONS[28].button->setSelected(true);
 			if (trapFilter == TRAPFILTER_ENABLE)FRAME_BUTTONS[29].button->setSelected(true);
 			if (interlacedMode == INTERLACED_ENABLE)FRAME_BUTTONS[23].button->setSelected(true);
@@ -579,6 +586,7 @@ void SettingsFrame::activateSubmenu(int submenu)
 
 			FRAME_BUTTONS[57].button->setVisible(true);
 			FRAME_BUTTONS[57].button->setActive(true);
+			FRAME_BUTTONS[57].buttonString = ZOOM_MODE_STRINGS[zoomMode];
 
 			FRAME_BUTTONS[25+useDithering].button->setSelected(true);
 			for (int i = 16; i < 30; i++)
@@ -1282,18 +1290,14 @@ void Func_ScreenMode()
     FRAME_BUTTONS[22].buttonString = FRAME_STRINGS[27 + screenMode];
 }
 
-void Func_Screen240p()
+void Func_ZoomMode()
 {
-	if(originalMode == ORIGINALMODE_ENABLE)
+	zoomMode++;
+	if (zoomMode > MULTIPLE_EXTEND)
 	{
-		FRAME_BUTTONS[57].button->setSelected(false);
-		originalMode = ORIGINALMODE_DISABLE;
+		zoomMode = MODE_240P;
 	}
-	else
-	{
-		FRAME_BUTTONS[57].button->setSelected(true);
-		originalMode = ORIGINALMODE_ENABLE;
-	}
+	FRAME_BUTTONS[57].buttonString = ZOOM_MODE_STRINGS[zoomMode];
 }
 
 void Func_DitheringNone()

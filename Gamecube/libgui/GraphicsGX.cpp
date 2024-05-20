@@ -56,8 +56,9 @@ extern "C" unsigned int usleep(unsigned int us);
 void video_mode_init(GXRModeObj *rmode, u32 *fb1, u32 *fb2, u32 *fb3);
 extern "C" void VIDEO_SetTrapFilter(bool enable);
 
-GXRModeObj gvmode;
-GXRModeObj mgvmode;
+#define MAX_XFB_SIZE (VIDEO_PadFramebufferWidth(720) * 576 * 2)
+static GXRModeObj gameVmode;
+static GXRModeObj menuVmode;
 
 extern u32* xfb[3];
 enum {
@@ -66,7 +67,15 @@ enum {
 	FB_FRONT,
 };
 
-extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
+extern "C" GXRModeObj getGameVmode(void)
+{
+    return gameVmode;
+}
+extern "C" GXRModeObj getMenuVmode(void)
+{
+    return menuVmode;
+}
+extern "C" void switchToTVMode(short dWidth, short dHeight, int mode){
 	GXRModeObj *rmode;
 	f32 yscale;
 	u32 xfbHeight;
@@ -75,80 +84,149 @@ extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
 	u32 height = 0;
 	Mtx44 perspective;
 	GXColor background = {0, 0, 0, 0xff};
-	if (dWidth <= 320)
-		dWidth *= 2;
-
-	rmode = &mgvmode;
-	if (dWidth > rmode->viWidth)
-		dWidth = rmode->viWidth;
-	if (dHeight > rmode->viHeight)
-		dHeight = rmode->viHeight;
-
-
-	if ((dHeight > 288))
+	if (mode == 2)
 	{
-		if(!retMenu)
-		{
-			rmode = &gvmode;
-			rmode->fbWidth = dWidth;
-			rmode->efbHeight = dHeight;
-			rmode->xfbHeight = dHeight;
-			rmode->viYOrigin = (VI_MAX_HEIGHT_NTSC - dHeight)/2;
-			if ((CONF_GetEuRGB60() == 0) && (CONF_GetVideo() == CONF_VIDEO_PAL))
-				rmode->viYOrigin = (VI_MAX_HEIGHT_PAL - dHeight)/2;
-
-			if (interlacedMode){
-				rmode->viTVMode =	(mgvmode.viTVMode & ~0x03) + VI_INTERLACE;
-				rmode->xfbMode = VI_XFBMODE_DF;
-			}
-			else{
-				rmode->viTVMode =	mgvmode.viTVMode;
-				rmode->xfbMode = mgvmode.xfbMode;
-			}
-		}
-		xfbWidth = VIDEO_PadFramebufferWidth(rmode->fbWidth);
-		width = xfbWidth;
+	    rmode = &gameVmode;
+	}
+	else if (mode == 1)
+	{
+	    rmode = &menuVmode;
 	}
 	else
 	{
-		if (CONF_GetVideo() == CONF_VIDEO_NTSC)
-		{
-			rmode = &TVMODE_240p;
-			rmode->viTVMode = VI_TVMODE_NTSC_DS;
-			rmode->viYOrigin = (VI_MAX_HEIGHT_NTSC/2 - dHeight)/2;
+		rmode = &gameVmode;
 
-		}
-		else if (CONF_GetEuRGB60() > 0)
+		oldWidth = dWidth;
+		oldHeight = dHeight;
+		oldZoomMode = zoomMode;
+		if ((dHeight > 288) || zoomMode != MODE_240P)
 		{
-			rmode = &TVMODE_240p;
-			rmode->viYOrigin = (VI_MAX_HEIGHT_NTSC/2 - dHeight)/2;
-		}
-		else if (CONF_GetVideo() == CONF_VIDEO_MPAL)
-		{
-			rmode = &TVMODE_240p;
-			rmode->viTVMode = VI_TVMODE_MPAL_DS;
-			rmode->viYOrigin = (VI_MAX_HEIGHT_NTSC/2 - dHeight)/2;
+			if (zoomMode == FULL_SCREEN_EXTEND)
+			{
+				dWidth = menuVmode.fbWidth;
+				dHeight = menuVmode.efbHeight;
+			}
+			else if (zoomMode == ORIGINAL_PROPORTION)
+			{
+				dWidth = menuVmode.fbWidth;
+				if (oldWidth == 512 && dHeight == 240)
+				{
+					dHeight = (dWidth * dHeight / oldWidth) & 0xFFFFFFFE;
+					dHeight = (dHeight + (dHeight / 2)) & 0xFFFFFFFE;
+				}
+				else if (oldWidth == 512 && dHeight == 480)
+				{
+					dWidth = 640;
+					dHeight = 480;
+				}
+				else
+				{
+					dHeight = (dWidth * dHeight / oldWidth) & 0xFFFFFFFE;
+				}
+
+				if (dHeight > menuVmode.efbHeight)
+				{
+					dHeight = menuVmode.efbHeight;
+					dWidth = (dHeight * oldWidth / oldHeight) & 0xFFFFFFFE;
+				}
+			}
+			else if (zoomMode == MULTIPLE_EXTEND)
+			{
+				if (dWidth <= 368)
+				{
+					dWidth = dWidth * 2;
+					if (dWidth > menuVmode.fbWidth)
+					{
+						dWidth = menuVmode.fbWidth;
+					}
+				}
+
+				if (dHeight <= 288)
+				{
+					if (oldWidth == 512 && dHeight == 240)
+					{
+						dWidth = 512;
+						dHeight = (dWidth * dHeight / oldWidth) & 0xFFFFFFFE;
+						dHeight = (dHeight + (dHeight / 2)) & 0xFFFFFFFE;
+					}
+					else if (oldWidth == 512 && dHeight == 480)
+					{
+						dWidth = 640;
+						dHeight = 480;
+					}
+					else
+					{
+						dHeight = dHeight * 2;
+					}
+				}
+			}
+
+			rmode->fbWidth = VIDEO_PadFramebufferWidth(dWidth);
+			rmode->viWidth = dWidth;
+
+			rmode->efbHeight = dHeight;
+			rmode->xfbHeight = dHeight;
+			rmode->viHeight = dHeight;
+
+			rmode->viXOrigin = (VI_MAX_WIDTH_NTSC - rmode->viWidth)/2;
+			rmode->viYOrigin = (VI_MAX_HEIGHT_NTSC - rmode->viHeight)/2;
+			if ((CONF_GetEuRGB60() == 0) && (CONF_GetVideo() == CONF_VIDEO_PAL))
+				rmode->viYOrigin = (VI_MAX_HEIGHT_PAL - rmode->viHeight)/2;
+
+			if (interlacedMode){
+				rmode->viTVMode =	(menuVmode.viTVMode & ~0x03) + VI_INTERLACE;
+				rmode->xfbMode = VI_XFBMODE_DF;
+			}
+			else{
+				rmode->viTVMode =	menuVmode.viTVMode;
+				rmode->xfbMode = menuVmode.xfbMode;
+			}
+
+			xfbWidth = VIDEO_PadFramebufferWidth(rmode->fbWidth);
+			width = xfbWidth;
 		}
 		else
 		{
-			rmode = &TVMODE_240p;
-			rmode->viTVMode = VI_TVMODE_PAL_DS;
-			rmode->viXOrigin = (VI_MAX_WIDTH_PAL - 640)/2;
-			rmode->viYOrigin = (VI_MAX_HEIGHT_PAL/2 - dHeight)/2;
+			if (CONF_GetVideo() == CONF_VIDEO_NTSC)
+			{
+				rmode = &TVMODE_240p;
+				rmode->viTVMode = VI_TVMODE_NTSC_DS;
+				rmode->viYOrigin = (VI_MAX_HEIGHT_NTSC/2 - dHeight)/2;
+
+			}
+			else if (CONF_GetEuRGB60() > 0)
+			{
+				rmode = &TVMODE_240p;
+				rmode->viYOrigin = (VI_MAX_HEIGHT_NTSC/2 - dHeight)/2;
+			}
+			else if (CONF_GetVideo() == CONF_VIDEO_MPAL)
+			{
+				rmode = &TVMODE_240p;
+				rmode->viTVMode = VI_TVMODE_MPAL_DS;
+				rmode->viYOrigin = (VI_MAX_HEIGHT_NTSC/2 - dHeight)/2;
+			}
+			else
+			{
+				rmode = &TVMODE_240p;
+				rmode->viTVMode = VI_TVMODE_PAL_DS;
+				rmode->viXOrigin = (VI_MAX_WIDTH_PAL - 640)/2;
+				rmode->viYOrigin = (VI_MAX_HEIGHT_PAL/2 - dHeight)/2;
+			}
+			rmode->efbHeight = dHeight;
+			rmode->xfbHeight = dHeight;
+
+			rmode->fbWidth = dWidth;
+			width = rmode->fbWidth;
+
 		}
-		rmode->efbHeight = dHeight;
-		rmode->xfbHeight = dHeight;
-
-		rmode->fbWidth = dWidth;
-		width = rmode->fbWidth;
-
 	}
 
 	GX_SetCopyFilter(rmode->aa,rmode->sample_pattern,(deflickerFilter)?GX_TRUE:GX_FALSE,rmode->vfilter);
 
+	GX_InvVtxCache();
 	VIDEO_Configure (rmode);
 	VIDEO_Flush();
-	if (retMenu){
+	if (mode == 1) {
 		GX_SetCopyFilter(rmode->aa,rmode->sample_pattern,GX_TRUE,rmode->vfilter);
 		VIDEO_ClearFrameBuffer (rmode, xfb[FB_FRONT], COLOR_BLACK);
 		VIDEO_Flush ();
@@ -174,7 +252,7 @@ extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
 	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
 	GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
 	height = rmode->efbHeight;
-	guOrtho(perspective,0,height,0,width,0,300);
+	guOrtho(perspective,0,height,0,width,0,700);
 	GX_LoadProjectionMtx(perspective, GX_ORTHOGRAPHIC);
 	GX_SetDither(GX_FALSE);
 
@@ -233,16 +311,16 @@ Graphics::Graphics(GXRModeObj *rmode)
 	}
 
 	//vmode->efbHeight = viewportHeight; // Note: all possible modes have efbHeight of 480
-	memcpy( &gvmode, vmode, sizeof(GXRModeObj));
-	memcpy( &mgvmode, vmode, sizeof(GXRModeObj));
+	memcpy( &gameVmode, vmode, sizeof(GXRModeObj));
+	memcpy( &menuVmode, vmode, sizeof(GXRModeObj));
 	if (trapFilter)
 		VIDEO_SetTrapFilter(1);
 
 	VIDEO_Configure(vmode);
 
-	xfb[0] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(vmode));
-	xfb[1] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(vmode));
-	xfb[2] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(vmode));
+	xfb[0] = MEM_K0_TO_K1(memalign(32, MAX_XFB_SIZE));
+	xfb[1] = MEM_K0_TO_K1(memalign(32, MAX_XFB_SIZE));
+	xfb[2] = MEM_K0_TO_K1(memalign(32, MAX_XFB_SIZE));
 
 	console_init (xfb[0], 20, 64, vmode->fbWidth, vmode->xfbHeight, vmode->fbWidth * 2);
 
