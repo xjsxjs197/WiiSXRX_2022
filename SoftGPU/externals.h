@@ -75,11 +75,11 @@
 #define GPUSTATUS_DRAWINGALLOWED      0x00000400
 #define GPUSTATUS_DITHER              0x00000200
 
-#define GPUIsBusy (ret &= ~GPUSTATUS_IDLE)
-#define GPUIsIdle (ret |= GPUSTATUS_IDLE)
+#define GPUIsBusy (lGPUstatusRet &= ~GPUSTATUS_IDLE)
+#define GPUIsIdle (lGPUstatusRet |= GPUSTATUS_IDLE)
 
-#define GPUIsNotReadyForCommands (ret &= ~GPUSTATUS_READYFORCOMMANDS)
-#define GPUIsReadyForCommands (ret |= GPUSTATUS_READYFORCOMMANDS)
+#define GPUIsNotReadyForCommands (lGPUstatusRet &= ~GPUSTATUS_READYFORCOMMANDS)
+#define GPUIsReadyForCommands (lGPUstatusRet |= GPUSTATUS_READYFORCOMMANDS)
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -171,7 +171,7 @@ typedef struct PSXDISPLAYTAG
 
 // draw.c
 
-#ifndef _IN_DRAW
+//#ifndef _IN_DRAW
 
 
 extern char *         pCaptionText;
@@ -196,7 +196,11 @@ extern int            iFastFwd;
 extern PSXPoint_t     ptCursorPoint[];
 extern unsigned short usCursorActive;
 
-#endif
+extern short Ymin;
+extern short Ymax;
+extern int  gInterlaceLine;
+
+//#endif
 
 // prim.c
 
@@ -209,8 +213,8 @@ extern void (*primTableJ[256])(unsigned char *);
 extern void (*primTableSkip[256])(unsigned char *);
 extern unsigned short  usMirror;
 extern int            iDither;
-extern unsigned long  dwCfgFixes;
-extern unsigned long  dwActFixes;
+extern unsigned int   dwCfgFixes;
+extern unsigned int   dwActFixes;
 extern unsigned long  dwEmuFixes;
 extern int            iUseFixes;
 extern int            iUseDither;
@@ -224,15 +228,13 @@ extern long           drawH;
 
 // gpu.c
 
-#ifndef _IN_GPU
+//#ifndef _IN_GPU
 
 extern VRAMLoad_t     VRAMWrite;
 extern VRAMLoad_t     VRAMRead;
 extern DATAREGISTERMODES DataWriteMode;
 extern DATAREGISTERMODES DataReadMode;
-extern int            iColDepth;
 extern int            iWindowMode;
-extern char           szDebugText[];
 extern short          sDispWidths[];
 extern BOOL           bDebugText;
 //extern unsigned int   iMaxDMACommandCounter;
@@ -242,22 +244,16 @@ extern PSXDisplay_t   PreviousPSXDisplay;
 extern BOOL           bSkipNextFrame;
 extern long           lGPUstatusRet;
 extern long           drawingLines;
-extern unsigned char  * psxVSecure;
 extern unsigned char  * psxVub;
-extern signed char    * psxVsb;
 extern unsigned short * psxVuw;
-extern signed short   * psxVsw;
-extern unsigned long  * psxVul;
-extern signed long    * psxVsl;
 extern unsigned short * psxVuw_eom;
 extern BOOL           bChangeWinMode;
 extern long           lSelectedSlot;
-extern unsigned long  lGPUInfoVals[];
-extern unsigned long  ulStatusControl[];
-extern int            iRumbleVal;
-extern int            iRumbleTime;
+extern unsigned int   lGPUInfoVals[];
 
-#endif
+extern int            gMouse[4];
+extern int            iFakePrimBusy;
+//#endif
 
 // menu.c
 

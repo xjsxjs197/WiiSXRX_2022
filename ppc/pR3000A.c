@@ -29,6 +29,7 @@
 #include "ppc.h"
 #include "reguse.h"
 #include "pR3000A.h"
+#include "../gpu.h"
 #include "../r3000a.h"
 #include "../psxhle.h"
 #include "../Gamecube/DEBUG.h"
@@ -2420,7 +2421,7 @@ static void recLW() {
 
 					DisposeHWReg(iRegs[_Rt_].reg);
 					InvalidateCPURegs();
-					CALLFunc((u32)GPU_readData);
+					CALLFunc((u32)gpuPtr->readData);
 
 					SetDstCPUReg(3);
 					PutHWReg32(_Rt_);
@@ -2431,7 +2432,7 @@ static void recLW() {
 
 					DisposeHWReg(iRegs[_Rt_].reg);
 					InvalidateCPURegs();
-					CALLFunc((u32)GPU_readStatus);
+					CALLFunc((u32)gpuPtr->readStatus);
 
 					SetDstCPUReg(3);
 					PutHWReg32(_Rt_);

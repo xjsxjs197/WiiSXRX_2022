@@ -25,7 +25,7 @@
 #include <wiiuse/wpad.h>
 #include "../coredebug.h"
 #include "stdafx.h"
-#define _IN_DRAW
+//#define _IN_DRAW
 #include "externals.h"
 #include "gpu.h"
 #include "draw.h"
@@ -61,14 +61,21 @@ int            backFromMenu=0;
 
 //Some GX specific variables
 #define FB_MAX_SIZE (640 * 528 * 4)
-static unsigned char	GXtexture[FB_MAX_SIZE] __attribute__((aligned(32)));
+
+#define RESX_MAX 1024	//Vmem width
+#define RESY_MAX 512	//Vmem height
+#define GXRESX_MAX 1366	//1024 * 1.33 for ARGB
+int		iResX_Max=RESX_MAX;
+int		iResY_Max=RESY_MAX;
+
+static unsigned char	GXtexture[GXRESX_MAX*RESY_MAX*2] __attribute__((aligned(32)));
 extern u32* xfb[3];	/*** Framebuffers ***/
 char *	pCaptionText;
 
 extern char text[DEBUG_TEXT_HEIGHT][DEBUG_TEXT_WIDTH]; /*** DEBUG textbuffer ***/
 extern char menuActive;
 extern char screenMode;
-static char fpsInfo[32];
+char fpsInfo[32];
 
 // prototypes
 static void GX_Flip(const void *buffer, int pitch, u8 fmt,
@@ -297,24 +304,18 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 	GX_SetNumTexGens(1);
 	GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
 
-	float ymin = 1.0f - (float)((y + height) * 2) / (float)screen_h;
-	float ymax = 1.0f - (float)y / (float)screen_h;
-	float xmin = (float)x / (float)screen_w - 1.0f;
-	float xmax = (float)((x + width) * 2) / (float)screen_w - 1.0f;
-
-	if(screenMode == SCREENMODE_16x9_PILLARBOX) {
-		xmin *= 640.0f / 848.0f;
-		xmax *= 640.0f / 848.0f;
-	}
+	float xcoord = 1.0;
+	float ycoord = 1.0;
+	if(screenMode == SCREENMODE_16x9_PILLARBOX) xcoord = 640.0/848.0;
 
 	GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
-	  GX_Position2f32(xmin, ymax);
+	  GX_Position2f32(-xcoord, ycoord);
 	  GX_TexCoord2f32( 0.0, 0.0);
-	  GX_Position2f32(xmax, ymax);
+	  GX_Position2f32( xcoord, ycoord);
 	  GX_TexCoord2f32( 1.0, 0.0);
-	  GX_Position2f32(xmax, ymin);
+	  GX_Position2f32( xcoord,-ycoord);
 	  GX_TexCoord2f32( 1.0, 1.0);
-	  GX_Position2f32(xmin, ymin);
+	  GX_Position2f32(-xcoord,-ycoord);
 	  GX_TexCoord2f32( 0.0, 1.0);
 	GX_End();
 
@@ -417,7 +418,7 @@ drawLine(float x1, float y1, float x2, float y2, char r, char g, char b)
 
 // =============================================================================================
 
-static int gc_vout_open(void) {
+int gc_vout_open(void) {
 	memset(GXtexture,0,sizeof(GXtexture));
 	VIDEO_SetPreRetraceCallback(gc_vout_vsync);
 	return 0;
@@ -453,6 +454,90 @@ static void gc_vout_flip(const void *vram, int stride, int bgr24,
 	if (menuActive) return;
 
 	GX_Flip(vram, stride * 2, bgr24 ? GX_TF_RGBA8 : GX_TF_RGB5A3, x, y, w, h);
+}
+
+// For old softGpu
+void DoBufferSwap(void)                                // SWAP BUFFERS
+{                                                      // (we don't swap... we blit only)
+	static int iOldDX=0;
+	static int iOldDY=0;
+	long x = PSXDisplay.DisplayPosition.x;
+	long y = PSXDisplay.DisplayPosition.y;
+	short iDX = PreviousPSXDisplay.Range.x1 & 0xFFF8;
+	if (iDX < PreviousPSXDisplay.Range.x1)
+		iDX += 8;
+	short iDY = PreviousPSXDisplay.DisplayMode.y;
+
+	if (menuActive) return;
+
+	if(iOldDX!=iDX || iOldDY!=iDY)
+	{
+		memset(GXtexture, 0, sizeof(GXtexture));
+		iOldDX=iDX;iOldDY=iDY;
+		backFromMenu = 1;
+	}
+
+//	if (showFPSonScreen == FPS_SHOW)
+//	{
+//		if(szDebugText[0] && ((time(NULL) - tStart) < 2))
+//		{
+//			strcpy(szDispBuf,szDebugText);
+//		}
+//		else
+//		{
+//			szDebugText[0]=0;
+//			strcat(szDispBuf,szMenuBuf);
+//		}
+//	}
+
+	u8 *imgPtr = (u8*)(psxVuw + ((y<<10) + x));
+	if(PSXDisplay.RGB24) {
+		long lPitch=iResX_Max<<1;
+
+		if(PreviousPSXDisplay.Range.y0)                       // centering needed?
+		{
+			imgPtr+=PreviousPSXDisplay.Range.y0*lPitch;
+			iDY-=PreviousPSXDisplay.Range.y0;
+		}
+		imgPtr+=PreviousPSXDisplay.Range.x0<<1;
+	}
+
+
+	GX_Flip(imgPtr, iResX_Max*2, PSXDisplay.RGB24 ? GX_TF_RGBA8 : GX_TF_RGB5A3, 0, 0, iDX, iDY);
+
+	// Check if TVMode needs to be changed (240 or 480 lines)
+	if (originalMode == ORIGINALMODE_ENABLE)
+	{
+		if(backFromMenu)
+		{
+			backFromMenu = 0;
+			switchToTVMode(iDX, iDY, 0);
+		}
+	}
+}
+
+// For old softGpu
+void DoClearFrontBuffer(void)                          // CLEAR DX BUFFER
+{
+	if (menuActive) return;
+
+	//Write menu/debug text on screen
+	if (showFPSonScreen == FPS_SHOW)
+	{
+	    GXColor fontColor = {150,255,150,255};
+        IplFont_drawInit(fontColor);
+		IplFont_drawString(10,35,szDispBuf, 1.0, false);
+		#ifdef SHOW_DEBUG
+		int i = 0;
+        DEBUG_update();
+        for (i=0;i<DEBUG_TEXT_HEIGHT;i++)
+		{
+            IplFont_drawString(10,(24*i+60),text[i], 0.5, false);
+		}
+		#endif // SHOW_DEBUG
+	}
+
+    gc_vout_render();
 }
 
 static void gc_vout_set_mode(int w, int h, int raw_w, int raw_h, int bpp) {
@@ -599,7 +684,7 @@ static void CalcFps(void)
     sprintf(fpsInfo, "FPS %.2f", fps_cur);
 }
 
-static void CheckFrameRate(void)
+void CheckFrameRate(void)
 {
 //    if (gc_rearmed_cbs.frameskip)                           // skipping mode?
 //    {
@@ -727,19 +812,13 @@ void pl_chg_psxtype(int is_pal_)
 
 void plugin_call_rearmed_cbs(unsigned long autoDwActFixes, int cfgUseDithering)
 {
-	extern void *hGPUDriver;
-	void (*rearmed_set_cbs)(const struct rearmed_cbs *cbs);
-
 	gc_rearmed_cbs.screen_centering_type_default =
 		Config.hacks.gpu_centering ? 1 : 0;
 
-	rearmed_set_cbs = SysLoadSym(hGPUDriver, "GPUrearmedCallbacks");
-	if (rearmed_set_cbs != NULL)
-	{
-		gc_rearmed_cbs.gpu_peops.dwActFixes = autoDwActFixes;
-		gc_rearmed_cbs.gpu_peops.iUseDither = cfgUseDithering;
-		gc_rearmed_cbs.frameskip = frameSkip;
+	extern void LIB_GPUrearmedCallbacks(const struct rearmed_cbs *cbs);
+	gc_rearmed_cbs.gpu_peops.dwActFixes = autoDwActFixes;
+	gc_rearmed_cbs.gpu_peops.iUseDither = cfgUseDithering;
+	gc_rearmed_cbs.frameskip = frameSkip;
 
-		rearmed_set_cbs(&gc_rearmed_cbs);
-	}
+	LIB_GPUrearmedCallbacks(&gc_rearmed_cbs);
 }

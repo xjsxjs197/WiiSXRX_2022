@@ -25,6 +25,7 @@
 
 #include "../plugins.h"
 #include "../spu.h"
+#include "../gpu.h"
 #ifndef __GX__
 #include "NoPic.h"
 #endif //!__GX__
@@ -180,7 +181,7 @@ int _OpenPlugins() {
 	if (ret < 0) { SysPrintf("Error Opening SPU Plugin\n"); return -1; }
 	SPU_registerCallback(SPUirq);
 	SPU_registerScheduleCb(SPUschedule);
-	ret = GPU_open(&gpuDisp, "PCSX", NULL);
+	ret = gpuPtr->open(&gpuDisp, "PCSX", NULL);
 	if (ret < 0) { SysPrintf("Error Opening GPU Plugin\n"); return -1; }
 	ret = PAD1_open(&gpuDisp);
 	if (ret < 0) { SysPrintf("Error Opening PAD1 Plugin\n"); return -1; }
@@ -195,9 +196,6 @@ int _OpenPlugins() {
 		strncpy(info.CdromID, CdromId, 9);
 		strncpy(info.CdromLabel, CdromLabel, 9);
 		info.psxMem = psxM;
-		info.GPU_showScreenPic = GPU_showScreenPic;
-		info.GPU_displayText = GPU_displayText;
-		info.GPU_showScreenPic = GPU_showScreenPic;
 		info.PAD_setSensitive = PAD1_setSensitive;
 		sprintf(path, "%s%s", Config.BiosDir, Config.Bios);
 		strcpy(info.BIOSpath, path);
@@ -269,7 +267,7 @@ void ClosePlugins() {
 	if (ret < 0) { SysPrintf("Error Closing PAD1 Plugin\n"); return; }
 	ret = PAD2_close();
 	if (ret < 0) { SysPrintf("Error Closing PAD2 Plugin\n"); return; }
-	ret = GPU_close();
+	ret = gpuPtr->close();
 	if (ret < 0) { SysPrintf("Error Closing GPU Plugin\n"); return; }
 
 	if (Config.UseNet) {

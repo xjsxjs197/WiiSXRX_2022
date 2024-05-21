@@ -476,7 +476,7 @@ PluginTable plugins[] =
 	  PLUGIN_SLOT_2,
 	  PLUGIN_SLOT_3,
 	  PLUGIN_SLOT_4,
-	  PLUGIN_SLOT_5,
+	  //PLUGIN_SLOT_5,
 	  PLUGIN_SLOT_6,
 	  PLUGIN_SLOT_7 };
 }
@@ -895,7 +895,10 @@ void go(void) {
 	Config.PsxOut = 0;
 	stop = 0;
 
-	plugin_call_rearmed_cbs(Config.hacks.dwActFixes, useDithering);
+	if (gpuPtr == &newSoftGpu)
+    {
+        plugin_call_rearmed_cbs(Config.hacks.dwActFixes, useDithering);
+    }
 
 	psxCpu->Execute();
 
@@ -988,7 +991,8 @@ void SysUpdate()
 {
 	framesdone++;
 	// reamed hack
-	{
+	if (gpuPtr == &newSoftGpu)
+    {
 		extern void pl_frame_limit(void);
 		pl_frame_limit();
 	}

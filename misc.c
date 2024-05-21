@@ -619,7 +619,7 @@ int SaveState() {
 
 	pMem = (unsigned char *) malloc(128 * 96 * 3);
 	if (pMem == NULL) return -1;
-	GPU_getScreenPic(pMem);
+	//gpuPtr->getScreenPic(pMem);
 	gzwrite(f, pMem, 128 * 96 * 3);
 	free(pMem);
 
@@ -638,7 +638,7 @@ int SaveState() {
 	// gpu
 	gpufP = (GPUFreeze_t *) malloc(sizeof(GPUFreeze_t));
 	gpufP->ulFreezeVersion = 1;
-	GPU_freeze(1, gpufP);
+	gpuPtr->freeze(1, gpufP);
 	gzwrite(f, gpufP, sizeof(GPUFreeze_t));
 	free(gpufP);
 	// When using the lightrec core at that time, the memory of WiiStation was already less than 2MB
@@ -741,7 +741,7 @@ int LoadState() {
 	// gpu
 	gpufP = (GPUFreeze_t *) malloc (sizeof(GPUFreeze_t));
 	gzread(f, gpufP, sizeof(GPUFreeze_t));
-	GPU_freeze(0, gpufP);
+	gpuPtr->freeze(0, gpufP);
 	free(gpufP);
 	// gpu VRAM load (load directly to save memory)
 	gzread(f, &psxVub[0], 1024 * iGPUHeight * 2);

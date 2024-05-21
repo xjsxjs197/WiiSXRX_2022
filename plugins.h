@@ -51,56 +51,6 @@ typedef unsigned long (CALLBACK* PSEgetLibType)(void);
 typedef unsigned long (CALLBACK* PSEgetLibVersion)(void);
 typedef char *(CALLBACK* PSEgetLibName)(void);
 
-// GPU Functions
-typedef long (CALLBACK* GPUinit)(void);
-typedef long (CALLBACK* GPUshutdown)(void);
-typedef long (CALLBACK* GPUclose)(void);
-typedef void (CALLBACK* GPUwriteStatus)(uint32_t);
-typedef void (CALLBACK* GPUwriteData)(uint32_t);
-typedef void (CALLBACK* GPUwriteDataMem)(uint32_t *, int);
-typedef uint32_t (CALLBACK* GPUreadStatus)(void);
-typedef uint32_t (CALLBACK* GPUreadData)(void);
-typedef void (CALLBACK* GPUreadDataMem)(uint32_t *, int);
-typedef long (CALLBACK* GPUdmaChain)(uint32_t *, uint32_t, uint32_t *, int32_t *);
-typedef void (CALLBACK* GPUupdateLace)(void);
-typedef void (CALLBACK* GPUmakeSnapshot)(void);
-typedef void (CALLBACK* GPUkeypressed)(int);
-typedef void (CALLBACK* GPUdisplayText)(char *);
-typedef struct GPUFREEZETAG
-{
- unsigned long ulFreezeVersion;      // should be always 1 for now (set by main emu)
- unsigned long ulStatus;             // current gpu status
- unsigned long ulControl[256];       // latest control register values
- //unsigned char psxVRam[1024*1024*2]; // current VRam image (full 2 MB for ZN)
-} GPUFreeze_t;
-typedef long (CALLBACK* GPUfreeze)(uint32_t, GPUFreeze_t *);
-typedef long (CALLBACK* GPUgetScreenPic)(unsigned char *);
-typedef long (CALLBACK* GPUshowScreenPic)(unsigned char *);
-typedef void (CALLBACK* GPUvBlank)(int, int);
-typedef void (CALLBACK* GPUgetScreenInfo)(int *, int *);
-
-// GPU function pointers
-extern GPUupdateLace    GPU_updateLace;
-extern GPUinit          GPU_init;
-extern GPUshutdown      GPU_shutdown;
-extern GPUopen          GPU_open;
-extern GPUclose         GPU_close;
-extern GPUreadStatus    GPU_readStatus;
-extern GPUreadData      GPU_readData;
-extern GPUreadDataMem   GPU_readDataMem;
-extern GPUwriteStatus   GPU_writeStatus;
-extern GPUwriteData     GPU_writeData;
-extern GPUwriteDataMem  GPU_writeDataMem;
-extern GPUdmaChain      GPU_dmaChain;
-extern GPUkeypressed    GPU_keypressed;
-extern GPUdisplayText   GPU_displayText;
-extern GPUmakeSnapshot  GPU_makeSnapshot;
-extern GPUfreeze        GPU_freeze;
-extern GPUgetScreenPic  GPU_getScreenPic;
-extern GPUshowScreenPic GPU_showScreenPic;
-extern GPUvBlank        GPU_vBlank;
-extern GPUgetScreenInfo GPU_getScreenInfo;
-
 // CD-ROM Functions
 typedef long (CALLBACK* CDRinit)(void);
 typedef long (CALLBACK* CDRshutdown)(void);
@@ -267,8 +217,6 @@ typedef struct {
 	char CdromID[9];	// ie. 'SCPH12345', no \0 trailing character
 	char CdromLabel[11];
 	void *psxMem;
-	GPUshowScreenPic GPU_showScreenPic;
-	GPUdisplayText GPU_displayText;
 	PADsetSensitive PAD_setSensitive;
 	char GPUpath[256];	// paths must be absolute
 	char SPUpath[256];

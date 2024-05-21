@@ -93,7 +93,6 @@ void psxDma4(u32 madr, u32 bcr, u32 chcr) { // SPU
 	DMA_INTERRUPT(4);
 }
 
-#if 0
 // Taken from PEOPS SOFTGPU
 static inline bool CheckForEndlessLoop(u32 laddr, u32 *lUsedAddr) {
 	if (laddr == lUsedAddr[1]) return TRUE;
@@ -134,7 +133,6 @@ static u32 gpuDmaChainSize(u32 addr) {
 
 	return size;
 }
-#endif
 
 void psxDma2(u32 madr, u32 bcr, u32 chcr) { // GPU
 	u32 *ptr, madr_next, *madr_next_p;
@@ -156,7 +154,7 @@ void psxDma2(u32 madr, u32 bcr, u32 chcr) { // GPU
 				//log_unhandled("bad dma2 madr %x bcr %x\n", madr, bcr);
 				words_copy = words_max;
 			}
-			GPU_readDataMem(ptr, words_copy);
+			gpuPtr->readDataMem(ptr, words_copy);
 			psxCpu->Clear(madr, words_copy);
 
 			//HW_DMA2_MADR = SWAPu32(madr + words_copy * 4);
@@ -178,7 +176,7 @@ void psxDma2(u32 madr, u32 bcr, u32 chcr) { // GPU
 					break;
 				}
 				words_copy = min(words_left, words_max);
-				GPU_writeDataMem(ptr, words_copy);
+				gpuPtr->writeDataMem(ptr, words_copy);
 				words_left -= words_copy;
 				madr += words_copy * 4;
 			}
@@ -200,8 +198,15 @@ void psxDma2(u32 madr, u32 bcr, u32 chcr) { // GPU
 			do_walking = Config.hacks.gpu_slow_list_walking;
 			madr_next_p = do_walking ? &madr_next : NULL;
 
-			cycles_sum = GPU_dmaChain((u32 *)psxM, madr & 0x1fffff,
+			cycles_sum = gpuPtr->dmaChain((u32 *)psxM, madr & 0x1fffff,
 					madr_next_p, &cycles_last_cmd);
+			// Old Soft Gpu check
+			if (gpuPtr == &oldSoftGpu)
+			{
+				if ((int)cycles_sum <= 0)
+				    cycles_sum = gpuDmaChainSize(madr);
+			    HW_GPU_STATUS &= SWAP32(~PSXGPU_nBUSY);
+			}
 
 			HW_DMA2_MADR = SWAPu32(madr_next);
 
@@ -225,11 +230,11 @@ void psxDma2(u32 madr, u32 bcr, u32 chcr) { // GPU
 }
 
 void gpuInterrupt() {
-	if (HW_DMA2_CHCR == SWAP32(0x01000401) && !(HW_DMA2_MADR & SWAP32(0x800000)))
+	if (gpuPtr == &newSoftGpu && HW_DMA2_CHCR == SWAP32(0x01000401) && !(HW_DMA2_MADR & SWAP32(0x800000)))
 	{
 		u32 madr_next = 0xffffff, madr = SWAPu32(HW_DMA2_MADR);
 		int cycles_sum, cycles_last_cmd = 0;
-		cycles_sum = GPU_dmaChain((u32 *)psxM, madr & 0x1fffff,
+		cycles_sum = gpuPtr->dmaChain((u32 *)psxM, madr & 0x1fffff,
 				&madr_next, &cycles_last_cmd);
 		HW_DMA2_MADR = SWAPu32(madr_next);
 		if ((s32)(psxRegs.gpuIdleAfter - psxRegs.cycle) > 0)
@@ -244,6 +249,11 @@ void gpuInterrupt() {
 	{
 		HW_DMA2_CHCR &= SWAP32(~0x01000000);
 		DMA_INTERRUPT(2);
+	}
+	// Old Soft Gpu check
+	if (gpuPtr == &oldSoftGpu)
+	{
+		HW_GPU_STATUS |= SWAP32(PSXGPU_nBUSY); // GPU no longer busy
 	}
 }
 

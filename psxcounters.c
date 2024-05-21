@@ -404,7 +404,7 @@ void psxRcntUpdate()
             //GPU_vBlank( 1, 0 );
             setIrq( 0x01 );
 
-            GPU_updateLace();
+            gpuPtr->updateLace();
             SysUpdate();
 
             if (lightGun == LIGHTGUN_JUST){

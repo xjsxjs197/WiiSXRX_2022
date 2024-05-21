@@ -40,7 +40,7 @@
 
 #define gpuSyncPluginSR() { \
 	HW_GPU_STATUS &= SWAP32(PSXGPU_TIMING_BITS); \
-	HW_GPU_STATUS |= SWAP32(GPU_readStatus() & ~PSXGPU_TIMING_BITS); \
+	HW_GPU_STATUS |= SWAP32(gpuPtr->readStatus() & ~PSXGPU_TIMING_BITS); \
 }
 
 enum psx_gpu_state {
@@ -49,6 +49,37 @@ enum psx_gpu_state {
   PGS_PRIMITIVE_START, // for non-dma only
 };
 
+typedef struct
+{
+  unsigned int ulFreezeVersion;      // should be always 1 for now (set by main emu)
+  unsigned int ulStatus;             // current gpu status
+  unsigned int ulControl[256];       // latest control register values
+  // When using the lightrec core at that time, the memory of WiiStation was already less than 2MB
+  // so the VRAM data was directly saved to file
+  //unsigned char psxVRam[1024*1024*2]; // current VRam image (full 2 MB for ZN)
+} GPUFreeze_t;
+
+typedef struct {
+	long (*open)(unsigned long *, char *, char *);
+	long (*init)(void);
+	long (*shutdown)(void);
+	long (*close)(void);
+	void (*writeStatus)(unsigned long);
+	void (*writeData)(unsigned long);
+	unsigned long (*readStatus)(void);
+	unsigned long (*readData)(void);
+	long (*dmaChain)(unsigned long * ,unsigned long, unsigned long *, unsigned long *);
+	void (*updateLace)(void);
+	long (*freeze)(unsigned long, GPUFreeze_t*);
+	void (*readDataMem)(unsigned long *, int);
+	void (*writeDataMem)(unsigned long * , int);
+	void (*setframelimit)(unsigned long);
+} gpu_t;
+
 void gpu_state_change(int what);
+
+extern gpu_t oldSoftGpu;
+extern gpu_t newSoftGpu;
+extern gpu_t *gpuPtr;
 
 #endif /* __GPU_H__ */

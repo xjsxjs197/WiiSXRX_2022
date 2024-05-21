@@ -41,6 +41,7 @@ extern "C" {
 #include "../fileBrowser/fileBrowser.h"
 #include "../fileBrowser/fileBrowser-libfat.h"
 #include "../fileBrowser/fileBrowser-CARD.h"
+#include "../../gpu.h"
 }
 
 extern void Func_SetPlayGame();
@@ -121,6 +122,7 @@ void Func_FastloadYes();
 void Func_FastloadNo();
 
 void Func_ReturnFromSettingsFrame();
+void SetFrameLimit();
 
 extern "C" void VIDEO_SetTrapFilter(bool enable);
 
@@ -1198,7 +1200,13 @@ void Func_ShowFpsOff()
 	showFPSonScreen = FPS_HIDE;
 }
 
-//extern "C" void GPUsetframelimit(unsigned long option);
+void SetFrameLimit()
+{
+    if (gpuPtr == &oldSoftGpu)
+    {
+        gpuPtr->setframelimit(0);
+    }
+}
 
 void Func_FpsLimitAuto()
 {
@@ -1207,7 +1215,7 @@ void Func_FpsLimitAuto()
 	FRAME_BUTTONS[18].button->setSelected(true);
 	frameLimit[0] = FRAMELIMIT_AUTO;
 	frameLimit[1] = FRAMELIMIT_AUTO;
-	//GPUsetframelimit(0);
+	SetFrameLimit();
 }
 
 void Func_FpsLimitOff()
@@ -1217,7 +1225,7 @@ void Func_FpsLimitOff()
 	FRAME_BUTTONS[19].button->setSelected(true);
 	frameLimit[0] = FRAMELIMIT_NONE;
 	frameLimit[1] = FRAMELIMIT_NONE;
-	//GPUsetframelimit(0);
+	SetFrameLimit();
 }
 
 void Func_FrameSkipOn()
@@ -1226,7 +1234,7 @@ void Func_FrameSkipOn()
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[20].button->setSelected(true);
 	frameSkip = FRAMESKIP_ENABLE;
-	//GPUsetframelimit(0);
+	SetFrameLimit();
 }
 
 void Func_FrameSkipOff()
@@ -1235,7 +1243,7 @@ void Func_FrameSkipOff()
 		FRAME_BUTTONS[i].button->setSelected(false);
 	FRAME_BUTTONS[21].button->setSelected(true);
 	frameSkip = FRAMESKIP_DISABLE;
-	//GPUsetframelimit(0);
+	SetFrameLimit();
 }
 
 
@@ -1304,7 +1312,6 @@ void Func_DitheringNone()
 	useDithering = USEDITHER_NONE;
 	// Setting variables directly in the GPU is not good......
     iUseDither = useDithering;
-	//GPUsetframelimit(0);
 }
 
 void Func_DitheringDefault()
@@ -1315,7 +1322,6 @@ void Func_DitheringDefault()
 	useDithering = USEDITHER_DEFAULT;
 	// Setting variables directly in the GPU is not good......
     iUseDither = useDithering;
-	//GPUsetframelimit(0);
 }
 
 void Func_DitheringAlways()
@@ -1326,7 +1332,6 @@ void Func_DitheringAlways()
 	useDithering = USEDITHER_ALWAYS;
 	// Setting variables directly in the GPU is not good......
     iUseDither = useDithering;
-	//GPUsetframelimit(0);
 }
 
 void Func_BilinearFilter()

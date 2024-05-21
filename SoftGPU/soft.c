@@ -59,15 +59,15 @@
 #define XPSXCOL(r,g,b) ((g&0x7c00)|(b&0x3e0)|(r&0x1f))
 
 // soft globals
-short g_m1=255,g_m2=255,g_m3=255;
-short DrawSemiTrans=FALSE;
-short Ymin;
-short Ymax;
-int  gInterlaceLine=1;
-
-short          ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;        // global psx vertex coords
-int32_t           GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
-int32_t           GlobalTextABR,GlobalTextPAGE;
+//short g_m1=255,g_m2=255,g_m3=255;
+//short DrawSemiTrans=FALSE;
+//short Ymin;
+//short Ymax;
+//int  gInterlaceLine=1;
+//
+//short          ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;        // global psx vertex coords
+//int32_t           GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
+//int32_t           GlobalTextABR,GlobalTextPAGE;
 
 ////////////////////////////////////////////////////////////////////////
 // POLYGON OFFSET FUNCS
@@ -112,13 +112,7 @@ static void offsetPSX4(void)
 /////////////////////////////////////////////////////////////////
 
 
-unsigned char dithertable[16] =
-{
-    7, 0, 6, 1,
-    2, 5, 3, 4,
-    1, 6, 0, 7,
-    4, 3, 5, 2
-};
+extern unsigned char dithertable[16];
 
 static inline void Dither16(unsigned short * pdest,uint32_t r,uint32_t g,uint32_t b,unsigned short sM)
 {
@@ -148,7 +142,7 @@ static inline void Dither16(unsigned short * pdest,uint32_t r,uint32_t g,uint32_
 /////////////////////////////////////////////////////////////////
 // Test if we should skip this line in interlaced mode
 extern char interlacedMode;
-int checkInterlace(int line){
+static int checkInterlace(int line){
 	if (interlacedMode && PSXDisplay.Interlaced && (!PSXDisplay.Disabled))
 		return (int)((line & 1) ^ gInterlaceLine);
 	else
@@ -430,7 +424,7 @@ static inline void GetTextureTransColG(unsigned short * pdest,unsigned short col
 
 ////////////////////////////////////////////////////////////////////////
 
-__attribute__ ((always_inline)) void GetTextureTransColG_S(unsigned short * pdest,unsigned short color)
+static inline void GetTextureTransColG_S(unsigned short * pdest,unsigned short color)
 {
  int32_t r,g,b;unsigned short l;
 
@@ -622,7 +616,7 @@ static inline void GetTextureTransColG32(uint32_t * pdest,uint32_t color)
 
 ////////////////////////////////////////////////////////////////////////
 
-__attribute__ ((always_inline)) void GetTextureTransColG32_S(uint32_t * pdest,uint32_t color)
+static inline void GetTextureTransColG32_S(uint32_t * pdest,uint32_t color)
 {
  int32_t r,g,b;
 
@@ -646,7 +640,7 @@ __attribute__ ((always_inline)) void GetTextureTransColG32_S(uint32_t * pdest,ui
 }
 
 // No Clamp
-__attribute__ ((always_inline)) void GetTextureTransColG32_S_NC(unsigned long * pdest,unsigned long color)
+static inline void GetTextureTransColG32_S_NC(unsigned long * pdest,unsigned long color)
 {
  long r,g,b;
 
@@ -663,7 +657,7 @@ __attribute__ ((always_inline)) void GetTextureTransColG32_S_NC(unsigned long * 
 }
 
 // No Multiply
-__attribute__ ((always_inline)) void GetTextureTransColG32_S_NM(unsigned long * pdest,unsigned long color)
+static inline void GetTextureTransColG32_S_NM(unsigned long * pdest,unsigned long color)
 {
  if(color==0) return;
 
@@ -915,7 +909,7 @@ static inline void GetTextureTransColGX(unsigned short * pdest,unsigned short co
 
 ////////////////////////////////////////////////////////////////////////
 
-__attribute__ ((always_inline)) void GetTextureTransColGX_S(unsigned short * pdest,unsigned short color,short m1,short m2,short m3)
+static inline void GetTextureTransColGX_S(unsigned short * pdest,unsigned short color,short m1,short m2,short m3)
 {
  int32_t r,g,b;
 
@@ -934,7 +928,7 @@ __attribute__ ((always_inline)) void GetTextureTransColGX_S(unsigned short * pde
 
 ////////////////////////////////////////////////////////////////////////
 
-__attribute__ ((always_inline)) void GetTextureTransColGX32_S(uint32_t * pdest,uint32_t color,short m1,short m2,short m3)
+static inline void GetTextureTransColGX32_S(uint32_t * pdest,uint32_t color,short m1,short m2,short m3)
 {
  int32_t r,g,b;
 
