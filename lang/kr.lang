@@ -128,6 +128,9 @@ msgstr "자동"
 msgid "Force 16:9"
 msgstr "강제 16:9"
 
+msgid "Force NTSC"
+msgstr "강제 NTSC"
+
 msgid "Interlaced"
 msgstr "비월주사"
 
@@ -622,3 +625,6 @@ msgstr "심플"
 
 msgid "Gaussi"
 msgstr "가우시안"
+
+msgid "Enable Memcard"
+msgstr "Memcard 활성화"
