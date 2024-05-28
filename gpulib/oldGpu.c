@@ -713,7 +713,7 @@ void PEOPS_GPUwriteStatus(unsigned long gdata)
 
     ChangeDispOffsetsY();
 
-    PSXDisplay.PAL           = (gdata & 0x08)?TRUE:FALSE; // if 1 - PAL mode, else NTSC
+    PSXDisplay.PAL           = (forceNTSC == FORCENTSC_ENABLE) ? FALSE : ((gdata & 0x08)?TRUE:FALSE); // if 1 - PAL mode, else NTSC
     PSXDisplay.RGB24New      = (gdata & 0x10)?TRUE:FALSE; // if 1 - TrueColor
     PSXDisplay.InterlacedNew = ((gdata & 0x24) ^ 0x24)?FALSE:TRUE; // if 0 - Interlace
 

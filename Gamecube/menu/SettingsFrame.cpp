@@ -1388,6 +1388,8 @@ void Func_ForceNTSC()
 		psxResetRcntRate();
 		pl_chg_psxtype(Config.PsxType);
 		gpuChangePsxType();
+
+		SetFrameLimit();
 	}
 }
 
