@@ -38,27 +38,6 @@ static signed long long cdOpenCaseTime = 0;
     dest = (src) SysLoadSym(drv, name); if (checkerr == 1) CheckErr(name); \
     if (checkerr == 2) { err = SysLibError(); if (err != NULL) errval = 1; }
 
-GPUupdateLace         GPU_updateLace;
-GPUinit               GPU_init;
-GPUshutdown           GPU_shutdown;
-GPUopen               GPU_open;
-GPUclose              GPU_close;
-GPUreadStatus         GPU_readStatus;
-GPUreadData           GPU_readData;
-GPUreadDataMem        GPU_readDataMem;
-GPUwriteStatus        GPU_writeStatus;
-GPUwriteData          GPU_writeData;
-GPUwriteDataMem       GPU_writeDataMem;
-GPUdmaChain           GPU_dmaChain;
-GPUkeypressed         GPU_keypressed;
-GPUdisplayText        GPU_displayText;
-GPUmakeSnapshot       GPU_makeSnapshot;
-GPUfreeze             GPU_freeze;
-GPUgetScreenPic       GPU_getScreenPic;
-GPUshowScreenPic      GPU_showScreenPic;
-GPUvBlank             GPU_vBlank;
-GPUgetScreenInfo      GPU_getScreenInfo;
-
 CDRinit               CDR_init;
 CDRshutdown           CDR_shutdown;
 CDRopen               CDR_open;
@@ -145,28 +124,6 @@ void *hGPUDriver;
 
 void ConfigurePlugins();
 
-#if 0 // These are actually in the GPU plugin (and probably work in there )
-void CALLBACK GPU__readDataMem(unsigned long *pMem, int iSize) {
-	while (iSize > 0) {
-		*pMem = GPU_readData();
-                *pMem = SWAP32(*pMem);
-		iSize--;
-		pMem++;
-	}
-}
-
-void CALLBACK GPU__writeDataMem(unsigned long *pMem, int iSize) {
-	while (iSize > 0) {
-		GPU_writeData(SWAP32(*pMem));
-		iSize--;
-		pMem++;
-	}
-}
-
-void CALLBACK GPU__displayText(char *pText) {
-	SysPrintf("%s\n", pText);
-}
-#endif
 
 void CALLBACK GPU__makeSnapshot(void) {}
 void CALLBACK GPU__keypressed(int key) {}
@@ -185,33 +142,9 @@ void CALLBACK GPU__getScreenInfo(int *y, int *base_hres) {}
 #define LoadGpuSymN(dest, name) \
 	LoadSym(GPU_##dest, GPU##dest, name, 0);
 
+gpu_t *gpuPtr;
 int LoadGPUplugin(char *GPUdll) {
-	void *drv;
-
-	hGPUDriver = SysLoadLibrary(GPUdll);
-	if (hGPUDriver == NULL) {
-		SysPrintf ("Could Not Load GPU Plugin %s\n", GPUdll); return -1;
-	}
-//	SysPrintf ("hGPUDriver = %d\n", hGPUDriver);
-	drv = hGPUDriver;
-	LoadGpuSym1(init, "GPUinit");
-	LoadGpuSym1(shutdown, "GPUshutdown");
-	LoadGpuSym1(open, "GPUopen");
-	LoadGpuSym1(close, "GPUclose");
-	LoadGpuSym1(readData, "GPUreadData");
-	LoadGpuSym1(readDataMem, "GPUreadDataMem");
-	LoadGpuSym1(readStatus, "GPUreadStatus");
-	LoadGpuSym1(writeData, "GPUwriteData");
-	LoadGpuSym1(writeDataMem, "GPUwriteDataMem");
-	LoadGpuSym1(writeStatus, "GPUwriteStatus");
-	LoadGpuSym1(dmaChain, "GPUdmaChain");
-	LoadGpuSym1(updateLace, "GPUupdateLace");
-	LoadGpuSym0(keypressed, "GPUkeypressed");
-	LoadGpuSym1(displayText, "GPUdisplayText");
-	LoadGpuSym0(makeSnapshot, "GPUmakeSnapshot");
-	LoadGpuSym1(freeze, "GPUfreeze");
-	LoadGpuSym0(getScreenPic, "GPUgetScreenPic");
-	LoadGpuSym0(showScreenPic, "GPUshowScreenPic");
+	gpuPtr = &oldSoftGpu;
 
 	return 0;
 }
@@ -606,7 +539,7 @@ int LoadPlugins() {
 #ifndef __MACOSX__
 	int ret = CDR_init();
 	if (ret < 0) { SysPrintf ("CDRinit error : %d\n", ret); return -1; }
-	ret = GPU_init();
+	ret = gpuPtr->init();
 	if (ret < 0) { SysPrintf ("GPUinit error: %d\n", ret); return -1; }
 	ret = SPU_init();
 	if (ret < 0) { SysPrintf ("SPUinit error: %d\n", ret); return -1; }
@@ -624,7 +557,7 @@ int LoadPlugins() {
 }
 
 void ReleasePlugins() {
-	if (hCDRDriver  == NULL || hGPUDriver  == NULL || hSPUDriver == NULL ||
+	if (hCDRDriver  == NULL || hSPUDriver == NULL ||
 		hPAD1Driver == NULL || hPAD2Driver == NULL) return;
 
 	if (Config.UseNet) {
@@ -635,7 +568,7 @@ void ReleasePlugins() {
 
 #ifndef __MACOSX__
 	CDR_shutdown();
-	GPU_shutdown();
+	gpuPtr->shutdown();
 	SPU_shutdown();
 	PAD1_shutdown();
 	PAD2_shutdown();
@@ -643,7 +576,7 @@ void ReleasePlugins() {
 #endif
 
 	SysCloseLibrary(hCDRDriver); hCDRDriver = NULL;
-	SysCloseLibrary(hGPUDriver); hGPUDriver = NULL;
+	//SysCloseLibrary(hGPUDriver); hGPUDriver = NULL;
 	SysCloseLibrary(hSPUDriver); hSPUDriver = NULL;
 	SysCloseLibrary(hPAD1Driver); hPAD1Driver = NULL;
 	SysCloseLibrary(hPAD2Driver); hPAD2Driver = NULL;

@@ -1772,14 +1772,14 @@ void psxBios_GPU_dw() { // 0x46
 	PSXBIOS_LOG("psxBios_%s\n", biosA0n[0x46]);
 #endif
 
-	GPU_writeData(0xa0000000);
-	GPU_writeData((a1<<0x10)|(a0&0xffff));
-	GPU_writeData((a3<<0x10)|(a2&0xffff));
+	gpuPtr->writeData(0xa0000000);
+	gpuPtr->writeData((a1<<0x10)|(a0&0xffff));
+	gpuPtr->writeData((a3<<0x10)|(a2&0xffff));
 	size = (a2*a3)/2;
 	ptr = (u32*)PSXM(Rsp[4]);  //that is correct?
 	while(size--)
 	{
-		GPU_writeData(SWAPu32(*ptr++));
+		gpuPtr->writeData(SWAPu32(*ptr++));
 	}
 
 	pc0 = ra;
@@ -1796,11 +1796,11 @@ static void gpu_sync() {
 void psxBios_mem2vram() { // 0x47
 	int size;
 	gpuSyncPluginSR(); // flush
-	GPU_writeData(0xa0000000);
-	GPU_writeData((a1<<0x10)|(a0&0xffff));
-	GPU_writeData((a3<<0x10)|(a2&0xffff));
+	gpuPtr->writeData(0xa0000000);
+	gpuPtr->writeData((a1<<0x10)|(a0&0xffff));
+	gpuPtr->writeData((a3<<0x10)|(a2&0xffff));
 	size = ((((a2 * a3) / 2) >> 4) << 16);
-	GPU_writeStatus(0x04000002);
+	gpuPtr->writeStatus(0x04000002);
 	psxHwWrite32(0x1f8010f4,0);
 	psxHwWrite32(0x1f8010f0,psxHwRead32(0x1f8010f0)|0x800);
 	psxHwWrite32(0x1f8010a0,Rsp[4]);//might have a buggy...
@@ -1811,13 +1811,13 @@ void psxBios_mem2vram() { // 0x47
 }
 
 void psxBios_SendGPU() { // 0x48
-	GPU_writeStatus(a0);
+	gpuPtr->writeStatus(a0);
 	gpuSyncPluginSR();
 	pc0 = ra;
 }
 
 void psxBios_GPU_cw() { // 0x49
-	GPU_writeData(a0);
+	gpuPtr->writeData(a0);
 	gpuSyncPluginSR();
 	use_cycles(13);
 	gpu_sync();
@@ -1829,7 +1829,7 @@ void psxBios_GPU_cwb() { // 0x4a
 	gpuSyncPluginSR();
 	while(size--)
 	{
-		GPU_writeData(SWAPu32(*ptr++));
+		gpuPtr->writeData(SWAPu32(*ptr++));
 	}
 
 	pc0 = ra;
@@ -1837,7 +1837,7 @@ void psxBios_GPU_cwb() { // 0x4a
    
 void psxBios_GPU_SendPackets() { //4b:	
 	gpuSyncPluginSR();
-	GPU_writeStatus(0x04000002);
+	gpuPtr->writeStatus(0x04000002);
 	psxHwWrite32(0x1f8010f4,0);
 	psxHwWrite32(0x1f8010f0,psxHwRead32(0x1f8010f0)|0x800);
 	psxHwWrite32(0x1f8010a0,a0);
@@ -1848,15 +1848,15 @@ void psxBios_GPU_SendPackets() { //4b:
 
 void psxBios_sys_a0_4c() { // 0x4c GPU relate
 	psxHwWrite32(0x1f8010a8,0x00000401);
-	GPU_writeData(0x0400000);
-	GPU_writeData(0x0200000);
-	GPU_writeData(0x0100000);
+	gpuPtr->writeData(0x0400000);
+	gpuPtr->writeData(0x0200000);
+	gpuPtr->writeData(0x0100000);
 	v0 = 0x1f801814;
 	pc0 = ra;
 }
 
 void psxBios_GPU_GetGPUStatus() { // 0x4d
-	v0 = GPU_readStatus();
+	v0 = gpuPtr->readStatus();
 	pc0 = ra;
 }
 
@@ -3575,7 +3575,7 @@ void gpuChangePsxType()
 	{
 		gpu_ctl_def[7] &= ~(u32)0x8;
 	}
-	GPU_writeStatus(gpu_ctl_def[7]);
+	gpuPtr->writeStatus(gpu_ctl_def[7]);
 }
 
 void psxBiosSetupBootState(void)
@@ -3639,9 +3639,9 @@ void psxBiosSetupBootState(void)
 
 	// gpu
 	for (i = 0; i < sizeof(gpu_ctl_def) / sizeof(gpu_ctl_def[0]); i++)
-		GPU_writeStatus(gpu_ctl_def[i]);
+		gpuPtr->writeStatus(gpu_ctl_def[i]);
 	for (i = 0; i < sizeof(gpu_data_def) / sizeof(gpu_data_def[0]); i++)
-		GPU_writeData(gpu_data_def[i]);
+		gpuPtr->writeData(gpu_data_def[i]);
 
 	// spu
 	for (i = 0x1f801d80; i < sizeof(spu_config) / sizeof(spu_config[0]); i++)

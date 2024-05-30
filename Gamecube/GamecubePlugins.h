@@ -26,6 +26,7 @@
 #include "../psemu_plugin_defs.h"
 #include "../plugins.h"
 #include "../gpulib/gpu.h"
+#include "../gpu.h"
 
 void SetCdOpenCaseTime(s64 time);
 void SetIsoFile(const char *filename);
@@ -76,19 +77,6 @@ long CDR__stop(void);
 long CDR__getStatus(struct CdrStat *stat);
 unsigned char *CDR__getBuffer(void);
 unsigned char *CDR__getBufferSub(void);
-
-/* NULL GPU */
-//typedef long (* GPUopen)(unsigned long *, char *, char *);
-long GPU__open(void);
-long GPU__init(void);
-long GPU__shutdown(void);
-long GPU__close(void);
-void GPU__writeStatus(unsigned long);
-void GPU__writeData(unsigned long);
-unsigned long GPU__readStatus(void);
-unsigned long GPU__readData(void);
-long GPU__dmaChain(unsigned long *,unsigned long);
-void GPU__updateLace(void);
 
 /* PAD */
 //typedef long (* PADopen)(unsigned long *);
@@ -292,7 +280,7 @@ long SSS_PADreadPort2 (PadDataS* pads);
 #define PLUGIN_SLOT_2 SSS_PAD2_PLUGIN
 #define PLUGIN_SLOT_3 CDR_ISO_PLUGIN
 #define PLUGIN_SLOT_4 DFSOUND_PLUGIN
-#define PLUGIN_SLOT_5 GPU_SOFT_PLUGIN
+//#define PLUGIN_SLOT_5 GPU_SOFT_PLUGIN
 #define PLUGIN_SLOT_6 EMPTY_PLUGIN
 #define PLUGIN_SLOT_7 EMPTY_PLUGIN
 

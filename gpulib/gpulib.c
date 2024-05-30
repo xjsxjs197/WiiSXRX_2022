@@ -20,7 +20,6 @@
 #include "../Gamecube/wiiSXconfig.h"
 
 unsigned long  dwEmuFixes;
-int            iFakePrimBusy = 0;
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #ifdef __GNUC__
@@ -239,6 +238,7 @@ static noinline void get_gpu_info(uint32_t data)
 
 // vram ptr received from mmap/malloc/alloc (will deallocate using this)
 static uint16_t *vram_ptr_orig = NULL;
+uint8_t globalVram[VRAM_SIZE + (VRAM_ALIGN - 1)];
 
 #ifndef GPULIB_USE_MMAP
 # ifdef __linux__
@@ -252,7 +252,8 @@ static int map_vram(void)
 #if GPULIB_USE_MMAP
   gpu.vram = vram_ptr_orig = gpu.mmap(VRAM_SIZE + (VRAM_ALIGN-1));
 #else
-  gpu.vram = vram_ptr_orig = calloc(VRAM_SIZE + (VRAM_ALIGN-1), 1);
+  //gpu.vram = vram_ptr_orig = calloc(VRAM_SIZE + (VRAM_ALIGN-1), 1);
+  gpu.vram = vram_ptr_orig = (uint16_t *)&globalVram[0];
 #endif
   if (gpu.vram != NULL && gpu.vram != (void *)(intptr_t)-1) {
     // 4kb guard in front
@@ -295,13 +296,13 @@ long LIB_GPUshutdown(void)
   renderer_finish();
   ret = vout_finish();
 
-  if (vram_ptr_orig != NULL) {
-#if GPULIB_USE_MMAP
-    gpu.munmap(vram_ptr_orig, VRAM_SIZE);
-#else
-    free(vram_ptr_orig);
-#endif
-  }
+//  if (vram_ptr_orig != NULL) {
+//#if GPULIB_USE_MMAP
+//    gpu.munmap(vram_ptr_orig, VRAM_SIZE);
+//#else
+//    free(vram_ptr_orig);
+//#endif
+//  }
   vram_ptr_orig = gpu.vram = NULL;
 
   return ret;
@@ -858,17 +859,7 @@ uint32_t LIB_GPUreadStatus(void)
   return ret;
 }
 
-struct GPUFreeze
-{
-  uint32_t ulFreezeVersion;      // should be always 1 for now (set by main emu)
-  uint32_t ulStatus;             // current gpu status
-  uint32_t ulControl[256];       // latest control register values
-  // When using the lightrec core at that time, the memory of WiiStation was already less than 2MB
-  // so the VRAM data was directly saved to file
-  //unsigned char psxVRam[1024*1024*2]; // current VRam image (full 2 MB for ZN)
-};
-
-long LIB_GPUfreeze(uint32_t type, struct GPUFreeze *freeze)
+long LIB_GPUfreeze(uint32_t type, GPUFreeze_t *freeze)
 {
   int i;
 
@@ -902,7 +893,6 @@ long LIB_GPUfreeze(uint32_t type, struct GPUFreeze *freeze)
   return 1;
 }
 
-int				  gMouse[4];
 void LIB_GPUupdateLace(void)
 {
   if (gpu.cmd_len > 0)
@@ -970,14 +960,6 @@ void LIB_GPUvBlank(int is_vblank, int lcf)
   }
 }
 
-void LIB_GPUgetScreenInfo(int *y, int *base_hres)
-{
-  *y = gpu.screen.y;
-  *base_hres = gpu.screen.vres;
-  if (gpu.status & PSX_GPU_STATUS_DHEIGHT)
-    *base_hres >>= 1;
-}
-
 #include "plugin_lib.h"
 
 void LIB_GPUrearmedCallbacks(const struct rearmed_cbs *cbs)
@@ -1017,4 +999,22 @@ void LIB_GPUrearmedCallbacks(const struct rearmed_cbs *cbs)
   vout_set_config(cbs);
 }
 
-// vim:shiftwidth=2:expandtab
+extern long LIB_GPUopen(void);
+extern long LIB_GPUclose(void);
+
+gpu_t newSoftGpu = {
+    LIB_GPUopen,
+    LIB_GPUinit,
+    LIB_GPUshutdown,
+    LIB_GPUclose,
+    LIB_GPUwriteStatus,
+    LIB_GPUwriteData,
+    LIB_GPUreadStatus,
+    LIB_GPUreadData,
+    LIB_GPUdmaChain,
+    LIB_GPUupdateLace,
+    LIB_GPUfreeze,
+    LIB_GPUreadDataMem,
+    LIB_GPUwriteDataMem,
+    NULL
+};

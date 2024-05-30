@@ -17,6 +17,8 @@
 #include <string.h>
 #include "../gpulib/gpu.h"
 #include "../compiler_features.h"
+#include "externals.h"
+
 
 #define _IN_GPU
 
@@ -61,38 +63,38 @@
 
 /////////////////////////////////////////////////////////////////////////////
 
-typedef struct VRAMLOADTTAG
-{
- short x;
- short y;
- short Width;
- short Height;
- short RowsRemaining;
- short ColsRemaining;
- unsigned short *ImagePtr;
-} VRAMLoad_t;
-
-/////////////////////////////////////////////////////////////////////////////
-
-typedef struct PSXPOINTTAG
-{
- int32_t x;
- int32_t y;
-} PSXPoint_t;
-
-typedef struct PSXSPOINTTAG
-{
- short x;
- short y;
-} PSXSPoint_t;
-
-typedef struct PSXRECTTAG
-{
- short x0;
- short x1;
- short y0;
- short y1;
-} PSXRect_t;
+//typedef struct VRAMLOADTTAG
+//{
+// short x;
+// short y;
+// short Width;
+// short Height;
+// short RowsRemaining;
+// short ColsRemaining;
+// unsigned short *ImagePtr;
+//} VRAMLoad_t;
+//
+///////////////////////////////////////////////////////////////////////////////
+//
+//typedef struct PSXPOINTTAG
+//{
+// int32_t x;
+// int32_t y;
+//} PSXPoint_t;
+//
+//typedef struct PSXSPOINTTAG
+//{
+// short x;
+// short y;
+//} PSXSPoint_t;
+//
+//typedef struct PSXRECTTAG
+//{
+// short x0;
+// short x1;
+// short y0;
+// short y1;
+//} PSXRect_t;
 
 // linux defines for some windows stuff
 
@@ -108,77 +110,77 @@ typedef struct PSXRECTTAG
 #define __int64 long long int
 #endif
 
-typedef struct RECTTAG
-{
- int left;
- int top;
- int right;
- int bottom;
-}RECT;
-
-/////////////////////////////////////////////////////////////////////////////
-
-typedef struct TWINTAG
-{
- PSXRect_t  Position;
- int xmask, ymask;
-} TWin_t;
-
-/////////////////////////////////////////////////////////////////////////////
-
-typedef struct PSXDISPLAYTAG
-{
- PSXPoint_t  DisplayModeNew;
- PSXPoint_t  DisplayMode;
- PSXPoint_t  DisplayPosition;
- PSXPoint_t  DisplayEnd;
-
- int32_t        Double;
- int32_t        Height;
- int32_t        PAL;
- int32_t        InterlacedNew;
- int32_t        Interlaced;
- int32_t        RGB24New;
- int32_t        RGB24;
- PSXSPoint_t DrawOffset;
- int32_t        Disabled;
- PSXRect_t   Range;
-
-} PSXDisplay_t;
+//typedef struct RECTTAG
+//{
+// int left;
+// int top;
+// int right;
+// int bottom;
+//}RECT;
+//
+///////////////////////////////////////////////////////////////////////////////
+//
+//typedef struct TWINTAG
+//{
+// PSXRect_t  Position;
+// int xmask, ymask;
+//} TWin_t;
+//
+///////////////////////////////////////////////////////////////////////////////
+//
+//typedef struct PSXDISPLAYTAG
+//{
+// PSXPoint_t  DisplayModeNew;
+// PSXPoint_t  DisplayMode;
+// PSXPoint_t  DisplayPosition;
+// PSXPoint_t  DisplayEnd;
+//
+// int32_t        Double;
+// int32_t        Height;
+// int32_t        PAL;
+// int32_t        InterlacedNew;
+// int32_t        Interlaced;
+// int32_t        RGB24New;
+// int32_t        RGB24;
+// PSXSPoint_t DrawOffset;
+// int32_t        Disabled;
+// PSXRect_t   Range;
+//
+//} PSXDisplay_t;
 
 /////////////////////////////////////////////////////////////////////////////
 
 // draw.c
 
-extern int32_t           GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
-extern int32_t           GlobalTextABR,GlobalTextPAGE;
-extern short          ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;
-extern long           lLowerpart;
-extern BOOL           bCheckMask;
-extern unsigned short sSetMask;
-extern unsigned long  lSetMask;
-extern short          g_m1;
-extern short          g_m2;
-extern short          g_m3;
-extern short          DrawSemiTrans;
+//extern int32_t           GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
+//extern int32_t           GlobalTextABR,GlobalTextPAGE;
+//extern short          ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;
+//extern long           lLowerpart;
+//extern BOOL           bCheckMask;
+//extern unsigned short sSetMask;
+//extern unsigned long  lSetMask;
+//extern short          g_m1;
+//extern short          g_m2;
+//extern short          g_m3;
+//extern short          DrawSemiTrans;
 
 // prim.c
 
-extern BOOL           bUsingTWin;
-extern TWin_t         TWin;
-extern void (*primTableJ[256])(unsigned char *);
-extern void (*primTableSkip[256])(unsigned char *);
-extern unsigned short  usMirror;
-extern int            iDither;
-extern uint32_t  dwCfgFixes;
-extern uint32_t  dwActFixes;
-extern int            iUseFixes;
-extern int            iUseDither;
-extern BOOL           bDoVSyncUpdate;
-extern int32_t           drawX;
-extern int32_t           drawY;
-extern int32_t           drawW;
-extern int32_t           drawH;
+//extern BOOL           bUsingTWin;
+//extern TWin_t         TWin;
+//extern void (*primTableJ[256])(unsigned char *);
+//extern void (*primTableSkip[256])(unsigned char *);
+//extern unsigned short  usMirror;
+//extern int            iDither;
+//extern uint32_t  dwCfgFixes;
+//extern uint32_t  dwActFixes;
+//extern int            iUseFixes;
+//extern int            iUseDither;
+//extern BOOL           bDoVSyncUpdate;
+//extern int32_t           drawX;
+//extern int32_t           drawY;
+//extern int32_t           drawW;
+//extern int32_t           drawH;
 
 // gpu.h
 
@@ -207,6 +209,7 @@ extern int32_t           drawH;
 #endif
 
 PSXDisplay_t      PSXDisplay;
+PSXDisplay_t      PreviousPSXDisplay;
 unsigned char  *psxVub;
 unsigned short *psxVuw;
 unsigned short *psxVuw_eom;

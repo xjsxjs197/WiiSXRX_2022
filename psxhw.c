@@ -92,7 +92,7 @@ void psxHwWriteDmaIcr32(u32 value)
 void psxHwWriteGpuSR(u32 value)
 {
     u32 old_sr = HW_GPU_STATUS, new_sr;
-    GPU_writeStatus(value);
+    gpuPtr->writeStatus(value);
     gpuSyncPluginSR();
     new_sr = HW_GPU_STATUS;
     // "The Next Tetris" seems to rely on the field order after enable
@@ -252,7 +252,7 @@ u32 psxHwRead32(u32 add) {
         case 0x1120: hard = psxRcntRcount(2); break;
         case 0x1124: hard = psxRcntRmode(2); break;
         case 0x1128: hard = psxRcntRtarget(2); break;
-        case 0x1810: hard = GPU_readData(); break;
+        case 0x1810: hard = gpuPtr->readData(); break;
         case 0x1814: hard = psxHwReadGpuSRptr(); break;
         case 0x1820: hard = mdecRead0(); break;
         case 0x1824: hard = mdecRead1(); break;
@@ -388,7 +388,7 @@ void psxHwWrite32(u32 add, u32 value) {
         case 0x10ec: DmaExec(0x10e8, 0x10e4, 0x10e0, 6); return;
         case 0x10f4: psxHwWriteDmaIcr32(value); return;
 
-        case 0x1810: GPU_writeData(value); return;
+        case 0x1810: gpuPtr->writeData(value); return;
         case 0x1814: psxHwWriteGpuSR(value); return;
         case 0x1820: mdecWrite0(value); break;
         case 0x1824: mdecWrite1(value); break;

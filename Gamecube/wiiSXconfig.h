@@ -322,6 +322,13 @@ enum forceNTSC
 	FORCENTSC_ENABLE,
 };
 
+extern char gpuPlugin;
+enum gpuPlugin
+{
+	OLD_SOFT=0,
+	NEW_SOFT,
+};
+
 extern const unsigned char En_dat[];
 extern const unsigned int  En_dat_size;
 

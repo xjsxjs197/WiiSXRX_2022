@@ -122,7 +122,9 @@ Ver Beta 4.0:
   (The PS2 and PS3 controllers(includes vibration) has been fully tested.)
 * Using the speed limit logic of old video plugins.
 * Merged some code from pcsxRearm to reduce the occurrence of some issues.
-* Reduced the use of MEM1 memory and fixed errors in games such as Rayman 2
+* Reduced the use of MEM1 memory and fixed errors in games such as Rayman 2.
+* Added Gaussian interpolation to SPU.
+* Add the old software rendering method as the default GPU plugin.
 
 Ver 3.2:
 * SPU: Correction for overflow of 16 digit numbers.

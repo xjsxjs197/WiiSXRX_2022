@@ -21,20 +21,19 @@
 // globals
 ////////////////////////////////////////////////////////////////////////
 
-BOOL           bUsingTWin=FALSE;
-TWin_t         TWin;
-//unsigned long  clutid;                                 // global clut
-unsigned short usMirror=0;                             // sprite mirror
-int            iDither=0;
-int32_t        drawX;
-int32_t        drawY;
-int32_t        drawW;
-int32_t        drawH;
-uint32_t       dwCfgFixes;
-uint32_t       dwActFixes=0;
-int            iUseFixes;
-int            iUseDither=0;
-BOOL           bDoVSyncUpdate=FALSE;
+//BOOL           bUsingTWin=FALSE;
+//TWin_t         TWin;
+//unsigned short usMirror=0;                             // sprite mirror
+//int            iDither=0;
+//int32_t        drawX;
+//int32_t        drawY;
+//int32_t        drawW;
+//int32_t        drawH;
+//uint32_t       dwCfgFixes;
+//uint32_t       dwActFixes=0;
+//int            iUseFixes;
+//int            iUseDither=0;
+//BOOL           bDoVSyncUpdate=FALSE;
 
 // USE_NASM
 static inline unsigned short BGR24to16 (uint32_t BGR)

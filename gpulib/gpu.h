@@ -188,26 +188,6 @@ void vout_update(void);
 void vout_blank(void);
 void vout_set_config(const struct rearmed_cbs *config);
 
-/* listing these here for correct linkage if rasterizer uses c++ */
-struct GPUFreeze;
-
-long LIB_GPUinit(void);
-long LIB_GPUshutdown(void);
-void LIB_GPUwriteDataMem(uint32_t *mem, int count);
-long LIB_GPUdmaChain(uint32_t *rambase, uint32_t addr,
-		uint32_t *progress_addr, int32_t *cycles_last_cmd);
-void LIB_GPUwriteData(uint32_t data);
-void LIB_GPUreadDataMem(uint32_t *mem, int count);
-uint32_t LIB_GPUreadData(void);
-uint32_t LIB_GPUreadStatus(void);
-void LIB_GPUwriteStatus(uint32_t data);
-long LIB_GPUfreeze(uint32_t type, struct GPUFreeze *freeze);
-void LIB_GPUupdateLace(void);
-long LIB_GPUopen(unsigned long *disp, char *cap, char *cfg);
-long LIB_GPUclose(void);
-void LIB_GPUvBlank(int is_vblank, int lcf);
-void LIB_GPUgetScreenInfo(int *y, int *base_hres);
-void LIB_GPUrearmedCallbacks(const struct rearmed_cbs *cbs_);
 
 #ifdef __cplusplus
 }
