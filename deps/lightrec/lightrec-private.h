@@ -23,7 +23,8 @@
 #include <inttypes.h>
 #include <stdint.h>
 
-#define PC_FMT "PC 0x%08"PRIx32
+#define X32_FMT "0x%08"PRIx32
+#define PC_FMT "PC "X32_FMT
 
 #define ARRAY_SIZE(x) (sizeof(x) ? sizeof(x) / sizeof((x)[0]) : 0)
 
