@@ -125,6 +125,8 @@ Ver Beta 4.0:
 * Reduced the use of MEM1 memory and fixed errors in games such as Rayman 2.
 * Added Gaussian interpolation to SPU.
 * Add the old software rendering method as the default GPU plugin.
+* Update libCHDr to latest until git 07a564a.
+* Update Lightrec until git 8d3db1a
 
 Ver 3.2:
 * SPU: Correction for overflow of 16 digit numbers.
