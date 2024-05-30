@@ -47,7 +47,7 @@
 #include "../include/libchdr/cdrom.h"
 #include "../include/libchdr/flac.h"
 #include "../include/libchdr/huffman.h"
-#include "../deps/zstd-1.5.5/lib/zstd.h"
+#include "../deps/zstd-1.5.6/lib/zstd.h"
 
 #include "../deps/lzma-19.00/LzmaEnc.h"
 #include "../deps/lzma-19.00/LzmaDec.h"

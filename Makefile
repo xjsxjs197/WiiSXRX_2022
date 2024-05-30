@@ -34,7 +34,7 @@ zstd.a:
 	@echo " "
 	@echo "Building zstd.a library for PPC"
 	@echo " "
-	$(MAKE) -C deps/libchdr/deps/zstd-1.5.5 -f Makefile.wii
+	$(MAKE) -C deps/libchdr/deps/zstd-1.5.6 -f Makefile.wii
 
 lzma.a:
 	@echo " "
@@ -73,7 +73,7 @@ clean:
 	@$(ECHO) "Cleaning..."
 	@$(MAKE) -C deps/lightrec clean -f Makefile.NoLog
 	@$(MAKE) -C deps/lightrec clean -f Makefile.WithLog
-	@$(MAKE) -C deps/libchdr/deps/zstd-1.5.5 clean -f Makefile.wii
+	@$(MAKE) -C deps/libchdr/deps/zstd-1.5.6 clean -f Makefile.wii
 	@$(MAKE) -C deps/libchdr/deps/lzma-19.00 clean -f Makefile.wii
 	@$(MAKE) -C deps/libchdr/deps/zlib-1.3.1 clean -f Makefile.wii
 	@$(MAKE) -C deps/libchdr clean -f Makefile.wii
