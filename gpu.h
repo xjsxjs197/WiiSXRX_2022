@@ -60,7 +60,7 @@ typedef struct
 } GPUFreeze_t;
 
 typedef struct {
-	long (*open)(unsigned long *, char *, char *);
+	long (*open)(void);
 	long (*init)(void);
 	long (*shutdown)(void);
 	long (*close)(void);

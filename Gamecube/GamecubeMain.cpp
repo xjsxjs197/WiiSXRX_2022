@@ -57,6 +57,7 @@ extern "C" {
 #include "fileBrowser/fileBrowser-SMB.h"
 #include "gc_input/controller.h"
 #include "vm/vm.h"
+#include "../gpu.h"
 }
 
 #include "libgui/gui2/gettext.h"
@@ -144,6 +145,7 @@ char deflickerFilter = 1;
 char lightGun = 0;
 char memCard[2];
 char forceNTSC = 0;
+char gpuPlugin = 0;
 
 #define CONFIG_STRING_TYPE 0
 #define CONFIG_STRING_SIZE 256
@@ -228,7 +230,8 @@ static struct {
   { "PadLightgun8", &padLightgun[7], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
   { "PadLightgun9", &padLightgun[8], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
   { "PadLightgun10", &padLightgun[9], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
-  { "ForceNTSC", &forceNTSC, FORCENTSC_DISABLE, FORCENTSC_ENABLE }
+  { "ForceNTSC", &forceNTSC, FORCENTSC_DISABLE, FORCENTSC_ENABLE },
+  { "gpuPlugin", &gpuPlugin, OLD_SOFT, NEW_SOFT }
 };
 void handleConfigPair(char* kv);
 void readConfig(FILE* f);
@@ -237,6 +240,19 @@ int checkBiosExists(int testDevice);
 static void loadSeparatelySetting();
 static bool loadSeparatelySettingItem(char* s1, char* s2, bool isUsb);
 void biosFileInit();
+
+static void setGpuPlugin()
+{
+    // Set Gpu Plugin
+    if (gpuPlugin == OLD_SOFT)
+    {
+        gpuPtr = &oldSoftGpu;
+    }
+    else
+    {
+        gpuPtr = &newSoftGpu;
+    }
+}
 
 static bool loadControllerMapping(char* usbSd)
 {
@@ -367,6 +383,8 @@ void loadSettings(int argc, char *argv[])
 	numMultitaps	 = MULTITAPS_NONE;
 	menuActive = 1;
 	forceNTSC 		 = FORCENTSC_DISABLE;
+	gpuPlugin        = OLD_SOFT;
+	gpuPtr           = &oldSoftGpu;
 
 	//PCSX-specific defaults
 	memset(&Config, 0, sizeof(PcsxConfig));
@@ -439,6 +457,9 @@ void loadSettings(int argc, char *argv[])
 	Config.Cpu=dynacore;
 	//iUseDither = useDithering;
 	setSpuInterpolation(spuInterpolation);
+
+	// Set Gpu Plugin
+	setGpuPlugin();
 }
 
 void ScanPADSandReset(u32 dummy)
@@ -724,6 +745,9 @@ static void loadSeparatelySetting()
     extern int iUseDither;
     dwActFixes = Config.hacks.dwActFixes;
     iUseDither = useDithering;
+
+    // Set Gpu Plugin
+    setGpuPlugin();
 }
 
 // loadISO loads an ISO file as current media to read from.
@@ -782,7 +806,19 @@ int loadISO(fileBrowser_file* file)
 	else {
 		CheckCdrom();
 
+        gpu_t *oldGpuPtr = gpuPtr;
+
 		loadSeparatelySetting();
+
+		gpu_t *newGpuPtr = gpuPtr;
+		if (newGpuPtr != oldGpuPtr)
+        {
+            // Gpu Plugin changed
+            oldGpuPtr->shutdown();
+            oldGpuPtr->close();
+            newGpuPtr->init();
+            newGpuPtr->open();
+        }
 
 		SysReset();
 		LoadCdrom();

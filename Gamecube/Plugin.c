@@ -181,7 +181,7 @@ int _OpenPlugins() {
 	if (ret < 0) { SysPrintf("Error Opening SPU Plugin\n"); return -1; }
 	SPU_registerCallback(SPUirq);
 	SPU_registerScheduleCb(SPUschedule);
-	ret = gpuPtr->open(&gpuDisp, "PCSX", NULL);
+	ret = gpuPtr->open();
 	if (ret < 0) { SysPrintf("Error Opening GPU Plugin\n"); return -1; }
 	ret = PAD1_open(&gpuDisp);
 	if (ret < 0) { SysPrintf("Error Opening PAD1 Plugin\n"); return -1; }

@@ -238,6 +238,7 @@ static noinline void get_gpu_info(uint32_t data)
 
 // vram ptr received from mmap/malloc/alloc (will deallocate using this)
 static uint16_t *vram_ptr_orig = NULL;
+uint8_t globalVram[VRAM_SIZE + (VRAM_ALIGN - 1)];
 
 #ifndef GPULIB_USE_MMAP
 # ifdef __linux__
@@ -251,7 +252,8 @@ static int map_vram(void)
 #if GPULIB_USE_MMAP
   gpu.vram = vram_ptr_orig = gpu.mmap(VRAM_SIZE + (VRAM_ALIGN-1));
 #else
-  gpu.vram = vram_ptr_orig = calloc(VRAM_SIZE + (VRAM_ALIGN-1), 1);
+  //gpu.vram = vram_ptr_orig = calloc(VRAM_SIZE + (VRAM_ALIGN-1), 1);
+  gpu.vram = vram_ptr_orig = (uint16_t *)&globalVram[0];
 #endif
   if (gpu.vram != NULL && gpu.vram != (void *)(intptr_t)-1) {
     // 4kb guard in front
@@ -294,13 +296,13 @@ long LIB_GPUshutdown(void)
   renderer_finish();
   ret = vout_finish();
 
-  if (vram_ptr_orig != NULL) {
-#if GPULIB_USE_MMAP
-    gpu.munmap(vram_ptr_orig, VRAM_SIZE);
-#else
-    free(vram_ptr_orig);
-#endif
-  }
+//  if (vram_ptr_orig != NULL) {
+//#if GPULIB_USE_MMAP
+//    gpu.munmap(vram_ptr_orig, VRAM_SIZE);
+//#else
+//    free(vram_ptr_orig);
+//#endif
+//  }
   vram_ptr_orig = gpu.vram = NULL;
 
   return ret;
@@ -997,7 +999,7 @@ void LIB_GPUrearmedCallbacks(const struct rearmed_cbs *cbs)
   vout_set_config(cbs);
 }
 
-extern long LIB_GPUopen(unsigned long *disp, char *cap, char *cfg);
+extern long LIB_GPUopen(void);
 extern long LIB_GPUclose(void);
 
 gpu_t newSoftGpu = {

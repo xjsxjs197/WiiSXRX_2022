@@ -6332,7 +6332,7 @@ static void drawPoly4TGD(short x1, short y1, short x2, short y2, short x3, short
      for(j=xmin;j<=xmax;j++)
       {
        if(iDither)
-        GetTextureTransColGX(&psxVuw[(i<<10)+j],
+        GetTextureTransColGX_Dither(&psxVuw[(i<<10)+j],
           GETLE16(&psxVuw[(((posY>>16)+GlobalTextAddrY)<<10)+(posX>>16)+GlobalTextAddrX]),
           (cB1>>16),(cG1>>16),(cR1>>16));
        else

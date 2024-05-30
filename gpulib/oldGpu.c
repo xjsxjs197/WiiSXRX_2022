@@ -183,7 +183,7 @@ extern unsigned int      lGPUInfoVals[16];
 #define _IN_GPU
 
 static uint16_t *vram_ptr_orig = NULL;
-
+extern uint8_t globalVram[VRAM_SIZE + (VRAM_ALIGN - 1)];
 
 ////////////////////////////////////////////////////////////////////////
 // INIT, will be called after lib load... well, just do some var init...
@@ -196,7 +196,8 @@ long PEOPS_GPUinit()                                // GPU INIT
  //!!! ATTENTION !!!
  if (vram_ptr_orig == NULL)
  {
-     vram_ptr_orig = calloc(VRAM_SIZE + (VRAM_ALIGN-1), 1);
+     //vram_ptr_orig = calloc(VRAM_SIZE + (VRAM_ALIGN-1), 1);
+     vram_ptr_orig = (uint16_t *)&globalVram[0];
  }
  psxVub=vram_ptr_orig;                           // security offset into double sized psx vram!
  psxVuw=(unsigned short *)psxVub;
@@ -242,7 +243,7 @@ long PEOPS_GPUinit()                                // GPU INIT
 // Here starts all...
 ////////////////////////////////////////////////////////////////////////
 
-long PEOPS_GPUopen()
+long PEOPS_GPUopen(void)
 {
  InitFPS();
 
@@ -272,9 +273,9 @@ long PEOPS_GPUclose()
 
 long PEOPS_GPUshutdown()
 {
-    if (vram_ptr_orig != NULL) {
-        free(vram_ptr_orig);
-    }
+//    if (vram_ptr_orig != NULL) {
+//        free(vram_ptr_orig);
+//    }
     vram_ptr_orig = NULL;
 
     return 0;                                             // nothinh to do

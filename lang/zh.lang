@@ -607,3 +607,12 @@ msgstr "设置记忆卡可用"
 
 msgid "Force NTSC"
 msgstr "强制 NTSC"
+
+msgid "Gpu Plugin"
+msgstr "视频插件"
+
+msgid "Old Soft"
+msgstr "旧软件渲染"
+
+msgid "New Soft"
+msgstr "新软件渲染"
