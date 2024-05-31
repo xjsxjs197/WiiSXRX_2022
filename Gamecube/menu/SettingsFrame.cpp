@@ -299,7 +299,7 @@ static char LANG_STRINGS[13][24] =
       };
 
 static char GPU_PLUGIN_STRINGS[3][24] =
-    { "Gpu Plugin",
+    { "GPU Plugin",
       "Old Soft",
       "New Soft"
       };

@@ -574,3 +574,6 @@ msgstr "Idioma ha sido cambiado, por favor reinicia"
 
 msgid "Interpolation"
 msgstr "Interpolación"
+
+msgid "GPU Plugin"
+msgstr "Plugin GPU"
