@@ -10,9 +10,11 @@ WiiStation - A Sony PlayStation 1 emulator for Wii / Wii U, forked from WiiSXRX 
 Featuring:
 - HID controllers support!
 - New dynamic recompiler (dynarec) Lightrec! The old one is kept as an option in case compatibility changes much.
+- Posibility of select between the old P.E.Op.S. Soft GPU and the new DFXVideo Soft GPU video plugin.
 - CDDA (Compact Disc Digital Audio) tracks support.
 - 240p support!
 - Posibility of enabling/disabling Interlaced (480i) mode, Bilinear/Trap/Deflicker filters.
+- Option for force NTSC video.
 - Lightgun (Namco GunCon/Konami Justifier) support.
 - Multitap support for up to 8 players.
 - Memory Card enabling/disabling support.

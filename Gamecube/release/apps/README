@@ -95,13 +95,15 @@ CREDITS:
  * PCSX-R - http://pcsxr.codeplex.com
  * PCSX 1.5-test3 Mac version by Gil Pederson - http://pcsx.gpost.dk
  * PCSX-Revolution: Firnis - https://github.com/Firnis/pcsx-revolution
- * PCSX-ReARMed: notaz - https://github.com/notaz/pcsx_rearmed
+ * PCSX-ReARMed: notaz - https://github.com/notaz/pcsx_rearmed ; additional
+   changes on Libretro https://github.com/libretro/pcsx_rearmed
  * P.E.Op.S. PSX GPU & SPU - http://sourceforge.net/projects/peops
  * FranSPU
  * CDRMooby
  * SSSPSX
  * Lightrec: pcercuei - https://github.com/pcercuei/lightrec
- * GNU Lightning - http://git.savannah.gnu.org/cgit/lightning.git
+ * GNU Lightning - http://git.savannah.gnu.org/cgit/lightning.git ;
+   https://www.gnu.org/software/lightning/
  * Compiled using devKitPro
      ( http://sourceforge.net/projects/devkitpro )
  * www.emulatemii.com and https://code.google.com/archive/p/pcsxgc/downloads
@@ -119,14 +121,15 @@ LATER UPDATES BY:
 WiiStation CHANGE LOG:
 Ver Beta 4.0:
 * HID controllers support.
-  (The PS2 and PS3 controllers(includes vibration) has been fully tested.)
+  (The PS2 and PS3 controllers (includes vibration) has been fully tested.)
 * Using the speed limit logic of old video plugins.
-* Merged some code from pcsxRearm to reduce the occurrence of some issues.
-* Reduced the use of MEM1 memory and fixed errors in games such as Rayman 2.
-* Added Gaussian interpolation to SPU.
-* Add the old software rendering method as the default GPU plugin.
+* Merged some code from PCSX-ReARMed to reduce the occurrence/happening of some issues.
+* Reduced the use of MEM1 memory and fixed crashes/errors in games such as Rayman 2.
+* Added Gaussian interpolation to SPU as an option.
+* Add the old software rendering method as the default GPU plugin. The new one
+  will be kept as an option in case some games don't work correctly there.
 * Update libCHDr to latest until git 07a564a.
-* Update Lightrec until git 8d3db1a
+* Update Lightrec to latest until git 8d3db1a.
 
 Ver 3.2:
 * SPU: Correction for overflow of 16 digit numbers.
@@ -138,9 +141,9 @@ Ver 3.2:
 Ver 3.0:
 * 240p/Lightgun/Mouse/Multitap support.
 * CHD v1-v5 compressed format support.
-* Add Force ntsc mode.
+* Add Force NTSC mode.
 * Rewritten PCM decoding logic using the paired single instruction,
-  There is a slight increase in corresponding speed.
+  there is a slight increase in corresponding speed.
 * Imported the latest SPU, GPU, BIOS, Cdrom and other modules from PCSX ReARMed.
 * Add separate save function, each game can save its own settings.
 * Add old dynamic compilation core, For games where the Lightrec core cannot run,
