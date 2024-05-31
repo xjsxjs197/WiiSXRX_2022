@@ -1472,7 +1472,7 @@ static struct block * lightrec_precompile_block(struct lightrec_state *state,
 	lightrec_register(MEM_FOR_MIPS_CODE, length);
 
 	if (ENABLE_DISASSEMBLER) {
-		pr_debug("Disassembled block at PC: 0x%08x\n", block->pc);
+		pr_debug("Disassembled block at "PC_FMT"\n", block->pc);
 		lightrec_print_disassembly(block, code);
 	}
 
@@ -1747,8 +1747,8 @@ int lightrec_compile_block(struct lightrec_cstate *cstate,
 			block2 = lightrec_find_block(state->block_cache, offset);
 		}
 		if (block2) {
-			pr_debug("Reap block 0x%08x as it's covered by block "
-				 "0x%08x\n", block2->pc, block->pc);
+			pr_debug("Reap block "X32_FMT" as it's covered by block "
+				 X32_FMT"\n", block2->pc, block->pc);
 
 			/* Finally, reap the block. */
 			if (!ENABLE_THREADED_COMPILER) {
@@ -1766,7 +1766,7 @@ int lightrec_compile_block(struct lightrec_cstate *cstate,
 		lightrec_reaper_continue(state->reaper);
 
 	if (ENABLE_DISASSEMBLER) {
-		pr_debug("Compiling block at PC: 0x%08x\n", block->pc);
+		pr_debug("Compiling block at "PC_FMT"\n", block->pc);
 		jit_disassemble();
 	}
 
@@ -1789,7 +1789,7 @@ int lightrec_compile_block(struct lightrec_cstate *cstate,
 	}
 
 	if (oldjit) {
-		pr_debug("Block 0x%08x recompiled, reaping old jit context.\n",
+		pr_debug("Block "X32_FMT" recompiled, reaping old jit context.\n",
 			 block->pc);
 
 		if (ENABLE_THREADED_COMPILER) {

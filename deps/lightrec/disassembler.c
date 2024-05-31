@@ -333,7 +333,7 @@ static int print_op_special(union code c, char *buf, size_t len,
 				lightrec_reg_name(c.r.rs),
 				lightrec_reg_name(c.r.rt));
 	default:
-		return snprintf(buf, len, "unknown (0x%08x)", c.opcode);
+		return snprintf(buf, len, "unknown ("X32_FMT")", c.opcode);
 	}
 }
 
@@ -362,7 +362,7 @@ static int print_op_cp(union code c, char *buf, size_t len, unsigned int cp)
 		case OP_CP0_RFE:
 			return snprintf(buf, len, "rfe     ");
 		default:
-			return snprintf(buf, len, "unknown (0x%08x)", c.opcode);
+			return snprintf(buf, len, "unknown ("X32_FMT")", c.opcode);
 		}
 	}
 }
@@ -482,7 +482,7 @@ static int print_op(union code c, u32 pc, char *buf, size_t len,
 				lightrec_reg_name(get_mult_div_lo(c)),
 				lightrec_reg_name(c.r.rs), c.r.op);
 	default:
-		return snprintf(buf, len, "unknown (0x%08x)", c.opcode);
+		return snprintf(buf, len, "unknown ("X32_FMT")", c.opcode);
 	}
 }
 
@@ -518,7 +518,7 @@ void lightrec_print_disassembly(const struct block *block, const u32 *code_ptr)
 
 		print_flags(buf3, sizeof(buf3), op, flags_ptr, nb_flags, is_io);
 
-		printf("0x%08x (0x%x)\t%s%*c%s%*c%s\n", pc, i << 2,
+		printf(X32_FMT" (0x%x)\t%s%*c%s%*c%s\n", pc, i << 2,
 		       buf, 30 - (int)count, ' ', buf2, 30 - (int)count2, ' ', buf3);
 	}
 }
