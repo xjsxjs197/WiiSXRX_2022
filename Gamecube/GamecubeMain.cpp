@@ -248,7 +248,7 @@ static void setGpuPlugin()
     {
         gpuPtr = &oldSoftGpu;
     }
-    else
+    if (gpuPlugin == NEW_SOFT)
     {
         gpuPtr = &newSoftGpu;
     }
@@ -453,7 +453,7 @@ void loadSettings(int argc, char *argv[])
 		if(checkBiosExists((int)biosDevice) == FILE_BROWSER_ERROR_NO_FILE)
 			biosDevice = BIOSDEVICE_HLE;
 
-	//Synch settings with Config
+	//Sync settings with config
 	Config.Cpu=dynacore;
 	//iUseDither = useDithering;
 	setSpuInterpolation(spuInterpolation);
