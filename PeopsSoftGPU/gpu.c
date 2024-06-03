@@ -682,7 +682,7 @@ void ChangeDispOffsetsY(void)                          // Y CENTER
 
 //
 
- if(PSXDisplay.PAL) iT=48; else iT=28;
+ if(PSXDisplay.PAL || forceNTSC) iT=48; else iT=28;
 
  if(PSXDisplay.Range.y0>=iT)
   {
