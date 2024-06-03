@@ -942,9 +942,6 @@ static struct block * generate_wrapper(struct lightrec_state *state)
 	struct block *block;
 	jit_state_t *_jit;
 	unsigned int i;
-	jit_node_t *addr[C_WRAPPERS_COUNT - 1];
-	jit_node_t *to_end[C_WRAPPERS_COUNT - 1];
-	u8 tmp = JIT_R1;
 
 	block = lightrec_malloc(state, MEM_FOR_IR, sizeof(*block));
 	if (!block)
@@ -961,20 +958,9 @@ static struct block * generate_wrapper(struct lightrec_state *state)
 	jit_prolog();
 	jit_tramp(256);
 
-	/* Add entry points */
-	for (i = C_WRAPPERS_COUNT - 1; i > 0; i--) {
-		jit_ldxi(tmp, LIGHTREC_REG_STATE,
-			 offsetof(struct lightrec_state, c_wrappers[i]));
-		to_end[i - 1] = jit_b();
-		addr[i - 1] = jit_indirect();
-	}
-
-	jit_ldxi(tmp, LIGHTREC_REG_STATE,
-		 offsetof(struct lightrec_state, c_wrappers[0]));
-
-	for (i = 0; i < C_WRAPPERS_COUNT - 1; i++)
-		jit_patch(to_end[i]);
-	jit_movr(JIT_R1, tmp);
+	/* Load pointer to C wrapper */
+	jit_addr(JIT_R1, JIT_R1, LIGHTREC_REG_STATE);
+	jit_ldxi(JIT_R1, JIT_R1, lightrec_offset(c_wrappers));
 
 	jit_epilog();
 	jit_prolog();
@@ -982,7 +968,7 @@ static struct block * generate_wrapper(struct lightrec_state *state)
 	/* Save all temporaries on stack */
 	for (i = 0; i < NUM_TEMPS; i++) {
 		if (i + FIRST_TEMP != 1) {
-			jit_stxi(offsetof(struct lightrec_state, wrapper_regs[i]),
+			jit_stxi(lightrec_offset(wrapper_regs[i]),
 				 LIGHTREC_REG_STATE, JIT_R(i + FIRST_TEMP));
 		}
 	}
@@ -993,29 +979,25 @@ static struct block * generate_wrapper(struct lightrec_state *state)
 	jit_pushargr(LIGHTREC_REG_STATE);
 	jit_pushargr(JIT_R2);
 
-	jit_ldxi_ui(JIT_R2, LIGHTREC_REG_STATE,
-		    offsetof(struct lightrec_state, target_cycle));
+	jit_ldxi_ui(JIT_R2, LIGHTREC_REG_STATE, lightrec_offset(target_cycle));
 
 	/* state->current_cycle = state->target_cycle - delta; */
 	jit_subr(LIGHTREC_REG_CYCLE, JIT_R2, LIGHTREC_REG_CYCLE);
-	jit_stxi_i(offsetof(struct lightrec_state, current_cycle),
-		   LIGHTREC_REG_STATE, LIGHTREC_REG_CYCLE);
+	jit_stxi_i(lightrec_offset(current_cycle), LIGHTREC_REG_STATE, LIGHTREC_REG_CYCLE);
 
 	/* Call the wrapper function */
 	jit_finishr(JIT_R1);
 
 	/* delta = state->target_cycle - state->current_cycle */;
-	jit_ldxi_ui(LIGHTREC_REG_CYCLE, LIGHTREC_REG_STATE,
-		    offsetof(struct lightrec_state, current_cycle));
-	jit_ldxi_ui(JIT_R1, LIGHTREC_REG_STATE,
-		    offsetof(struct lightrec_state, target_cycle));
+	jit_ldxi_ui(LIGHTREC_REG_CYCLE, LIGHTREC_REG_STATE, lightrec_offset(current_cycle));
+	jit_ldxi_ui(JIT_R1, LIGHTREC_REG_STATE, lightrec_offset(target_cycle));
 	jit_subr(LIGHTREC_REG_CYCLE, JIT_R1, LIGHTREC_REG_CYCLE);
 
 	/* Restore temporaries from stack */
 	for (i = 0; i < NUM_TEMPS; i++) {
 		if (i + FIRST_TEMP != 1) {
 			jit_ldxi(JIT_R(i + FIRST_TEMP), LIGHTREC_REG_STATE,
-				 offsetof(struct lightrec_state, wrapper_regs[i]));
+				 lightrec_offset(wrapper_regs[i]));
 		}
 	}
 
@@ -1032,10 +1014,7 @@ static struct block * generate_wrapper(struct lightrec_state *state)
 	if (!block->function)
 		goto err_free_jit;
 
-	state->wrappers_eps[C_WRAPPERS_COUNT - 1] = block->function;
-
-	for (i = 0; i < C_WRAPPERS_COUNT - 1; i++)
-		state->wrappers_eps[i] = jit_address(addr[i]);
+	state->c_wrapper = block->function;
 
 	if (ENABLE_DISASSEMBLER) {
 		pr_debug("Wrapper block:\n");
@@ -1104,20 +1083,16 @@ static u32 lightrec_check_load_delay(struct lightrec_state *state, u32 pc, u8 re
 static void update_cycle_counter_before_c(jit_state_t *_jit)
 {
 	/* update state->current_cycle */
-	jit_ldxi_i(JIT_R2, LIGHTREC_REG_STATE,
-		   offsetof(struct lightrec_state, target_cycle));
+	jit_ldxi_i(JIT_R2, LIGHTREC_REG_STATE, lightrec_offset(target_cycle));
 	jit_subr(JIT_R1, JIT_R2, LIGHTREC_REG_CYCLE);
-	jit_stxi_i(offsetof(struct lightrec_state, current_cycle),
-		   LIGHTREC_REG_STATE, JIT_R1);
+	jit_stxi_i(lightrec_offset(current_cycle), LIGHTREC_REG_STATE, JIT_R1);
 }
 
 static void update_cycle_counter_after_c(jit_state_t *_jit)
 {
 	/* Recalc the delta */
-	jit_ldxi_i(JIT_R1, LIGHTREC_REG_STATE,
-		   offsetof(struct lightrec_state, current_cycle));
-	jit_ldxi_i(JIT_R2, LIGHTREC_REG_STATE,
-		   offsetof(struct lightrec_state, target_cycle));
+	jit_ldxi_i(JIT_R1, LIGHTREC_REG_STATE, lightrec_offset(current_cycle));
+	jit_ldxi_i(JIT_R2, LIGHTREC_REG_STATE, lightrec_offset(target_cycle));
 	jit_subr(LIGHTREC_REG_CYCLE, JIT_R2, JIT_R1);
 }
 
@@ -1125,7 +1100,7 @@ static void sync_next_pc(jit_state_t *_jit)
 {
 	if (lightrec_store_next_pc()) {
 		jit_ldxi_ui(JIT_V0, LIGHTREC_REG_STATE,
-			    offsetof(struct lightrec_state, next_pc));
+			    lightrec_offset(next_pc));
 	}
 }
 
@@ -1178,8 +1153,8 @@ static struct block * generate_dispatcher(struct lightrec_state *state)
 		jit_finishi(lightrec_memset);
 		jit_retval(LIGHTREC_REG_CYCLE);
 
-		jit_ldxi_ui(JIT_V0, LIGHTREC_REG_STATE,
-			    offsetof(struct lightrec_state, regs.gpr[31]));
+		jit_ldxi_ui(JIT_V0, LIGHTREC_REG_STATE, lightrec_offset(regs.gpr[31]));
+
 		jit_subr(LIGHTREC_REG_CYCLE, JIT_V1, LIGHTREC_REG_CYCLE);
 
 		if (OPT_DETECT_IMPOSSIBLE_BRANCHES || OPT_HANDLE_LOAD_DELAYS)
@@ -1249,8 +1224,7 @@ static struct block * generate_dispatcher(struct lightrec_state *state)
 	}
 
 	/* Store back the next PC to the lightrec_state structure */
-	offset = offsetof(struct lightrec_state, curr_pc);
-	jit_stxi_i(offset, LIGHTREC_REG_STATE, JIT_V0);
+	jit_stxi_i(lightrec_offset(curr_pc), LIGHTREC_REG_STATE, JIT_V0);
 
 	/* Jump to end if state->target_cycle < state->current_cycle */
 	to_end = jit_blei(LIGHTREC_REG_CYCLE, 0);
@@ -1267,7 +1241,7 @@ static struct block * generate_dispatcher(struct lightrec_state *state)
 		jit_lshi(JIT_V1, JIT_V1, 1);
 	jit_add_state(JIT_V1, JIT_V1);
 
-	offset = offsetof(struct lightrec_state, code_lut);
+	offset = lightrec_offset(code_lut);
 	if (lut_is_32bit(state))
 		jit_ldxi_ui(JIT_V1, JIT_V1, offset);
 	else
@@ -1309,8 +1283,7 @@ static struct block * generate_dispatcher(struct lightrec_state *state)
 	}
 
 	/* Reset JIT_V0 to the next PC */
-	jit_ldxi_ui(JIT_V0, LIGHTREC_REG_STATE,
-		    offsetof(struct lightrec_state, curr_pc));
+	jit_ldxi_ui(JIT_V0, LIGHTREC_REG_STATE, lightrec_offset(curr_pc));
 
 	/* If we get non-NULL, loop */
 	jit_patch_at(jit_bnei(JIT_V1, 0), loop);
