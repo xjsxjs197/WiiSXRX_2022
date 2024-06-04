@@ -29,7 +29,7 @@ WiiStation (formerly WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emul
 
 * Adding the new, updated PSX dynamic recompiler [Lightrec](https://github.com/pcercuei/lightrec) by pcercuei, the speed/performance of the emulation is greatly improved. The 'new' PPC Dynarec is kept as an option in case compatibility or speed changes much.
 
-* Posibility of selecting between the old video plugin P.E.Op.S. Soft GPU and the new video plugin based on DFXVideo.
+* Posibility of selecting between the old GPU video plugin based on **P.E.Op.S. Soft GPU** (slightly faster) and the new GPU video plugin based on **gpulib + DFXVideo** (more compatible).
 
 * 240p support!
 
@@ -37,7 +37,7 @@ WiiStation (formerly WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emul
 
 * Posibility of enabling/disabling bilinear, trap, and deflicker filters!
 
-* PS1 Lightguns support! Both Namco GunCon and Konami Justifier lightguns are supported and emulated with the Wiimotes! (Needs to be enabled in emulator settings and calibrate them by using the in-game calibration screen)
+* PS1 Lightguns support! Both **Namco GunCon** and **Konami Justifier** lightguns are supported and emulated with the Wiimotes! (Needs to be enabled in emulator settings and calibrate them by using the in-game calibration screen)
 
 * Experimental PS1 Mouse support via the Wiimote IR.
 
@@ -45,7 +45,7 @@ WiiStation (formerly WiiSXRX_2022), is a Sony PlayStation 1 (PS1/PSX/PSone) emul
 
 * Support for BIN+CUE, ISO, IMG, and eboot PBP (a compressed format for PS1 games on PSP) formats.
 
-* CHD v1-v5 compressed format support with the [libCHDr](https://github.com/rtissera/libchdr) library from [MAME](https://github.com/mamedev/mame).
+* CHD v1-v5 compressed format support with the [libCHDr](https://github.com/rtissera/libchdr) library from rtissera and [MAME](https://github.com/mamedev/mame).
 
 * Support for multiple languages.
   At first, I wanted to refer to Snes9x GX and support TTF font library.
