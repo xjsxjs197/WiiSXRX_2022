@@ -1108,7 +1108,8 @@ static struct block * generate_dispatcher(struct lightrec_state *state)
 {
 	struct block *block;
 	jit_state_t *_jit;
-	jit_node_t *to_end, *loop, *addr, *addr2, *addr3, *addr4, *addr5, *jmp, *jmp2;
+	jit_node_t *to_end, *loop, *loop2,
+		   *addr, *addr2, *addr3, *addr4, *addr5;
 	unsigned int i;
 	u32 offset;
 
@@ -1140,91 +1141,13 @@ static struct block * generate_dispatcher(struct lightrec_state *state)
 	/* Call the block's code */
 	jit_jmpr(JIT_V1);
 
-	if (OPT_REPLACE_MEMSET) {
-		/* Blocks will jump here when they need to call
-		 * lightrec_memset() */
-		addr3 = jit_indirect();
-
-		jit_movr(JIT_V1, LIGHTREC_REG_CYCLE);
-
-		jit_prepare();
-		jit_pushargr(LIGHTREC_REG_STATE);
-
-		jit_finishi(lightrec_memset);
-		jit_retval(LIGHTREC_REG_CYCLE);
-
-		jit_ldxi_ui(JIT_V0, LIGHTREC_REG_STATE, lightrec_offset(regs.gpr[31]));
-
-		jit_subr(LIGHTREC_REG_CYCLE, JIT_V1, LIGHTREC_REG_CYCLE);
-
-		if (OPT_DETECT_IMPOSSIBLE_BRANCHES || OPT_HANDLE_LOAD_DELAYS)
-			jmp = jit_b();
-	}
-
-	if (OPT_DETECT_IMPOSSIBLE_BRANCHES) {
-		/* Blocks will jump here when they reach a branch that should
-		 * be executed with the interpreter, passing the branch's PC
-		 * in JIT_V0 and the address of the block in JIT_V1. */
-		addr4 = jit_indirect();
-
-		sync_next_pc(_jit);
-		update_cycle_counter_before_c(_jit);
-
-		jit_prepare();
-		jit_pushargr(LIGHTREC_REG_STATE);
-		jit_pushargr(JIT_V1);
-		jit_pushargr(JIT_V0);
-		jit_finishi(lightrec_emulate_block);
-
-		jit_retval(JIT_V0);
-
-		update_cycle_counter_after_c(_jit);
-
-		if (OPT_HANDLE_LOAD_DELAYS)
-			jmp2 = jit_b();
-
-	}
-
-	if (OPT_HANDLE_LOAD_DELAYS) {
-		/* Blocks will jump here when they reach a branch with a load
-		 * opcode in its delay slot. The delay slot has already been
-		 * executed; the load value is in (state->temp_reg), and the
-		 * register number is in JIT_V1.
-		 * Jump to a C function which will evaluate the branch target's
-		 * first opcode, to make sure that it does not read the register
-		 * in question; and if it does, handle it accordingly. */
-		addr5 = jit_indirect();
-
-		sync_next_pc(_jit);
-		update_cycle_counter_before_c(_jit);
-
-		jit_prepare();
-		jit_pushargr(LIGHTREC_REG_STATE);
-		jit_pushargr(JIT_V0);
-		jit_pushargr(JIT_V1);
-		jit_finishi(lightrec_check_load_delay);
-
-		jit_retval(JIT_V0);
-
-		update_cycle_counter_after_c(_jit);
-	}
-
 	/* The block will jump here, with the number of cycles remaining in
 	 * LIGHTREC_REG_CYCLE */
 	addr2 = jit_indirect();
 
 	sync_next_pc(_jit);
 
-	if (OPT_HANDLE_LOAD_DELAYS && OPT_DETECT_IMPOSSIBLE_BRANCHES)
-	      jit_patch(jmp2);
-
-	if (OPT_REPLACE_MEMSET
-	    && (OPT_DETECT_IMPOSSIBLE_BRANCHES || OPT_HANDLE_LOAD_DELAYS)) {
-		jit_patch(jmp);
-	}
-
-	/* Store back the next PC to the lightrec_state structure */
-	jit_stxi_i(lightrec_offset(curr_pc), LIGHTREC_REG_STATE, JIT_V0);
+	loop2 = jit_label();
 
 	/* Jump to end if state->target_cycle < state->current_cycle */
 	to_end = jit_blei(LIGHTREC_REG_CYCLE, 0);
@@ -1246,6 +1169,9 @@ static struct block * generate_dispatcher(struct lightrec_state *state)
 		jit_ldxi_ui(JIT_V1, JIT_V1, offset);
 	else
 		jit_ldxi(JIT_V1, JIT_V1, offset);
+
+	/* Store back the current PC to the lightrec_state structure */
+	jit_stxi_i(lightrec_offset(curr_pc), LIGHTREC_REG_STATE, JIT_V0);
 
 	/* If we get non-NULL, loop */
 	jit_patch_at(jit_bnei(JIT_V1, 0), loop);
@@ -1292,7 +1218,80 @@ static struct block * generate_dispatcher(struct lightrec_state *state)
 	jit_note(__FILE__, __LINE__);
 	jit_patch(to_end);
 
+	/* Store back the current PC to the lightrec_state structure */
+	jit_stxi_i(lightrec_offset(curr_pc), LIGHTREC_REG_STATE, JIT_V0);
+
 	jit_retr(LIGHTREC_REG_CYCLE);
+
+	if (OPT_REPLACE_MEMSET) {
+		/* Blocks will jump here when they need to call
+		 * lightrec_memset() */
+		addr3 = jit_indirect();
+
+		jit_movr(JIT_V1, LIGHTREC_REG_CYCLE);
+
+		jit_prepare();
+		jit_pushargr(LIGHTREC_REG_STATE);
+
+		jit_finishi(lightrec_memset);
+		jit_retval(LIGHTREC_REG_CYCLE);
+
+		jit_ldxi_ui(JIT_V0, LIGHTREC_REG_STATE, lightrec_offset(regs.gpr[31]));
+
+		jit_subr(LIGHTREC_REG_CYCLE, JIT_V1, LIGHTREC_REG_CYCLE);
+
+		jit_patch_at(jit_b(), loop2);
+	}
+
+	if (OPT_DETECT_IMPOSSIBLE_BRANCHES) {
+		/* Blocks will jump here when they reach a branch that should
+		 * be executed with the interpreter, passing the branch's PC
+		 * in JIT_V0 and the address of the block in JIT_V1. */
+		addr4 = jit_indirect();
+
+		sync_next_pc(_jit);
+		update_cycle_counter_before_c(_jit);
+
+		jit_prepare();
+		jit_pushargr(LIGHTREC_REG_STATE);
+		jit_pushargr(JIT_V1);
+		jit_pushargr(JIT_V0);
+		jit_finishi(lightrec_emulate_block);
+
+		jit_retval(JIT_V0);
+
+		update_cycle_counter_after_c(_jit);
+
+		jit_patch_at(jit_b(), loop2);
+
+	}
+
+	if (OPT_HANDLE_LOAD_DELAYS) {
+		/* Blocks will jump here when they reach a branch with a load
+		 * opcode in its delay slot. The delay slot has already been
+		 * executed; the load value is in (state->temp_reg), and the
+		 * register number is in JIT_V1.
+		 * Jump to a C function which will evaluate the branch target's
+		 * first opcode, to make sure that it does not read the register
+		 * in question; and if it does, handle it accordingly. */
+		addr5 = jit_indirect();
+
+		sync_next_pc(_jit);
+		update_cycle_counter_before_c(_jit);
+
+		jit_prepare();
+		jit_pushargr(LIGHTREC_REG_STATE);
+		jit_pushargr(JIT_V0);
+		jit_pushargr(JIT_V1);
+		jit_finishi(lightrec_check_load_delay);
+
+		jit_retval(JIT_V0);
+
+		update_cycle_counter_after_c(_jit);
+
+		jit_patch_at(jit_b(), loop2);
+	}
+
 	jit_epilog();
 
 	block->_jit = _jit;
