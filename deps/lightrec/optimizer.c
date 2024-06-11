@@ -2245,7 +2245,7 @@ static int lightrec_replace_memset(struct lightrec_state *state, struct block *b
 
 		if (i == ARRAY_SIZE(memset_code) - 1) {
 			/* success! */
-			pr_debug("Block at PC 0x%x is a memset\n", block->pc);
+			pr_debug("Block at "PC_FMT" is a memset\n", block->pc);
 			block_set_flags(block,
 					BLOCK_IS_MEMSET | BLOCK_NEVER_COMPILE);
 

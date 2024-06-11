@@ -380,7 +380,7 @@ static int print_op(union code c, u32 pc, char *buf, size_t len,
 	case OP_REGIMM:
 		*flags_ptr = opcode_branch_flags;
 		*nb_flags = ARRAY_SIZE(opcode_branch_flags);
-		return snprintf(buf, len, "%s%s,0x%x",
+		return snprintf(buf, len, "%s%s,0x%"PRIx32,
 				regimm_opcodes[c.i.rt],
 				lightrec_reg_name(c.i.rs),
 				pc + 4 + ((s16)c.i.imm << 2));
@@ -388,14 +388,14 @@ static int print_op(union code c, u32 pc, char *buf, size_t len,
 	case OP_JAL:
 		*flags_ptr = opcode_branch_flags;
 		*nb_flags = ARRAY_SIZE(opcode_branch_flags);
-		return snprintf(buf, len, "%s0x%x",
+		return snprintf(buf, len, "%s0x%"PRIx32,
 				std_opcodes[c.i.op],
 				(pc & 0xf0000000) | (c.j.imm << 2));
 	case OP_BEQ:
 		if (c.i.rs == c.i.rt) {
 			*flags_ptr = opcode_branch_flags;
 			*nb_flags = ARRAY_SIZE(opcode_branch_flags);
-			return snprintf(buf, len, "b       0x%x",
+			return snprintf(buf, len, "b       0x%"PRIx32,
 					pc + 4 + ((s16)c.i.imm << 2));
 		}
 		fallthrough;
@@ -404,7 +404,7 @@ static int print_op(union code c, u32 pc, char *buf, size_t len,
 	case OP_BGTZ:
 		*flags_ptr = opcode_branch_flags;
 		*nb_flags = ARRAY_SIZE(opcode_branch_flags);
-		return snprintf(buf, len, "%s%s,%s,0x%x",
+		return snprintf(buf, len, "%s%s,%s,0x%"PRIx32,
 				std_opcodes[c.i.op],
 				lightrec_reg_name(c.i.rs),
 				lightrec_reg_name(c.i.rt),
