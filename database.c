@@ -142,7 +142,7 @@ cycle_multiplier_overrides[] =
     /* Vandal Hearts II */
     { 125, { "SLUS00940", "SLES02469", "SLES02496", "SLES02497" } },
     { 125, { "SCPS45415", "SLPM86251", "SLPM86504", "SLPM87279" } },
-    /* new_dynarec has a hack for this game */
+    /* upstream PCSX-ReARMed: new_dynarec has a hack for this game */
     /* Parasite Eve II - internal timer checks */
     { 125, { "SLUS01042", "SLUS01055", "SLES02558", "SLES12558" } },
     { 125, { "SLES02559", "SLES12559", "SLES02560", "SLES12560" } },
@@ -153,6 +153,9 @@ cycle_multiplier_overrides[] =
     { 222, { "SLES01549", "SLES02063", "SLES02064" } },
     /* Digimon World */
     { 153, { "SLUS01032", "SLES02914" } },
+    /* on 'new' PPC Dynarec this game works correctly but not on Lightrec nor Interpreter */
+    /* Power Rangers: Lightspeed Rescue - jump does not work with 175 */
+    { 222, { "SLUS01114", "SLES03286" } },
     /* Syphon Filter - reportedly hangs under unknown conditions */
     { 169, { "SCUS94240" } },
     /* Psychic Detective - some weird race condition in the game's cdrom code */
