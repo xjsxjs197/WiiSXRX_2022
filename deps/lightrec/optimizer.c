@@ -1172,7 +1172,7 @@ static int lightrec_transform_ops(struct lightrec_state *state, struct block *bl
 					break;
 				}
 
-				pr_debug("Multiply by power-of-two: %u\n",
+				pr_debug("Multiply by power-of-two: %"PRIu32"\n",
 					 v[op->r.rt].value);
 
 				if (op->r.op == OP_SPECIAL_MULT)
@@ -1481,7 +1481,7 @@ static int lightrec_local_branches(struct lightrec_state *state, struct block *b
 
 		offset = i + 1 + (s16)list->c.i.imm;
 
-		pr_debug("Found local branch to offset 0x%x\n", offset << 2);
+		pr_debug("Found local branch to offset 0x%"PRIx32"\n", offset << 2);
 
 		ds = get_delay_slot(block->opcode_list, i);
 		if (op_flag_load_delay(ds->flags) && opcode_is_load(ds->c)) {

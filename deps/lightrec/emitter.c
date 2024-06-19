@@ -103,7 +103,7 @@ static void lightrec_emit_end_of_block(struct lightrec_cstate *state,
 
 	if (cycles && update_cycles) {
 		jit_subi(LIGHTREC_REG_CYCLE, LIGHTREC_REG_CYCLE, cycles);
-		pr_debug("EOB: %u cycles\n", cycles);
+		pr_debug("EOB: %"PRIu32" cycles\n", cycles);
 	}
 
 	if (has_ds && op_flag_load_delay(ds->flags)
@@ -308,7 +308,7 @@ static void rec_b(struct lightrec_cstate *state, const struct block *block, u16 
 
 		target_offset = offset + 1 + (s16)op->i.imm
 			- !!op_flag_no_ds(op->flags);
-		pr_debug("Adding local branch to offset 0x%x\n",
+		pr_debug("Adding local branch to offset 0x%"PRIx32"\n",
 			 target_offset << 2);
 		branch = &state->local_branches[
 			state->nb_local_branches++];
