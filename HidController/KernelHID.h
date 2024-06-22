@@ -183,6 +183,7 @@ u32 HidFormatData(void);
 void HIDUpdateControllerIni();
 
 void HIDReadData(void);
+int IsHidRuning(void);
 
 extern s32 hidControllerConnected;
 extern s32 loadingControllerIni;

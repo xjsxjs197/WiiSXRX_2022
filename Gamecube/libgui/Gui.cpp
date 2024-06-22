@@ -32,8 +32,9 @@ extern "C" {
 #ifdef WII
 #include <di/di.h>
 #include <ogc/machine/processor.h>
-#endif 
+#endif
 }
+#include "../../HidController/KernelHID.h"
 
 extern char shutdown;
 #ifdef WII
@@ -119,12 +120,16 @@ void Gui::draw()
 		gfx->setColor((GXColor){0, 0, 0, fade});
 		if(screenMode)	gfx->fillRect(-104, 0, 848, 480);
 		else			gfx->fillRect(0, 0, 640, 480);
-		
+
 		if(fade == 255)
 		{
 			VIDEO_SetBlack(true);
 			VIDEO_Flush();
 		 	VIDEO_WaitVSync();
+
+		 	#ifdef HW_RVL
+			HIDClose(1);
+			#endif // HW_RVL
 #ifdef WII
 			// If this is a Wii U, restore the original aspect ratio
 			if(isWiiU) {
@@ -184,4 +189,4 @@ void Gui::drawBackground()
 	gfx->setTEV(GX_PASSCLR);
 }
 
-} //namespace menu 
+} //namespace menu

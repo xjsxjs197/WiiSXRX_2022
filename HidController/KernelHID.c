@@ -92,7 +92,7 @@ static RumbleFunc HIDRumble = NULL;
 static usb_device_entry *AttachedDevices = NULL;
 #define ATTACHED_DEVICES_SIZE     (sizeof(usb_device_entry) * 32)
 
-static int hidRun = 0;
+static volatile int hidRun = 0;
 static lwp_t HID_Thread = LWP_THREAD_NULL;
 static u64 HID_Timer = 0;
 static vu32 hidread = 0, keyboardread = 0, hidchange = 0, hidattach = 0, hidattached = 0, hidwaittimer = 0;
@@ -154,6 +154,11 @@ s32 loadingControllerIni = 0;
 
 static s32 ipcCallBack(s32 result, void *usrdata)
 {
+    if (!hidRun)
+    {
+        return 0;
+    }
+
     struct _usb_msg *msgParam = (struct _usb_msg*)usrdata;
     if (msgParam->msgData == READ_CONTROLLER_MSG)
     {
@@ -778,6 +783,8 @@ void HIDClose(int closeType)
     }
     else
     {
+        usleep(300);
+
         if (HID_Thread != LWP_THREAD_NULL)
         {
             LWP_JoinThread(HID_Thread, NULL);
@@ -811,6 +818,11 @@ void HIDClose(int closeType)
     }
 }
 
+int IsHidRuning(void)
+{
+    return hidRun;
+}
+
 static u32 *HIDRun(void *param)
 {
     while (hidRun)
@@ -821,7 +833,7 @@ static u32 *HIDRun(void *param)
             break;
         }
         HIDUpdateRegisters(1);
-        usleep(1000);
+        usleep(800);
     }
     return 0;
 }

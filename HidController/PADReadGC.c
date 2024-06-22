@@ -77,7 +77,7 @@ const s8 DEADZONE = 0x1A;
 
 void HIDUpdateControllerIni()
 {
-    if (*(vu32*)HID_CHANGE == 0)
+    if (*(vu32*)HID_CHANGE == 0 || !IsHidRuning())
     {
         return;
     }
@@ -141,6 +141,11 @@ void HIDUpdateControllerIni()
 
 u32 HidFormatData(void)
 {
+    if (!IsHidRuning())
+    {
+        return 0;
+    }
+
     // Registers r1,r13-r31 automatically restored if used.
     // Registers r0, r3-r12 should be handled by calling function
     // Register r2 not changed
