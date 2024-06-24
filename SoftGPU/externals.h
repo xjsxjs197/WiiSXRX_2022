@@ -253,6 +253,10 @@ extern unsigned int   lGPUInfoVals[];
 
 extern int            gMouse[4];
 extern int            iFakePrimBusy;
+extern int            iWinSize;
+extern int            iUseScanLines;
+extern char           szDispBuf[];
+extern BOOL           bDisplayNotSet;
 //#endif
 
 // menu.c

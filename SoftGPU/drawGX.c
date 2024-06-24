@@ -39,18 +39,18 @@
 ////////////////////////////////////////////////////////////////////////////////////
 // misc globals
 ////////////////////////////////////////////////////////////////////////////////////
-char           szDispBuf[64];
+//char           szDispBuf[64];
 int            iResX;
 int            iResY;
 //long           lLowerpart;
-BOOL           bIsFirstFrame = TRUE;
+//BOOL           bIsFirstFrame = TRUE;
 //BOOL           bCheckMask=FALSE;
 //unsigned short sSetMask=0;
 //unsigned long  lSetMask=0;
 int            iDesktopCol=16;
 int            iShowFPS=1;
-int            iWinSize;
-int            iUseScanLines=0;
+//int            iWinSize;
+//int            iUseScanLines=0;
 int            iUseNoStretchBlt=0;
 int            iFastFwd=0;
 int            iDebugMode=0;
@@ -127,7 +127,7 @@ static void gc_vout_drawdone(void)
 	GX_SetDrawDone();
 }
 
-static void gc_vout_render(void)
+void gc_vout_render(void)
 {
 	// reset swap table from GUI/DEBUG
 	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED ,GX_CH_ALPHA);
@@ -420,6 +420,11 @@ drawLine(float x1, float y1, float x2, float y2, char r, char g, char b)
 
 int gc_vout_open(void) {
 	memset(GXtexture,0,sizeof(GXtexture));
+	VIDEO_SetPreRetraceCallback(gc_vout_vsync);
+	return 0;
+}
+
+int gx_vout_open(void) {
 	VIDEO_SetPreRetraceCallback(gc_vout_vsync);
 	return 0;
 }

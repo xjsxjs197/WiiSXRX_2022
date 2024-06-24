@@ -18,6 +18,12 @@ VERSION = beta2.5
 #	@rm temp.log
 all: Wii Wii_Release
 
+opengx.a:
+	@echo " "
+	@echo "Building opengx.a library for PPC"
+	@echo " "
+	$(MAKE) -C deps/opengx -f Makefile
+
 lightrecNoLog.a:
 	@echo " "
 	@echo "Building lightrecNoLog.a library for PPC"
@@ -54,11 +60,11 @@ chdrstatic.a:
 	@echo " "
 	$(MAKE) -C deps/libchdr -f Makefile.wii
 
-Wii: lightrecWithLog.a zstd.a lzma.a zlibstatic.a chdrstatic.a
+Wii: opengx.a lightrecWithLog.a zstd.a lzma.a zlibstatic.a chdrstatic.a
 	@$(ECHO) "Building Wii..."
 	@$(MAKE) -C Gamecube -f Makefile_Wii
 
-Wii_Release: lightrecNoLog.a zstd.a lzma.a zlibstatic.a chdrstatic.a
+Wii_Release: opengx.a lightrecNoLog.a zstd.a lzma.a zlibstatic.a chdrstatic.a
 	@$(ECHO) "Building Wii_Release..."
 	@$(MAKE) -C Gamecube -f Makefile_Wii_Release
 
@@ -71,6 +77,7 @@ dist: Wii
 
 clean:
 	@$(ECHO) "Cleaning..."
+	@$(MAKE) -C deps/opengx clean -f Makefile
 	@$(MAKE) -C deps/lightrec clean -f Makefile.NoLog
 	@$(MAKE) -C deps/lightrec clean -f Makefile.WithLog
 	@$(MAKE) -C deps/libchdr/deps/zstd-1.5.6 clean -f Makefile.wii

@@ -18,7 +18,7 @@ int  gInterlaceLine=1;
 
 short          ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;        // global psx vertex coords
 long           GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
-long           GlobalTextABR,GlobalTextPAGE;
+long           GlobalTextREST,GlobalTextABR,GlobalTextPAGE;
 
 BOOL           bUsingTWin=FALSE;
 TWin_t         TWin;
@@ -34,6 +34,11 @@ int            iUseFixes;
 int            iUseDither=0;
 BOOL           bDoVSyncUpdate=FALSE;
 int            iFakePrimBusy = 0;
+BOOL           bIsFirstFrame = TRUE;
+int             iWinSize;
+int             iUseScanLines=0;
+char            szDispBuf[64];
+BOOL            bChangeWinMode=FALSE;
 
 int				  gMouse[4];
 
