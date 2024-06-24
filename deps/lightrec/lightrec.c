@@ -959,7 +959,7 @@ static struct block * generate_wrapper(struct lightrec_state *state)
 	jit_tramp(256);
 
 	/* Load pointer to C wrapper */
-	jit_addr(JIT_R1, JIT_R1, LIGHTREC_REG_STATE);
+	jit_add_state(JIT_R1, JIT_R1);
 	jit_ldxi(JIT_R1, JIT_R1, lightrec_offset(c_wrappers));
 
 	jit_epilog();
