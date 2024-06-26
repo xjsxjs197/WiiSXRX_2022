@@ -375,10 +375,10 @@ if(PSXDisplay.Disabled)                               // display disabled?
   //LOGE("PSXDisplay.Disabled");
 
   // moved here
-  glDisable(GL_SCISSOR_TEST); glError();                       
+  glDisable(GL_SCISSOR_TEST); glError();
   glClearColor(0,0,0,128); glError();                 // -> clear whole backbuffer
-  glClear(uiBufferBits); glError();
-  glEnable(GL_SCISSOR_TEST); glError();                       
+  //glClear(uiBufferBits); glError();
+  glEnable(GL_SCISSOR_TEST); glError();
   gl_z=0.0f;
   bDisplayNotSet = TRUE;
  }
@@ -446,10 +446,10 @@ if(lClearOnSwap)                                      // clear buffer after swap
   g=((GLclampf)GREEN(lClearOnSwapColor))/255.0f;      // -> get col
   b=((GLclampf)BLUE(lClearOnSwapColor))/255.0f;
   r=((GLclampf)RED(lClearOnSwapColor))/255.0f;
-  glDisable(GL_SCISSOR_TEST); glError();                       
-  glClearColor(r,g,b,128); glError();                 // -> clear 
-  glClear(uiBufferBits); glError();
-  glEnable(GL_SCISSOR_TEST); glError();                       
+  glDisable(GL_SCISSOR_TEST); glError();
+  glClearColor(r,g,b,128); glError();                 // -> clear
+  //glClear(uiBufferBits); glError();
+  glEnable(GL_SCISSOR_TEST); glError();
   lClearOnSwap=0;                                     // -> done
  }
 else
@@ -459,7 +459,7 @@ else
   if(iZBufferDepth)                                   // clear zbuffer as well (if activated)
    {
     glDisable(GL_SCISSOR_TEST); glError();
-    glClear(GL_DEPTH_BUFFER_BIT); glError();
+    //glClear(GL_DEPTH_BUFFER_BIT); glError();
     glEnable(GL_SCISSOR_TEST); glError();
    }
  }
@@ -509,7 +509,7 @@ if(iRumbleTime)                                       // shake screen by modifyi
 
   glViewport(rRatioRect.left+i1,
              iResY-(rRatioRect.top+rRatioRect.bottom)+i2,
-             rRatioRect.right+i3, 
+             rRatioRect.right+i3,
              rRatioRect.bottom+i4); glError();
  }
 

@@ -2273,7 +2273,7 @@ void primBlkFill(unsigned char * baseAddr)
 
      //glDisable(GL_SCISSOR_TEST); glError();
      glClearColor(r,g,b,1.0f); glError();
-     glClear(uiBufferBits); glError();
+     //glClear(uiBufferBits); glError();
      gl_z=0.0f;
 
      if(GETLE32(&gpuData[0])!=0x02000000 &&

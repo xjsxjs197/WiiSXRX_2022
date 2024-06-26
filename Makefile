@@ -6,7 +6,7 @@ endif
 
 VERSION = beta2.5
 
-.PHONY:  all Wii Wii_Release
+.PHONY:  all Wii_Release Wii
 
 #all:
 #	@$(ECHO) "Rebuilding Wii and logging to build.log..."
@@ -16,7 +16,7 @@ VERSION = beta2.5
 #	@sed 's|.*wiisxr/Gamecube|/wiisxr/Gamecube|;s|/./|/|;s|\r\n|\n|' temp.log > build.log
 #  #note that msys doesn't seem to like sed -i
 #	@rm temp.log
-all: Wii Wii_Release
+all: Wii_Release Wii
 
 opengx.a:
 	@echo " "
@@ -60,13 +60,14 @@ chdrstatic.a:
 	@echo " "
 	$(MAKE) -C deps/libchdr -f Makefile.wii
 
+Wii_Release: opengx.a lightrecNoLog.a zstd.a lzma.a zlibstatic.a chdrstatic.a
+	@$(ECHO) "Building Wii_Release..."
+	@$(MAKE) -C Gamecube -f Makefile_Wii_Release
+
 Wii: opengx.a lightrecWithLog.a zstd.a lzma.a zlibstatic.a chdrstatic.a
 	@$(ECHO) "Building Wii..."
 	@$(MAKE) -C Gamecube -f Makefile_Wii
 
-Wii_Release: opengx.a lightrecNoLog.a zstd.a lzma.a zlibstatic.a chdrstatic.a
-	@$(ECHO) "Building Wii_Release..."
-	@$(MAKE) -C Gamecube -f Makefile_Wii_Release
 
 #GC:
 #	@$(ECHO) "Building GC..."
