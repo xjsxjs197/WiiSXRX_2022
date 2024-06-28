@@ -953,7 +953,7 @@ void SetZMask3NT(void)
 
 ////////////////////////////////////////////////////////////////////////
 
-void SetRenderMode(unsigned int DrawAttributes,BOOL bSCol)
+static inline void SetRenderMode(unsigned int DrawAttributes,BOOL bSCol)
 {
  if((bUseMultiPass) && (bDrawTextured) && !(bDrawNonShaded))
       {bDrawMultiPass = TRUE; SetSemiTransMulti(0);}
@@ -2883,7 +2883,7 @@ void primSprt8(unsigned char * baseAddr)
  offsetST();
 
  // do texture stuff
- gl_ux[0]=gl_ux[3]=baseAddr[8];//gpuData[2]&0xff;
+ gl_ux[0]=gl_ux[3]=baseAddr[11]; //baseAddr[8];//gpuData[2]&0xff;
 
  if(usMirror & 0x1000)
   {
@@ -2898,7 +2898,7 @@ void primSprt8(unsigned char * baseAddr)
  if(s>255) s=255;
  gl_ux[1]=gl_ux[2]=s;
  // Y coords
- gl_vy[0]=gl_vy[1]=baseAddr[9];//(gpuData[2]>>8)&0xff;
+ gl_vy[0]=gl_vy[1]=baseAddr[10]; //baseAddr[9];//(gpuData[2]>>8)&0xff;
 
  if(usMirror & 0x2000)
   {
@@ -2994,7 +2994,7 @@ void primSprt16(unsigned char * baseAddr)
  offsetST();
 
  // do texture stuff
- gl_ux[0]=gl_ux[3]=baseAddr[8];//gpuData[2]&0xff;
+ gl_ux[0]=gl_ux[3]=baseAddr[11]; //baseAddr[8];//gpuData[2]&0xff;
 
  if(usMirror & 0x1000)
   {
@@ -3009,7 +3009,7 @@ void primSprt16(unsigned char * baseAddr)
  if(s>255) s=255;
  gl_ux[1]=gl_ux[2]=s;
  // Y coords
- gl_vy[0]=gl_vy[1]=baseAddr[9];//(gpuData[2]>>8)&0xff;
+ gl_vy[0]=gl_vy[1]=baseAddr[10]; //baseAddr[9];//(gpuData[2]>>8)&0xff;
 
  if(usMirror & 0x2000)
   {
@@ -3100,50 +3100,50 @@ void primSprtSRest(unsigned char * baseAddr,unsigned short type)
  switch(type)
   {
    case 1:
-    gl_vy[0]=gl_vy[1]=baseAddr[9];
-    s=256-baseAddr[8];
+    gl_vy[0]=gl_vy[1]=baseAddr[10]; //baseAddr[9];
+    s=256-baseAddr[11]; //baseAddr[8];
     sprtW-=s;
     sprtX+=s;
     gl_ux[0]=gl_ux[3]=0;
     break;
    case 2:
-    gl_ux[0]=gl_ux[3]=baseAddr[8];
-    s=256-baseAddr[9];
+    gl_ux[0]=gl_ux[3]=baseAddr[11]; //baseAddr[8];
+    s=256-baseAddr[10]; //baseAddr[9];
     sprtH-=s;
     sprtY+=s;
     gl_vy[0]=gl_vy[1]=0;
     break;
    case 3:
-    s=256-baseAddr[8];
+    s=256-baseAddr[11]; //baseAddr[8];
     sprtW-=s;
     sprtX+=s;
     gl_ux[0]=gl_ux[3]=0;
-    s=256-baseAddr[9];
+    s=256-baseAddr[10]; //baseAddr[9];
     sprtH-=s;
     sprtY+=s;
     gl_vy[0]=gl_vy[1]=0;
     break;
 
    case 4:
-    gl_vy[0]=gl_vy[1]=baseAddr[9];
-    s=512-baseAddr[8];
+    gl_vy[0]=gl_vy[1]=baseAddr[10]; //baseAddr[9];
+    s=512-baseAddr[11]; //baseAddr[8];
     sprtW-=s;
     sprtX+=s;
     gl_ux[0]=gl_ux[3]=0;
     break;
    case 5:
-    gl_ux[0]=gl_ux[3]=baseAddr[8];
-    s=512-baseAddr[9];
+    gl_ux[0]=gl_ux[3]=baseAddr[11]; //baseAddr[8];
+    s=512-baseAddr[10]; //baseAddr[9];
     sprtH-=s;
     sprtY+=s;
     gl_vy[0]=gl_vy[1]=0;
     break;
    case 6:
-    s=512-baseAddr[8];
+    s=512-baseAddr[11]; //baseAddr[8];
     sprtW-=s;
     sprtX+=s;
     gl_ux[0]=gl_ux[3]=0;
-    s=512-baseAddr[9];
+    s=512-baseAddr[10]; //baseAddr[9];
     sprtH-=s;
     sprtY+=s;
     gl_vy[0]=gl_vy[1]=0;
@@ -3263,8 +3263,8 @@ void primSprtS(unsigned char * baseAddr)
  iSpriteTex=1;
 
  // do texture stuff
- gl_ux[0]=gl_ux[3]=baseAddr[8];//gpuData[2]&0xff;
- gl_vy[0]=gl_vy[1]=baseAddr[9];//(gpuData[2]>>8)&0xff;
+ gl_ux[0]=gl_ux[3]=baseAddr[11]; //baseAddr[8];//gpuData[2]&0xff;
+ gl_vy[0]=gl_vy[1]=baseAddr[10]; //baseAddr[9];//(gpuData[2]>>8)&0xff;
 
  if(usMirror & 0x1000)
   {
@@ -3698,12 +3698,12 @@ void primPolyFT3(unsigned char * baseAddr)
  if(offset3()) return;
 
  // do texture UV coordinates stuff
- gl_ux[0]=gl_ux[3]=baseAddr[8];//gpuData[2]&0xff;
- gl_vy[0]=gl_vy[3]=baseAddr[9];//(gpuData[2]>>8)&0xff;
- gl_ux[1]=baseAddr[16];//gpuData[4]&0xff;
- gl_vy[1]=baseAddr[17];//(gpuData[4]>>8)&0xff;
- gl_ux[2]=baseAddr[24];//gpuData[6]&0xff;
- gl_vy[2]=baseAddr[25];//(gpuData[6]>>8)&0xff;
+ gl_ux[0]=gl_ux[3]=baseAddr[11]; //baseAddr[8];//gpuData[2]&0xff;
+ gl_vy[0]=gl_vy[3]=baseAddr[10]; //baseAddr[9];//(gpuData[2]>>8)&0xff;
+ gl_ux[1]=baseAddr[19]; //baseAddr[16];//gpuData[4]&0xff;
+ gl_vy[1]=baseAddr[18]; //baseAddr[17];//(gpuData[4]>>8)&0xff;
+ gl_ux[2]=baseAddr[27]; //baseAddr[24];//gpuData[6]&0xff;
+ gl_vy[2]=baseAddr[26]; //baseAddr[25];//(gpuData[6]>>8)&0xff;
 
  UpdateGlobalTP((unsigned short)(GETLE32(&gpuData[4])>>16));
  ulClutID=GETLE32(&gpuData[2])>>16;
@@ -4135,15 +4135,15 @@ void primPolyFT4(unsigned char * baseAddr)
 
  if(offset4()) return;
 
- gl_vy[0]=baseAddr[9];//((gpuData[2]>>8)&0xff);
- gl_vy[1]=baseAddr[17];//((gpuData[4]>>8)&0xff);
- gl_vy[2]=baseAddr[25];//((gpuData[6]>>8)&0xff);
- gl_vy[3]=baseAddr[33];//((gpuData[8]>>8)&0xff);
+ gl_vy[0]=baseAddr[10]; //baseAddr[9];//((gpuData[2]>>8)&0xff);
+ gl_vy[1]=baseAddr[18]; //baseAddr[17];//((gpuData[4]>>8)&0xff);
+ gl_vy[2]=baseAddr[26]; //baseAddr[25];//((gpuData[6]>>8)&0xff);
+ gl_vy[3]=baseAddr[34]; //baseAddr[33];//((gpuData[8]>>8)&0xff);
 
- gl_ux[0]=baseAddr[8];//(gpuData[2]&0xff);
- gl_ux[1]=baseAddr[16];//(gpuData[4]&0xff);
- gl_ux[2]=baseAddr[24];//(gpuData[6]&0xff);
- gl_ux[3]=baseAddr[32];//(gpuData[8]&0xff);
+ gl_ux[0]=baseAddr[11]; //baseAddr[8];//(gpuData[2]&0xff);
+ gl_ux[1]=baseAddr[19]; //baseAddr[16];//(gpuData[4]&0xff);
+ gl_ux[2]=baseAddr[27]; //baseAddr[24];//(gpuData[6]&0xff);
+ gl_ux[3]=baseAddr[35]; //baseAddr[32];//(gpuData[8]&0xff);
 
  UpdateGlobalTP((unsigned short)(GETLE32(&gpuData[4])>>16));
  ulClutID=(GETLE32(&gpuData[2])>>16);
@@ -4211,12 +4211,12 @@ void primPolyGT3(unsigned char *baseAddr)
  if(offset3()) return;
 
  // do texture stuff
- gl_ux[0]=gl_ux[3]=baseAddr[8];//gpuData[2]&0xff;
- gl_vy[0]=gl_vy[3]=baseAddr[9];//(gpuData[2]>>8)&0xff;
- gl_ux[1]=baseAddr[20];//gpuData[5]&0xff;
- gl_vy[1]=baseAddr[21];//(gpuData[5]>>8)&0xff;
- gl_ux[2]=baseAddr[32];//gpuData[8]&0xff;
- gl_vy[2]=baseAddr[33];//(gpuData[8]>>8)&0xff;
+ gl_ux[0]=gl_ux[3]=baseAddr[11]; //baseAddr[8];//gpuData[2]&0xff;
+ gl_vy[0]=gl_vy[3]=baseAddr[10]; //baseAddr[9];//(gpuData[2]>>8)&0xff;
+ gl_ux[1]=baseAddr[23]; //baseAddr[20];//gpuData[5]&0xff;
+ gl_vy[1]=baseAddr[22]; //baseAddr[21];//(gpuData[5]>>8)&0xff;
+ gl_ux[2]=baseAddr[35]; //baseAddr[32];//gpuData[8]&0xff;
+ gl_vy[2]=baseAddr[34]; //baseAddr[33];//(gpuData[8]>>8)&0xff;
 
  UpdateGlobalTP((unsigned short)(GETLE32(&gpuData[5])>>16));
  ulClutID=(GETLE32(&gpuData[2])>>16);
@@ -4367,14 +4367,14 @@ void primPolyGT4(unsigned char *baseAddr)
  if(offset4()) return;
 
  // do texture stuff
- gl_ux[0]=baseAddr[8];//gpuData[2]&0xff;
- gl_vy[0]=baseAddr[9];//(gpuData[2]>>8)&0xff;
- gl_ux[1]=baseAddr[20];//gpuData[5]&0xff;
- gl_vy[1]=baseAddr[21];//(gpuData[5]>>8)&0xff;
- gl_ux[2]=baseAddr[32];//gpuData[8]&0xff;
- gl_vy[2]=baseAddr[33];//(gpuData[8]>>8)&0xff;
- gl_ux[3]=baseAddr[44];//gpuData[11]&0xff;
- gl_vy[3]=baseAddr[45];//(gpuData[11]>>8)&0xff;
+ gl_ux[0]=baseAddr[11]; //baseAddr[8];//gpuData[2]&0xff;
+ gl_vy[0]=baseAddr[10]; //baseAddr[9];//(gpuData[2]>>8)&0xff;
+ gl_ux[1]=baseAddr[23]; //baseAddr[20];//gpuData[5]&0xff;
+ gl_vy[1]=baseAddr[22]; //baseAddr[21];//(gpuData[5]>>8)&0xff;
+ gl_ux[2]=baseAddr[35]; //baseAddr[32];//gpuData[8]&0xff;
+ gl_vy[2]=baseAddr[34]; //baseAddr[33];//(gpuData[8]>>8)&0xff;
+ gl_ux[3]=baseAddr[47]; //baseAddr[44];//gpuData[11]&0xff;
+ gl_vy[3]=baseAddr[46]; //baseAddr[45];//(gpuData[11]>>8)&0xff;
 
  UpdateGlobalTP((unsigned short)(GETLE32(&gpuData[5])>>16));
  ulClutID=(GETLE32(&gpuData[2])>>16);
