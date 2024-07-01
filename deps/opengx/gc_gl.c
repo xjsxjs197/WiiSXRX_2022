@@ -90,8 +90,8 @@ static void draw_arrays_general(float *ptr_pos, float *ptr_normal, float *ptr_te
             for (j = 0; j < 4; j++)                                \
                 trans[i][j] = glparamstate.modelview_matrix[j][i]; \
                                                                    \
-        GX_LoadPosMtxImm(trans, GX_PNMTX3);                        \
-        GX_SetCurrentMtx(GX_PNMTX3);                               \
+        GX_LoadPosMtxImm(trans, GX_PNMTX0);                        \
+        GX_SetCurrentMtx(GX_PNMTX0);                               \
     }
 
 /* OpenGL's projection matrix transform the scene into a clip space where all
@@ -130,7 +130,7 @@ static const Mtx44 s_projection_adj = {
                                                                        \
         guMtxInverse(modelview, mvinverse);                            \
         guMtxTranspose(mvinverse, normalm);                            \
-        GX_LoadNrmMtxImm(normalm, GX_PNMTX3);                          \
+        GX_LoadNrmMtxImm(normalm, GX_PNMTX0);                          \
     }
 
 /* Deduce the projection type (perspective vs orthogonal) and the values of the
@@ -644,6 +644,7 @@ void glGenTextures(GLsizei n, GLuint *textures)
             texture_list[i].minlevel = 20;
             *texlist++ = i;
             n--;
+            return;
         }
     }
 }
@@ -1094,8 +1095,8 @@ void glClear(GLbitfield mask)
     modl[2][1] = 0.0f;
     modl[2][2] = 1.0f;
     modl[2][3] = 0.0f;
-    GX_LoadPosMtxImm(modl, GX_PNMTX3);
-    GX_SetCurrentMtx(GX_PNMTX3);
+    GX_LoadPosMtxImm(modl, GX_PNMTX0);
+    GX_SetCurrentMtx(GX_PNMTX0);
 
     Mtx44 proj;
     guOrtho(proj, -1, 1, -1, 1, -1, 1);

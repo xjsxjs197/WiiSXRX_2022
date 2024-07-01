@@ -552,7 +552,7 @@ int GLinitialize(void *ext_gles_display, void *ext_gles_surface)
   }
 
  glClearColor(0.0f, 0.0f, 0.0f, 0.0f); glError();      // first buffer clear
- //glClear(uiBufferBits); glError();
+ glClear(uiBufferBits); glError();
 
  GetExtInfos();                                        // get ext infos
  SetExtGLFuncs();                                      // init all kind of stuff (tex function pointers)
