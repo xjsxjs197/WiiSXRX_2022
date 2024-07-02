@@ -55,7 +55,7 @@ BOOL           bDrawSmoothShaded;
 BOOL           bOldSmoothShaded;
 BOOL           bDrawNonShaded;
 BOOL           bDrawMultiPass;
-int            iOffscreenDrawing;
+int            iOffscreenDrawing=0;
 int            iDrawnSomething=0;
 
 BOOL           bRenderFrontBuffer=FALSE;               // flag for front buffer rendering
@@ -932,7 +932,7 @@ void SetZMask3NT(void)
 
 ////////////////////////////////////////////////////////////////////////
 
- void SetRenderState(unsigned int DrawAttributes)
+static inline void SetRenderState(unsigned int DrawAttributes)
 {
  bDrawNonShaded = (SHADETEXBIT(DrawAttributes)) ? TRUE : FALSE;
  DrawSemiTrans = (SEMITRANSBIT(DrawAttributes)) ? TRUE : FALSE;
@@ -1552,9 +1552,6 @@ unsigned char * LoadDirectMovieFast(void);
 
 void UploadScreen(int Position)
 {
-    #ifdef DISP_DEBUG
-    writeLogFile("UploadScreen 0\r\n");
-    #endif // DISP_DEBUG
  short x, y, YStep, XStep, U, s, UStep,ux[4],vy[4];
  short xa,xb,ya,yb;
 
@@ -1572,6 +1569,11 @@ void UploadScreen(int Position)
  iLastRGB24=PSXDisplay.RGB24+1;
 
  if(bSkipNextFrame) return;
+
+    #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "UploadScreen 1 Pos %d\r\n", Position);
+    DEBUG_print(txtbuffer, DBG_CORE2);
+    #endif // DISP_DEBUG
 
  //if(dwActFixes & 2) {UploadScreenEx(Position);return;}
 
@@ -2229,7 +2231,8 @@ void primStoreImage(unsigned char * baseAddr)
 void primBlkFill(unsigned char * baseAddr)
 {
     #ifdef DISP_DEBUG
-    writeLogFile("primBlkFill 0\r\n");
+    sprintf(txtbuffer, "primBlkFill 0\r\n");
+    DEBUG_print(txtbuffer, DBG_CORE2);
     #endif // DISP_DEBUG
  uint32_t *gpuData = ((unsigned long *) baseAddr);
  short *sgpuData = ((short *) baseAddr);
@@ -2588,7 +2591,8 @@ void primMoveImage(unsigned char * baseAddr)
 void primTileS(unsigned char * baseAddr)
 {
     #ifdef DISP_DEBUG
-    writeLogFile("primTileS 0\r\n");
+    sprintf(txtbuffer, "primTileS 0\r\n");
+    DEBUG_print(txtbuffer, DBG_CORE2);
     #endif // DISP_DEBUG
  unsigned int *gpuData = ((unsigned int*)baseAddr);
  short *sgpuData = ((short *) baseAddr);
@@ -2656,7 +2660,8 @@ void primTileS(unsigned char * baseAddr)
 void primTile1(unsigned char * baseAddr)
 {
     #ifdef DISP_DEBUG
-    writeLogFile("primTile1 0\r\n");
+    sprintf(txtbuffer, "primTile1 0\r\n");
+    DEBUG_print(txtbuffer, DBG_CORE2);
     #endif // DISP_DEBUG
  unsigned int *gpuData = ((unsigned int*)baseAddr);
  short *sgpuData = ((short *) baseAddr);
@@ -2706,7 +2711,8 @@ void primTile1(unsigned char * baseAddr)
 void primTile8(unsigned char * baseAddr)
 {
     #ifdef DISP_DEBUG
-    writeLogFile("primTile8 0\r\n");
+    sprintf(txtbuffer, "primTile8 0\r\n");
+    DEBUG_print(txtbuffer, DBG_CORE2);
     #endif // DISP_DEBUG
  unsigned int *gpuData = ((unsigned int*)baseAddr);
  short *sgpuData = ((short *) baseAddr);

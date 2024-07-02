@@ -154,8 +154,8 @@ extern uint8_t globalVram[VRAM_SIZE + (VRAM_ALIGN - 1)];
 long CALLBACK GL_GPUinit()
 {
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "GL_GPUinit 1 \r\n");
-    writeLogFile(txtbuffer);
+    //sprintf(txtbuffer, "GL_GPUinit 1 \r\n");
+    //writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
     gx_init_mem2();
@@ -237,8 +237,8 @@ GPUIsIdle;
 GPUIsReadyForCommands;
 
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "GL_GPUinit OK  \r\n");
-    writeLogFile(txtbuffer);
+    //sprintf(txtbuffer, "GL_GPUinit OK  \r\n");
+    //writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
 return 0;
@@ -823,17 +823,24 @@ return FALSE;
 // here, and in interlaced mode we swap ogl display buffers.
 ////////////////////////////////////////////////////////////////////////
 
+extern void CALLBACK GPUsetframelimit(unsigned long option);
 static unsigned short usFirstPos=2;
 
 void CALLBACK GL_GPUupdateLace(void)
 {
     #ifdef DISP_DEBUG
- writeLogFile("GL_GPUupdateLace 0\r\n");
+ //writeLogFile("GL_GPUupdateLace 0\r\n");
  #endif // DISP_DEBUG
 if(!(dwActFixes&0x1000))
  STATUSREG^=0x80000000;                               // interlaced bit toggle, if the CC game fix is not active (see gpuReadStatus)
 
-if(!(dwActFixes&128))                                 // normal frame limit func
+    static char oldframeLimit = 1;
+
+    if ( frameLimit[0] != oldframeLimit)
+        GPUsetframelimit(0);
+    oldframeLimit = frameLimit[0];
+
+//if(!(dwActFixes&128))                                 // normal frame limit func
  OldGpuCheckFrameRate();
 
 if(iOffscreenDrawing==4)                              // special check if high offscreen drawing is on
@@ -866,7 +873,7 @@ else if(usFirstPos==1)                                // initial updates (after 
 unsigned long CALLBACK GL_GPUreadStatus(void)
 {
     #ifdef DISP_DEBUG
- writeLogFile("GL_GPUreadStatus 0\r\n");
+ //writeLogFile("GL_GPUreadStatus 0\r\n");
  #endif // DISP_DEBUG
 if(dwActFixes&0x1000)                                 // CC game fix
  {
@@ -905,7 +912,7 @@ return STATUSREG;
 void CALLBACK GL_GPUwriteStatus(unsigned long gdata)
 {
     #ifdef DISP_DEBUG
- writeLogFile("GL_GPUwriteStatus 0\r\n");
+ //writeLogFile("GL_GPUwriteStatus 0\r\n");
  #endif // DISP_DEBUG
 unsigned long lCommand=(gdata>>24)&0xff;
 
@@ -973,6 +980,8 @@ switch(lCommand)
   // setting display position
   case 0x05:
    {
+     PreviousPSXDisplay.DisplayPosition.x = PSXDisplay.DisplayPosition.x;
+     PreviousPSXDisplay.DisplayPosition.y = PSXDisplay.DisplayPosition.y;
     short sx=(short)(gdata & 0x3ff);
     short sy;
 
@@ -1224,6 +1233,11 @@ __inline void FinishedVRAMRead(void)
 
 void CheckVRamReadEx(int x, int y, int dx, int dy)
 {
+    #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "CheckVRamReadEx  \r\n");
+    DEBUG_print(txtbuffer, DBG_CORE2);
+    #endif // DISP_DEBUG
+
 // unsigned short sArea;
 // int ux,uy,udx,udy,wx,wy;
 // unsigned short * p1, *p2;
@@ -1584,22 +1598,22 @@ for(i=0;i<iSize;i++)
 ENDREAD_GL:
 GPUIsIdle;
  #ifdef DISP_DEBUG
- sprintf(txtbuffer, "GL_GPUreadDataMem %08x \r\n", GPUdataRet);
- writeLogFile(txtbuffer);
+ //sprintf(txtbuffer, "GL_GPUreadDataMem %08x \r\n", GPUdataRet);
+ //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
 }
 
 unsigned long CALLBACK GL_GPUreadData(void)
 {
  #ifdef DISP_DEBUG
- writeLogFile("GL_GPUreadData Start\r\n");
+ //writeLogFile("GL_GPUreadData Start\r\n");
  #endif // DISP_DEBUG
  unsigned long l;
  GL_GPUreadDataMem(&l,1);
 
  #ifdef DISP_DEBUG
- sprintf(txtbuffer, "GL_GPUreadData %08x \r\n", GPUdataRet);
- writeLogFile(txtbuffer);
+ //sprintf(txtbuffer, "GL_GPUreadData %08x \r\n", GPUdataRet);
+ //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
  return GPUdataRet;
 }
@@ -1685,8 +1699,8 @@ extern const unsigned char primTableCX[];
 void CALLBACK GL_GPUwriteDataMem(unsigned long * pMem, int iSize)
 {
   #ifdef DISP_DEBUG
- sprintf(txtbuffer, "GL_GPUwriteDataMem %08x \r\n", *pMem);
- writeLogFile(txtbuffer);
+ //sprintf(txtbuffer, "GL_GPUwriteDataMem %08x \r\n", *pMem);
+ //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
 unsigned char command;
 unsigned long gdata=0;
@@ -1808,8 +1822,8 @@ GPUIsIdle;
 void CALLBACK GL_GPUwriteData(unsigned long gdata)
 {
  #ifdef DISP_DEBUG
- sprintf(txtbuffer, "GL_GPUwriteData %08x \r\n", gdata);
- writeLogFile(txtbuffer);
+ //sprintf(txtbuffer, "GL_GPUwriteData %08x \r\n", gdata);
+ //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
  PUTLE32(&gdata, gdata);
  GL_GPUwriteDataMem(&gdata,1);
@@ -1852,7 +1866,7 @@ return FALSE;
 long CALLBACK GL_GPUdmaChain(unsigned long * baseAddrL, unsigned long addr)
 {
     #ifdef DISP_DEBUG
- writeLogFile("GL_GPUdmaChain 0\r\n");
+ //writeLogFile("GL_GPUdmaChain 0\r\n");
  #endif // DISP_DEBUG
  unsigned char * baseAddrB;
  unsigned int DMACommandCounter = 0;
@@ -1947,7 +1961,7 @@ ResetTextureArea(TRUE);
 void CALLBACK GL_GPUrearmedCallbacks(const struct rearmed_cbs *_cbs)
 {
    #ifdef DISP_DEBUG
- writeLogFile("GL_GPUrearmedCallbacks 0\r\n");
+ //writeLogFile("GL_GPUrearmedCallbacks 0\r\n");
  #endif // DISP_DEBUG
 //   gpu.frameskip.set = _cbs->frameskip;
 //  gpu.frameskip.advice = &_cbs->fskip_advice;
@@ -1980,11 +1994,11 @@ void CALLBACK GL_GPUrearmedCallbacks(const struct rearmed_cbs *_cbs)
 //  if (_cbs->pl_vout_set_raw_vram)
 //    _cbs->pl_vout_set_raw_vram(gpu.vram);
   #ifdef DISP_DEBUG
- writeLogFile("GL_GPUrearmedCallbacks 1\r\n");
+ //writeLogFile("GL_GPUrearmedCallbacks 1\r\n");
  #endif // DISP_DEBUG
   renderer_set_config(_cbs);
   #ifdef DISP_DEBUG
- writeLogFile("GL_GPUrearmedCallbacks 2\r\n");
+ //writeLogFile("GL_GPUrearmedCallbacks 2\r\n");
  #endif // DISP_DEBUG
   vout_set_config(_cbs);
 }
@@ -1992,12 +2006,14 @@ void CALLBACK GL_GPUrearmedCallbacks(const struct rearmed_cbs *_cbs)
 static void flipEGL(void)
 {
  //eglSwapBuffers(display, surface);
- gc_vout_render();
+    //Write menu/debug text on screen
+    showFpsAndDebugInfo();
+
+    gc_vout_render();
 }
 
 extern long GL_GPUopen();
 extern long GL_GPUclose(void);
-extern void CALLBACK GPUsetframelimit(unsigned long option);
 
 gpu_t glesGpu = {
     GL_GPUopen,

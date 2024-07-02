@@ -80,6 +80,7 @@
 #include "gpuPrim.h"
 
 #include "../mem2_manager.h"
+#include "../gpulib/gpu.h"
 
 #define CLUTCHK   0x00060000
 #define CLUTSHIFT 17
@@ -187,9 +188,9 @@ typedef struct textureSubCacheEntryTagS
 
 //---------------------------------------------
 
-#define MAXTPAGES_MAX  64
+#define MAXTPAGES_MAX  32    //64
 //#define MAXSORTTEX_MAX 196
-#define MAXSORTTEX_MAX 48
+#define MAXSORTTEX_MAX 24    //48
 
 //---------------------------------------------
 
@@ -1823,9 +1824,15 @@ GLuint LoadTextureMovie(void)
  if((xrMovieArea.x1-xrMovieArea.x0)<255)  b_X=TRUE;
  if((xrMovieArea.y1-xrMovieArea.y0)<255)  b_Y=TRUE;
 
+
 {
    if(PSXDisplay.RGB24)
     {
+        #ifdef DISP_DEBUG
+    //sprintf(txtbuffer, "LoadTextureMovie 1\r\n");
+    //DEBUG_print(txtbuffer, DBG_CORE3);
+    #endif // DISP_DEBUG
+
      unsigned char * pD;
      unsigned int * ta=(unsigned int *)texturepart;
 
@@ -1837,7 +1844,9 @@ GLuint LoadTextureMovie(void)
          pD=(unsigned char *)&psxVuw[startxy];
          for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
           {
-           *ta++=*((unsigned int *)pD)|0xff000000;
+           //*ta++=*((unsigned int *)pD)|0xff000000;
+           PUTLE32(ta, GETLE32((unsigned long *)(pD)) | 0xff000000);
+           ta++;
            pD+=3;
           }
          *ta++=*(ta-1);
@@ -1858,7 +1867,9 @@ GLuint LoadTextureMovie(void)
          pD=(unsigned char *)&psxVuw[startxy];
          for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
           {
-           *ta++=*((unsigned int *)pD)|0xff000000;
+           //*ta++=*((unsigned int *)pD)|0xff000000;
+           PUTLE32(ta, GETLE32((unsigned long *)(pD)) | 0xff000000);
+           ta++;
            pD+=3;
           }
         }
@@ -1872,6 +1883,11 @@ GLuint LoadTextureMovie(void)
     }
    else
     {
+        #ifdef DISP_DEBUG
+    //sprintf(txtbuffer, "LoadTextureMovie 2\r\n");
+    //DEBUG_print(txtbuffer, DBG_CORE3);
+    #endif // DISP_DEBUG
+
      unsigned int (*LTCOL)(unsigned int);
      unsigned int *ta;
 
@@ -1886,7 +1902,13 @@ GLuint LoadTextureMovie(void)
         {
          startxy=((1024)*column)+xrMovieArea.x0;
          for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-          *ta++=LTCOL(psxVuw[startxy++]|0x8000);
+         {
+             //*ta++=LTCOL(psxVuw[startxy++]|0x8000);
+             PUTLE16(ta, LTCOL(GETLE16((unsigned short *)&psxVuw[startxy]) | 0x8000));
+             startxy++;
+             ta++;
+         }
+
          *ta++=*(ta-1);
         }
 
@@ -1904,7 +1926,12 @@ GLuint LoadTextureMovie(void)
         {
          startxy=((1024)*column)+xrMovieArea.x0;
          for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-          *ta++=LTCOL(psxVuw[startxy++]|0x8000);
+         {
+             //*ta++=LTCOL(psxVuw[startxy++]|0x8000);
+             PUTLE16(ta, LTCOL(GETLE16((unsigned short *)&psxVuw[startxy]) | 0x8000));
+             startxy++;
+             ta++;
+         }
         }
 
        if(b_Y)

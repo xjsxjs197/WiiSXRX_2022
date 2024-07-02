@@ -331,9 +331,10 @@ static void PaintBlackBorders(void)
 #define GPUwriteStatus_ext GPUwriteStatus_ext // for gpulib to see this
 void GPUwriteStatus_ext(unsigned int gdata)
 {
-     #ifdef DISP_DEBUG
- writeLogFile("GPUwriteStatus_ext 0\r\n");
- #endif // DISP_DEBUG
+    #ifdef DISP_DEBUG
+    //sprintf(txtbuffer, "GPUwriteStatus_ext 0\r\n");
+    //DEBUG_print(txtbuffer, DBG_CORE2);
+    #endif // DISP_DEBUG
 switch((gdata>>24)&0xff)
  {
   case 0x00:
@@ -715,14 +716,17 @@ switch((gdata>>24)&0xff)
 //	}
 //}
 
+extern void CALLBACK GPUsetframelimit(unsigned long option);
 long GL_GPUopen()
 {
  #ifdef DISP_DEBUG
- writeLogFile("GL_GPUopen 0\r\n");
+ //writeLogFile("GL_GPUopen 0\r\n");
  #endif // DISP_DEBUG
  int ret;
 
  InitFPS();
+
+ GPUsetframelimit(0);
 
  iResX = 640;
  iResY = 480;
@@ -735,16 +739,16 @@ long GL_GPUopen()
  CSTEXTURE = CSVERTEX = CSCOLOR = 0;
 
  #ifdef DISP_DEBUG
- writeLogFile("GL_GPUopen 0.1\r\n");
+ //writeLogFile("GL_GPUopen 0.1\r\n");
  #endif // DISP_DEBUG
  InitializeTextureStore();                             // init texture mem
 
  #ifdef DISP_DEBUG
- writeLogFile("GL_GPUopen 1\r\n");
+ //writeLogFile("GL_GPUopen 1\r\n");
  #endif // DISP_DEBUG
  ret = GLinitialize(NULL, NULL);
  #ifdef DISP_DEBUG
- writeLogFile("GL_GPUopen End\r\n");
+ //writeLogFile("GL_GPUopen End\r\n");
  #endif // DISP_DEBUG
  //MakeDisplayLists();
 
@@ -757,7 +761,7 @@ long GL_GPUopen()
 long GL_GPUclose(void)
 {
     #ifdef DISP_DEBUG
- writeLogFile("GL_GPUclose 0\r\n");
+ //writeLogFile("GL_GPUclose 0\r\n");
  #endif // DISP_DEBUG
 // is_opened = 0;
 
@@ -812,7 +816,12 @@ void SetAspectRatio(void)
 
  glScissor(rRatioRect.left,
            iResY-(rRatioRect.top+rRatioRect.bottom),
-	   rRatioRect.right,rRatioRect.bottom);
+           rRatioRect.right,rRatioRect.bottom);
+ #ifdef DISP_DEBUG
+     //sprintf(txtbuffer, "glScissor2 %d %d %d %d\r\n", rRatioRect.left, iResY-(rRatioRect.top+rRatioRect.bottom), rRatioRect.right, rRatioRect.bottom);
+     //DEBUG_print(txtbuffer, DBG_CORE3);
+     //writeLogFile(txtbuffer);
+     #endif // DISP_DEBUG
  glViewport(rRatioRect.left,
            iResY-(rRatioRect.top+rRatioRect.bottom),
            rRatioRect.right,rRatioRect.bottom);
