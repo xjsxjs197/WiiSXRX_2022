@@ -144,7 +144,7 @@ void CALLBACK GPU__getScreenInfo(int *y, int *base_hres) {}
 
 gpu_t *gpuPtr;
 int LoadGPUplugin(char *GPUdll) {
-	gpuPtr = &oldSoftGpu;
+	//gpuPtr = &oldSoftGpu; // There's no need to set it up again here
 
 	return 0;
 }
