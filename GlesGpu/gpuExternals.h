@@ -553,7 +553,7 @@ extern int           iTileCheat;
 
 extern void gc_vout_render(void);
 extern void showFpsAndDebugInfo(void);
-extern void ChangeDispOffsetsX(void);
+extern void ChangeDispOffsetsXGl(void);
 extern void updateDisplayIfChangedGl(void);
 
 #ifdef __cplusplus

@@ -3,7 +3,7 @@
                              -------------------
     begin                : Sun Mar 08 2009
     copyright            : (C) 1999-2009 by Pete Bernert
-    web                  : www.pbernert.com   
+    web                  : www.pbernert.com
  ***************************************************************************/
 
 /***************************************************************************
@@ -16,13 +16,13 @@
  *                                                                         *
  ***************************************************************************/
 
-//*************************************************************************// 
+//*************************************************************************//
 // History of changes:
 //
-// 2009/03/08 - Pete  
+// 2009/03/08 - Pete
 // - generic cleanup for the Peops release
 //
-//*************************************************************************// 
+//*************************************************************************//
 
 #ifndef _GPU_TEXTURE_H_
 #define _GPU_TEXTURE_H_
@@ -46,10 +46,10 @@ GLuint         SelectSubTextureS(int TextureMode, unsigned int GivenClutId);
 void           CheckTextureMemory(void);
 
 
-void           LoadSubTexturePage(int pageid, int mode, short cx, short cy);
+//void           LoadSubTexturePage(int pageid, int mode, short cx, short cy);
 void           LoadSubTexturePageSort(int pageid, int mode, short cx, short cy);
-void           LoadPackedSubTexturePage(int pageid, int mode, short cx, short cy);
-void           LoadPackedSubTexturePageSort(int pageid, int mode, short cx, short cy);
+//void           LoadPackedSubTexturePage(int pageid, int mode, short cx, short cy);
+//void           LoadPackedSubTexturePageSort(int pageid, int mode, short cx, short cy);
 unsigned int   XP8RGBA(unsigned int BGR);
 unsigned int   XP8RGBAEx(unsigned int BGR);
 unsigned int   XP8RGBA_0(unsigned int BGR);

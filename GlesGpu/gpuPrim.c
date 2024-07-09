@@ -148,10 +148,10 @@ unsigned int DoubleBGR2RGB (unsigned int BGR)
  return (ebx|eax|edx);
 }
 
-unsigned short BGR24to16 (unsigned int BGR)
-{
- return ((BGR>>3)&0x1f)|((BGR&0xf80000)>>9)|((BGR&0xf800)>>6);
-}
+//unsigned short BGR24to16 (unsigned int BGR)
+//{
+// return ((BGR>>3)&0x1f)|((BGR&0xf80000)>>9)|((BGR&0xf800)>>6);
+//}
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -984,12 +984,12 @@ static inline void SetRenderMode(unsigned int DrawAttributes,BOOL bSCol)
    if(bDrawNonShaded)                                  // -> non shaded?
     {
 /*     if(bGLBlend)  vertex[0].c.lcol=0x7f7f7f;          // --> solid color...
-     else          */vertex[0].c.lcol=0xffffff;
+     else          */vertex[0].c.lcol=SWAP32_C(0xffffff);
     }
    else                                                // -> shaded?
     {
 //     if(!bUseMultiPass && !bGLBlend)                   // --> given color...
-          vertex[0].c.lcol=DoubleBGR2RGB(DrawAttributes);
+          PUTLE32(&vertex[0].c.lcol, DoubleBGR2RGB(DrawAttributes));
 //     else vertex[0].c.lcol=DrawAttributes;
     }
    vertex[0].c.col[3]=ubGloAlpha;                      // -> set color with
@@ -1014,7 +1014,8 @@ void SetOpaqueColor(unsigned int DrawAttributes)
  if(bDrawNonShaded) return;                            // no shading? bye
 
  DrawAttributes=DoubleBGR2RGB(DrawAttributes);         // multipass is just half color, so double it on opaque pass
- vertex[0].c.lcol=DrawAttributes|0xff000000;
+ //vertex[0].c.lcol=DrawAttributes|0xff000000;
+ PUTLE32(&vertex[0].c.lcol, DrawAttributes|0xff000000);
  SETCOL(vertex[0]);                                    // set color
 }
 
@@ -1571,8 +1572,8 @@ void UploadScreen(int Position)
  if(bSkipNextFrame) return;
 
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "UploadScreen 1 Pos %d\r\n", Position);
-    DEBUG_print(txtbuffer, DBG_CORE2);
+    //sprintf(txtbuffer, "UploadScreen 1 Pos %d\r\n", Position);
+    //DEBUG_print(txtbuffer, DBG_CORE2);
     #endif // DISP_DEBUG
 
  //if(dwActFixes & 2) {UploadScreenEx(Position);return;}
@@ -2287,7 +2288,7 @@ void primBlkFill(unsigned char * baseAddr)
        bDrawSmoothShaded = FALSE;
        SetRenderState(((unsigned int)0x01000000));
        SetRenderMode(((unsigned int)0x01000000), FALSE);
-       vertex[0].c.lcol=0xff000000;
+       vertex[0].c.lcol=SWAP32_C(0xff000000);
        SETCOL(vertex[0]);
        if(ly0>pd->DisplayPosition.y)
         {
@@ -2315,7 +2316,7 @@ void primBlkFill(unsigned char * baseAddr)
      bDrawSmoothShaded = FALSE;
      SetRenderState(((unsigned int)0x01000000));
      SetRenderMode(((unsigned int)0x01000000), FALSE);
-     vertex[0].c.lcol=GETLE32(&gpuData[0]) | 0xff000000;
+     vertex[0].c.lcol=gpuData[0] | SWAP32_C(0xff000000);
      SETCOL(vertex[0]);
      //glDisable(GL_SCISSOR_TEST); glError();
      PRIMdrawQuad(&vertex[0], &vertex[1], &vertex[2], &vertex[3]);
@@ -2644,7 +2645,7 @@ void primTileS(unsigned char * baseAddr)
 
  if(bIgnoreNextTile) {bIgnoreNextTile=FALSE;return;}
 
- vertex[0].c.lcol=GETLE32(&gpuData[0]);
+ vertex[0].c.lcol=gpuData[0];
  vertex[0].c.col[3]=ubGloColAlpha;
  SETCOL(vertex[0]);
 
@@ -2696,7 +2697,7 @@ void primTile1(unsigned char * baseAddr)
  SetRenderMode(GETLE32(&gpuData[0]), FALSE);
  SetZMask4NT();
 
- vertex[0].c.lcol=GETLE32(&gpuData[0]);vertex[0].c.col[3]=ubGloColAlpha;
+ vertex[0].c.lcol=gpuData[0];vertex[0].c.col[3]=ubGloColAlpha;
  SETCOL(vertex[0]);
 
  PRIMdrawQuad(&vertex[0], &vertex[1], &vertex[2], &vertex[3]);
@@ -2746,7 +2747,7 @@ void primTile8(unsigned char * baseAddr)
  SetRenderMode(GETLE32(&gpuData[0]), FALSE);
  SetZMask4NT();
 
- vertex[0].c.lcol=GETLE32(&gpuData[0]);
+ vertex[0].c.lcol=gpuData[0];
  vertex[0].c.col[3]=ubGloColAlpha;
  SETCOL(vertex[0]);
 
@@ -2793,7 +2794,7 @@ void primTile16(unsigned char * baseAddr)
  SetRenderMode(GETLE32(&gpuData[0]), FALSE);
  SetZMask4NT();
 
- vertex[0].c.lcol=GETLE32(&gpuData[0]);
+ vertex[0].c.lcol=gpuData[0];
  vertex[0].c.col[3]=ubGloColAlpha;
  SETCOL(vertex[0]);
 
@@ -2889,7 +2890,7 @@ void primSprt8(unsigned char * baseAddr)
  offsetST();
 
  // do texture stuff
- gl_ux[0]=gl_ux[3]=baseAddr[11]; //baseAddr[8];//gpuData[2]&0xff;
+ gl_ux[0]=gl_ux[3]=baseAddr[8];//gpuData[2]&0xff;
 
  if(usMirror & 0x1000)
   {
@@ -2904,7 +2905,7 @@ void primSprt8(unsigned char * baseAddr)
  if(s>255) s=255;
  gl_ux[1]=gl_ux[2]=s;
  // Y coords
- gl_vy[0]=gl_vy[1]=baseAddr[10]; //baseAddr[9];//(gpuData[2]>>8)&0xff;
+ gl_vy[0]=gl_vy[1]=baseAddr[9];//(gpuData[2]>>8)&0xff;
 
  if(usMirror & 0x2000)
   {
@@ -3000,7 +3001,7 @@ void primSprt16(unsigned char * baseAddr)
  offsetST();
 
  // do texture stuff
- gl_ux[0]=gl_ux[3]=baseAddr[11]; //baseAddr[8];//gpuData[2]&0xff;
+ gl_ux[0]=gl_ux[3]=baseAddr[8];//gpuData[2]&0xff;
 
  if(usMirror & 0x1000)
   {
@@ -3015,7 +3016,7 @@ void primSprt16(unsigned char * baseAddr)
  if(s>255) s=255;
  gl_ux[1]=gl_ux[2]=s;
  // Y coords
- gl_vy[0]=gl_vy[1]=baseAddr[10]; //baseAddr[9];//(gpuData[2]>>8)&0xff;
+ gl_vy[0]=gl_vy[1]=baseAddr[9];//(gpuData[2]>>8)&0xff;
 
  if(usMirror & 0x2000)
   {
@@ -3106,50 +3107,50 @@ void primSprtSRest(unsigned char * baseAddr,unsigned short type)
  switch(type)
   {
    case 1:
-    gl_vy[0]=gl_vy[1]=baseAddr[10]; //baseAddr[9];
-    s=256-baseAddr[11]; //baseAddr[8];
+    gl_vy[0]=gl_vy[1]=baseAddr[9];
+    s=256-baseAddr[8];
     sprtW-=s;
     sprtX+=s;
     gl_ux[0]=gl_ux[3]=0;
     break;
    case 2:
-    gl_ux[0]=gl_ux[3]=baseAddr[11]; //baseAddr[8];
-    s=256-baseAddr[10]; //baseAddr[9];
+    gl_ux[0]=gl_ux[3]=baseAddr[8];
+    s=256-baseAddr[9];
     sprtH-=s;
     sprtY+=s;
     gl_vy[0]=gl_vy[1]=0;
     break;
    case 3:
-    s=256-baseAddr[11]; //baseAddr[8];
+    s=256-baseAddr[8];
     sprtW-=s;
     sprtX+=s;
     gl_ux[0]=gl_ux[3]=0;
-    s=256-baseAddr[10]; //baseAddr[9];
+    s=256-baseAddr[9];
     sprtH-=s;
     sprtY+=s;
     gl_vy[0]=gl_vy[1]=0;
     break;
 
    case 4:
-    gl_vy[0]=gl_vy[1]=baseAddr[10]; //baseAddr[9];
-    s=512-baseAddr[11]; //baseAddr[8];
+    gl_vy[0]=gl_vy[1]=baseAddr[9];
+    s=512-baseAddr[8];
     sprtW-=s;
     sprtX+=s;
     gl_ux[0]=gl_ux[3]=0;
     break;
    case 5:
-    gl_ux[0]=gl_ux[3]=baseAddr[11]; //baseAddr[8];
-    s=512-baseAddr[10]; //baseAddr[9];
+    gl_ux[0]=gl_ux[3]=baseAddr[8];
+    s=512-baseAddr[9];
     sprtH-=s;
     sprtY+=s;
     gl_vy[0]=gl_vy[1]=0;
     break;
    case 6:
-    s=512-baseAddr[11]; //baseAddr[8];
+    s=512-baseAddr[8];
     sprtW-=s;
     sprtX+=s;
     gl_ux[0]=gl_ux[3]=0;
-    s=512-baseAddr[10]; //baseAddr[9];
+    s=512-baseAddr[9];
     sprtH-=s;
     sprtY+=s;
     gl_vy[0]=gl_vy[1]=0;
@@ -3269,8 +3270,8 @@ void primSprtS(unsigned char * baseAddr)
  iSpriteTex=1;
 
  // do texture stuff
- gl_ux[0]=gl_ux[3]=baseAddr[11]; //baseAddr[8];//gpuData[2]&0xff;
- gl_vy[0]=gl_vy[1]=baseAddr[10]; //baseAddr[9];//(gpuData[2]>>8)&0xff;
+ gl_ux[0]=gl_ux[3]=baseAddr[8];//gpuData[2]&0xff;
+ gl_vy[0]=gl_vy[1]=baseAddr[9];//(gpuData[2]>>8)&0xff;
 
  if(usMirror & 0x1000)
   {
@@ -3395,7 +3396,7 @@ void primPolyF4(unsigned char *baseAddr)
  SetRenderMode(GETLE32(&gpuData[0]), FALSE);
  SetZMask4NT();
 
- vertex[0].c.lcol=GETLE32(&gpuData[0]);vertex[0].c.col[3]=ubGloColAlpha;
+ vertex[0].c.lcol=gpuData[0];vertex[0].c.col[3]=ubGloColAlpha;
  SETCOL(vertex[0]);
 
  PRIMdrawTri2(&vertex[0], &vertex[1], &vertex[2],&vertex[3]);
@@ -3448,7 +3449,7 @@ BOOL bCheckFF9G4(unsigned char * baseAddr)
        if(GETLEs16(&sgpuData[2])==142)
         {
          PUTLE16(&sgpuData[2], GETLEs16(&sgpuData[2]) + 65);
-         PUTLE16(&sgpuData[2], GETLEs16(&sgpuData[10]) + 65);
+         PUTLE16(&sgpuData[10], GETLEs16(&sgpuData[10]) + 65);
         }
        return TRUE;
       }
@@ -3507,10 +3508,10 @@ void primPolyG4(unsigned char * baseAddr)
  SetRenderMode(GETLE32(&gpuData[0]), FALSE);
  SetZMask4NT();
 
- vertex[0].c.lcol=GETLE32(&gpuData[0]);
- vertex[1].c.lcol=GETLE32(&gpuData[2]);
- vertex[2].c.lcol=GETLE32(&gpuData[4]);
- vertex[3].c.lcol=GETLE32(&gpuData[6]);
+ vertex[0].c.lcol=gpuData[0];
+ vertex[1].c.lcol=gpuData[2];
+ vertex[2].c.lcol=gpuData[4];
+ vertex[3].c.lcol=gpuData[6];
 
  vertex[0].c.col[3]=vertex[1].c.col[3]=vertex[2].c.col[3]=vertex[3].c.col[3]=ubGloAlpha;
 
@@ -3704,12 +3705,12 @@ void primPolyFT3(unsigned char * baseAddr)
  if(offset3()) return;
 
  // do texture UV coordinates stuff
- gl_ux[0]=gl_ux[3]=baseAddr[11]; //baseAddr[8];//gpuData[2]&0xff;
- gl_vy[0]=gl_vy[3]=baseAddr[10]; //baseAddr[9];//(gpuData[2]>>8)&0xff;
- gl_ux[1]=baseAddr[19]; //baseAddr[16];//gpuData[4]&0xff;
- gl_vy[1]=baseAddr[18]; //baseAddr[17];//(gpuData[4]>>8)&0xff;
- gl_ux[2]=baseAddr[27]; //baseAddr[24];//gpuData[6]&0xff;
- gl_vy[2]=baseAddr[26]; //baseAddr[25];//(gpuData[6]>>8)&0xff;
+ gl_ux[0]=gl_ux[3]=baseAddr[8];//gpuData[2]&0xff;
+ gl_vy[0]=gl_vy[3]=baseAddr[9];//(gpuData[2]>>8)&0xff;
+ gl_ux[1]=baseAddr[16];//gpuData[4]&0xff;
+ gl_vy[1]=baseAddr[17];//(gpuData[4]>>8)&0xff;
+ gl_ux[2]=baseAddr[24];//gpuData[6]&0xff;
+ gl_vy[2]=baseAddr[25];//(gpuData[6]>>8)&0xff;
 
  UpdateGlobalTP((unsigned short)(GETLE32(&gpuData[4])>>16));
  ulClutID=GETLE32(&gpuData[2])>>16;
@@ -4141,15 +4142,15 @@ void primPolyFT4(unsigned char * baseAddr)
 
  if(offset4()) return;
 
- gl_vy[0]=baseAddr[10]; //baseAddr[9];//((gpuData[2]>>8)&0xff);
- gl_vy[1]=baseAddr[18]; //baseAddr[17];//((gpuData[4]>>8)&0xff);
- gl_vy[2]=baseAddr[26]; //baseAddr[25];//((gpuData[6]>>8)&0xff);
- gl_vy[3]=baseAddr[34]; //baseAddr[33];//((gpuData[8]>>8)&0xff);
+ gl_vy[0]=baseAddr[9];//((gpuData[2]>>8)&0xff);
+ gl_vy[1]=baseAddr[17];//((gpuData[4]>>8)&0xff);
+ gl_vy[2]=baseAddr[25];//((gpuData[6]>>8)&0xff);
+ gl_vy[3]=baseAddr[33];//((gpuData[8]>>8)&0xff);
 
- gl_ux[0]=baseAddr[11]; //baseAddr[8];//(gpuData[2]&0xff);
- gl_ux[1]=baseAddr[19]; //baseAddr[16];//(gpuData[4]&0xff);
- gl_ux[2]=baseAddr[27]; //baseAddr[24];//(gpuData[6]&0xff);
- gl_ux[3]=baseAddr[35]; //baseAddr[32];//(gpuData[8]&0xff);
+ gl_ux[0]=baseAddr[8];//(gpuData[2]&0xff);
+ gl_ux[1]=baseAddr[16];//(gpuData[4]&0xff);
+ gl_ux[2]=baseAddr[24];//(gpuData[6]&0xff);
+ gl_ux[3]=baseAddr[32];//(gpuData[8]&0xff);
 
  UpdateGlobalTP((unsigned short)(GETLE32(&gpuData[4])>>16));
  ulClutID=(GETLE32(&gpuData[2])>>16);
@@ -4217,12 +4218,12 @@ void primPolyGT3(unsigned char *baseAddr)
  if(offset3()) return;
 
  // do texture stuff
- gl_ux[0]=gl_ux[3]=baseAddr[11]; //baseAddr[8];//gpuData[2]&0xff;
- gl_vy[0]=gl_vy[3]=baseAddr[10]; //baseAddr[9];//(gpuData[2]>>8)&0xff;
- gl_ux[1]=baseAddr[23]; //baseAddr[20];//gpuData[5]&0xff;
- gl_vy[1]=baseAddr[22]; //baseAddr[21];//(gpuData[5]>>8)&0xff;
- gl_ux[2]=baseAddr[35]; //baseAddr[32];//gpuData[8]&0xff;
- gl_vy[2]=baseAddr[34]; //baseAddr[33];//(gpuData[8]>>8)&0xff;
+ gl_ux[0]=gl_ux[3]=baseAddr[8];//gpuData[2]&0xff;
+ gl_vy[0]=gl_vy[3]=baseAddr[9];//(gpuData[2]>>8)&0xff;
+ gl_ux[1]=baseAddr[20];//gpuData[5]&0xff;
+ gl_vy[1]=baseAddr[21];//(gpuData[5]>>8)&0xff;
+ gl_ux[2]=baseAddr[32];//gpuData[8]&0xff;
+ gl_vy[2]=baseAddr[33];//(gpuData[8]>>8)&0xff;
 
  UpdateGlobalTP((unsigned short)(GETLE32(&gpuData[5])>>16));
  ulClutID=(GETLE32(&gpuData[2])>>16);
@@ -4269,9 +4270,9 @@ void primPolyGT3(unsigned char *baseAddr)
 
 /* if(!bUseMultiPass  && !bGLBlend)
   {
-  */ vertex[0].c.lcol=DoubleBGR2RGB(GETLE32(&gpuData[0]));
-   vertex[1].c.lcol=DoubleBGR2RGB(GETLE32(&gpuData[3]));
-   vertex[2].c.lcol=DoubleBGR2RGB(GETLE32(&gpuData[6]));
+  */ PUTLE32(&vertex[0].c.lcol, DoubleBGR2RGB(GETLE32(&gpuData[0])));
+   PUTLE32(&vertex[1].c.lcol, DoubleBGR2RGB(GETLE32(&gpuData[3])));
+   PUTLE32(&vertex[2].c.lcol, DoubleBGR2RGB(GETLE32(&gpuData[6])));
   /*}
  else
   {
@@ -4294,9 +4295,9 @@ void primPolyGT3(unsigned char *baseAddr)
    SetZMask3O();
    if(bUseMultiPass)
     {
-     vertex[0].c.lcol=DoubleBGR2RGB(GETLE32(&gpuData[0]));
-     vertex[1].c.lcol=DoubleBGR2RGB(GETLE32(&gpuData[3]));
-     vertex[2].c.lcol=DoubleBGR2RGB(GETLE32(&gpuData[6]));
+     PUTLE32(&vertex[0].c.lcol, DoubleBGR2RGB(GETLE32(&gpuData[0])));
+     PUTLE32(&vertex[1].c.lcol, DoubleBGR2RGB(GETLE32(&gpuData[3])));
+     PUTLE32(&vertex[2].c.lcol, DoubleBGR2RGB(GETLE32(&gpuData[6])));
      vertex[0].c.col[3]=vertex[1].c.col[3]=vertex[2].c.col[3]=ubGloAlpha;
     }
    DEFOPAQUEON
@@ -4342,9 +4343,9 @@ void primPolyG3(unsigned char *baseAddr)
  SetRenderMode(GETLE32(&gpuData[0]), FALSE);
  SetZMask3NT();
 
- vertex[0].c.lcol=GETLE32(&gpuData[0]);
- vertex[1].c.lcol=GETLE32(&gpuData[2]);
- vertex[2].c.lcol=GETLE32(&gpuData[4]);
+ vertex[0].c.lcol=gpuData[0];
+ vertex[1].c.lcol=gpuData[2];
+ vertex[2].c.lcol=gpuData[4];
  vertex[0].c.col[3]=vertex[1].c.col[3]=vertex[2].c.col[3]=ubGloColAlpha;
 
  PRIMdrawGouraudTriColor(&vertex[0], &vertex[1], &vertex[2]);
@@ -4373,14 +4374,14 @@ void primPolyGT4(unsigned char *baseAddr)
  if(offset4()) return;
 
  // do texture stuff
- gl_ux[0]=baseAddr[11]; //baseAddr[8];//gpuData[2]&0xff;
- gl_vy[0]=baseAddr[10]; //baseAddr[9];//(gpuData[2]>>8)&0xff;
- gl_ux[1]=baseAddr[23]; //baseAddr[20];//gpuData[5]&0xff;
- gl_vy[1]=baseAddr[22]; //baseAddr[21];//(gpuData[5]>>8)&0xff;
- gl_ux[2]=baseAddr[35]; //baseAddr[32];//gpuData[8]&0xff;
- gl_vy[2]=baseAddr[34]; //baseAddr[33];//(gpuData[8]>>8)&0xff;
- gl_ux[3]=baseAddr[47]; //baseAddr[44];//gpuData[11]&0xff;
- gl_vy[3]=baseAddr[46]; //baseAddr[45];//(gpuData[11]>>8)&0xff;
+ gl_ux[0]=baseAddr[8];//gpuData[2]&0xff;
+ gl_vy[0]=baseAddr[9];//(gpuData[2]>>8)&0xff;
+ gl_ux[1]=baseAddr[20];//gpuData[5]&0xff;
+ gl_vy[1]=baseAddr[21];//(gpuData[5]>>8)&0xff;
+ gl_ux[2]=baseAddr[32];//gpuData[8]&0xff;
+ gl_vy[2]=baseAddr[33];//(gpuData[8]>>8)&0xff;
+ gl_ux[3]=baseAddr[44];//gpuData[11]&0xff;
+ gl_vy[3]=baseAddr[45];//(gpuData[11]>>8)&0xff;
 
  UpdateGlobalTP((unsigned short)(GETLE32(&gpuData[5])>>16));
  ulClutID=(GETLE32(&gpuData[2])>>16);
@@ -4429,10 +4430,10 @@ void primPolyGT4(unsigned char *baseAddr)
 
 // if(!bUseMultiPass  && !bGLBlend)
   {
-   vertex[0].c.lcol=DoubleBGR2RGB(GETLE32(&gpuData[0]));
-   vertex[1].c.lcol=DoubleBGR2RGB(GETLE32(&gpuData[3]));
-   vertex[2].c.lcol=DoubleBGR2RGB(GETLE32(&gpuData[6]));
-   vertex[3].c.lcol=DoubleBGR2RGB(GETLE32(&gpuData[9]));
+   PUTLE32(&vertex[0].c.lcol, DoubleBGR2RGB(GETLE32(&gpuData[0])));
+   PUTLE32(&vertex[1].c.lcol, DoubleBGR2RGB(GETLE32(&gpuData[3])));
+   PUTLE32(&vertex[2].c.lcol, DoubleBGR2RGB(GETLE32(&gpuData[6])));
+   PUTLE32(&vertex[3].c.lcol, DoubleBGR2RGB(GETLE32(&gpuData[9])));
   }
  /*else
   {
@@ -4457,10 +4458,10 @@ void primPolyGT4(unsigned char *baseAddr)
    SetZMask4O();
    if(bUseMultiPass)
     {
-     vertex[0].c.lcol=DoubleBGR2RGB(GETLE32(&gpuData[0]));
-     vertex[1].c.lcol=DoubleBGR2RGB(GETLE32(&gpuData[3]));
-     vertex[2].c.lcol=DoubleBGR2RGB(GETLE32(&gpuData[6]));
-     vertex[3].c.lcol=DoubleBGR2RGB(GETLE32(&gpuData[9]));
+     PUTLE32(&vertex[0].c.lcol, DoubleBGR2RGB(GETLE32(&gpuData[0])));
+     PUTLE32(&vertex[1].c.lcol, DoubleBGR2RGB(GETLE32(&gpuData[3])));
+     PUTLE32(&vertex[2].c.lcol, DoubleBGR2RGB(GETLE32(&gpuData[6])));
+     PUTLE32(&vertex[3].c.lcol, DoubleBGR2RGB(GETLE32(&gpuData[9])));
      vertex[0].c.col[3]=vertex[1].c.col[3]=vertex[2].c.col[3]=vertex[3].c.col[3]=ubGloAlpha;
     }
    ubGloAlpha=ubGloColAlpha=0xff;
@@ -4507,7 +4508,7 @@ void primPolyF3(unsigned char *baseAddr)
  SetRenderMode(GETLE32(&gpuData[0]), FALSE);
  SetZMask3NT();
 
- vertex[0].c.lcol=GETLE32(&gpuData[0]);
+ vertex[0].c.lcol=gpuData[0];
  vertex[0].c.col[3]=ubGloColAlpha;
  SETCOL(vertex[0]);
 
@@ -4523,11 +4524,12 @@ void primPolyF3(unsigned char *baseAddr)
 void primLineGSkip(unsigned char *baseAddr)
 {
  unsigned int *gpuData = ((unsigned int *) baseAddr);
+ short *sgpuData = ((short *) baseAddr);
  int iMax=255;
  int i=2;
 
- ly1 = (short)((GETLE32(&gpuData[1])>>16) & 0xffff);
- lx1 = (short)(GETLE32(&gpuData[1]) & 0xffff);
+ lx1 = GETLE16(&sgpuData[2]);
+ ly1 = GETLE16(&sgpuData[3]);
 
  while(!(((GETLE32(&gpuData[i]) & 0xF000F000) == 0x50005000) && i>=4))
   {
@@ -4556,7 +4558,7 @@ void primLineGEx(unsigned char *baseAddr)
  SetRenderMode(GETLE32(&gpuData[0]), FALSE);
  SetZMask4NT();
 
- vertex[0].c.lcol=vertex[3].c.lcol=GETLE32(&gpuData[0]);
+ vertex[0].c.lcol=vertex[3].c.lcol=gpuData[0];
  vertex[0].c.col[3]=vertex[3].c.col[3]=ubGloColAlpha;
  ly1 = (short)((GETLE32(&gpuData[1])>>16) & 0xffff);
  lx1 = (short)(GETLE32(&gpuData[1]) & 0xffff);
@@ -4570,7 +4572,7 @@ void primLineGEx(unsigned char *baseAddr)
   {
    ly0 = ly1;lx0=lx1;
    vertex[1].c.lcol=vertex[2].c.lcol=vertex[0].c.lcol;
-   vertex[0].c.lcol=vertex[3].c.lcol=GETLE32(&gpuData[i]);
+   vertex[0].c.lcol=vertex[3].c.lcol=gpuData[i];
    vertex[0].c.col[3]=vertex[3].c.col[3]=ubGloColAlpha;
 
    i++;
@@ -4618,8 +4620,8 @@ void primLineG2(unsigned char *baseAddr)
  lx1 = GETLEs16(&sgpuData[6]);
  ly1 = GETLEs16(&sgpuData[7]);
 
- vertex[0].c.lcol=vertex[3].c.lcol=GETLE32(&gpuData[0]);
- vertex[1].c.lcol=vertex[2].c.lcol=GETLE32(&gpuData[2]);
+ vertex[0].c.lcol=vertex[3].c.lcol=gpuData[0];
+ vertex[1].c.lcol=vertex[2].c.lcol=gpuData[2];
  vertex[0].c.col[3]=vertex[1].c.col[3]=vertex[2].c.col[3]=vertex[3].c.col[3]=ubGloColAlpha;
 
  bDrawTextured = FALSE;
@@ -4687,7 +4689,7 @@ void primLineFEx(unsigned char *baseAddr)
  SetRenderMode(GETLE32(&gpuData[0]), FALSE);
  SetZMask4NT();
 
- vertex[0].c.lcol=GETLE32(&gpuData[0]);
+ vertex[0].c.lcol=gpuData[0];
  vertex[0].c.col[3]=ubGloColAlpha;
 
  ly1 = (short)((GETLE32(&gpuData[1])>>16) & 0xffff);
@@ -4749,7 +4751,7 @@ void primLineF2(unsigned char *baseAddr)
  SetRenderMode(GETLE32(&gpuData[0]), FALSE);
  SetZMask4NT();
 
- vertex[0].c.lcol=GETLE32(&gpuData[0]);
+ vertex[0].c.lcol=gpuData[0];
  vertex[0].c.col[3]=ubGloColAlpha;
 
 /* if(iOffscreenDrawing)
