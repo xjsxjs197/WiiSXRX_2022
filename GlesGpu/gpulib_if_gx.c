@@ -324,7 +324,7 @@ static void PaintBlackBorders(void)
 //PreviousPSXDisplay.DisplayEnd.y=
 // PreviousPSXDisplay.DisplayPosition.y+ PSXDisplay.DisplayMode.y+PreviousPSXDisplay.DisplayModeNew.y;
 //
-//ChangeDispOffsetsX();
+//ChangeDispOffsetsXGl();
 //if(bUp) updateDisplayGl();                              // yeah, real update (swap buffer)
 //}
 
@@ -438,7 +438,7 @@ switch((gdata>>24)&0xff)
 
    PSXDisplay.Range.x1-=PSXDisplay.Range.x0;
 
-   ChangeDispOffsetsX();
+   ChangeDispOffsetsXGl();
    return;
 
   case 0x07:
@@ -454,7 +454,7 @@ switch((gdata>>24)&0xff)
    if (PreviousPSXDisplay.Height != PSXDisplay.Height)
     {
      PSXDisplay.DisplayModeNew.y=PSXDisplay.Height*PSXDisplay.Double;
-     ChangeDispOffsetsY();
+     ChangeDispOffsetsYGl();
      updateDisplayIfChangedGl();
     }
    return;
@@ -466,7 +466,7 @@ switch((gdata>>24)&0xff)
    else            PSXDisplay.Double=1;
    PSXDisplay.DisplayModeNew.y = PSXDisplay.Height*PSXDisplay.Double;
 
-   ChangeDispOffsetsY();
+   ChangeDispOffsetsYGl();
 
    PSXDisplay.PAL           = (gdata & 0x08)?TRUE:FALSE; // if 1 - PAL mode, else NTSC
    PSXDisplay.RGB24New      = (gdata & 0x10)?TRUE:FALSE; // if 1 - TrueColor

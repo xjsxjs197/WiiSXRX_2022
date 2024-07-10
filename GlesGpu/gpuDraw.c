@@ -487,7 +487,7 @@ static int created_gles_context;
 int GLinitialize(void *ext_gles_display, void *ext_gles_surface)
 {
     #ifdef DISP_DEBUG
-    writeLogFile("GLinitialize 1\r\n");
+    //writeLogFile("GLinitialize 1\r\n");
     #endif // DISP_DEBUG
 // if(ext_gles_display != NULL && ext_gles_surface != NULL) {
 //  display = (EGLDisplay)ext_gles_display;
@@ -506,8 +506,8 @@ int GLinitialize(void *ext_gles_display, void *ext_gles_surface)
  //glDepthRange(0.0f, 1.0f);glError();
 
  #ifdef DISP_DEBUG
- sprintf(txtbuffer, "GLinitialize 1.1 %d %d %d %d\r\n", rRatioRect.left, iResY-(rRatioRect.top+rRatioRect.bottom), rRatioRect.right, rRatioRect.bottom);
- writeLogFile(txtbuffer);
+ //sprintf(txtbuffer, "GLinitialize 1.1 %d %d %d %d\r\n", rRatioRect.left, iResY-(rRatioRect.top+rRatioRect.bottom), rRatioRect.right, rRatioRect.bottom);
+ //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
  glViewport(rRatioRect.left,                           // init viewport by ratio rect
             iResY-(rRatioRect.top+rRatioRect.bottom),
@@ -515,8 +515,8 @@ int GLinitialize(void *ext_gles_display, void *ext_gles_surface)
             rRatioRect.bottom); glError();
 
  #ifdef DISP_DEBUG
- sprintf(txtbuffer, "GLinitialize 1.2 %d %d\r\n", iResX, iResY);
- writeLogFile(txtbuffer);
+ //sprintf(txtbuffer, "GLinitialize 1.2 %d %d\r\n", iResX, iResY);
+ //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
  glScissor(0, 0, iResX, iResY); glError();             // init clipping (fullscreen)
  glEnable(GL_SCISSOR_TEST); glError();
@@ -533,8 +533,8 @@ int GLinitialize(void *ext_gles_display, void *ext_gles_surface)
  glLoadIdentity(); glError();
 
  #ifdef DISP_DEBUG
- sprintf(txtbuffer, "GLinitialize 2 %d %d\r\n", PSXDisplay.DisplayMode.x, PSXDisplay.DisplayMode.y);
- writeLogFile(txtbuffer);
+ //sprintf(txtbuffer, "GLinitialize 2 %d %d\r\n", PSXDisplay.DisplayMode.x, PSXDisplay.DisplayMode.y);
+ //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
  glOrtho(0,PSXDisplay.DisplayMode.x,
          PSXDisplay.DisplayMode.y, 0, -1, 1); glError();
@@ -585,13 +585,13 @@ int GLinitialize(void *ext_gles_display, void *ext_gles_surface)
  glFinish(); glError();
 
  #ifdef DISP_DEBUG
-    writeLogFile("GLinitialize 4\r\n");
+    //writeLogFile("GLinitialize 4\r\n");
     #endif // DISP_DEBUG
  CreateScanLines();                                    // setup scanline stuff (if wanted)
 
  CheckTextureMemory();                                 // check available tex memory
  #ifdef DISP_DEBUG
-    writeLogFile("GLinitialize 5\r\n");
+    //writeLogFile("GLinitialize 5\r\n");
     #endif // DISP_DEBUG
 
  if(bKeepRatio) SetAspectRatio();                      // set ratio
@@ -1358,6 +1358,11 @@ void SetOGLDisplaySettings(BOOL DisplaySet)
    if(bSetClip || !EqualRect(&rC,&rX))
     {
      rC=rX;
+     #ifdef DISP_DEBUG
+     //sprintf(txtbuffer, "glScissor0 %d %d %d %d\r\n", rC.left, rC.top, rC.right, rC.bottom);
+     //DEBUG_print(txtbuffer, DBG_CORE2);
+     //writeLogFile(txtbuffer);
+     #endif // DISP_DEBUG
      glScissor(rC.left,rC.top,rC.right,rC.bottom); glError();
      //LOGE("glscissor:%d %d %d %d",rC.left,rC.top,rC.right,rC.bottom);
      bSetClip=FALSE;
@@ -1450,6 +1455,11 @@ void SetOGLDisplaySettings(BOOL DisplaySet)
 
  if(bSetClip || !EqualRect(&r,&rC))
   {
+      #ifdef DISP_DEBUG
+     //sprintf(txtbuffer, "glScissor1 %d %d %d %d\r\n", r.left, r.top, r.right, r.bottom);
+     //DEBUG_print(txtbuffer, DBG_CORE2);
+     //writeLogFile(txtbuffer);
+     #endif // DISP_DEBUG
    glScissor(r.left,r.top,r.right,r.bottom); glError();
 
    rC=r;

@@ -553,76 +553,76 @@ if(iDrawnSomething)                                   // linux:
 ////////////////////////////////////////////////////////////////////////
 // check if update needed
 ////////////////////////////////////////////////////////////////////////
-//void ChangeDispOffsetsX(void)                          // CENTER X
-//{
-//long lx,l;short sO;
-//
-//if(!PSXDisplay.Range.x1) return;                      // some range given?
-//
-//l=PSXDisplay.DisplayMode.x;
-//
-//l*=(long)PSXDisplay.Range.x1;                         // some funky calculation
-//l/=2560;lx=l;l&=0xfffffff8;
-//
-//if(l==PreviousPSXDisplay.Range.x1) return;            // some change?
-//
-//sO=PreviousPSXDisplay.Range.x0;                       // store old
-//
-//if(lx>=PSXDisplay.DisplayMode.x)                      // range bigger?
-// {
-//  PreviousPSXDisplay.Range.x1=                        // -> take display width
-//   PSXDisplay.DisplayMode.x;
-//  PreviousPSXDisplay.Range.x0=0;                      // -> start pos is 0
-// }
-//else                                                  // range smaller? center it
-// {
-//  PreviousPSXDisplay.Range.x1=l;                      // -> store width (8 pixel aligned)
-//   PreviousPSXDisplay.Range.x0=                       // -> calc start pos
-//   (PSXDisplay.Range.x0-500)/8;
-//  if(PreviousPSXDisplay.Range.x0<0)                   // -> we don't support neg. values yet
-//   PreviousPSXDisplay.Range.x0=0;
-//
-//  if((PreviousPSXDisplay.Range.x0+lx)>                // -> uhuu... that's too much
-//     PSXDisplay.DisplayMode.x)
-//   {
-//    PreviousPSXDisplay.Range.x0=                      // -> adjust start
-//     PSXDisplay.DisplayMode.x-lx;
-//    PreviousPSXDisplay.Range.x1+=lx-l;                // -> adjust width
-//   }
-// }
-//
-//if(sO!=PreviousPSXDisplay.Range.x0)                   // something changed?
-// {
-//  bDisplayNotSet=TRUE;                                // -> recalc display stuff
-// }
-//}
+void ChangeDispOffsetsXGl(void)                          // CENTER X
+{
+long lx,l;short sO;
+
+if(!PSXDisplay.Range.x1) return;                      // some range given?
+
+l=PSXDisplay.DisplayMode.x;
+
+l*=(long)PSXDisplay.Range.x1;                         // some funky calculation
+l/=2560;lx=l;l&=0xfffffff8;
+
+if(l==PreviousPSXDisplay.Range.x1) return;            // some change?
+
+sO=PreviousPSXDisplay.Range.x0;                       // store old
+
+if(lx>=PSXDisplay.DisplayMode.x)                      // range bigger?
+ {
+  PreviousPSXDisplay.Range.x1=                        // -> take display width
+   PSXDisplay.DisplayMode.x;
+  PreviousPSXDisplay.Range.x0=0;                      // -> start pos is 0
+ }
+else                                                  // range smaller? center it
+ {
+  PreviousPSXDisplay.Range.x1=l;                      // -> store width (8 pixel aligned)
+   PreviousPSXDisplay.Range.x0=                       // -> calc start pos
+   (PSXDisplay.Range.x0-500)/8;
+  if(PreviousPSXDisplay.Range.x0<0)                   // -> we don't support neg. values yet
+   PreviousPSXDisplay.Range.x0=0;
+
+  if((PreviousPSXDisplay.Range.x0+lx)>                // -> uhuu... that's too much
+     PSXDisplay.DisplayMode.x)
+   {
+    PreviousPSXDisplay.Range.x0=                      // -> adjust start
+     PSXDisplay.DisplayMode.x-lx;
+    PreviousPSXDisplay.Range.x1+=lx-l;                // -> adjust width
+   }
+ }
+
+if(sO!=PreviousPSXDisplay.Range.x0)                   // something changed?
+ {
+  bDisplayNotSet=TRUE;                                // -> recalc display stuff
+ }
+}
 
 ////////////////////////////////////////////////////////////////////////
 
-//void ChangeDispOffsetsY(void)                          // CENTER Y
-//{
-//int iT;short sO;                                      // store previous y size
-//
-//if(PSXDisplay.PAL) iT=48; else iT=28;                 // different offsets on PAL/NTSC
-//
-//if(PSXDisplay.Range.y0>=iT)                           // crossed the security line? :)
-// {
-//  PreviousPSXDisplay.Range.y1=                        // -> store width
-//   PSXDisplay.DisplayModeNew.y;
-//
-//  sO=(PSXDisplay.Range.y0-iT-4)*PSXDisplay.Double;    // -> calc offset
-//  if(sO<0) sO=0;
-//
-//  PSXDisplay.DisplayModeNew.y+=sO;                    // -> add offset to y size, too
-// }
-//else sO=0;                                            // else no offset
-//
-//if(sO!=PreviousPSXDisplay.Range.y0)                   // something changed?
-// {
-//  PreviousPSXDisplay.Range.y0=sO;
-//  bDisplayNotSet=TRUE;                                // -> recalc display stuff
-// }
-//}
+void ChangeDispOffsetsYGl(void)                          // CENTER Y
+{
+int iT;short sO;                                      // store previous y size
+
+if(PSXDisplay.PAL) iT=48; else iT=28;                 // different offsets on PAL/NTSC
+
+if(PSXDisplay.Range.y0>=iT)                           // crossed the security line? :)
+ {
+  PreviousPSXDisplay.Range.y1=                        // -> store width
+   PSXDisplay.DisplayModeNew.y;
+
+  sO=(PSXDisplay.Range.y0-iT-4)*PSXDisplay.Double;    // -> calc offset
+  if(sO<0) sO=0;
+
+  PSXDisplay.DisplayModeNew.y+=sO;                    // -> add offset to y size, too
+ }
+else sO=0;                                            // else no offset
+
+if(sO!=PreviousPSXDisplay.Range.y0)                   // something changed?
+ {
+  PreviousPSXDisplay.Range.y0=sO;
+  bDisplayNotSet=TRUE;                                // -> recalc display stuff
+ }
+}
 
 ////////////////////////////////////////////////////////////////////////
 // Aspect ratio of ogl screen: simply adjusting ogl view port
@@ -717,6 +717,10 @@ if ((PSXDisplay.DisplayMode.y == PSXDisplay.DisplayModeNew.y) &&
  }
 else                                                  // some res change?
  {
+     #ifdef DISP_DEBUG
+     //sprintf(txtbuffer, "glLoadIdentity %d %d \r\n", PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y);
+     //DEBUG_print(txtbuffer, DBG_GPU2);
+     #endif // DISP_DEBUG
   glLoadIdentity(); glError();
   glOrtho(0,PSXDisplay.DisplayModeNew.x,              // -> new psx resolution
             PSXDisplay.DisplayModeNew.y, 0, -1, 1); glError();
@@ -747,7 +751,7 @@ PreviousPSXDisplay.DisplayEnd.x=
 PreviousPSXDisplay.DisplayEnd.y=
  PreviousPSXDisplay.DisplayPosition.y+ PSXDisplay.DisplayMode.y+PreviousPSXDisplay.DisplayModeNew.y;
 
-ChangeDispOffsetsX();
+ChangeDispOffsetsXGl();
 
 if(iFrameLimit==2) SetAutoFrameCap();                 // set new fps limit vals (depends on interlace)
 
@@ -1072,7 +1076,7 @@ switch(lCommand)
 
    PSXDisplay.Range.x1-=PSXDisplay.Range.x0;
 
-   ChangeDispOffsetsX();
+   ChangeDispOffsetsXGl();
 
    return;
 
@@ -1091,7 +1095,7 @@ switch(lCommand)
    if (PreviousPSXDisplay.Height != PSXDisplay.Height)
     {
      PSXDisplay.DisplayModeNew.y=PSXDisplay.Height*PSXDisplay.Double;
-     ChangeDispOffsetsY();
+     ChangeDispOffsetsYGl();
      updateDisplayIfChangedGl();
     }
    return;
@@ -1105,7 +1109,7 @@ switch(lCommand)
    else            PSXDisplay.Double=1;
    PSXDisplay.DisplayModeNew.y = PSXDisplay.Height*PSXDisplay.Double;
 
-   ChangeDispOffsetsY();
+   ChangeDispOffsetsYGl();
 
     PSXDisplay.PAL           = (forceNTSC == FORCENTSC_ENABLE) ? FALSE : ((gdata & 0x08)?TRUE:FALSE); // if 1 - PAL mode, else NTSC
    PSXDisplay.RGB24New      = (gdata & 0x10)?TRUE:FALSE; // if 1 - TrueColor
