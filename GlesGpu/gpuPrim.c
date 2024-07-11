@@ -132,7 +132,7 @@ void UpdateGlobalTP(unsigned short gdata)
 ////////////////////////////////////////////////////////////////////////
 
 
-unsigned int DoubleBGR2RGB (unsigned int BGR)
+static unsigned int DoubleBGR2RGB (unsigned int BGR)
 {
  unsigned int ebx,eax,edx;
 
@@ -188,6 +188,16 @@ v[3].xyz.y = fpoint(vertex3->y);
 v[3].xyz.z = fpoint(vertex3->z);
 v[3].st.x = fpoint(vertex3->sow);
 v[3].st.y = fpoint(vertex3->tow);
+
+#ifdef DISP_DEBUG
+sprintf(txtbuffer, "Coord %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow);
+DEBUG_print(txtbuffer, DBG_CORE3);
+sprintf(txtbuffer, "Vertex %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
+DEBUG_print(txtbuffer, DBG_GPU1);
+sprintf(txtbuffer, "FLG %d %d %d\r\n", CSTEXTURE, CSVERTEX, CSCOLOR);
+DEBUG_print(txtbuffer, DBG_GPU2);
+#endif // DISP_DEBUG
+
 if (CSCOLOR==1) glDisableClientState(GL_COLOR_ARRAY);glError();
 if (CSTEXTURE==0) glEnableClientState(GL_TEXTURE_COORD_ARRAY);glError();
 if (CSVERTEX==0) glEnableClientState(GL_VERTEX_ARRAY);glError();
@@ -4252,7 +4262,7 @@ void primPolyGT3(unsigned char *baseAddr)
    //if(!bUseMultiPass) vertex[0].lcol=DoubleBGR2RGB(gpuData[0]); else vertex[0].lcol=gpuData[0];
    // eat this...
 /*   if(bGLBlend) vertex[0].c.lcol=0x7f7f7f;
-   else         */vertex[0].c.lcol=0xffffff;
+   else         */vertex[0].c.lcol=SWAP32_C(0xffffff);
    vertex[0].c.col[3]=ubGloAlpha;
    SETCOL(vertex[0]);
 
@@ -4411,7 +4421,7 @@ void primPolyGT4(unsigned char *baseAddr)
   {
    //if(!bUseMultiPass) vertex[0].lcol=DoubleBGR2RGB(gpuData[0]); else vertex[0].lcol=gpuData[0];
 /*   if(bGLBlend) vertex[0].c.lcol=0x7f7f7f;
-   else          */vertex[0].c.lcol=0xffffff;
+   else          */vertex[0].c.lcol=SWAP32_C(0xffffff);
    vertex[0].c.col[3]=ubGloAlpha;
    SETCOL(vertex[0]);
 

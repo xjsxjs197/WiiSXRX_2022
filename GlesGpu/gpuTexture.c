@@ -220,68 +220,14 @@ unsigned short MAXSORTTEX    = MAXSORTTEX_MAX;
 // porting... and honestly: nowadays the speed gain would be pointless
 ////////////////////////////////////////////////////////////////////////
 
-//unsigned int XP8RGBA(unsigned int BGR)
-//{
-// if(!(BGR&0xffff)) return 0x50000000;
-// if(DrawSemiTrans && !(BGR&0x8000))
-//  {ubOpaqueDraw=1;return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff);}
-// return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
-//}
-//
-//unsigned int XP8RGBAEx(unsigned int BGR)
-//{
-// if(!(BGR&0xffff)) return 0x03000000;
-// if(DrawSemiTrans && !(BGR&0x8000))
-//  {ubOpaqueDraw=1;return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff);}
-// return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
-//}
-//
-//unsigned int CP8RGBA(unsigned int BGR)
-//{
-// unsigned int l;
-// if(!(BGR&0xffff)) return 0x50000000;
-// if(DrawSemiTrans && !(BGR&0x8000))
-//  {ubOpaqueDraw=1;return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff);}
-// l=((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
-// if(l==0xffffff00) l=0xff000000;
-// return l;
-//}
-//
-//unsigned int CP8RGBAEx(unsigned int BGR)
-//{
-// unsigned int l;
-// if(!(BGR&0xffff)) return 0x03000000;
-// if(DrawSemiTrans && !(BGR&0x8000))
-//  {ubOpaqueDraw=1;return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff);}
-// l=((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
-// if(l==0xffffff00) l=0xff000000;
-// return l;
-//}
-//
+// return big endian(abgr)
 unsigned int XP8RGBA_0(unsigned int BGR)
 {
  if(!(BGR&0xffff)) return 0x50000000;
  return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
 }
-//
-//unsigned int XP8RGBAEx_0(unsigned int BGR)
-//{
-// if(!(BGR&0xffff)) return 0x03000000;
-// return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
-//}
-//
-//unsigned int XP8BGRA_0(unsigned int BGR)
-//{
-// if(!(BGR&0xffff)) return 0x50000000;
-// return ((((BGR>>7)&0xf8)|((BGR<<6)&0xf800)|((BGR<<19)&0xf80000))&0xffffff)|0xff000000;
-//}
-//
-//unsigned int XP8BGRAEx_0(unsigned int BGR)
-//{
-// if(!(BGR&0xffff)) return 0x03000000;
-// return ((((BGR>>7)&0xf8)|((BGR<<6)&0xf800)|((BGR<<19)&0xf80000))&0xffffff)|0xff000000;
-//}
-//
+
+// return big endian(abgr)
 unsigned int CP8RGBA_0(unsigned int BGR)
 {
  unsigned int l;
@@ -292,36 +238,7 @@ unsigned int CP8RGBA_0(unsigned int BGR)
  return l;
 }
 
-//unsigned int CP8RGBAEx_0(unsigned int BGR)
-//{
-// unsigned int l;
-//
-// if(!(BGR&0xffff)) return 0x03000000;
-// l=((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
-// if(l==0xfff8f800) l=0xff000000;
-// return l;
-//}
-//
-//unsigned int CP8BGRA_0(unsigned int BGR)
-//{
-// unsigned int l;
-//
-// if(!(BGR&0xffff)) return 0x50000000;
-// l=((((BGR>>7)&0xf8)|((BGR<<6)&0xf800)|((BGR<<19)&0xf80000))&0xffffff)|0xff000000;
-// if(l==0xff00f8f8) l=0xff000000;
-// return l;
-//}
-//
-//unsigned int CP8BGRAEx_0(unsigned int BGR)
-//{
-// unsigned int l;
-//
-// if(!(BGR&0xffff)) return 0x03000000;
-// l=((((BGR>>7)&0xf8)|((BGR<<6)&0xf800)|((BGR<<19)&0xf80000))&0xffffff)|0xff000000;
-// if(l==0xff00f8f8) l=0xff000000;
-// return l;
-//}
-//
+// return big endian(abgr)
 unsigned int XP8RGBA_1(unsigned int BGR)
 {
  if(!(BGR&0xffff)) return 0x50000000;
@@ -329,115 +246,12 @@ unsigned int XP8RGBA_1(unsigned int BGR)
  return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
 }
 
-//unsigned int XP8RGBAEx_1(unsigned int BGR)
-//{
-// if(!(BGR&0xffff)) return 0x03000000;
-// if(!(BGR&0x8000)) {ubOpaqueDraw=1;return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff);}
-// return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
-//}
-//
-//unsigned int XP8BGRA_1(unsigned int BGR)
-//{
-// if(!(BGR&0xffff)) return 0x50000000;
-// if(!(BGR&0x8000)) {ubOpaqueDraw=1;return ((((BGR>>7)&0xf8)|((BGR<<6)&0xf800)|((BGR<<19)&0xf80000))&0xffffff);}
-// return ((((BGR>>7)&0xf8)|((BGR<<6)&0xf800)|((BGR<<19)&0xf80000))&0xffffff)|0xff000000;
-//}
-//
-//unsigned int XP8BGRAEx_1(unsigned int BGR)
-//{
-// if(!(BGR&0xffff)) return 0x03000000;
-// if(!(BGR&0x8000)) {ubOpaqueDraw=1;return ((((BGR>>7)&0xf8)|((BGR<<6)&0xf800)|((BGR<<19)&0xf80000))&0xffffff);}
-// return ((((BGR>>7)&0xf8)|((BGR<<6)&0xf800)|((BGR<<19)&0xf80000))&0xffffff)|0xff000000;
-//}
-//
+// return big endian(abgr)
 unsigned int P8RGBA(unsigned int BGR)
 {
  if(!(BGR&0xffff)) return 0;
  return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
 }
-//
-//unsigned int P8BGRA(unsigned int BGR)
-//{
-// if(!(BGR&0xffff)) return 0;
-// return ((((BGR>>7)&0xf8)|((BGR<<6)&0xf800)|((BGR<<19)&0xf80000))&0xffffff)|0xff000000;
-//}
-//
-//unsigned short XP5RGBA(unsigned short BGR)
-//{
-// if(!BGR) return 0;
-// if(DrawSemiTrans && !(BGR&0x8000))
-//  {ubOpaqueDraw=1;return ((((BGR<<11))|((BGR>>9)&0x3e)|((BGR<<1)&0x7c0)));}
-// return ((((BGR<<11))|((BGR>>9)&0x3e)|((BGR<<1)&0x7c0)))|1;
-//}
-//
-//unsigned short XP5RGBA_0 (unsigned short BGR)
-//{
-// if(!BGR) return 0;
-//
-// return ((((BGR<<11))|((BGR>>9)&0x3e)|((BGR<<1)&0x7c0)))|1;
-//}
-//
-//unsigned short CP5RGBA_0 (unsigned short BGR)
-//{
-// unsigned short s;
-//
-// if(!BGR) return 0;
-//
-// s=((((BGR<<11))|((BGR>>9)&0x3e)|((BGR<<1)&0x7c0)))|1;
-// if(s==0x07ff) s=1;
-// return s;
-//}
-//
-//unsigned short XP5RGBA_1(unsigned short BGR)
-//{
-// if(!BGR) return 0;
-// if(!(BGR&0x8000))
-//  {ubOpaqueDraw=1;return ((((BGR<<11))|((BGR>>9)&0x3e)|((BGR<<1)&0x7c0)));}
-// return ((((BGR<<11))|((BGR>>9)&0x3e)|((BGR<<1)&0x7c0)))|1;
-//}
-//
-//unsigned short P5RGBA(unsigned short BGR)
-//{
-// if(!BGR) return 0;
-// return ((((BGR<<11))|((BGR>>9)&0x3e)|((BGR<<1)&0x7c0)))|1;
-//}
-
-//unsigned short XP4RGBA(unsigned short BGR)
-//{
-// if(!BGR) return 6;
-// if(DrawSemiTrans && !(BGR&0x8000))
-//  {ubOpaqueDraw=1;return ((((BGR<<11))|((BGR>>9)&0x3e)|((BGR<<1)&0x7c0)));}
-// return (((((BGR&0x1e)<<11))|((BGR&0x7800)>>7)|((BGR&0x3c0)<<2)))|0xf;
-//}
-
-//unsigned short XP4RGBA_0 (unsigned short BGR)
-//{
-// if(!BGR) return 6;
-// return (((((BGR&0x1e)<<11))|((BGR&0x7800)>>7)|((BGR&0x3c0)<<2)))|0xf;
-//}
-
-//unsigned short CP4RGBA_0 (unsigned short BGR)
-//{
-// unsigned short s;
-// if(!BGR) return 6;
-// s=(((((BGR&0x1e)<<11))|((BGR&0x7800)>>7)|((BGR&0x3c0)<<2)))|0xf;
-// if(s==0x0fff) s=0x000f;
-// return s;
-//}
-
-//unsigned short XP4RGBA_1(unsigned short BGR)
-//{
-// if(!BGR) return 6;
-// if(!(BGR&0x8000))
-//  {ubOpaqueDraw=1;return ((((BGR<<11))|((BGR>>9)&0x3e)|((BGR<<1)&0x7c0)));}
-// return (((((BGR&0x1e)<<11))|((BGR&0x7800)>>7)|((BGR&0x3c0)<<2)))|0xf;
-//}
-//
-//unsigned short P4RGBA(unsigned short BGR)
-//{
-// if(!BGR) return 0;
-// return (((((BGR&0x1e)<<11))|((BGR&0x7800)>>7)|((BGR&0x3c0)<<2)))|0xf;
-//}
 
 ////////////////////////////////////////////////////////////////////////
 // CHECK TEXTURE MEM (on plugin startup)
@@ -876,7 +690,7 @@ void DefineTextureWnd(void)
    glError();
   }
 
- glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB,
+ glTexImage2D(GL_TEXTURE_2D, 0,GL_RGBA,
               TWin.Position.x1,
               TWin.Position.y1,
               0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart);
@@ -1400,7 +1214,7 @@ void DefineTextureMovie(void)
 //    sprintf(txtbuffer, "DefineTextureMovie 1\r\n");
 //    DEBUG_print(txtbuffer, DBG_CORE2);
 //    #endif // DISP_DEBUG
-   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
+   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
   }
  else
   {
@@ -1409,7 +1223,7 @@ void DefineTextureMovie(void)
 //    sprintf(txtbuffer, "DefineTextureMovie 2\r\n");
 //    DEBUG_print(txtbuffer, DBG_CORE2);
 //    #endif // DISP_DEBUG
-   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
+   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
   }
 
 // glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
@@ -1615,7 +1429,7 @@ GLuint BlackFake15BitTexture(void)
         for(x1=0;x1<=4;x1++)
          *ta++=0xff000000;
       }
-     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
+     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
 
     }
    else
@@ -1705,7 +1519,7 @@ GLuint Fake15BitTexture(void)
 
    p=(char *)_mem2_malloc(iFTex*iFTex*4);
    memset(p,0,iFTex*iFTex*4);
-   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, iFTex, iFTex, 0, GL_RGBA, GL_UNSIGNED_BYTE, p); glError();
+   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, iFTex, iFTex, 0, GL_RGBA, GL_UNSIGNED_BYTE, p); glError();
    _mem2_free(p);
 
    glGetError();
@@ -2533,12 +2347,12 @@ void DefineSubTextureSort(void)
      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, iFilter); glError();
      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, iFilter); glError();
     }
-   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 256, 256, 0,GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
+   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0,GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
   }
  else
  {
      glBindTexture(GL_TEXTURE_2D, gTexName); glError();
-     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 256, 256, 0,GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
+     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0,GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
  }
 
 // glTexSubImage2D(GL_TEXTURE_2D, 0, XTexS, YTexS,

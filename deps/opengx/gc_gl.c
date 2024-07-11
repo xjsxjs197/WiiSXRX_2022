@@ -620,7 +620,7 @@ void glDeleteTextures(GLsizei n, const GLuint *textures)
         int i = *texlist++;
         if (!(i < 0 || i >= _MAX_GL_TEX)) {
             if (texture_list[i].data != 0)
-                _mem2_free(texture_list[i].data);
+                free(texture_list[i].data);
             texture_list[i].data = 0;
             texture_list[i].used = 0;
         }
@@ -1436,16 +1436,16 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
     // If the specified level is zero, create a onelevel texture to save memory
     if (wi != currtex->w || he != currtex->h || bytesperpixelinternal != currtex->bytespp) {
         if (currtex->data != 0)
-            _mem2_free(currtex->data);
+            free(currtex->data);
         if (level == 0) {
             int required_size = calc_memory(width, height, bytesperpixelinternal);
             int tex_size_rnd = ROUND_32B(required_size);
-            currtex->data = _mem2_memalign(32, tex_size_rnd);
+            currtex->data = memalign(32, tex_size_rnd);
             currtex->onelevel = 1;
         } else {
             int required_size = calc_tex_size(wi, he, bytesperpixelinternal);
             int tex_size_rnd = ROUND_32B(required_size);
-            currtex->data = _mem2_memalign(32, tex_size_rnd);
+            currtex->data = memalign(32, tex_size_rnd);
             currtex->onelevel = 0;
         }
         currtex->minlevel = level;
@@ -1465,11 +1465,11 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
         unsigned int tsize = calc_memory(wi, he, bytesperpixelinternal);
         unsigned char *tempbuf = _mem2_malloc(tsize);
         memcpy(tempbuf, currtex->data, tsize);
-        _mem2_free(currtex->data);
+        free(currtex->data);
 
         int required_size = calc_tex_size(wi, he, bytesperpixelinternal);
         int tex_size_rnd = ROUND_32B(required_size);
-        currtex->data = _mem2_memalign(32, tex_size_rnd);
+        currtex->data = memalign(32, tex_size_rnd);
         currtex->onelevel = 0;
 
         memcpy(currtex->data, tempbuf, tsize);
