@@ -185,12 +185,12 @@ void SetExtGLFuncs(void)
    if(dwActFixes&32)
     {
      TCF[0]=CP8RGBA_0;
-     PalTexturedColourFn=CP8RGBA;                      // -> init col func
+     //PalTexturedColourFn=CP8RGBA;                      // -> init col func
     }
    else
     {
      TCF[0]=XP8RGBA_0;
-     PalTexturedColourFn=XP8RGBA;                      // -> init col func
+     //PalTexturedColourFn=XP8RGBA;                      // -> init col func
     }
 
    TCF[1]=XP8RGBA_1;
@@ -200,7 +200,7 @@ void SetExtGLFuncs(void)
  else                                                  // no opaque mode?
   {
    TCF[0]=TCF[1]=P8RGBA;
-   PalTexturedColourFn=P8RGBA;                         // -> init col func
+   //PalTexturedColourFn=P8RGBA;                         // -> init col func
    glAlphaFunc(GL_NOTEQUAL,0); glError();             // --> set alpha func
 
   }
@@ -443,41 +443,6 @@ static int initEGL(void)
 //	printf("GLES init ok\n");
 
     ogx_initialize();
-
-    /* Enable Texture Mapping ( NEW ) */
-    glEnable( GL_TEXTURE_2D );
-
-    /* Enable smooth shading */
-    glShadeModel( GL_SMOOTH );
-
-    /* Set the background black */
-    glClearColor( 0.6f, 0.6f, 0.6f, 0.0f );
-
-    /* Depth buffer setup */
-    glClearDepth( 1.0f );
-
-    /* Enables Depth Testing */
-    glEnable( GL_DEPTH_TEST );
-
-    /* The Type Of Depth Test To Do */
-    glDepthFunc( GL_LEQUAL );
-
-    /* Really Nice Perspective Calculations */
-    glHint( GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST );
-
-    /* Setup The Ambient Light */
-    glLightfv( GL_LIGHT1, GL_AMBIENT, LightAmbient );
-
-    /* Setup The Diffuse Light */
-    glLightfv( GL_LIGHT1, GL_DIFFUSE, LightDiffuse );
-
-    /* Position The Light */
-	glLightfv( GL_LIGHT1, GL_POSITION, LightPosition );
-
-    /* Enable Light One */
-    glEnable( GL_LIGHT1 );
-
-	glEnable( GL_LIGHTING );
 
 	return 0;
 }
