@@ -99,7 +99,7 @@ int           iVRamSize=0;
 int           iClampType=GL_CLAMP_TO_EDGE;
 int iFilter = GL_LINEAR;
 void               (*LoadSubTexFn) (int,int,short,short);
-unsigned int       (*PalTexturedColourFn)  (unsigned int);
+//unsigned int       (*PalTexturedColourFn)  (unsigned int);
 
 ////////////////////////////////////////////////////////////////////////
 // defines
@@ -154,7 +154,7 @@ int   iFrameTexType=0;
 int   iFrameReadType=0;
 
 unsigned int  (*TCF[2]) (unsigned int);
-unsigned short (*PTCF[2]) (unsigned short);
+//unsigned short (*PTCF[2]) (unsigned short);
 
 ////////////////////////////////////////////////////////////////////////
 // texture cache implementation
@@ -282,16 +282,16 @@ unsigned int XP8RGBA_0(unsigned int BGR)
 // return ((((BGR>>7)&0xf8)|((BGR<<6)&0xf800)|((BGR<<19)&0xf80000))&0xffffff)|0xff000000;
 //}
 //
-//unsigned int CP8RGBA_0(unsigned int BGR)
-//{
-// unsigned int l;
-//
-// if(!(BGR&0xffff)) return 0x50000000;
-// l=((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
-// if(l==0xfff8f800) l=0xff000000;
-// return l;
-//}
-//
+unsigned int CP8RGBA_0(unsigned int BGR)
+{
+ unsigned int l;
+
+ if(!(BGR&0xffff)) return 0x50000000;
+ l=((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
+ if(l==0xfff8f800) l=0xff000000;
+ return l;
+}
+
 //unsigned int CP8RGBAEx_0(unsigned int BGR)
 //{
 // unsigned int l;
@@ -322,13 +322,13 @@ unsigned int XP8RGBA_0(unsigned int BGR)
 // return l;
 //}
 //
-//unsigned int XP8RGBA_1(unsigned int BGR)
-//{
-// if(!(BGR&0xffff)) return 0x50000000;
-// if(!(BGR&0x8000)) {ubOpaqueDraw=1;return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff);}
-// return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
-//}
-//
+unsigned int XP8RGBA_1(unsigned int BGR)
+{
+ if(!(BGR&0xffff)) return 0x50000000;
+ if(!(BGR&0x8000)) {ubOpaqueDraw=1;return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff);}
+ return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
+}
+
 //unsigned int XP8RGBAEx_1(unsigned int BGR)
 //{
 // if(!(BGR&0xffff)) return 0x03000000;
@@ -943,15 +943,11 @@ void LoadStretchWndTexturePage(int pageid, int mode, short cx, short cy)
   		  n_xi = ( ( TXU >> 2 ) & ~0x3c ) + ( ( TXV << 2 ) & 0x3c );
 		  n_yi = ( TXV & ~0xf ) + ( ( TXU >> 4 ) & 0xf );
 
-          //s=*(pa+((*( psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi ) >> ( ( TXU & 0x03 ) << 2 ) ) & 0x0f ));
-          //*ta++=s;
-          PUTLE32(ta, *(pa + ((GETLE16((unsigned short *)(psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi)) >> ( ( TXU & 0x03 ) << 2 ) ) & 0x0f )));
-          ta++;
+          s = *(pa + ((GETLE16((unsigned short *)(psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi)) >> ( ( TXU & 0x03 ) << 2 ) ) & 0x0f ));
+          *ta++ = s;
 
           if(ldx) {
-            //*ta++=s;
-            PUTLE32(ta, s);
-            ta++;
+            *ta++ = s;
             ldx--;
           }
          }
@@ -1039,11 +1035,9 @@ void LoadStretchWndTexturePage(int pageid, int mode, short cx, short cy)
           //s=*(pa+((*( psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi ) >> ( ( TXU & 0x01 ) << 3 ) ) & 0xff));
           //*ta++=s;
           s = *(pa + ((GETLE16((unsigned short *)(psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi)) >> ( ( TXU & 0x01 ) << 3 ) ) & 0xff ));
-          PUTLE32(ta, s);
-          ta++;
+          *ta++ = s;
           if(ldx) {
-            PUTLE32(ta, s);
-            ta++;
+            *ta++ = s;
             ldx--;
           }
          }
@@ -1073,7 +1067,7 @@ void LoadStretchWndTexturePage(int pageid, int mode, short cx, short cy)
       cOSRCPtr=cSRCPtr;ldx=ldxo;
       for(row=g_x1;row<=g_x2-ldxo;row++)
        {
-        s=LTCOL(psxVuw[palstart+ *cSRCPtr++]);
+        s=LTCOL(GETLE16(&psxVuw[palstart+ *cSRCPtr++]));
         *ta++=s;
         if(ldx) {*ta++=s;ldx--;}
        }
@@ -1097,11 +1091,10 @@ void LoadStretchWndTexturePage(int pageid, int mode, short cx, short cy)
       for(row=g_x1;row<=g_x2-ldxo;row++)
        {
         s=LTCOL(GETLE16((unsigned short *)(wSRCPtr++)));
-        PUTLE32(ta, s);
+        *ta++=s;
 
         if(ldx) {
-            PUTLE32(ta, s);
-            ta++;
+            *ta++=s;
             ldx--;
         }
        }
@@ -1168,8 +1161,7 @@ void LoadWndTexturePage(int pageid, int mode, short cx, short cy)
 		  n_yi = ( TXV & ~0xf ) + ( ( TXU >> 4 ) & 0xf );
 
           //*ta++=*(pa+((*( psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi ) >> ( ( TXU & 0x03 ) << 2 ) ) & 0x0f ));
-          PUTLE32(ta, *(pa + ((GETLE16((unsigned short *)(psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi)) >> ( ( TXU & 0x03 ) << 2 ) ) & 0x0f )));
-          ta++;
+          *ta++ = *(pa + ((GETLE16((unsigned short *)(psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi)) >> ( ( TXU & 0x03 ) << 2 ) ) & 0x0f ));
          }
        }
 
@@ -1232,8 +1224,7 @@ void LoadWndTexturePage(int pageid, int mode, short cx, short cy)
 		  n_yi = ( TXV & ~0x7 ) + ( ( TXU >> 5 ) & 0x7 );
 
           //*ta++=*(pa+((*( psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi ) >> ( ( TXU & 0x01 ) << 3 ) ) & 0xff));
-          PUTLE32(ta, *(pa + ((GETLE16((unsigned short *)(psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi)) >> ( ( TXU & 0x01 ) << 3 ) ) & 0xff )));
-          ta++;
+          *ta++ = *(pa + ((GETLE16((unsigned short *)(psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi)) >> ( ( TXU & 0x01 ) << 3 ) ) & 0xff ));
          }
        }
 
@@ -1251,7 +1242,7 @@ void LoadWndTexturePage(int pageid, int mode, short cx, short cy)
     for(column=g_y1;column<=g_y2;column++)
      {
       for(row=g_x1;row<=g_x2;row++)
-       *ta++=LTCOL(psxVuw[palstart+ *cSRCPtr++]);
+       *ta++=LTCOL(GETLE16(&psxVuw[palstart+ *cSRCPtr++]));
       cSRCPtr+=LineOffset;
      }
 
@@ -1464,8 +1455,8 @@ GLuint LoadTextureMovie(void)
    if(PSXDisplay.RGB24)
     {
         #ifdef DISP_DEBUG
-        sprintf(txtbuffer, "LoadTextureMovie %d %d %d %d %d %d\r\n", xrMovieArea.x0, xrMovieArea.x1, xrMovieArea.y0, xrMovieArea.y1, b_X, b_Y);
-        DEBUG_print(txtbuffer, DBG_CORE3);
+        //sprintf(txtbuffer, "LoadTextureMovie %d %d %d %d %d %d\r\n", xrMovieArea.x0, xrMovieArea.x1, xrMovieArea.y0, xrMovieArea.y1, b_X, b_Y);
+        //DEBUG_print(txtbuffer, DBG_CORE3);
         #endif // DISP_DEBUG
 
      unsigned char * pD;
@@ -1480,7 +1471,7 @@ GLuint LoadTextureMovie(void)
          for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
           {
            //*ta++=*((unsigned int *)pD)|0xff000000;
-           PUTLE32(ta, GETLE32((unsigned long *)(pD)) | 0xff000000);
+           PUTLE32(ta, *((unsigned int *)pD)|SWAP32_C(0xff000000));
            ta++;
            pD+=3;
           }
@@ -1503,7 +1494,7 @@ GLuint LoadTextureMovie(void)
          for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
           {
            //*ta++=*((unsigned int *)pD)|0xff000000;
-           PUTLE32(ta, GETLE32((unsigned long *)(pD)) | 0xff000000);
+           PUTLE32(ta, *((unsigned int *)pD)|SWAP32_C(0xff000000));
            ta++;
            pD+=3;
           }
@@ -1538,10 +1529,7 @@ GLuint LoadTextureMovie(void)
          startxy=((1024)*column)+xrMovieArea.x0;
          for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
          {
-             //*ta++=LTCOL(psxVuw[startxy++]|0x8000);
-             PUTLE16(ta, LTCOL(GETLE16((unsigned short *)&psxVuw[startxy]) | 0x8000));
-             startxy++;
-             ta++;
+             *ta++ = LTCOL(GETLE16(&psxVuw[startxy++]) | 0x8000);
          }
 
          *ta++=*(ta-1);
@@ -1562,10 +1550,7 @@ GLuint LoadTextureMovie(void)
          startxy=((1024)*column)+xrMovieArea.x0;
          for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
          {
-             //*ta++=LTCOL(psxVuw[startxy++]|0x8000);
-             PUTLE16(ta, LTCOL(GETLE16((unsigned short *)&psxVuw[startxy]) | 0x8000));
-             startxy++;
-             ta++;
+             *ta++ = LTCOL(GETLE16(&psxVuw[startxy++]) | 0x8000);
          }
         }
 
@@ -1895,8 +1880,7 @@ void LoadSubTexturePageSort(int pageid, int mode, short cx, short cy)
 		  n_yi = ( TXV & ~0xf ) + ( ( TXU >> 4 ) & 0xf );
 
           //*ta++=*(pa+((*( psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi ) >> ( ( TXU & 0x03 ) << 2 ) ) & 0x0f ));
-          PUTLE32(ta, *(pa + ((GETLE16((unsigned short *)(psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi)) >> ( ( TXU & 0x03 ) << 2 ) ) & 0x0f )));
-          ta++;
+          *ta++ = *(pa + ((GETLE16((unsigned short *)(psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi)) >> ( ( TXU & 0x03 ) << 2 ) ) & 0x0f ));
          }
         ta+=xalign;
        }
@@ -1971,8 +1955,7 @@ void LoadSubTexturePageSort(int pageid, int mode, short cx, short cy)
 		  n_yi = ( TXV & ~0x7 ) + ( ( TXU >> 5 ) & 0x7 );
 
           //*ta++=*(pa+((*( psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi ) >> ( ( TXU & 0x01 ) << 3 ) ) & 0xff));
-          PUTLE32(ta, *(pa + ((GETLE16((unsigned short *)(psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi)) >> ( ( TXU & 0x01 ) << 3 ) ) & 0x0ff )));
-          ta++;
+          *ta++ = *(pa + ((GETLE16((unsigned short *)(psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi)) >> ( ( TXU & 0x01 ) << 3 ) ) & 0x0ff ));
          }
         ta+=xalign;
        }
@@ -2015,10 +1998,9 @@ void LoadSubTexturePageSort(int pageid, int mode, short cx, short cy)
       column=dy;do
        {
         row=dx;
-        //do {*ta++=LTCOL(*(wSRCPtr+*cSRCPtr++));row--;} while(row);
+        //do {*ta++=LTCOL(GETLE16(wSRCPtr+*cSRCPtr++));row--;} while(row);
         do {
-            PUTLE32(ta, LTCOL(GETLE16((unsigned short *)(wSRCPtr + *cSRCPtr++))));
-            ta++;
+            *ta++ = LTCOL(GETLE16((unsigned short *)(wSRCPtr + *cSRCPtr++)));
             row--;
         }
         while(row);
@@ -2042,8 +2024,7 @@ void LoadSubTexturePageSort(int pageid, int mode, short cx, short cy)
       row=dx;
       //do {*ta++=LTCOL(*wSRCPtr++);row--;} while(row);
       do {
-            PUTLE32(ta, LTCOL(GETLE16((unsigned short *)(wSRCPtr))));
-            ta++;
+            *ta++ = LTCOL(GETLE16((unsigned short *)(wSRCPtr)));
             row--;
       }
       while(row);
