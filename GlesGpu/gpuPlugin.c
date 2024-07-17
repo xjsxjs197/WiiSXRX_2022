@@ -175,7 +175,7 @@ bKeepRatio = TRUE;
      vram_ptr_orig = (uint16_t *)&globalVram[0];
  }
 
-psxVub=vram_ptr_orig;                           // security offset into double sized psx vram!
+psxVub = (unsigned char *)vram_ptr_orig + 512*1024;                     // security offset into double sized psx vram!
 //psxVsb=(signed char *)psxVub;
 //psxVsw=(signed short *)psxVub;
 //psxVsl=(signed long *)psxVub;
@@ -235,11 +235,6 @@ memset(&VRAMRead,0,sizeof(VRAMLoad_t));
 STATUSREG = 0x14802000;
 GPUIsIdle;
 GPUIsReadyForCommands;
-
-    #ifdef DISP_DEBUG
-    //sprintf(txtbuffer, "GL_GPUinit OK  \r\n");
-    //writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
 
 return 0;
 }
@@ -717,10 +712,6 @@ if ((PSXDisplay.DisplayMode.y == PSXDisplay.DisplayModeNew.y) &&
  }
 else                                                  // some res change?
  {
-     #ifdef DISP_DEBUG
-     //sprintf(txtbuffer, "glLoadIdentity %d %d \r\n", PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y);
-     //DEBUG_print(txtbuffer, DBG_GPU2);
-     #endif // DISP_DEBUG
   glLoadIdentity(); glError();
   glOrtho(0,PSXDisplay.DisplayModeNew.x,              // -> new psx resolution
             PSXDisplay.DisplayModeNew.y, 0, -1, 1); glError();
@@ -832,10 +823,7 @@ static unsigned short usFirstPos=2;
 
 void CALLBACK GL_GPUupdateLace(void)
 {
-    #ifdef DISP_DEBUG
- //writeLogFile("GL_GPUupdateLace 0\r\n");
- #endif // DISP_DEBUG
-if(!(dwActFixes&0x1000))
+if(!(dwActFixes&0x1000))                               
  STATUSREG^=0x80000000;                               // interlaced bit toggle, if the CC game fix is not active (see gpuReadStatus)
 
     static char oldframeLimit = 1;
@@ -876,9 +864,6 @@ else if(usFirstPos==1)                                // initial updates (after 
 
 unsigned long CALLBACK GL_GPUreadStatus(void)
 {
-    #ifdef DISP_DEBUG
- //writeLogFile("GL_GPUreadStatus 0\r\n");
- #endif // DISP_DEBUG
 if(dwActFixes&0x1000)                                 // CC game fix
  {
   static int iNumRead=0;
@@ -915,9 +900,6 @@ return STATUSREG;
 
 void CALLBACK GL_GPUwriteStatus(unsigned long gdata)
 {
-    #ifdef DISP_DEBUG
- //writeLogFile("GL_GPUwriteStatus 0\r\n");
- #endif // DISP_DEBUG
 unsigned long lCommand=(gdata>>24)&0xff;
 
 if(bIsFirstFrame) GLinitialize(NULL, NULL);           // real ogl startup (needed by some emus)
@@ -984,8 +966,6 @@ switch(lCommand)
   // setting display position
   case 0x05:
    {
-     PreviousPSXDisplay.DisplayPosition.x = PSXDisplay.DisplayPosition.x;
-     PreviousPSXDisplay.DisplayPosition.y = PSXDisplay.DisplayPosition.y;
     short sx=(short)(gdata & 0x3ff);
     short sy;
 
@@ -1901,7 +1881,7 @@ do
 
    addr = GETLE32(&baseAddrL[addr>>2])&0xffffff;
   }
- while (addr != 0xffffff);
+ while (!(addr & 0x800000)); // contrary to some documentation, the end-of-linked-list marker is not actually 0xFF'FFFF
                                   // any pointer with bit 23 set will do.
 GPUIsIdle;
 

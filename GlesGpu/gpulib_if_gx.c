@@ -20,11 +20,6 @@
 #include "../Gamecube/DEBUG.h"
 #include "../SoftGPU/oldGpuFps.h"
 
-#define TEXTURE_BLOCK_SIZE   (256 * 256 * 4)
-#define TEXTURE_MOVIE_IDX    48
-#define TEXTURE_FRAME_IDX    49
-#define TEXTURE_MAX_COUNT    50
-
 
 #define _IN_GPU_LIB
 

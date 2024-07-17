@@ -190,11 +190,11 @@ v[3].st.x = fpoint(vertex3->sow);
 v[3].st.y = fpoint(vertex3->tow);
 
 #ifdef DISP_DEBUG
-sprintf(txtbuffer, "Coord %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow);
-DEBUG_print(txtbuffer, DBG_CORE3);
+//sprintf(txtbuffer, "Coord %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow);
+//DEBUG_print(txtbuffer, DBG_CORE3);
 sprintf(txtbuffer, "Vertex %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
 DEBUG_print(txtbuffer, DBG_GPU1);
-sprintf(txtbuffer, "FLG %d %d %d\r\n", CSTEXTURE, CSVERTEX, CSCOLOR);
+sprintf(txtbuffer, "FLG %08x %d %d %d\r\n", ulOLDCOL, CSTEXTURE, CSVERTEX, CSCOLOR);
 DEBUG_print(txtbuffer, DBG_GPU2);
 #endif // DISP_DEBUG
 
@@ -1647,8 +1647,8 @@ void UploadScreen(int Position)
      gl_vy[2] = gl_vy[3] = s;
      gl_ux[0] = gl_ux[3] = gl_vy[0] = gl_vy[1] = 0;
 
-     SetRenderState(((unsigned int)0x01000000));
-     SetRenderMode(((unsigned int)0x01000000), FALSE);  // upload texture data
+     SetRenderState((unsigned int)0x01000000);
+     SetRenderMode((unsigned int)0x01000000, FALSE);  // upload texture data
      offsetScreenUpload(Position);
      assignTextureVRAMWrite();
 
@@ -1748,7 +1748,7 @@ void cmdTexturePage(unsigned char * baseAddr)
 {
  uint32_t gdata = GETLE32(&((uint32_t*)baseAddr)[0]);
  UpdateGlobalTP((unsigned short)gdata);
- GlobalTextREST = (gdata&0x00ffffff)>>9;
+ //GlobalTextREST = (gdata&0x00ffffff)>>9;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2064,8 +2064,8 @@ void primLoadImage(unsigned char * baseAddr)
 {
  unsigned short *sgpuData = ((unsigned short *) baseAddr);
 
- VRAMWrite.x      = GETLEs16(&sgpuData[2])&0x3ff;
- VRAMWrite.y      = GETLEs16(&sgpuData[3])&511;
+ VRAMWrite.x      = GETLEs16(&sgpuData[2])&0x03ff;
+ VRAMWrite.y      = GETLEs16(&sgpuData[3])&iGPUHeightMask;
  VRAMWrite.Width  = GETLEs16(&sgpuData[4]);
  VRAMWrite.Height = GETLEs16(&sgpuData[5]);
 
@@ -2219,10 +2219,14 @@ void CheckWriteUpdate()
 
 void primStoreImage(unsigned char * baseAddr)
 {
+    #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "primStoreImage 0\r\n");
+    DEBUG_print(txtbuffer, DBG_CORE2);
+    #endif // DISP_DEBUG
  unsigned short *sgpuData = ((unsigned short *) baseAddr);
 
  VRAMRead.x      = GETLEs16(&sgpuData[2])&0x03ff;
- VRAMRead.y      = GETLEs16(&sgpuData[3])&0x01ff;
+ VRAMRead.y      = GETLEs16(&sgpuData[3])&iGPUHeightMask;
  VRAMRead.Width  = GETLEs16(&sgpuData[4]);
  VRAMRead.Height = GETLEs16(&sgpuData[5]);
 
@@ -2241,10 +2245,6 @@ void primStoreImage(unsigned char * baseAddr)
 
 void primBlkFill(unsigned char * baseAddr)
 {
-    #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "primBlkFill 0\r\n");
-    DEBUG_print(txtbuffer, DBG_CORE2);
-    #endif // DISP_DEBUG
  uint32_t *gpuData = ((unsigned long *) baseAddr);
  short *sgpuData = ((short *) baseAddr);
 
@@ -2271,6 +2271,11 @@ void primBlkFill(unsigned char * baseAddr)
 
  if(ClipVertexListScreen())
   {
+      #ifdef DISP_DEBUG
+ //sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", vertex[0].x, vertex[0].y , vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y);
+ //sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
+ //DEBUG_print(txtbuffer, DBG_CORE2);
+ #endif // DISP_DEBUG
    PSXDisplay_t * pd;
    if(PSXDisplay.InterlacedTest) pd=&PSXDisplay;
    else                          pd=&PreviousPSXDisplay;
@@ -2296,8 +2301,8 @@ void primBlkFill(unsigned char * baseAddr)
       {
        bDrawTextured     = FALSE;
        bDrawSmoothShaded = FALSE;
-       SetRenderState(((unsigned int)0x01000000));
-       SetRenderMode(((unsigned int)0x01000000), FALSE);
+       SetRenderState((unsigned int)0x01000000);
+       SetRenderMode((unsigned int)0x01000000, FALSE);
        vertex[0].c.lcol=SWAP32_C(0xff000000);
        SETCOL(vertex[0]);
        if(ly0>pd->DisplayPosition.y)
@@ -2322,10 +2327,14 @@ void primBlkFill(unsigned char * baseAddr)
     }
    else
     {
+        #ifdef DISP_DEBUG
+ //sprintf(txtbuffer, "blkFil2 %d %d %d %d %d %d %d %d\r\n", vertex[0].x, vertex[0].y , vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y);
+ //DEBUG_print(txtbuffer, DBG_CORE2);
+ #endif // DISP_DEBUG
      bDrawTextured     = FALSE;
      bDrawSmoothShaded = FALSE;
-     SetRenderState(((unsigned int)0x01000000));
-     SetRenderMode(((unsigned int)0x01000000), FALSE);
+     SetRenderState((unsigned int)0x01000000);
+     SetRenderMode((unsigned int)0x01000000, FALSE);
      vertex[0].c.lcol=gpuData[0] | SWAP32_C(0xff000000);
      SETCOL(vertex[0]);
      //glDisable(GL_SCISSOR_TEST); glError();
@@ -2446,9 +2455,9 @@ void primMoveImage(unsigned char * baseAddr)
  short imageY0,imageX0,imageY1,imageX1,imageSX,imageSY,i,j;
 
  imageX0 = GETLEs16(&sgpuData[2])&0x03ff;
- imageY0 = GETLEs16(&sgpuData[3])&0x01ff;
+ imageY0 = GETLEs16(&sgpuData[3])&iGPUHeightMask;
  imageX1 = GETLEs16(&sgpuData[4])&0x03ff;
- imageY1 = GETLEs16(&sgpuData[5])&0x01ff;
+ imageY1 = GETLEs16(&sgpuData[5])&iGPUHeightMask;
  imageSX = GETLEs16(&sgpuData[6]);
  imageSY = GETLEs16(&sgpuData[7]);
 
@@ -2457,6 +2466,11 @@ void primMoveImage(unsigned char * baseAddr)
  if(imageSY<=0) return;
 
  if(iGPUHeight==1024 && sgpuData[7]>1024) return;
+
+ #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "moveImage %d %d %d %d %d %d %d\r\n", PSXDisplay.RGB24, imageX0, imageY0, imageSX, imageSY, imageX1, imageY1);
+    DEBUG_print(txtbuffer, DBG_CORE2);
+    #endif // DISP_DEBUG
 
  if((imageY0+imageSY)>iGPUHeight ||
     (imageX0+imageSX)>1024       ||
@@ -2601,10 +2615,6 @@ void primMoveImage(unsigned char * baseAddr)
 
 void primTileS(unsigned char * baseAddr)
 {
-    #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "primTileS 0\r\n");
-    DEBUG_print(txtbuffer, DBG_CORE2);
-    #endif // DISP_DEBUG
  unsigned int *gpuData = ((unsigned int*)baseAddr);
  short *sgpuData = ((short *) baseAddr);
 
@@ -2619,6 +2629,10 @@ void primTileS(unsigned char * baseAddr)
  ly0 = sprtY;
 
  offsetST();
+ #ifdef DISP_DEBUG
+ //sprintf(txtbuffer, "TileS %d %d %d %d %d %d %d %d\r\n", vertex[0].x, vertex[0].y , vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y);
+ //DEBUG_print(txtbuffer, DBG_CORE2);
+ #endif // DISP_DEBUG
 
  if((dwActFixes&1) &&                                  // FF7 special game gix (battle cursor)
     sprtX==0 && sprtY==0 && sprtW==24 && sprtH==16)
@@ -2772,6 +2786,10 @@ void primTile8(unsigned char * baseAddr)
 
 void primTile16(unsigned char * baseAddr)
 {
+    #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "primTile16 0\r\n");
+    DEBUG_print(txtbuffer, DBG_CORE2);
+    #endif // DISP_DEBUG
  unsigned int *gpuData = ((unsigned int*)baseAddr);
  short *sgpuData = ((short *) baseAddr);
 
@@ -2930,7 +2948,16 @@ void primSprt8(unsigned char * baseAddr)
  if(s>255) s=255;
  gl_vy[2]=gl_vy[3]=s;
 
- ulClutID=(GETLE32(&gpuData[2])>>16);
+ ulClutID = GETLEs16( &sgpuData[5] );
+    #ifdef DISP_DEBUG
+    int32_t clutY0,clutX0,clutP;
+    clutY0 = (GETLE32(&gpuData[2])>>22) & 511;
+    clutX0 = (GETLE32(&gpuData[2])>>12) & 0x3f0;
+    clutP  = (clutY0<<11) + (clutX0<<1);
+    sprintf(txtbuffer, "primSprt8 %d %d %06x %06x\r\n", ulClutID, clutP, baseAddr[8], baseAddr[9]);
+    DEBUG_print(txtbuffer, DBG_CORE2);
+    //writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
  bDrawTextured = TRUE;
  bDrawSmoothShaded = FALSE;
@@ -3041,7 +3068,16 @@ void primSprt16(unsigned char * baseAddr)
  if(s>255) s=255;
  gl_vy[2]=gl_vy[3]=s;
 
- ulClutID=(GETLE32(&gpuData[2])>>16);
+ ulClutID = GETLEs16(&sgpuData[5]);
+    #ifdef DISP_DEBUG
+    int32_t clutY0,clutX0,clutP;
+    clutY0 = (GETLE32(&gpuData[2])>>22) & 511;
+    clutX0 = (GETLE32(&gpuData[2])>>12) & 0x3f0;
+    clutP  = (clutY0<<11) + (clutX0<<1);
+    sprintf(txtbuffer, "primSprt16 %d %d %06x %06x\r\n", ulClutID, clutP, baseAddr[8], baseAddr[9]);
+    DEBUG_print(txtbuffer, DBG_CORE2);
+    //writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
  bDrawTextured = TRUE;
  bDrawSmoothShaded = FALSE;
@@ -3201,7 +3237,16 @@ void primSprtSRest(unsigned char * baseAddr,unsigned short type)
 
  offsetST();
 
- ulClutID=(GETLE32(&gpuData[2])>>16);
+ ulClutID = GETLEs16(&sgpuData[5]);
+ #ifdef DISP_DEBUG
+    int32_t clutY0,clutX0,clutP;
+    clutY0 = (GETLE32(&gpuData[2])>>22) & 511;
+    clutX0 = (GETLE32(&gpuData[2])>>12) & 0x3f0;
+    clutP  = (clutY0<<11) + (clutX0<<1);
+    sprintf(txtbuffer, "SprtSRest %d %d %06x %06x\r\n", ulClutID, clutP, baseAddr[8], baseAddr[9]);
+    DEBUG_print(txtbuffer, DBG_CORE2);
+    //writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
  bDrawTextured = TRUE;
  bDrawSmoothShaded = FALSE;
@@ -3320,7 +3365,16 @@ void primSprtS(unsigned char * baseAddr)
 
  offsetST();
 
- ulClutID=(GETLE32(&gpuData[2])>>16);
+ ulClutID = GETLEs16(&sgpuData[5]);
+ #ifdef DISP_DEBUG
+    int32_t clutY0,clutX0,clutP;
+    clutY0 = (GETLE32(&gpuData[2])>>22) & 511;
+    clutX0 = (GETLE32(&gpuData[2])>>12) & 0x3f0;
+    clutP  = (clutY0<<11) + (clutX0<<1);
+    sprintf(txtbuffer, "primSprtS %d %d %06x %06x\r\n", ulClutID, clutP, baseAddr[8], baseAddr[9]);
+    DEBUG_print(txtbuffer, DBG_CORE2);
+    //writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
  bDrawTextured = TRUE;
  bDrawSmoothShaded = FALSE;
@@ -3723,7 +3777,7 @@ void primPolyFT3(unsigned char * baseAddr)
  gl_vy[2]=baseAddr[25];//(gpuData[6]>>8)&0xff;
 
  UpdateGlobalTP((unsigned short)(GETLE32(&gpuData[4])>>16));
- ulClutID=GETLE32(&gpuData[2])>>16;
+ ulClutID = GETLEs16(&sgpuData[5]);
 
  bDrawTextured = TRUE;
  bDrawSmoothShaded = FALSE;
@@ -3747,7 +3801,7 @@ void primPolyFT3(unsigned char * baseAddr)
 
  if(!(dwActFixes&0x10))
   {
-   if(DoLineCheck(GETLE32(&gpuData))) return;
+   if(DoLineCheck(gpuData)) return;
   }
 
  PRIMdrawTexturedTri(&vertex[0], &vertex[1], &vertex[2]);
@@ -4163,7 +4217,7 @@ void primPolyFT4(unsigned char * baseAddr)
  gl_ux[3]=baseAddr[32];//(gpuData[8]&0xff);
 
  UpdateGlobalTP((unsigned short)(GETLE32(&gpuData[4])>>16));
- ulClutID=(GETLE32(&gpuData[2])>>16);
+ ulClutID = GETLEs16(&sgpuData[5]);
 
  bDrawTextured = TRUE;
  bDrawSmoothShaded = FALSE;
@@ -4236,7 +4290,7 @@ void primPolyGT3(unsigned char *baseAddr)
  gl_vy[2]=baseAddr[33];//(gpuData[8]>>8)&0xff;
 
  UpdateGlobalTP((unsigned short)(GETLE32(&gpuData[5])>>16));
- ulClutID=(GETLE32(&gpuData[2])>>16);
+ ulClutID = GETLEs16(&sgpuData[5]);
 
  bDrawTextured = TRUE;
  bDrawSmoothShaded = TRUE;
@@ -4394,7 +4448,7 @@ void primPolyGT4(unsigned char *baseAddr)
  gl_vy[3]=baseAddr[45];//(gpuData[11]>>8)&0xff;
 
  UpdateGlobalTP((unsigned short)(GETLE32(&gpuData[5])>>16));
- ulClutID=(GETLE32(&gpuData[2])>>16);
+ ulClutID = GETLEs16(&sgpuData[5]);
 
  bDrawTextured     = TRUE;
  bDrawSmoothShaded = TRUE;

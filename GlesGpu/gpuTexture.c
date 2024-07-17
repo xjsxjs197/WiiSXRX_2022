@@ -128,8 +128,8 @@ void               (*LoadSubTexFn) (int,int,short,short);
 
 #define MAXWNDTEXCACHE 128
 
-#define XCHECK(pos1,pos2) ((pos1.c[0]>=pos2.c[1])&&(pos1.c[1]<=pos2.c[0])&&(pos1.c[2]>=pos2.c[3])&&(pos1.c[3]<=pos2.c[2]))
-#define INCHECK(pos2,pos1) ((pos1.c[0]<=pos2.c[0]) && (pos1.c[1]>=pos2.c[1]) && (pos1.c[2]<=pos2.c[2]) && (pos1.c[3]>=pos2.c[3]))
+#define XCHECK(pos1,pos2) ((pos1.c.y2>=pos2.c.y1)&&(pos1.c.y1<=pos2.c.y2)&&(pos1.c.x2>=pos2.c.x1)&&(pos1.c.x1<=pos2.c.x2))
+#define INCHECK(pos2,pos1) ((pos1.c.y2<=pos2.c.y2) && (pos1.c.y1>=pos2.c.y1) && (pos1.c.x2<=pos2.c.x2) && (pos1.c.x1>=pos2.c.x1))
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -533,7 +533,7 @@ void MarkFree(textureSubCacheEntryS * tsx)
  int j,iMax;unsigned char x1,y1,dx,dy;
 
  uls=pxSsubtexLeft[tsx->cTexID];
- iMax=uls->l;ul=uls+1;
+ iMax=GETLE32((unsigned long *)(uls));ul=uls+1;
 
  if(!iMax) return;
 
@@ -542,17 +542,17 @@ void MarkFree(textureSubCacheEntryS * tsx)
 
  if(j<CSUBSIZE-2)
   {
-   if(j==iMax) uls->l=uls->l+1;
+   if(j==iMax) PUTLE32((unsigned long *)(uls), GETLE32((unsigned long *)(uls)) + 1);
 
-   x1=tsx->posTX;dx=tsx->pos.c[2]-tsx->pos.c[3];
+   x1=tsx->posTX;dx=tsx->pos.c.x2-tsx->pos.c.x1;
    if(tsx->posTX) {x1--;dx+=3;}
-   y1=tsx->posTY;dy=tsx->pos.c[0]-tsx->pos.c[1];
+   y1=tsx->posTY;dy=tsx->pos.c.y2-tsx->pos.c.y1;
    if(tsx->posTY) {y1--;dy+=3;}
 
-   ul->c[3]=x1;
-   ul->c[2]=dx;
-   ul->c[1]=y1;
-   ul->c[0]=dy;
+   ul->c.x1=x1;
+   ul->c.x2=dx;
+   ul->c.y1=y1;
+   ul->c.y2=dy;
   }
 }
 
@@ -606,32 +606,32 @@ void InvalidateSubSTextureArea(int X,int Y,int W, int H)
        if(x2<x1) {sw=x1;x1=x2;x2=sw;}
 
        if (dwGPUVersion == 2)
-        npos.l=0x00ff00ff;
+        npos.l=SWAP32_C(0x00ff00ff);
        else
-        npos.l=((x1-xa)<<(26-k))|((x2-xa)<<(18-k))|y1|y2;
+        PUTLE32(&npos.l, ((x1-xa)<<(26-k))|((x2-xa)<<(18-k))|y1|y2);
 
         {
-         tsb=pscSubtexStore[k][j]+SOFFA;iMax=tsb->pos.l;tsb++;
+         tsb=pscSubtexStore[k][j]+SOFFA;iMax=GETLE32((char *)tsb + 4);tsb++;
          for(i=0;i<iMax;i++,tsb++)
           if(tsb->ClutID && XCHECK(tsb->pos,npos)) {tsb->ClutID=0;MarkFree(tsb);}
 
 //         if(npos.l & 0x00800000)
           {
-           tsb=pscSubtexStore[k][j]+SOFFB;iMax=tsb->pos.l;tsb++;
+           tsb=pscSubtexStore[k][j]+SOFFB;iMax=GETLE32((char *)tsb + 4);tsb++;
            for(i=0;i<iMax;i++,tsb++)
             if(tsb->ClutID && XCHECK(tsb->pos,npos)) {tsb->ClutID=0;MarkFree(tsb);}
           }
 
 //         if(npos.l & 0x00000080)
           {
-           tsb=pscSubtexStore[k][j]+SOFFC;iMax=tsb->pos.l;tsb++;
+           tsb=pscSubtexStore[k][j]+SOFFC;iMax=GETLE32((char *)tsb + 4);tsb++;
            for(i=0;i<iMax;i++,tsb++)
             if(tsb->ClutID && XCHECK(tsb->pos,npos)) {tsb->ClutID=0;MarkFree(tsb);}
           }
 
 //         if(npos.l & 0x00800080)
           {
-           tsb=pscSubtexStore[k][j]+SOFFD;iMax=tsb->pos.l;tsb++;
+           tsb=pscSubtexStore[k][j]+SOFFD;iMax=GETLE32((char *)tsb + 4);tsb++;
            for(i=0;i<iMax;i++,tsb++)
             if(tsb->ClutID && XCHECK(tsb->pos,npos)) {tsb->ClutID=0;MarkFree(tsb);}
           }
@@ -1094,10 +1094,10 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
  int i;short cx,cy;
  EXLong npos;
 
- npos.c[3]=TWin.Position.x0;
- npos.c[2]=TWin.OPosition.x1;
- npos.c[1]=TWin.Position.y0;
- npos.c[0]=TWin.OPosition.y1;
+ npos.c.x1=TWin.Position.x0;
+ npos.c.x2=TWin.OPosition.x1;
+ npos.c.y1=TWin.Position.y0;
+ npos.c.y2=TWin.OPosition.y1;
 
  g_x1=TWin.Position.x0;g_x2=g_x1+TWin.Position.x1-1;
  g_y1=TWin.Position.y0;g_y2=g_y1+TWin.Position.y1-1;
@@ -1210,20 +1210,20 @@ void DefineTextureMovie(void)
      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, iFilter); glError();
     }
 
-//   #ifdef DISP_DEBUG
-//    sprintf(txtbuffer, "DefineTextureMovie 1\r\n");
-//    DEBUG_print(txtbuffer, DBG_CORE2);
-//    #endif // DISP_DEBUG
    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
   }
  else
   {
    gTexName=gTexMovieName;glBindTexture(GL_TEXTURE_2D, gTexName); glError();
-//   #ifdef DISP_DEBUG
-//    sprintf(txtbuffer, "DefineTextureMovie 2\r\n");
-//    DEBUG_print(txtbuffer, DBG_CORE2);
-//    #endif // DISP_DEBUG
-   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
+   #ifdef DISP_DEBUG
+   sprintf(txtbuffer, "glTexSubImage2D 0 0 %d %d\r\n",   (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0));
+   DEBUG_print(txtbuffer, DBG_CORE3);
+   #endif // DISP_DEBUG
+   glTexImage2D(GL_TEXTURE_2D, 0,  GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
+//   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+//                   (xrMovieArea.x1-xrMovieArea.x0),
+//				   (xrMovieArea.y1-xrMovieArea.y0),
+//				   0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
   }
 
 // glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
@@ -1269,7 +1269,7 @@ GLuint LoadTextureMovie(void)
    if(PSXDisplay.RGB24)
     {
         #ifdef DISP_DEBUG
-        //sprintf(txtbuffer, "LoadTextureMovie %d %d %d %d %d %d\r\n", xrMovieArea.x0, xrMovieArea.x1, xrMovieArea.y0, xrMovieArea.y1, b_X, b_Y);
+        //sprintf(txtbuffer, "LoadMovie1 %d %d %d %d %d %d\r\n", xrMovieArea.x0, xrMovieArea.x1, xrMovieArea.y0, xrMovieArea.y1, b_X, b_Y);
         //DEBUG_print(txtbuffer, DBG_CORE3);
         #endif // DISP_DEBUG
 
@@ -1324,9 +1324,9 @@ GLuint LoadTextureMovie(void)
    else
     {
         #ifdef DISP_DEBUG
-    //sprintf(txtbuffer, "LoadTextureMovie 2\r\n");
-    //DEBUG_print(txtbuffer, DBG_CORE3);
-    #endif // DISP_DEBUG
+        sprintf(txtbuffer, "LoadMovie2 %d %d %d %d %d %d\r\n", xrMovieArea.x0, xrMovieArea.x1, xrMovieArea.y0, xrMovieArea.y1, b_X, b_Y);
+        DEBUG_print(txtbuffer, DBG_CORE3);
+        #endif // DISP_DEBUG
 
      unsigned int (*LTCOL)(unsigned int);
      unsigned int *ta;
@@ -1603,14 +1603,14 @@ GLuint Fake15BitTexture(void)
                       iResY-rSrc.bottom-rRatioRect.top,
                       x1,y1); glError();
 
- if(glGetError())
-  {
-   char * p=(char *)_mem2_malloc(iFTex*iFTex*4);
-   memset(p,0,iFTex*iFTex*4);
-   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, iFTex, iFTex,
-                   GL_RGBA, GL_UNSIGNED_BYTE, p); glError();
-   _mem2_free(p);
-  }
+// if(glGetError()) // never error
+//  {
+//   char * p=(char *)_mem2_malloc(iFTex*iFTex*4);
+//   memset(p,0,iFTex*iFTex*4);
+//   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, iFTex, iFTex,
+//                   GL_RGBA, GL_UNSIGNED_BYTE, p); glError();
+//   _mem2_free(p);
+//  }
 
 
  ubOpaqueDraw=0;
@@ -1769,7 +1769,7 @@ void LoadSubTexturePageSort(int pageid, int mode, short cx, short cy)
 		  n_yi = ( TXV & ~0x7 ) + ( ( TXU >> 5 ) & 0x7 );
 
           //*ta++=*(pa+((*( psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi ) >> ( ( TXU & 0x01 ) << 3 ) ) & 0xff));
-          *ta++ = *(pa + ((GETLE16((unsigned short *)(psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi)) >> ( ( TXU & 0x01 ) << 3 ) ) & 0x0ff ));
+          *ta++ = *(pa + ((GETLE16((unsigned short *)(psxVuw + ((GlobalTextAddrY + n_yi)*1024) + GlobalTextAddrX + n_xi)) >> ( ( TXU & 0x01 ) << 3 ) ) & 0xff ));
          }
         ta+=xalign;
        }
@@ -1839,6 +1839,7 @@ void LoadSubTexturePageSort(int pageid, int mode, short cx, short cy)
       //do {*ta++=LTCOL(*wSRCPtr++);row--;} while(row);
       do {
             *ta++ = LTCOL(GETLE16((unsigned short *)(wSRCPtr)));
+			wSRCPtr++;
             row--;
       }
       while(row);
@@ -2395,7 +2396,7 @@ void DoTexGarbageCollection(void)
    for(iC=0;iC<4;iC++)                                 // loop all texture rect info areas
     {
      tsb=pscSubtexStore[i][j]+(iC*SOFFB);
-     iMax=tsb->pos.l;
+     iMax=GETLE32((char *)tsb + 4);
      if(iMax)
       do
        {
@@ -2438,7 +2439,7 @@ unsigned char * CheckTextureInSubSCache(int TextureMode,unsigned int GivenClutId
  tsg=pscSubtexStore[TextureMode][GlobalTexturePage];
  tsg+=((GivenClutId&CLUTCHK)>>CLUTSHIFT)*SOFFB;
 
- iMax=tsg->pos.l;
+ iMax=GETLE32((char *)tsg + 4);
  if(iMax)
   {
    i=iMax;
@@ -2449,8 +2450,8 @@ unsigned char * CheckTextureInSubSCache(int TextureMode,unsigned int GivenClutId
         (INCHECK(tsb->pos,npos)))
       {
         {
-         cx=tsb->pos.c[3]-tsb->posTX;
-         cy=tsb->pos.c[1]-tsb->posTY;
+         cx=tsb->pos.c.x1-tsb->posTX;
+         cy=tsb->pos.c.y1-tsb->posTY;
 
          gl_ux[0]-=cx;
          gl_ux[1]-=cx;
@@ -2506,18 +2507,18 @@ unsigned char * CheckTextureInSubSCache(int TextureMode,unsigned int GivenClutId
          {
           if(!tsx) {tsx=tsb;rfree.l=npos.l;}           //
           else      tsb->ClutID=0;
-          rfree.c[3]=min(rfree.c[3],tsb->pos.c[3]);
-          rfree.c[2]=max(rfree.c[2],tsb->pos.c[2]);
-          rfree.c[1]=min(rfree.c[1],tsb->pos.c[1]);
-          rfree.c[0]=max(rfree.c[0],tsb->pos.c[0]);
+          rfree.c.x1=min(rfree.c.x1,tsb->pos.c.x1);
+          rfree.c.x2=max(rfree.c.x2,tsb->pos.c.x2);
+          rfree.c.y1=min(rfree.c.y1,tsb->pos.c.y1);
+          rfree.c.y2=max(rfree.c.y2,tsb->pos.c.y2);
           MarkFree(tsb);
          }
 
        if(tsx)                                         // 3. if one or more found, create a new rect with bigger size
         {
          *((unsigned int *)&gl_ux[4])=npos.l=rfree.l;
-         rx=(int)rfree.c[2]-(int)rfree.c[3];
-         ry=(int)rfree.c[0]-(int)rfree.c[1];
+         rx=(int)rfree.c.x2-(int)rfree.c.x1;
+         ry=(int)rfree.c.y2-(int)rfree.c.y1;
          DoTexGarbageCollection();
 
          goto ENDLOOP3;
@@ -2527,7 +2528,7 @@ unsigned char * CheckTextureInSubSCache(int TextureMode,unsigned int GivenClutId
      iMax=1;
     }
    tsx=tsg+iMax;
-   tsg->pos.l=iMax;
+   PUTLE32((char *)tsg + 4, iMax);
   }
 
  //----------------------------------------------------//
@@ -2546,7 +2547,7 @@ ENDLOOP3:
  for(k=0;k<iSortTexCnt;k++)
   {
    uls=pxSsubtexLeft[iC];
-   iMax=uls->l;ul=uls+1;
+   iMax=GETLE32((unsigned long *)(uls));ul=uls+1;
 
    //--------------------------------------------------//
    // first time
@@ -2556,25 +2557,25 @@ ENDLOOP3:
      rfree.l=0;
 
      if(rx>252 && ry>252)
-      {uls->l=1;ul->l=0xffffffff;ul=0;goto ENDLOOP;}
+      {PUTLE32((unsigned long *)(uls), 1);ul->l=0xffffffff;ul=0;goto ENDLOOP;}
 
      if(rx<253)
       {
-       uls->l=uls->l+1;
-       ul->c[3]=rx;
-       ul->c[2]=255-rx;
-       ul->c[1]=0;
-       ul->c[0]=ry;
+       PUTLE32((unsigned long *)(uls), GETLE32((unsigned long *)(uls)) + 1);
+       ul->c.x1=rx;
+       ul->c.x2=255-rx;
+       ul->c.y1=0;
+       ul->c.y2=ry;
        ul++;
       }
 
      if(ry<253)
       {
-       uls->l=uls->l+1;
-       ul->c[3]=0;
-       ul->c[2]=255;
-       ul->c[1]=ry;
-       ul->c[0]=255-ry;
+       PUTLE32((unsigned long *)(uls), GETLE32((unsigned long *)(uls)) + 1);
+       ul->c.x1=0;
+       ul->c.x2=255;
+       ul->c.y1=ry;
+       ul->c.y2=255-ry;
       }
      ul=0;
      goto ENDLOOP;
@@ -2584,40 +2585,40 @@ ENDLOOP3:
    for(i=0;i<iMax;i++,ul++)
     {
      if(ul->l!=0xffffffff &&
-        ry<=ul->c[0]      &&
-        rx<=ul->c[2])
+        ry<=ul->c.y2      &&
+        rx<=ul->c.x2)
       {
        rfree=*ul;
-       mx=ul->c[2]-2;
-       my=ul->c[0]-2;
+       mx=ul->c.x2-2;
+       my=ul->c.y2-2;
        if(rx<mx && ry<my)
         {
-         ul->c[3]+=rx;
-         ul->c[2]-=rx;
-         ul->c[0]=ry;
+         ul->c.x1+=rx;
+         ul->c.x2-=rx;
+         ul->c.y2=ry;
 
          for(ul=uls+1,j=0;j<iMax;j++,ul++)
           if(ul->l==0xffffffff) break;
 
          if(j<CSUBSIZE-2)
           {
-           if(j==iMax) uls->l=uls->l+1;
+           if(j==iMax) PUTLE32((unsigned long *)(uls), GETLE32((unsigned long *)(uls)) + 1);
 
-           ul->c[3]=rfree.c[3];
-           ul->c[2]=rfree.c[2];
-           ul->c[1]=rfree.c[1]+ry;
-           ul->c[0]=rfree.c[0]-ry;
+           ul->c.x1=rfree.c.x1;
+           ul->c.x2=rfree.c.x2;
+           ul->c.y1=rfree.c.y1+ry;
+           ul->c.y2=rfree.c.y2-ry;
           }
         }
        else if(rx<mx)
         {
-         ul->c[3]+=rx;
-         ul->c[2]-=rx;
+         ul->c.x1+=rx;
+         ul->c.x2-=rx;
         }
        else if(ry<my)
         {
-         ul->c[1]+=ry;
-         ul->c[0]-=ry;
+         ul->c.y1+=ry;
+         ul->c.y2-=ry;
         }
        else
         {
@@ -2666,41 +2667,41 @@ ENDLOOP:
    rfree.l=0;
 
    if(rx>252 && ry>252)
-    {uls->l=1;ul->l=0xffffffff;}
+    {PUTLE32((unsigned long *)(uls), 1);ul->l=0xffffffff;}
    else
     {
      if(rx<253)
       {
-       uls->l=uls->l+1;
-       ul->c[3]=rx;
-       ul->c[2]=255-rx;
-       ul->c[1]=0;
-       ul->c[0]=ry;
+       PUTLE32((unsigned long *)(uls), GETLE32((unsigned long *)(uls)) + 1);
+       ul->c.x1=rx;
+       ul->c.x2=255-rx;
+       ul->c.y1=0;
+       ul->c.y2=ry;
        ul++;
       }
      if(ry<253)
       {
-       uls->l=uls->l+1;
-       ul->c[3]=0;
-       ul->c[2]=255;
-       ul->c[1]=ry;
-       ul->c[0]=255-ry;
+       PUTLE32((unsigned long *)(uls), GETLE32((unsigned long *)(uls)) + 1);
+       ul->c.x1=0;
+       ul->c.x2=255;
+       ul->c.y1=ry;
+       ul->c.y2=255-ry;
       }
     }
-   tsg->pos.l=1;tsx=tsg+1;
+   PUTLE32((char *)tsg + 4, 1);tsx=tsg+1;
   }
 
- rfree.c[3]+=cXAdj;
- rfree.c[1]+=cYAdj;
+ rfree.c.x1+=cXAdj;
+ rfree.c.y1+=cYAdj;
 
  tsx->cTexID   =*pCache=iC;
  tsx->pos      = npos;
  tsx->ClutID   = GivenClutId;
- tsx->posTX    = rfree.c[3];
- tsx->posTY    = rfree.c[1];
+ tsx->posTX    = rfree.c.x1;
+ tsx->posTY    = rfree.c.y1;
 
- cx=gl_ux[7]-rfree.c[3];
- cy=gl_ux[5]-rfree.c[1];
+ cx=gl_ux[7]-rfree.c.x1;
+ cy=gl_ux[5]-rfree.c.y1;
 
  gl_ux[0]-=cx;
  gl_ux[1]-=cx;
@@ -2711,8 +2712,8 @@ ENDLOOP:
  gl_vy[2]-=cy;
  gl_vy[3]-=cy;
 
- XTexS=rfree.c[3];
- YTexS=rfree.c[1];
+ XTexS=rfree.c.x1;
+ YTexS=rfree.c.y1;
 
  return &tsx->Opaque;
 }
@@ -2733,8 +2734,8 @@ BOOL GetCompressTexturePlace(textureSubCacheEntryS * tsx)
  EXLong * ul=0, * uls, rfree;
  unsigned char cXAdj=1,cYAdj=1;
 
- rx=(int)tsx->pos.c[2]-(int)tsx->pos.c[3];
- ry=(int)tsx->pos.c[0]-(int)tsx->pos.c[1];
+ rx=(int)tsx->pos.c.x2-(int)tsx->pos.c.x1;
+ ry=(int)tsx->pos.c.y2-(int)tsx->pos.c.y1;
 
  rx+=3;if(rx>255) {cXAdj=0;rx=255;}
  ry+=3;if(ry>255) {cYAdj=0;ry=255;}
@@ -2744,7 +2745,7 @@ BOOL GetCompressTexturePlace(textureSubCacheEntryS * tsx)
  for(k=0;k<iSortTexCnt;k++)
   {
    uls=pxSsubtexLeft[iC];
-   iMax=uls->l;ul=uls+1;
+   iMax=GETLE32((unsigned long *)(uls));ul=uls+1;
 
    //--------------------------------------------------//
    // first time
@@ -2754,25 +2755,25 @@ BOOL GetCompressTexturePlace(textureSubCacheEntryS * tsx)
      rfree.l=0;
 
      if(rx>252 && ry>252)
-      {uls->l=1;ul->l=0xffffffff;ul=0;goto TENDLOOP;}
+      {PUTLE32((unsigned long *)(uls), 1);ul->l=0xffffffff;ul=0;goto TENDLOOP;}
 
      if(rx<253)
       {
-       uls->l=uls->l+1;
-       ul->c[3]=rx;
-       ul->c[2]=255-rx;
-       ul->c[1]=0;
-       ul->c[0]=ry;
+       PUTLE32((unsigned long *)(uls), GETLE32((unsigned long *)(uls)) + 1);
+       ul->c.x1=rx;
+       ul->c.x2=255-rx;
+       ul->c.y1=0;
+       ul->c.y2=ry;
        ul++;
       }
 
      if(ry<253)
       {
-       uls->l=uls->l+1;
-       ul->c[3]=0;
-       ul->c[2]=255;
-       ul->c[1]=ry;
-       ul->c[0]=255-ry;
+       PUTLE32((unsigned long *)(uls), GETLE32((unsigned long *)(uls)) + 1);
+       ul->c.x1=0;
+       ul->c.x2=255;
+       ul->c.y1=ry;
+       ul->c.y2=255-ry;
       }
      ul=0;
      goto TENDLOOP;
@@ -2782,41 +2783,41 @@ BOOL GetCompressTexturePlace(textureSubCacheEntryS * tsx)
    for(i=0;i<iMax;i++,ul++)
     {
      if(ul->l!=0xffffffff &&
-        ry<=ul->c[0]      &&
-        rx<=ul->c[2])
+        ry<=ul->c.y2      &&
+        rx<=ul->c.x2)
       {
        rfree=*ul;
-       mx=ul->c[2]-2;
-       my=ul->c[0]-2;
+       mx=ul->c.x2-2;
+       my=ul->c.y2-2;
 
        if(rx<mx && ry<my)
         {
-         ul->c[3]+=rx;
-         ul->c[2]-=rx;
-         ul->c[0]=ry;
+         ul->c.x1+=rx;
+         ul->c.x2-=rx;
+         ul->c.y2=ry;
 
          for(ul=uls+1,j=0;j<iMax;j++,ul++)
           if(ul->l==0xffffffff) break;
 
          if(j<CSUBSIZE-2)
           {
-           if(j==iMax) uls->l=uls->l+1;
+           if(j==iMax) PUTLE32((unsigned long *)(uls), GETLE32((unsigned long *)(uls)) + 1);
 
-           ul->c[3]=rfree.c[3];
-           ul->c[2]=rfree.c[2];
-           ul->c[1]=rfree.c[1]+ry;
-           ul->c[0]=rfree.c[0]-ry;
+           ul->c.x1=rfree.c.x1;
+           ul->c.x2=rfree.c.x2;
+           ul->c.y1=rfree.c.y1+ry;
+           ul->c.y2=rfree.c.y2-ry;
           }
         }
        else if(rx<mx)
         {
-         ul->c[3]+=rx;
-         ul->c[2]-=rx;
+         ul->c.x1+=rx;
+         ul->c.x2-=rx;
         }
        else if(ry<my)
         {
-         ul->c[1]+=ry;
-         ul->c[0]-=ry;
+         ul->c.y1+=ry;
+         ul->c.y2-=ry;
         }
        else
         {
@@ -2839,15 +2840,15 @@ BOOL GetCompressTexturePlace(textureSubCacheEntryS * tsx)
 TENDLOOP:
  if(ul) return FALSE;
 
- rfree.c[3]+=cXAdj;
- rfree.c[1]+=cYAdj;
+ rfree.c.x1+=cXAdj;
+ rfree.c.y1+=cYAdj;
 
  tsx->cTexID   = iC;
- tsx->posTX    = rfree.c[3];
- tsx->posTY    = rfree.c[1];
+ tsx->posTX    = rfree.c.x1;
+ tsx->posTY    = rfree.c.y1;
 
- XTexS=rfree.c[3];
- YTexS=rfree.c[1];
+ XTexS=rfree.c.x1;
+ YTexS=rfree.c.y1;
 
  return TRUE;
 }
@@ -2896,7 +2897,7 @@ void CompressTextureSpace(void)
 
      for(m=0;m<4;m++,tsg+=SOFFB)
       {
-       iMax=tsg->pos.l;
+       iMax=GETLE32((char *)tsg + 4);
 
        tsx=tsg+1;
        for(i=0;i<iMax;i++,tsx++)
@@ -2908,10 +2909,10 @@ void CompressTextureSpace(void)
             {
              if(tsx->ClutID==tsb->ClutID)
               {
-               r.c[3]=min(r.c[3],tsb->pos.c[3]);
-               r.c[2]=max(r.c[2],tsb->pos.c[2]);
-               r.c[1]=min(r.c[1],tsb->pos.c[1]);
-               r.c[0]=max(r.c[0],tsb->pos.c[0]);
+               r.c.x1=min(r.c.x1,tsb->pos.c.x1);
+               r.c.x2=max(r.c.x2,tsb->pos.c.x2);
+               r.c.y1=min(r.c.y1,tsb->pos.c.y1);
+               r.c.y2=max(r.c.y2,tsb->pos.c.y2);
                tsb->ClutID=0;
               }
             }
@@ -2973,7 +2974,7 @@ void CompressTextureSpace(void)
         {
          tsx=tsg+iMax;
          while(!tsx->ClutID && iMax) {tsx--;iMax--;}
-         tsg->pos.l=iMax;
+         PUTLE32((char *)tsg + 4, iMax);
         }
 
       }

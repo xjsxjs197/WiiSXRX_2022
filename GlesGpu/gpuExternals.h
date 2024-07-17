@@ -242,17 +242,22 @@ COLTAG
 
 } OGLVertex;
 
-typedef union EXShortTag
-{
- unsigned char  c[2];
- unsigned short s;
-} EXShort;
+//typedef union EXShortTag
+//{
+// unsigned char  c[2];
+// unsigned short s;
+//} EXShort;
 
 typedef union EXLongTag
 {
- unsigned char c[4];
+ //unsigned char c[4];
+ #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+ struct { unsigned char y2, y1, x2, x1; } c;
+ #else
+ struct { unsigned char x1, x2, y1, y2; } c;
+ #endif
  unsigned int  l;
- EXShort       s[2];
+ //EXShort       s[2];
 } EXLong;
 
 
