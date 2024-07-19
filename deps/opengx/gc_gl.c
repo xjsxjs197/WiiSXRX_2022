@@ -63,6 +63,33 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #define ROUND_32B(x) (((x) + 31) & (~31))
 
+static FILE* fdebugLog = NULL;
+static char *debugLogFile = "sd:/wiisxrx/debugLog.txt";
+static char txtbuffer[1024];
+
+static void openLogFile() {
+    if (!fdebugLog) {
+        fdebugLog = fopen(debugLogFile, "a+");
+    }
+}
+
+static void closeLogFile() {
+    if (fdebugLog) {
+        fclose(fdebugLog);
+        fdebugLog = NULL;
+    }
+}
+
+static void writeLogFile(char* string) {
+    closeLogFile();
+
+    openLogFile();
+
+    fprintf(fdebugLog, string);
+
+    closeLogFile();
+}
+
 glparams_ _ogx_state;
 
 typedef struct
@@ -644,7 +671,6 @@ void glGenTextures(GLsizei n, GLuint *textures)
             texture_list[i].minlevel = 20;
             *texlist++ = i;
             n--;
-            return;
         }
     }
 }
@@ -1322,12 +1348,24 @@ static int calc_tex_size(int w, int h, int bytespp)
     return size;
 }
 // Returns the number of bytes required to store a texture with all its bitmaps
-static int calc_original_size(int level, int s)
+static int calc_original_size(int level, int s, GLint internalFormat)
 {
     while (level > 0) {
         s = 2 * s;
         level--;
     }
+
+    // update by xjsxjs197
+    if (internalFormat == GL_RGBA)
+    {
+        int cnt = s / 4;
+        if ((s % 4) > 0)
+        {
+            cnt++;
+        }
+        s = cnt * 4;
+    }
+
     return s;
 }
 // Given w,h,level,and bpp, returns the offset to the mipmap at level "level"
@@ -1352,6 +1390,8 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
                   GLint border, GLenum format, GLenum type, const GLvoid *data)
 {
 
+    //sprintf(txtbuffer, "Image2D %d %d\r\n", width, height);
+    //writeLogFile(txtbuffer);
     // Initial checks
     if (texture_list[glparamstate.glcurtex].used == 0)
         return;
@@ -1428,9 +1468,11 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
 
     // We *may* need to delete and create a new texture, depending if the user wants to add some mipmap levels
     // or wants to create a new texture from scratch
-    int wi = calc_original_size(level, width);
-    int he = calc_original_size(level, height);
+    int wi = calc_original_size(level, width, internalFormat);
+    int he = calc_original_size(level, height, internalFormat);
     currtex->bytespp = bytesperpixelinternal;
+    //sprintf(txtbuffer, "Image2D 2 %d %d\r\n", wi, he);
+    //writeLogFile(txtbuffer);
 
     // Check if the texture has changed its geometry and proceed to delete it
     // If the specified level is zero, create a onelevel texture to save memory
@@ -1438,19 +1480,22 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
         if (currtex->data != 0)
             free(currtex->data);
         if (level == 0) {
-            int required_size = calc_memory(width, height, bytesperpixelinternal);
+            int required_size = calc_memory(wi, he, bytesperpixelinternal);
             int tex_size_rnd = ROUND_32B(required_size);
             currtex->data = memalign(32, tex_size_rnd);
+            memset(currtex->data, 0, tex_size_rnd);
             currtex->onelevel = 1;
         } else {
             int required_size = calc_tex_size(wi, he, bytesperpixelinternal);
             int tex_size_rnd = ROUND_32B(required_size);
             currtex->data = memalign(32, tex_size_rnd);
+            memset(currtex->data, 0, tex_size_rnd);
             currtex->onelevel = 0;
         }
         currtex->minlevel = level;
         currtex->maxlevel = level;
     }
+    //writeLogFile("Image2D 3\r\n");
     currtex->w = wi;
     currtex->h = he;
     if (currtex->maxlevel < level)
@@ -1475,11 +1520,12 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
         memcpy(currtex->data, tempbuf, tsize);
         _mem2_free(tempbuf);
     }
+    //writeLogFile("Image2D 4\r\n");
 
     // Inconditionally convert to 565 all inputs without alpha channel
     // Alpha inputs may be stripped if the user specifies an alpha-free internal format
     if (bytesperpixelinternal > 0) {
-        unsigned char *tempbuf = _mem2_malloc(width * height * bytesperpixelinternal);
+        unsigned char *tempbuf = memalign(32, width * height * bytesperpixelinternal);
 
         if (format == GL_RGB) {
             _ogx_conv_rgb_to_rgb565(data, type, tempbuf, width, height);
@@ -1487,7 +1533,9 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
             if (internalFormat == GL_RGB) {
                 _ogx_conv_rgba_to_rgb565(data, type, tempbuf, width, height);
             } else if (internalFormat == GL_RGBA) {
+                //writeLogFile("Image2D 5\r\n");
                 _ogx_conv_rgba_to_rgba32(data, type, tempbuf, width, height);
+                //writeLogFile("Image2D 6\r\n");
             } else if (internalFormat == GL_LUMINANCE_ALPHA) {
                 _ogx_conv_rgba_to_luminance_alpha((unsigned char *)data, tempbuf, width, height);
             }
@@ -1500,6 +1548,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
         }
 
         // Swap R<->B if necessary
+        //writeLogFile("Image2D 6.5\r\n");
         if (needswap && internalFormat != GL_LUMINANCE_ALPHA) {
             if (bytesperpixelinternal == 4)
                 _ogx_swap_rgba(tempbuf, width * height);
@@ -1507,20 +1556,23 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
                 _ogx_swap_rgb565((unsigned short *)tempbuf, width * height);
         }
 
+        //writeLogFile("Image2D 6.6\r\n");
         // Calculate the offset and address of the mipmap
         int offset = calc_mipmap_offset(level, currtex->w, currtex->h, currtex->bytespp);
         unsigned char *dst_addr = currtex->data;
         dst_addr += offset;
 
         // Finally write to the dest. buffer scrambling the data
+        //writeLogFile("Image2D 7\r\n");
         if (bytesperpixelinternal == 4) {
             _ogx_scramble_4b(tempbuf, dst_addr, width, height);
         } else {
             _ogx_scramble_2b((unsigned short *)tempbuf, dst_addr, width, height);
         }
-        _mem2_free(tempbuf);
+        free(tempbuf);
+        //writeLogFile("Image2D 8\r\n");
 
-        DCFlushRange(dst_addr, width * height * bytesperpixelinternal);
+        DCFlushRange(dst_addr, currtex->w * currtex->h * bytesperpixelinternal);
     } else {
         // Compressed texture
 
@@ -1551,6 +1603,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
         GX_InitTexObj(&currtex->texobj, currtex->data,
                       currtex->w, currtex->h, GX_TF_CMPR, currtex->wraps, currtex->wrapt, GX_TRUE);
     }
+    //writeLogFile("Image2D 9\r\n");
     GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
 }
 

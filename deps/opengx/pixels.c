@@ -242,14 +242,30 @@ void _ogx_scramble_4b(unsigned char *src, void *dst,
         for (i = 0; i < width; i += 4) {
             for (c = 0; c < 4; c++) {
                 for (argb = 0; argb < 4; argb++) {
-                    *p++ = src[((i + argb) + ((block + c) * width)) * 4];
-                    *p++ = src[((i + argb) + ((block + c) * width)) * 4 + 3];
+                    if ((i + argb) >= width || (block + c) >= height)
+                    {
+                        *p++ = 0;
+                        *p++ = 0;
+                    }
+                    else
+                    {
+                        *p++ = src[((i + argb) + ((block + c) * width)) * 4];
+                        *p++ = src[((i + argb) + ((block + c) * width)) * 4 + 3];
+                    }
                 }
             }
             for (c = 0; c < 4; c++) {
                 for (argb = 0; argb < 4; argb++) {
-                    *p++ = src[(((i + argb) + ((block + c) * width)) * 4) + 2];
-                    *p++ = src[(((i + argb) + ((block + c) * width)) * 4) + 1];
+                    if ((i + argb) >= width || (block + c) >= height)
+                    {
+                        *p++ = 0;
+                        *p++ = 0;
+                    }
+                    else
+                    {
+                        *p++ = src[(((i + argb) + ((block + c) * width)) * 4) + 2];
+                        *p++ = src[(((i + argb) + ((block + c) * width)) * 4) + 1];
+                    }
                 }
             }
         }
