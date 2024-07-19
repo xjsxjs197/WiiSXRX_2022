@@ -79,7 +79,8 @@ typedef struct glparams_
     float clearz;
 
     void *index_array;
-    float *vertex_array, *texcoord_array, *normal_array, *color_array;
+    float *vertex_array, *texcoord_array, *normal_array;
+    unsigned char *color_array;
     int vertex_stride, color_stride, index_stride, texcoord_stride, normal_stride;
     char vertex_enabled, normal_enabled, texcoord_enabled, index_enabled, color_enabled;
 
