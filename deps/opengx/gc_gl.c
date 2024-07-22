@@ -1592,19 +1592,19 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
 
     if (internalFormat == GL_RGBA) {
         GX_InitTexObj(&currtex->texobj, currtex->data,
-                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_TRUE);
+                      currtex->w, currtex->h, GX_TF_RGBA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
     } else if (internalFormat == GL_RGB) {
         GX_InitTexObj(&currtex->texobj, currtex->data,
-                      currtex->w, currtex->h, GX_TF_RGB565, currtex->wraps, currtex->wrapt, GX_TRUE);
+                      currtex->w, currtex->h, GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE);
     } else if (internalFormat == GL_LUMINANCE_ALPHA) {
         GX_InitTexObj(&currtex->texobj, currtex->data,
-                      currtex->w, currtex->h, GX_TF_IA8, currtex->wraps, currtex->wrapt, GX_TRUE);
+                      currtex->w, currtex->h, GX_TF_IA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
     } else {
         GX_InitTexObj(&currtex->texobj, currtex->data,
-                      currtex->w, currtex->h, GX_TF_CMPR, currtex->wraps, currtex->wrapt, GX_TRUE);
+                      currtex->w, currtex->h, GX_TF_CMPR, GX_CLAMP, GX_CLAMP, GX_FALSE);
     }
     //writeLogFile("Image2D 9\r\n");
-    GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
+    //GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
 }
 
 void glColorMask(GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha)
@@ -2229,7 +2229,9 @@ static void setup_render_stages(int texen)
             setup_texture_stage(GX_TEVSTAGE2, GX_CC_CPREV, GX_CA_APREV, GX_COLORNULL);
             GX_SetNumTevStages(3);
         }
-    } else {
+    }
+    else
+    {
         // Unlit scene
         // TEV STAGE 0: Modulate the vertex color with the texture 0. Outputs to GX_TEVPREV
         // Optimization: If color_enabled is false (constant vertex color) use the constant color register

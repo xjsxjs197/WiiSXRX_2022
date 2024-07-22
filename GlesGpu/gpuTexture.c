@@ -690,6 +690,10 @@ void DefineTextureWnd(void)
    glError();
   }
 
+#ifdef DISP_DEBUG
+sprintf(txtbuffer, "TextureWnd %d %d\r\n", TWin.Position.x1, TWin.Position.y1);
+DEBUG_print(txtbuffer, DBG_SPU1);
+#endif // DISP_DEBUG
  glTexImage2D(GL_TEXTURE_2D, 0,GL_RGBA,
               TWin.Position.x1,
               TWin.Position.y1,
@@ -1210,20 +1214,24 @@ void DefineTextureMovie(void)
      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, iFilter); glError();
     }
 
+   #ifdef DISP_DEBUG
+   sprintf(txtbuffer, "DefineTextureMovie 0 0 256 256\r\n");
+   DEBUG_print(txtbuffer,  DBG_SPU2);
+   #endif // DISP_DEBUG
    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
   }
  else
   {
    gTexName=gTexMovieName;glBindTexture(GL_TEXTURE_2D, gTexName); glError();
    #ifdef DISP_DEBUG
-   sprintf(txtbuffer, "glTexSubImage2D 0 0 %d %d\r\n",   (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0));
-   DEBUG_print(txtbuffer, DBG_CORE3);
+   sprintf(txtbuffer, "glTexSubImage2D 0 0 %d %d\r\n",     (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0));
+   DEBUG_print(txtbuffer,  DBG_SPU2);
    #endif // DISP_DEBUG
-   glTexImage2D(GL_TEXTURE_2D, 0,  GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
-//   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-//                   (xrMovieArea.x1-xrMovieArea.x0),
-//				   (xrMovieArea.y1-xrMovieArea.y0),
-//				   0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
+   //glTexImage2D(GL_TEXTURE_2D, 0,  GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
+   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                   (xrMovieArea.x1-xrMovieArea.x0),
+				   (xrMovieArea.y1-xrMovieArea.y0),
+				   0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
   }
 
 // glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
@@ -1324,8 +1332,8 @@ GLuint LoadTextureMovie(void)
    else
     {
         #ifdef DISP_DEBUG
-        sprintf(txtbuffer, "LoadMovie2 %d %d %d %d %d %d\r\n", xrMovieArea.x0, xrMovieArea.x1, xrMovieArea.y0, xrMovieArea.y1, b_X, b_Y);
-        DEBUG_print(txtbuffer, DBG_CORE3);
+        //sprintf(txtbuffer, "LoadMovie2 %d %d %d %d %d %d\r\n", xrMovieArea.x0, xrMovieArea.x1, xrMovieArea.y0, xrMovieArea.y1, b_X, b_Y);
+        //DEBUG_print(txtbuffer, DBG_CORE3);
         #endif // DISP_DEBUG
 
      unsigned int (*LTCOL)(unsigned int);
@@ -1429,6 +1437,10 @@ GLuint BlackFake15BitTexture(void)
         for(x1=0;x1<=4;x1++)
          *ta++=0xff000000;
       }
+      #ifdef DISP_DEBUG
+sprintf(txtbuffer, "Fake15BitTexture 4 4\r\n");
+DEBUG_print(txtbuffer, DBG_SPU1);
+#endif // DISP_DEBUG
      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
 
     }
@@ -1519,6 +1531,10 @@ GLuint Fake15BitTexture(void)
 
    p=(char *)_mem2_malloc(iFTex*iFTex*4);
    memset(p,0,iFTex*iFTex*4);
+   #ifdef DISP_DEBUG
+sprintf(txtbuffer, "Fake15BitTexture            %d %d\r\n", iFTex, iFTex);
+DEBUG_print(txtbuffer, DBG_SPU1);
+#endif // DISP_DEBUG
    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, iFTex, iFTex, 0, GL_RGBA, GL_UNSIGNED_BYTE, p); glError();
    _mem2_free(p);
 
@@ -2353,7 +2369,12 @@ void DefineSubTextureSort(void)
  else
  {
      glBindTexture(GL_TEXTURE_2D, gTexName); glError();
-     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0,GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
+     #ifdef DISP_DEBUG
+   sprintf(txtbuffer, "DefineSubTextureSort %d %d %d %d\r\n", XTexS, YTexS, DXTexS, DYTexS);
+   DEBUG_print(txtbuffer, DBG_SPU3);
+   #endif // DISP_DEBUG
+     //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0,GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
+     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, DXTexS, DYTexS, 0,GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
  }
 
 // glTexSubImage2D(GL_TEXTURE_2D, 0, XTexS, YTexS,
