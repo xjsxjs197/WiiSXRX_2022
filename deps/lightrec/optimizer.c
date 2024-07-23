@@ -1440,13 +1440,11 @@ static int lightrec_swap_load_delays(struct lightrec_state *state,
 			switch (next.i.op) {
 			case OP_LWL:
 			case OP_LWR:
-			case OP_REGIMM:
-			case OP_BEQ:
-			case OP_BNE:
-			case OP_BLEZ:
-			case OP_BGTZ:
 				continue;
 			}
+
+			if (has_delay_slot(next))
+				continue;
 
 			if (opcode_reads_register(next, c.i.rt)
 			    && !opcode_writes_register(next, c.i.rs)) {
