@@ -60,7 +60,7 @@ $(LIB_DIR)/libzstd.a: $(ZSTDLIB_OBJS)
 COMMON_FLAGS	:= -g -O2 -DNDEBUG
 INCLUDES		:= -Iinclude -I$(LIBOGC_INC)
 DEFINES			:= -mrvl -DGEKKO -mcpu=750 -meabi -mhard-float -ffunction-sections
-CFLAGS			:= $(COMMON_FLAGS) $(INCLUDES) $(INCLUDE) $(DEFINES) --pedantic -D__BIG_ENDIAN__ -D__powerpc__ -DBIG_ENDIAN -D__BYTE_ORDER__=__ORDER_BIG_ENDIAN__
+CFLAGS			:= $(COMMON_FLAGS) $(INCLUDES) $(INCLUDE) $(DEFINES) --pedantic -D__BIG_ENDIAN__ -D__powerpc__ -DBIG_ENDIAN -D__BYTE_ORDER__=__ORDER_BIG_ENDIAN__ -DZSTD_LEGACY_SUPPORT=4
 
 # Test link flags.
 LDFLAGS			:= $(COMMON_FLAGS) -L$(LIB_DIR) -L$(LIBOGC_LIB) $(PORTLIBS_PATH)/wii/lib
