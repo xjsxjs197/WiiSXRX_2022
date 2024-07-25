@@ -109,7 +109,7 @@ static struct {
 	u8 AdpcmActive;
 	u32 LastReadSeekCycles;
 
-	u8 unused7;
+	u8 RetryDetected;
 
 	u8 DriveState;
 	u8 FastForward;
@@ -677,6 +677,16 @@ static void cdrPlayInterrupt_Autopause(s16* cddaBuf)
 		cdr.ReportDelay--;
 }
 
+/*
+static boolean canDoTurbo(void)
+{
+	u32 c = psxRegs.cycle;
+	return Config.TurboCD && !cdr.RetryDetected && !cdr.AdpcmActive
+		//&& c - psxRegs.intCycle[PSXINT_SPUDMA].sCycle > (u32)cdReadTime * 2
+		&& c - psxRegs.intCycle[PSXINT_MDECOUTDMA].sCycle > (u32)cdReadTime * 16;
+}
+*/
+
 static int cdrSeekTime(unsigned char *target)
 {
 	int diff = msf2sec(cdr.SetSectorPlay) - msf2sec(target);
@@ -753,6 +763,11 @@ static void msfiSub(u8 *msfi, u32 count)
 			msfi[0]--;
 		}
 	}
+}
+
+static int msfiEq(const u8 *a, const u8 *b)
+{
+	return a[0] == b[0] && a[1] == b[1] && a[2] == b[2];
 }
 
 void cdrPlayReadInterrupt(void)
@@ -935,6 +950,9 @@ void cdrInterrupt(void) {
 				set_loc[1] = btoi(cdr.Param[1]);
 				set_loc[2] = btoi(cdr.Param[2]);
 				set_loc[3] = 0;
+				cdr.RetryDetected = msfiEq(cdr.SetSector, set_loc)
+					&& !cdr.SetlocPending;
+				//cdr.RetryDetected |= msfiEq(cdr.Param, cdr.Transfer);
 				*((u32*)cdr.SetSector) = *((u32*)set_loc);
 				cdr.SetlocPending = 1;
 				cdr.errorRetryhack = 0;
@@ -1602,6 +1620,8 @@ unsigned char cdrRead0(void) {
 	cdr.Ctrl |= cdr.AdpcmActive << 2;
 	cdr.Ctrl |= cdr.ResultReady << 5;
 
+	//cdr.Ctrl &= ~0x40;
+	//if (cdr.FifoOffset != DATA_SIZE)
 	cdr.Ctrl |= 0x40; // data fifo not empty
 
 	// What means the 0x10 and the 0x08 bits? I only saw it used by the bios
@@ -1817,7 +1837,7 @@ void cdrWrite3(unsigned char rt) {
 }
 
 void psxDma3(u32 madr, u32 bcr, u32 chcr) {
-	u32 cdsize, max_words;
+	u32 cdsize, max_words, cycles;
 	int size;
 	u8 *ptr;
 
@@ -1856,7 +1876,8 @@ void psxDma3(u32 madr, u32 bcr, u32 chcr) {
 			}
 			psxCpu->Clear(madr, cdsize / 4);
 
-			set_event(PSXINT_CDRDMA, (cdsize / 4) * 24);
+			cycles = (cdsize / 4) * 24;
+			set_event(PSXINT_CDRDMA, cycles);
 
 			HW_DMA3_CHCR &= SWAPu32(~0x10000000);
 			if (chcr & 0x100) {
@@ -1865,7 +1886,7 @@ void psxDma3(u32 madr, u32 bcr, u32 chcr) {
 			}
 			else {
 				// halted
-				psxRegs.cycle += (cdsize/4) * 24 - 20;
+				psxRegs.cycle += cycles - 20;
 			}
 			return;
 
