@@ -1882,18 +1882,18 @@ static void rec_load_direct(struct lightrec_cstate *cstate,
 		else
 			addr_mask = 0x1fffffff;
 
-		reg_imm = lightrec_alloc_reg_temp_with_value(reg_cache, _jit,
-							     addr_mask);
 		if (!state->mirrors_mapped) {
+			reg_imm = lightrec_alloc_reg_temp_with_value(reg_cache, _jit,
+								     addr_mask);
 			jit_andi(tmp, addr_reg, BIT(28));
 			jit_rshi_u(tmp, tmp, 28 - 22);
 			jit_orr(tmp, tmp, reg_imm);
 			jit_andr(rt, addr_reg, tmp);
-		} else {
-			jit_andr(rt, addr_reg, reg_imm);
-		}
 
-		lightrec_free_reg(reg_cache, reg_imm);
+			lightrec_free_reg(reg_cache, reg_imm);
+		} else {
+			rec_and_mask(cstate, _jit, rt, addr_reg, addr_mask);
+		}
 
 		if (state->offset_ram) {
 			offt_reg = lightrec_get_reg_with_value(reg_cache,
