@@ -438,9 +438,9 @@ if(lClearOnSwap)                                      // clear buffer after swap
   if(bDisplayNotSet)                                  // -> set new vals
    SetOGLDisplaySettings(1);
 
-  g=((GLclampf)GREEN(lClearOnSwapColor))/255.0f;      // -> get col
-  b=((GLclampf)BLUE(lClearOnSwapColor))/255.0f;
-  r=((GLclampf)RED(lClearOnSwapColor))/255.0f;
+  g=((GLclampf)GREEN(lClearOnSwapColor));      // -> get col
+  b=((GLclampf)BLUE(lClearOnSwapColor));
+  r=((GLclampf)RED(lClearOnSwapColor));
   glDisable(GL_SCISSOR_TEST); glError();
   glClearColor(r,g,b,128); glError();                 // -> clear
   glClear(uiBufferBits); glError();
@@ -823,7 +823,7 @@ static unsigned short usFirstPos=2;
 
 void CALLBACK GL_GPUupdateLace(void)
 {
-if(!(dwActFixes&0x1000))                               
+if(!(dwActFixes&0x1000))
  STATUSREG^=0x80000000;                               // interlaced bit toggle, if the CC game fix is not active (see gpuReadStatus)
 
     static char oldframeLimit = 1;
@@ -1847,7 +1847,7 @@ return FALSE;
 // core gives a dma chain to gpu: same as the gpuwrite interface funcs
 ////////////////////////////////////////////////////////////////////////
 
-long CALLBACK GL_GPUdmaChain(unsigned long * baseAddrL, unsigned long addr)
+long CALLBACK GL_GPUdmaChain(unsigned long * baseAddrL, unsigned long addr, uint32_t *progress_addr, int32_t *cycles_last_cmd)
 {
     #ifdef DISP_DEBUG
  //writeLogFile("GL_GPUdmaChain 0\r\n");
@@ -1881,9 +1881,9 @@ do
 
    addr = GETLE32(&baseAddrL[addr>>2])&0xffffff;
   }
- while (!(addr & 0x800000)); // contrary to some documentation, the end-of-linked-list marker is not actually 0xFF'FFFF
-                                  // any pointer with bit 23 set will do.
-GPUIsIdle;
+ while (addr != 0xffffff);
+
+ GPUIsIdle;
 
  return dmaWords;
 }

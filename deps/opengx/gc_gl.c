@@ -639,6 +639,14 @@ void glBindTexture(GLenum target, GLuint texture)
     }
 }
 
+void glBindTextureBef(GLenum target, GLuint texture)
+{
+    if (texture < 0 || texture >= _MAX_GL_TEX)
+        return;
+
+    glparamstate.glcurtex = texture;
+}
+
 void glDeleteTextures(GLsizei n, const GLuint *textures)
 {
     const GLuint *texlist = textures;
@@ -1566,6 +1574,17 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
         //writeLogFile("Image2D 7\r\n");
         if (bytesperpixelinternal == 4) {
             _ogx_scramble_4b(tempbuf, dst_addr, width, height);
+
+            // DEBUG out put
+//            static int txtNum = 0;
+//            static FILE* fTexLog = NULL;
+//            if (txtNum < 10)
+//            {
+//                sprintf(txtbuffer, "sd:/wiisxrx/debugTex%d_%d_%d", txtNum++, width, height);
+//                fTexLog = fopen(txtbuffer, "wb");
+//                fwrite(tempbuf, width * height * bytesperpixelinternal, 1, fTexLog);
+//                fclose(fTexLog);
+//            }
         } else {
             _ogx_scramble_2b((unsigned short *)tempbuf, dst_addr, width, height);
         }
@@ -1588,21 +1607,22 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
     }
 
     // Slow but necessary! The new textures may be in the same region of some old cached textures
-    GX_InvalidateTexAll();
-
-    if (internalFormat == GL_RGBA) {
-        GX_InitTexObj(&currtex->texobj, currtex->data,
-                      currtex->w, currtex->h, GX_TF_RGBA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
-    } else if (internalFormat == GL_RGB) {
-        GX_InitTexObj(&currtex->texobj, currtex->data,
-                      currtex->w, currtex->h, GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE);
-    } else if (internalFormat == GL_LUMINANCE_ALPHA) {
-        GX_InitTexObj(&currtex->texobj, currtex->data,
-                      currtex->w, currtex->h, GX_TF_IA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
-    } else {
-        GX_InitTexObj(&currtex->texobj, currtex->data,
-                      currtex->w, currtex->h, GX_TF_CMPR, GX_CLAMP, GX_CLAMP, GX_FALSE);
-    }
+//    GX_InvalidateTexAll();
+//
+//    if (internalFormat == GL_RGBA) {
+//        GX_InitTexObj(&currtex->texobj, currtex->data,
+//                      currtex->w, currtex->h, GX_TF_RGBA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
+//    } else if (internalFormat == GL_RGB) {
+//        GX_InitTexObj(&currtex->texobj, currtex->data,
+//                      currtex->w, currtex->h, GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE);
+//    } else if (internalFormat == GL_LUMINANCE_ALPHA) {
+//        GX_InitTexObj(&currtex->texobj, currtex->data,
+//                      currtex->w, currtex->h, GX_TF_IA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
+//    } else {
+//        GX_InitTexObj(&currtex->texobj, currtex->data,
+//                      currtex->w, currtex->h, GX_TF_CMPR, GX_CLAMP, GX_CLAMP, GX_FALSE);
+//    }
+//    GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
     //writeLogFile("Image2D 9\r\n");
     //GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
 }
@@ -2363,6 +2383,15 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 
     // Invalidate vertex data as may have been modified by the user
     GX_InvVtxCache();
+    if (texen)
+    {
+        gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
+        GX_InvalidateTexAll();
+        GX_InitTexObj(&currtex->texobj, currtex->data,
+                              currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_TRUE);
+        GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+        GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
+    }
 
     bool loop = (mode == GL_LINE_LOOP);
     GX_Begin(gxmode, GX_VTXFMT0, count + loop);

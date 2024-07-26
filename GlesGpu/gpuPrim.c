@@ -154,6 +154,9 @@ static unsigned int DoubleBGR2RGB (unsigned int BGR)
 //}
 
 
+#define VERTEX_STRIDE    5
+#define VERTEX2_STRIDE   6
+
 ////////////////////////////////////////////////////////////////////////
 // OpenGL primitive drawing commands
 ////////////////////////////////////////////////////////////////////////
@@ -177,30 +180,33 @@ v[1].xyz.z = fpoint(vertex2->z);
 v[1].st.x = fpoint(vertex2->sow);
 v[1].st.y = fpoint(vertex2->tow);
 
-v[2].xyz.x = fpoint(vertex3->x);
-v[2].xyz.y = fpoint(vertex3->y);
-v[2].xyz.z = fpoint(vertex3->z);
-v[2].st.x = fpoint(vertex3->sow);
-v[2].st.y = fpoint(vertex3->tow);
+v[2].xyz.x = fpoint(vertex4->x);
+v[2].xyz.y = fpoint(vertex4->y);
+v[2].xyz.z = fpoint(vertex4->z);
+v[2].st.x = fpoint(vertex4->sow);
+v[2].st.y = fpoint(vertex4->tow);
 
-v[3].xyz.x = fpoint(vertex4->x);
-v[3].xyz.y = fpoint(vertex4->y);
-v[3].xyz.z = fpoint(vertex4->z);
-v[3].st.x = fpoint(vertex4->sow);
-v[3].st.y = fpoint(vertex4->tow);
+v[3].xyz.x = fpoint(vertex3->x);
+v[3].xyz.y = fpoint(vertex3->y);
+v[3].xyz.z = fpoint(vertex3->z);
+v[3].st.x = fpoint(vertex3->sow);
+v[3].st.y = fpoint(vertex3->tow);
 
 #ifdef DISP_DEBUG
-sprintf(txtbuffer, "Coord1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow);
-DEBUG_print(txtbuffer, DBG_CORE3);
-sprintf(txtbuffer, "Vertex1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
-DEBUG_print(txtbuffer, DBG_GPU1);
+//sprintf(txtbuffer, "Coord1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow);
+//sprintf(txtbuffer, "gl_ux %d %d %d %d %d %d %d %d\r\n", gl_ux[0], gl_ux[1], gl_ux[2], gl_ux[3], gl_ux[4], gl_ux[5], gl_ux[6], gl_ux[7]);
+//sprintf(txtbuffer, "sizeof(v[0]) %d\r\n", sizeof(v[0]) / sizeof(float));
+//DEBUG_print(txtbuffer, DBG_CORE3);
+//sprintf(txtbuffer, "Vertex1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
+//sprintf(txtbuffer, "gl_uy %d %d %d %d\r\n", gl_vy[0], gl_vy[1], gl_vy[2], gl_vy[3]);
+//DEBUG_print(txtbuffer, DBG_GPU1);
 #endif // DISP_DEBUG
 
 glDisableClientState(GL_COLOR_ARRAY);glError();
 glEnableClientState(GL_TEXTURE_COORD_ARRAY);glError();
 glEnableClientState(GL_VERTEX_ARRAY);glError();
-glTexCoordPointer(2, GL_FLOAT, sizeof(v[0]), &v[0].st);glError();
-glVertexPointer(3, GL_FLOAT, sizeof(v[0]), &v[0].xyz);glError();
+glTexCoordPointer(2, GL_FLOAT, VERTEX_STRIDE, &v[0].st);glError();
+glVertexPointer(3, GL_FLOAT, VERTEX_STRIDE, &v[0].xyz);glError();
 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);glError();
 CSTEXTURE=CSVERTEX=1;
 CSCOLOR=0;
@@ -234,10 +240,11 @@ v[2].st.y = fpoint(vertex3->tow);
 glDisableClientState(GL_COLOR_ARRAY);glError();
 glEnableClientState(GL_TEXTURE_COORD_ARRAY);glError();
 glEnableClientState(GL_VERTEX_ARRAY);glError();
-glTexCoordPointer(2, GL_FLOAT, sizeof(v[0]), &v[0].st);glError();
-glVertexPointer(3, GL_FLOAT, sizeof(v[0]), &v[0].xyz);glError();
+glTexCoordPointer(2, GL_FLOAT, VERTEX_STRIDE, &v[0].st);glError();
+glVertexPointer(3, GL_FLOAT, VERTEX_STRIDE, &v[0].xyz);glError();
 #ifdef DISP_DEBUG
-sprintf(txtbuffer, "Coord2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow);
+//sprintf(txtbuffer, "Coord2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow);
+sprintf(txtbuffer, "Coord2 %d %d %d %d %d %d\r\n", gl_ux[0], gl_vy[0], gl_ux[1], gl_vy[1], gl_ux[2], gl_vy[2]);
 DEBUG_print(txtbuffer, DBG_CORE3);
 sprintf(txtbuffer, "Vertex2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y);
 DEBUG_print(txtbuffer, DBG_GPU1);
@@ -290,11 +297,12 @@ glEnableClientState(GL_TEXTURE_COORD_ARRAY);glError();
 glEnableClientState(GL_VERTEX_ARRAY);glError();
 glEnableClientState(GL_COLOR_ARRAY);glError();
 
-glTexCoordPointer(2, GL_FLOAT, sizeof(v[0]), &v[0].st);glError();
-glVertexPointer(3, GL_FLOAT, sizeof(v[0]), &v[0].xyz);glError();
+glTexCoordPointer(2, GL_FLOAT, VERTEX2_STRIDE, &v[0].st);glError();
+glVertexPointer(3, GL_FLOAT, VERTEX2_STRIDE, &v[0].xyz);glError();
 glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(v[0]), &v[0].rgba);glError();
 #ifdef DISP_DEBUG
-sprintf(txtbuffer, "Coord3 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow);
+//sprintf(txtbuffer, "Coord3 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow);
+sprintf(txtbuffer, "Coord3 %d %d %d %d %d %d\r\n", gl_ux[0], gl_vy[0], gl_ux[1], gl_vy[1], gl_ux[2], gl_vy[2]);
 DEBUG_print(txtbuffer, DBG_CORE3);
 sprintf(txtbuffer, "Vertex3 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y);
 DEBUG_print(txtbuffer, DBG_GPU1);
@@ -331,39 +339,39 @@ v[1].rgba.g = vertex2->c.col[1];
 v[1].rgba.b = vertex2->c.col[2];
 v[1].rgba.a = vertex2->c.col[3];
 
-v[2].xyz.x = fpoint(vertex3->x);
-v[2].xyz.y = fpoint(vertex3->y);
-v[2].xyz.z = fpoint(vertex3->z);
-v[2].st.x = fpoint(vertex3->sow);
-v[2].st.y = fpoint(vertex3->tow);
-v[2].rgba.r = vertex3->c.col[0];
-v[2].rgba.g = vertex3->c.col[1];
-v[2].rgba.b = vertex3->c.col[2];
-v[2].rgba.a = vertex3->c.col[3];
+v[2].xyz.x = fpoint(vertex4->x);
+v[2].xyz.y = fpoint(vertex4->y);
+v[2].xyz.z = fpoint(vertex4->z);
+v[2].st.x = fpoint(vertex4->sow);
+v[2].st.y = fpoint(vertex4->tow);
+v[2].rgba.r = vertex4->c.col[0];
+v[2].rgba.g = vertex4->c.col[1];
+v[2].rgba.b = vertex4->c.col[2];
+v[2].rgba.a = vertex4->c.col[3];
 
-v[3].xyz.x = fpoint(vertex4->x);
-v[3].xyz.y = fpoint(vertex4->y);
-v[3].xyz.z = fpoint(vertex4->z);
-v[3].st.x = fpoint(vertex4->sow);
-v[3].st.y = fpoint(vertex4->tow);
-v[3].rgba.r = vertex4->c.col[0];
-v[3].rgba.g = vertex4->c.col[1];
-v[3].rgba.b = vertex4->c.col[2];
-v[3].rgba.a = vertex4->c.col[3];
+v[3].xyz.x = fpoint(vertex3->x);
+v[3].xyz.y = fpoint(vertex3->y);
+v[3].xyz.z = fpoint(vertex3->z);
+v[3].st.x = fpoint(vertex3->sow);
+v[3].st.y = fpoint(vertex3->tow);
+v[3].rgba.r = vertex3->c.col[0];
+v[3].rgba.g = vertex3->c.col[1];
+v[3].rgba.b = vertex3->c.col[2];
+v[3].rgba.a = vertex3->c.col[3];
 
 glEnableClientState(GL_TEXTURE_COORD_ARRAY);glError();
 glEnableClientState(GL_VERTEX_ARRAY);glError();
 glEnableClientState(GL_COLOR_ARRAY);glError();
 
-glTexCoordPointer(2, GL_FLOAT, sizeof(v[0]), &v[0].st);glError();
-glVertexPointer(3, GL_FLOAT, sizeof(v[0]), &v[0].xyz);glError();
-glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(v[0]), &v[0].rgba);glError();
+glTexCoordPointer(2, GL_FLOAT, VERTEX2_STRIDE, &v[0].st);glError();
+glVertexPointer(3, GL_FLOAT, VERTEX2_STRIDE, &v[0].xyz);glError();
+glColorPointer(4, GL_UNSIGNED_BYTE, VERTEX2_STRIDE, &v[0].rgba);glError();
 
 #ifdef DISP_DEBUG
-sprintf(txtbuffer, "Coord4 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow);
-DEBUG_print(txtbuffer, DBG_CORE3);
-sprintf(txtbuffer, "Vertex4 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
-DEBUG_print(txtbuffer, DBG_GPU1);
+//sprintf(txtbuffer, "Coord4 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow);
+//DEBUG_print(txtbuffer, DBG_CORE3);
+//sprintf(txtbuffer, "Vertex4 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
+//DEBUG_print(txtbuffer, DBG_GPU1);
 #endif // DISP_DEBUG
 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);glError();
 CSTEXTURE=CSVERTEX=CSCOLOR=1;
@@ -408,8 +416,8 @@ glEnableClientState(GL_COLOR_ARRAY);glError();
 sprintf(txtbuffer, "Vertex5 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y);
 DEBUG_print(txtbuffer, DBG_GPU1);
 #endif // DISP_DEBUG
-glVertexPointer(3, GL_FLOAT, sizeof(v[0]), &v[0].xyz);glError();
-glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(v[0]), &v[0].rgba);glError();
+glVertexPointer(3, GL_FLOAT, VERTEX2_STRIDE, &v[0].xyz);glError();
+glColorPointer(4, GL_UNSIGNED_BYTE, VERTEX2_STRIDE, &v[0].rgba);glError();
 glDrawArrays(GL_TRIANGLES, 0, 3);glError();
 CSVERTEX=1;
 CSTEXTURE=CSCOLOR=0;
@@ -466,8 +474,8 @@ DEBUG_print(txtbuffer, DBG_CORE3);
 sprintf(txtbuffer, "Vertex6 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex3->x, vertex3->y, vertex2->x, vertex2->y, vertex4->x, vertex4->y);
 DEBUG_print(txtbuffer, DBG_GPU1);
 #endif // DISP_DEBUG
-glVertexPointer(3, GL_FLOAT, sizeof(v[0]), &v[0].xyz);glError();
-glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(v[0]), &v[0].rgba);glError();
+glVertexPointer(3, GL_FLOAT, VERTEX2_STRIDE, &v[0].xyz);glError();
+glColorPointer(4, GL_UNSIGNED_BYTE, VERTEX2_STRIDE, &v[0].rgba);glError();
 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);glError();
 CSVERTEX=1;
 CSTEXTURE=CSCOLOR=0;
@@ -509,11 +517,12 @@ glEnableClientState(GL_VERTEX_ARRAY);glError();
 glEnableClientState(GL_COLOR_ARRAY);glError();
 glDisableClientState(GL_TEXTURE_COORD_ARRAY);glError();
 
-glVertexPointer(3, GL_FLOAT, sizeof(v[0]), &v[0].xyz);glError();
-glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(v[0]), &v[0].rgba);glError();
+glVertexPointer(3, GL_FLOAT, VERTEX2_STRIDE, &v[0].xyz);glError();
+glColorPointer(4, GL_UNSIGNED_BYTE, VERTEX2_STRIDE, &v[0].rgba);glError();
 
 #ifdef DISP_DEBUG
-sprintf(txtbuffer, "Coord7 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow);
+//sprintf(txtbuffer, "Coord7 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow);
+sprintf(txtbuffer, "Coord7 %d %d %d %d %d %d\r\n", gl_ux[0], gl_vy[0], gl_ux[1], gl_vy[1], gl_ux[2], gl_vy[2]);
 DEBUG_print(txtbuffer, DBG_CORE3);
 sprintf(txtbuffer, "Vertex7 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y);
 DEBUG_print(txtbuffer, DBG_GPU1);
@@ -547,28 +556,28 @@ v[1].rgba.g = vertex3->c.col[1];
 v[1].rgba.b = vertex3->c.col[2];
 v[1].rgba.a = vertex3->c.col[3];
 
-v[2].xyz.x = fpoint(vertex4->x);
-v[2].xyz.y = fpoint(vertex4->y);
-v[2].xyz.z = fpoint(vertex4->z);
-v[2].rgba.r = vertex4->c.col[0];
-v[2].rgba.g = vertex4->c.col[1];
-v[2].rgba.b = vertex4->c.col[2];
-v[2].rgba.a = vertex4->c.col[3];
+v[2].xyz.x = fpoint(vertex2->x);
+v[2].xyz.y = fpoint(vertex2->y);
+v[2].xyz.z = fpoint(vertex2->z);
+v[2].rgba.r = vertex2->c.col[0];
+v[2].rgba.g = vertex2->c.col[1];
+v[2].rgba.b = vertex2->c.col[2];
+v[2].rgba.a = vertex2->c.col[3];
 
-v[3].xyz.x = fpoint(vertex2->x);
-v[3].xyz.y = fpoint(vertex2->y);
-v[3].xyz.z = fpoint(vertex2->z);
-v[3].rgba.r = vertex2->c.col[0];
-v[3].rgba.g = vertex2->c.col[1];
-v[3].rgba.b = vertex2->c.col[2];
-v[3].rgba.a = vertex2->c.col[3];
+v[3].xyz.x = fpoint(vertex4->x);
+v[3].xyz.y = fpoint(vertex4->y);
+v[3].xyz.z = fpoint(vertex4->z);
+v[3].rgba.r = vertex4->c.col[0];
+v[3].rgba.g = vertex4->c.col[1];
+v[3].rgba.b = vertex4->c.col[2];
+v[3].rgba.a = vertex4->c.col[3];
 
 glDisableClientState(GL_TEXTURE_COORD_ARRAY);glError();
 glEnableClientState(GL_VERTEX_ARRAY);glError();
 glEnableClientState(GL_COLOR_ARRAY);glError();
 
-glVertexPointer(3, GL_FLOAT, sizeof(v[0]), &v[0].xyz);glError();
-glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(v[0]), &v[0].rgba);glError();
+glVertexPointer(3, GL_FLOAT, VERTEX2_STRIDE, &v[0].xyz);glError();
+glColorPointer(4, GL_UNSIGNED_BYTE, VERTEX2_STRIDE, &v[0].rgba);glError();
 
 #ifdef DISP_DEBUG
 sprintf(txtbuffer, "Coord8 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow);
@@ -624,14 +633,14 @@ glDisableClientState(GL_TEXTURE_COORD_ARRAY);glError();
 glEnableClientState(GL_VERTEX_ARRAY);glError();
 glEnableClientState(GL_COLOR_ARRAY);glError();
 
-glVertexPointer(3, GL_FLOAT, sizeof(v[0]), &v[0].xyz);glError();
-glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(v[0]), &v[0].rgba);glError();
+glVertexPointer(3, GL_FLOAT, VERTEX2_STRIDE, &v[0].xyz);glError();
+glColorPointer(4, GL_UNSIGNED_BYTE, VERTEX2_STRIDE, &v[0].rgba);glError();
 
 #ifdef DISP_DEBUG
-sprintf(txtbuffer, "Coord9 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow);
-DEBUG_print(txtbuffer, DBG_CORE3);
-sprintf(txtbuffer, "Vertex9 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
-DEBUG_print(txtbuffer, DBG_GPU1);
+//sprintf(txtbuffer, "Coord9 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow);
+//DEBUG_print(txtbuffer, DBG_CORE3);
+//sprintf(txtbuffer, "Vertex9 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
+//DEBUG_print(txtbuffer, DBG_GPU1);
 #endif // DISP_DEBUG
 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);glError();
 
@@ -683,14 +692,14 @@ glDisableClientState(GL_TEXTURE_COORD_ARRAY);glError();
 glEnableClientState(GL_VERTEX_ARRAY);glError();
 glEnableClientState(GL_COLOR_ARRAY);glError();
 
-glVertexPointer(3, GL_FLOAT, sizeof(v[0]), &v[0].xyz);glError();
-glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(v[0]), &v[0].rgba);glError();
+glVertexPointer(3, GL_FLOAT, VERTEX2_STRIDE, &v[0].xyz);glError();
+glColorPointer(4, GL_UNSIGNED_BYTE, VERTEX2_STRIDE, &v[0].rgba);glError();
 
 #ifdef DISP_DEBUG
-sprintf(txtbuffer, "Coord10 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow);
-DEBUG_print(txtbuffer, DBG_CORE3);
-sprintf(txtbuffer, "Vertex10 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
-DEBUG_print(txtbuffer, DBG_GPU1);
+//sprintf(txtbuffer, "Coord10 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow);
+//DEBUG_print(txtbuffer, DBG_CORE3);
+//sprintf(txtbuffer, "Vertex10 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
+//DEBUG_print(txtbuffer, DBG_GPU1);
 #endif // DISP_DEBUG
 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);glError();
 CSTEXTURE=0;
@@ -741,8 +750,8 @@ glDisableClientState(GL_TEXTURE_COORD_ARRAY);glError();
 glEnableClientState(GL_VERTEX_ARRAY);glError();
 glEnableClientState(GL_COLOR_ARRAY);glError();
 
-glVertexPointer(3, GL_FLOAT, sizeof(v[0]), &v[0].xyz);glError();
-glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(v[0]), &v[0].rgba);glError();
+glVertexPointer(3, GL_FLOAT, VERTEX2_STRIDE, &v[0].xyz);glError();
+glColorPointer(4, GL_UNSIGNED_BYTE, VERTEX2_STRIDE, &v[0].rgba);glError();
 #ifdef DISP_DEBUG
 sprintf(txtbuffer, "Vertex11 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
 DEBUG_print(txtbuffer, DBG_GPU1);
@@ -1075,7 +1084,7 @@ static inline void SetRenderMode(unsigned int DrawAttributes,BOOL bSCol)
    else                 currTex=SelectSubTextureS(GlobalTextTP,ulClutID);
 
    if(gTexName!=currTex)
-    {gTexName=currTex;glBindTexture(GL_TEXTURE_2D,currTex); glError();}
+    {gTexName=currTex;glBindTextureBef(GL_TEXTURE_2D,currTex); glError();}
 
    if(!bTexEnabled)                                    // -> turn texturing on
     {bTexEnabled=TRUE;glEnable(GL_TEXTURE_2D); glError();}
@@ -2034,28 +2043,28 @@ void ClampToPSXScreen(short *x0, short *y0, short *x1, short *y1)
 // Used in Load Image and Blk Fill
 ////////////////////////////////////////////////////////////////////////
 
-void ClampToPSXScreenOffset(short *x0, short *y0, short *x1, short *y1)
-{
- if (*x0 < 0)
-  { *x1 += *x0;  *x0 = 0; }
- else
- if (*x0 > 1023)
-  { *x0 = 1023;  *x1 = 0; }
-
- if (*y0 < 0)
-  { *y1 += *y0;  *y0 = 0; }
- else
- if (*y0 > iGPUHeightMask)
-  { *y0 = iGPUHeightMask;   *y1 = 0; }
-
- if (*x1 < 0) *x1 = 0;
-
- if ((*x1 + *x0) > 1024) *x1 = (1024 -  *x0);
-
- if (*y1 < 0) *y1 = 0;
-
- if ((*y1 + *y0) > iGPUHeight)  *y1 = (iGPUHeight -  *y0);
-}
+//void ClampToPSXScreenOffset(short *x0, short *y0, short *x1, short *y1)
+//{
+// if (*x0 < 0)
+//  { *x1 += *x0;  *x0 = 0; }
+// else
+// if (*x0 > 1023)
+//  { *x0 = 1023;  *x1 = 0; }
+//
+// if (*y0 < 0)
+//  { *y1 += *y0;  *y0 = 0; }
+// else
+// if (*y0 > iGPUHeightMask)
+//  { *y0 = iGPUHeightMask;   *y1 = 0; }
+//
+// if (*x1 < 0) *x1 = 0;
+//
+// if ((*x1 + *x0) > 1024) *x1 = (1024 -  *x0);
+//
+// if (*y1 < 0) *y1 = 0;
+//
+// if ((*y1 + *y0) > iGPUHeight)  *y1 = (iGPUHeight -  *y0);
+//}
 
 ////////////////////////////////////////////////////////////////////////
 // cmd: start of drawing area... primitives will be clipped inside
@@ -2147,18 +2156,18 @@ void cmdDrawOffset(unsigned char * baseAddr)
 
  PSXDisplay.DrawOffset.x=(short)(((int)PSXDisplay.DrawOffset.x<<21)>>21);
  PSXDisplay.DrawOffset.y=(short)(((int)PSXDisplay.DrawOffset.y<<21)>>21);
- #ifdef DISP_DEBUG
- if (PSXDisplay.DrawOffset.x != 0 || PSXDisplay.DrawOffset.y != 0)
- {
-     sprintf(txtbuffer, "cmdDrawOffset %08x %08x\r\n", PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y);
-     DEBUG_print(txtbuffer, DBG_GPU2);
- }
- #endif // DISP_DEBUG
+
+ PSXDisplay.GDrawOffset.x = 0;
+ PSXDisplay.GDrawOffset.y = 0;
 
  PSXDisplay.CumulOffset.x =                            // new OGL prim offsets
   PSXDisplay.DrawOffset.x - PSXDisplay.GDrawOffset.x + PreviousPSXDisplay.Range.x0;
  PSXDisplay.CumulOffset.y =
   PSXDisplay.DrawOffset.y - PSXDisplay.GDrawOffset.y + PreviousPSXDisplay.Range.y0;
+ #ifdef DISP_DEBUG
+ sprintf(txtbuffer, "drawOffset %d %d %d %d %d %d %d %d\r\n", PSXDisplay.CumulOffset.x, PSXDisplay.CumulOffset.y, PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PreviousPSXDisplay.Range.x0, PreviousPSXDisplay.Range.y0, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
+ DEBUG_print(txtbuffer, DBG_GPU2);
+ #endif // DISP_DEBUG
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2173,6 +2182,11 @@ void primLoadImage(unsigned char * baseAddr)
  VRAMWrite.y      = GETLEs16(&sgpuData[3])&iGPUHeightMask;
  VRAMWrite.Width  = GETLEs16(&sgpuData[4]);
  VRAMWrite.Height = GETLEs16(&sgpuData[5]);
+
+  #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "primLoadImage %d %d %d %d\r\n", VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height);
+    DEBUG_print(txtbuffer, DBG_SPU1);
+    #endif // DISP_DEBUG
 
  iDataWriteMode = DR_VRAMTRANSFER;
  VRAMWrite.ImagePtr = psxVuw + (VRAMWrite.y<<10) + VRAMWrite.x;
@@ -2324,16 +2338,17 @@ void CheckWriteUpdate()
 
 void primStoreImage(unsigned char * baseAddr)
 {
-    #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "primStoreImage 0\r\n");
-    DEBUG_print(txtbuffer, DBG_CORE2);
-    #endif // DISP_DEBUG
  unsigned short *sgpuData = ((unsigned short *) baseAddr);
 
  VRAMRead.x      = GETLEs16(&sgpuData[2])&0x03ff;
  VRAMRead.y      = GETLEs16(&sgpuData[3])&iGPUHeightMask;
  VRAMRead.Width  = GETLEs16(&sgpuData[4]);
  VRAMRead.Height = GETLEs16(&sgpuData[5]);
+
+ #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "primStoreImage %d %d %d %d\r\n", VRAMRead.x, VRAMRead.y, VRAMRead.Width, VRAMRead.Height);
+    DEBUG_print(txtbuffer, DBG_SPU1);
+    #endif // DISP_DEBUG
 
  VRAMRead.ImagePtr = psxVuw + (VRAMRead.y<<10) + VRAMRead.x;
  VRAMRead.RowsRemaining = VRAMRead.Width;
@@ -2386,9 +2401,9 @@ void primBlkFill(unsigned char * baseAddr)
        (ly2 >= pd->DisplayEnd.y-16))
     {
      GLclampf g,b,r;
-     g=((GLclampf)GREEN(GETLE32(&gpuData[0])))/255.0f;
-     b=((GLclampf)BLUE(GETLE32(&gpuData[0])))/255.0f;
-     r=((GLclampf)RED(GETLE32(&gpuData[0])))/255.0f;
+     g=((GLclampf)GREEN(GETLE32(&gpuData[0])));
+     b=((GLclampf)BLUE(GETLE32(&gpuData[0])));
+     r=((GLclampf)RED(GETLE32(&gpuData[0])));
 
      //glDisable(GL_SCISSOR_TEST); glError();
      glClearColor(r,g,b,1.0f); glError();
@@ -2434,7 +2449,7 @@ void primBlkFill(unsigned char * baseAddr)
     {
         #ifdef DISP_DEBUG
  sprintf(txtbuffer, "blkFil2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y , vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y);
- DEBUG_print(txtbuffer, DBG_CORE2);
+ DEBUG_print(txtbuffer, DBG_CORE3);
  #endif // DISP_DEBUG
      bDrawTextured     = FALSE;
      bDrawSmoothShaded = FALSE;
@@ -2570,12 +2585,12 @@ void primMoveImage(unsigned char * baseAddr)
  if(imageSX<=0) return;
  if(imageSY<=0) return;
 
- if(iGPUHeight==1024 && sgpuData[7]>1024) return;
-
  #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "moveImage %d %d %d %d %d %d %d\r\n", PSXDisplay.RGB24, imageX0, imageY0, imageSX, imageSY, imageX1, imageY1);
-    DEBUG_print(txtbuffer, DBG_CORE2);
+    sprintf(txtbuffer, "moveImage %d %d %d %d %d %d %d %d\r\n", iGPUHeight, sgpuData[7], imageX0, imageY0, imageSX, imageSY, imageX1, imageY1);
+    DEBUG_print(txtbuffer, DBG_SPU1);
     #endif // DISP_DEBUG
+
+ if(iGPUHeight==1024 && sgpuData[7]>1024) return;
 
  if((imageY0+imageSY)>iGPUHeight ||
     (imageX0+imageSX)>1024       ||

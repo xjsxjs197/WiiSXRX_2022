@@ -1020,17 +1020,17 @@ void assignTextureVRAMWrite(void)
 {
 #ifdef OWNSCALE
 
- vertex[0].sow=0.5f/ ST_FACVRAMX;
- vertex[0].tow=0.5f/ ST_FACVRAM;
+ vertex[0].sow=0.0f; //0.5f/ ST_FACVRAMX;
+ vertex[0].tow=0.0f; //0.5f/ ST_FACVRAM;
 
- vertex[1].sow=(float)gl_ux[1]/ ST_FACVRAMX;
- vertex[1].tow=0.5f/ ST_FACVRAM;
+ vertex[1].sow=1.0f; //(float)gl_ux[1]/ ST_FACVRAMX;
+ vertex[1].tow=0.0f; //0.5f/ ST_FACVRAM;
 
- vertex[2].sow=(float)gl_ux[2]/ ST_FACVRAMX;
- vertex[2].tow=(float)gl_vy[2]/ ST_FACVRAM;
+ vertex[2].sow=1.0f; //(float)gl_ux[2]/ ST_FACVRAMX;
+ vertex[2].tow=1.0f; //(float)gl_vy[2]/ ST_FACVRAM;
 
- vertex[3].sow=0.5f/ ST_FACVRAMX;
- vertex[3].tow=(float)gl_vy[3]/ ST_FACVRAM;
+ vertex[3].sow=0.0f; //0.5f/ ST_FACVRAMX;
+ vertex[3].tow=1.0f; //(float)gl_vy[3]/ ST_FACVRAM;
 
 #else
 
@@ -1066,20 +1066,42 @@ void assignTextureSprite(void)
 {
  if(bUsingTWin)
   {
-   vertex[0].sow=vertex[3].sow=(float)gl_ux[0]/TWin.UScaleFactor;
-   vertex[1].sow=vertex[2].sow=(float)sSprite_ux2/TWin.UScaleFactor;
-   vertex[0].tow=vertex[1].tow=(float)gl_vy[0]/TWin.VScaleFactor;
-   vertex[2].tow=vertex[3].tow=(float)sSprite_vy2/TWin.VScaleFactor;
+//   vertex[0].sow=vertex[3].sow=(float)gl_ux[0]/TWin.UScaleFactor;
+//   vertex[1].sow=vertex[2].sow=(float)sSprite_ux2/TWin.UScaleFactor;
+//   vertex[0].tow=vertex[1].tow=(float)gl_vy[0]/TWin.VScaleFactor;
+//   vertex[2].tow=vertex[3].tow=(float)sSprite_vy2/TWin.VScaleFactor;
+ vertex[0].sow=0.0f; //0.5f/ ST_FACVRAMX;
+ vertex[0].tow=0.0f; //0.5f/ ST_FACVRAM;
+
+ vertex[1].sow=1.0f; //(float)gl_ux[1]/ ST_FACVRAMX;
+ vertex[1].tow=0.0f; //0.5f/ ST_FACVRAM;
+
+ vertex[2].sow=1.0f; //(float)gl_ux[2]/ ST_FACVRAMX;
+ vertex[2].tow=1.0f; //(float)gl_vy[2]/ ST_FACVRAM;
+
+ vertex[3].sow=0.0f; //0.5f/ ST_FACVRAMX;
+ vertex[3].tow=1.0f; //(float)gl_vy[3]/ ST_FACVRAM;
    gLastTex=gTexName;
   }
  else
   {
 #ifdef OWNSCALE
 
-   vertex[0].sow=vertex[3].sow=(float)gl_ux[0]     / ST_FACSPRITE;
-   vertex[1].sow=vertex[2].sow=(float)sSprite_ux2  / ST_FACSPRITE;
-   vertex[0].tow=vertex[1].tow=(float)gl_vy[0]     / ST_FACSPRITE;
-   vertex[2].tow=vertex[3].tow=(float)sSprite_vy2  / ST_FACSPRITE;
+//   vertex[0].sow=vertex[3].sow=(float)gl_ux[0]     / ST_FACSPRITE;
+//   vertex[1].sow=vertex[2].sow=(float)sSprite_ux2  / ST_FACSPRITE;
+//   vertex[0].tow=vertex[1].tow=(float)gl_vy[0]     / ST_FACSPRITE;
+//   vertex[2].tow=vertex[3].tow=(float)sSprite_vy2  / ST_FACSPRITE;
+ vertex[0].sow=0.0f; //0.5f/ ST_FACVRAMX;
+ vertex[0].tow=0.0f; //0.5f/ ST_FACVRAM;
+
+ vertex[1].sow=1.0f; //(float)gl_ux[1]/ ST_FACVRAMX;
+ vertex[1].tow=0.0f; //0.5f/ ST_FACVRAM;
+
+ vertex[2].sow=1.0f; //(float)gl_ux[2]/ ST_FACVRAMX;
+ vertex[2].tow=1.0f; //(float)gl_vy[2]/ ST_FACVRAM;
+
+ vertex[3].sow=0.0f; //0.5f/ ST_FACVRAMX;
+ vertex[3].tow=1.0f; //(float)gl_vy[3]/ ST_FACVRAM;
 
 #else
 
@@ -1123,24 +1145,40 @@ void assignTexture3(void)
 {
  if(bUsingTWin)
   {
-   vertex[0].sow=(float)gl_ux[0]/TWin.UScaleFactor;
-   vertex[0].tow=(float)gl_vy[0]/TWin.VScaleFactor;
-   vertex[1].sow=(float)gl_ux[1]/TWin.UScaleFactor;
-   vertex[1].tow=(float)gl_vy[1]/TWin.VScaleFactor;
-   vertex[2].sow=(float)gl_ux[2]/TWin.UScaleFactor;
-   vertex[2].tow=(float)gl_vy[2]/TWin.VScaleFactor;
+//   vertex[0].sow=(float)gl_ux[0]/TWin.UScaleFactor;
+//   vertex[0].tow=(float)gl_vy[0]/TWin.VScaleFactor;
+//   vertex[1].sow=(float)gl_ux[1]/TWin.UScaleFactor;
+//   vertex[1].tow=(float)gl_vy[1]/TWin.VScaleFactor;
+//   vertex[2].sow=(float)gl_ux[2]/TWin.UScaleFactor;
+//   vertex[2].tow=(float)gl_vy[2]/TWin.VScaleFactor;
+ vertex[0].sow=-1.0f; //0.5f/ ST_FACVRAMX;
+ vertex[0].tow=0.0f; //0.5f/ ST_FACVRAM;
+
+ vertex[1].sow=1.0f; //(float)gl_ux[1]/ ST_FACVRAMX;
+ vertex[1].tow=1.0f; //0.5f/ ST_FACVRAM;
+
+ vertex[2].sow=0.0f; //(float)gl_ux[2]/ ST_FACVRAMX;
+ vertex[2].tow=-1.0f; //(float)gl_vy[2]/ ST_FACVRAM;
    gLastTex=gTexName;
   }
  else
   {
 #ifdef OWNSCALE
-   vertex[0].sow=(float)gl_ux[0] / ST_FACTRI;
-   vertex[0].tow=(float)gl_vy[0] / ST_FACTRI;
-   vertex[1].sow=(float)gl_ux[1] / ST_FACTRI;
+//   vertex[0].sow=(float)gl_ux[0] / ST_FACTRI;
+//   vertex[0].tow=(float)gl_vy[0] / ST_FACTRI;
+//   vertex[1].sow=(float)gl_ux[1] / ST_FACTRI;
+//
+//   vertex[1].tow=(float)gl_vy[1] / ST_FACTRI;
+//   vertex[2].sow=(float)gl_ux[2] / ST_FACTRI;
+//   vertex[2].tow=(float)gl_vy[2] / ST_FACTRI;
+ vertex[0].sow=-1.0f; //0.5f/ ST_FACVRAMX;
+ vertex[0].tow=0.0f; //0.5f/ ST_FACVRAM;
 
-   vertex[1].tow=(float)gl_vy[1] / ST_FACTRI;
-   vertex[2].sow=(float)gl_ux[2] / ST_FACTRI;
-   vertex[2].tow=(float)gl_vy[2] / ST_FACTRI;
+ vertex[1].sow=1.0f; //(float)gl_ux[1]/ ST_FACVRAMX;
+ vertex[1].tow=1.0f; //0.5f/ ST_FACVRAM;
+
+ vertex[2].sow=0.0f; //(float)gl_ux[2]/ ST_FACVRAMX;
+ vertex[2].tow=-1.0f; //(float)gl_vy[2]/ ST_FACVRAM;
 #else
    vertex[0].sow=gl_ux[0];
    vertex[0].tow=gl_vy[0];
@@ -1188,27 +1226,49 @@ void assignTexture4(void)
 {
  if(bUsingTWin)
   {
-   vertex[0].sow=(float)gl_ux[0]/TWin.UScaleFactor;
-   vertex[0].tow=(float)gl_vy[0]/TWin.VScaleFactor;
-   vertex[1].sow=(float)gl_ux[1]/TWin.UScaleFactor;
-   vertex[1].tow=(float)gl_vy[1]/TWin.VScaleFactor;
-   vertex[2].sow=(float)gl_ux[2]/TWin.UScaleFactor;
-   vertex[2].tow=(float)gl_vy[2]/TWin.VScaleFactor;
-   vertex[3].sow=(float)gl_ux[3]/TWin.UScaleFactor;
-   vertex[3].tow=(float)gl_vy[3]/TWin.VScaleFactor;
+//   vertex[0].sow=(float)gl_ux[0]/TWin.UScaleFactor;
+//   vertex[0].tow=(float)gl_vy[0]/TWin.VScaleFactor;
+//   vertex[1].sow=(float)gl_ux[1]/TWin.UScaleFactor;
+//   vertex[1].tow=(float)gl_vy[1]/TWin.VScaleFactor;
+//   vertex[2].sow=(float)gl_ux[2]/TWin.UScaleFactor;
+//   vertex[2].tow=(float)gl_vy[2]/TWin.VScaleFactor;
+//   vertex[3].sow=(float)gl_ux[3]/TWin.UScaleFactor;
+//   vertex[3].tow=(float)gl_vy[3]/TWin.VScaleFactor;
+ vertex[0].sow=0.0f; //0.5f/ ST_FACVRAMX;
+ vertex[0].tow=0.0f; //0.5f/ ST_FACVRAM;
+
+ vertex[1].sow=1.0f; //(float)gl_ux[1]/ ST_FACVRAMX;
+ vertex[1].tow=0.0f; //0.5f/ ST_FACVRAM;
+
+ vertex[2].sow=1.0f; //(float)gl_ux[2]/ ST_FACVRAMX;
+ vertex[2].tow=1.0f; //(float)gl_vy[2]/ ST_FACVRAM;
+
+ vertex[3].sow=0.0f; //0.5f/ ST_FACVRAMX;
+ vertex[3].tow=1.0f; //(float)gl_vy[3]/ ST_FACVRAM;
    gLastTex=gTexName;
   }
  else
   {
 #ifdef OWNSCALE
-   vertex[0].sow=(float)gl_ux[0] / ST_FAC;
-   vertex[0].tow=(float)gl_vy[0] / ST_FAC;
-   vertex[1].sow=(float)gl_ux[1] / ST_FAC;
-   vertex[1].tow=(float)gl_vy[1] / ST_FAC;
-   vertex[2].sow=(float)gl_ux[2] / ST_FAC;
-   vertex[2].tow=(float)gl_vy[2] / ST_FAC;
-   vertex[3].sow=(float)gl_ux[3] / ST_FAC;
-   vertex[3].tow=(float)gl_vy[3] / ST_FAC;
+//   vertex[0].sow=(float)gl_ux[0] / ST_FAC;
+//   vertex[0].tow=(float)gl_vy[0] / ST_FAC;
+//   vertex[1].sow=(float)gl_ux[1] / ST_FAC;
+//   vertex[1].tow=(float)gl_vy[1] / ST_FAC;
+//   vertex[2].sow=(float)gl_ux[2] / ST_FAC;
+//   vertex[2].tow=(float)gl_vy[2] / ST_FAC;
+//   vertex[3].sow=(float)gl_ux[3] / ST_FAC;
+//   vertex[3].tow=(float)gl_vy[3] / ST_FAC;
+ vertex[0].sow=0.0f; //0.5f/ ST_FACVRAMX;
+ vertex[0].tow=0.0f; //0.5f/ ST_FACVRAM;
+
+ vertex[1].sow=1.0f; //(float)gl_ux[1]/ ST_FACVRAMX;
+ vertex[1].tow=0.0f; //0.5f/ ST_FACVRAM;
+
+ vertex[2].sow=1.0f; //(float)gl_ux[2]/ ST_FACVRAMX;
+ vertex[2].tow=1.0f; //(float)gl_vy[2]/ ST_FACVRAM;
+
+ vertex[3].sow=0.0f; //0.5f/ ST_FACVRAMX;
+ vertex[3].tow=1.0f; //(float)gl_vy[3]/ ST_FACVRAM;
 #else
    vertex[0].sow=gl_ux[0];
    vertex[0].tow=gl_vy[0];
@@ -1304,8 +1364,8 @@ void SetOGLDisplaySettings(BOOL DisplaySet)
   }
  //----------------------------------------------------//
 
- PSXDisplay.GDrawOffset.y = PreviousPSXDisplay.DisplayPosition.y;
- PSXDisplay.GDrawOffset.x = PreviousPSXDisplay.DisplayPosition.x;
+ PSXDisplay.GDrawOffset.y = 0; //PreviousPSXDisplay.DisplayPosition.y;
+ PSXDisplay.GDrawOffset.x = 0; //PreviousPSXDisplay.DisplayPosition.x;
  PSXDisplay.CumulOffset.x = PSXDisplay.DrawOffset.x - PSXDisplay.GDrawOffset.x+PreviousPSXDisplay.Range.x0;
  PSXDisplay.CumulOffset.y = PSXDisplay.DrawOffset.y - PSXDisplay.GDrawOffset.y+PreviousPSXDisplay.Range.y0;
 

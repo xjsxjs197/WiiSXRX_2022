@@ -358,7 +358,7 @@ void CleanupTextureStore()
 {
  int i,j;textureWndCacheEntry * tsx;
  //----------------------------------------------------//
- glBindTexture(GL_TEXTURE_2D,0);
+ glBindTextureBef(GL_TEXTURE_2D,0);
  glError();
  //----------------------------------------------------//
  _mem2_free(texturepart);                                    // free tex part
@@ -426,7 +426,7 @@ void ResetTextureArea(BOOL bDelTex)
  dwTexPageComp=0;
 
  //----------------------------------------------------//
- if(bDelTex) {glBindTexture(GL_TEXTURE_2D,0); glError();gTexName=0;}
+ if(bDelTex) {glBindTextureBef(GL_TEXTURE_2D,0); glError();gTexName=0;}
  //----------------------------------------------------//
  tsx=wcWndtexStore;
  for(i=0;i<MAXWNDTEXCACHE;i++,tsx++)
@@ -679,7 +679,7 @@ void DefineTextureWnd(void)
  if(gTexName==0)
   glGenTextures(1, &gTexName);
  glError();
- glBindTexture(GL_TEXTURE_2D, gTexName);
+ glBindTextureBef(GL_TEXTURE_2D, gTexName);
  glError();
  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -1198,7 +1198,7 @@ void DefineTextureMovie(void)
   {
    glGenTextures(1, &gTexMovieName); glError();
    gTexName=gTexMovieName;
-   glBindTexture(GL_TEXTURE_2D, gTexName); glError();
+   glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
 
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, iClampType); glError();
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, iClampType); glError();
@@ -1222,10 +1222,10 @@ void DefineTextureMovie(void)
   }
  else
   {
-   gTexName=gTexMovieName;glBindTexture(GL_TEXTURE_2D, gTexName); glError();
+   gTexName=gTexMovieName;glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
    #ifdef DISP_DEBUG
-   sprintf(txtbuffer, "glTexSubImage2D 0 0 %d %d\r\n",     (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0));
-   DEBUG_print(txtbuffer,  DBG_SPU2);
+   //sprintf(txtbuffer, "glTexSubImage2D 0 0 %d %d\r\n",    (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0));
+   //DEBUG_print(txtbuffer,  DBG_SPU2);
    #endif // DISP_DEBUG
    //glTexImage2D(GL_TEXTURE_2D, 0,  GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
@@ -1277,8 +1277,8 @@ GLuint LoadTextureMovie(void)
    if(PSXDisplay.RGB24)
     {
         #ifdef DISP_DEBUG
-        //sprintf(txtbuffer, "LoadMovie1 %d %d %d %d %d %d\r\n", xrMovieArea.x0, xrMovieArea.x1, xrMovieArea.y0, xrMovieArea.y1, b_X, b_Y);
-        //DEBUG_print(txtbuffer, DBG_CORE3);
+        sprintf(txtbuffer, "LoadMovie1 %d %d %d %d %d %d\r\n",   xrMovieArea.x0, xrMovieArea.y0, xrMovieArea.x1, xrMovieArea.y1, b_X, b_Y);
+        DEBUG_print(txtbuffer, DBG_SPU2);
         #endif // DISP_DEBUG
 
      unsigned char * pD;
@@ -1332,8 +1332,8 @@ GLuint LoadTextureMovie(void)
    else
     {
         #ifdef DISP_DEBUG
-        //sprintf(txtbuffer, "LoadMovie2 %d %d %d %d %d %d\r\n", xrMovieArea.x0, xrMovieArea.x1, xrMovieArea.y0, xrMovieArea.y1, b_X, b_Y);
-        //DEBUG_print(txtbuffer, DBG_CORE3);
+        sprintf(txtbuffer, "LoadMovie2 %d %d %d %d %d %d\r\n", xrMovieArea.x0, xrMovieArea.y0, xrMovieArea.x1, xrMovieArea.y1, b_X, b_Y);
+        DEBUG_print(txtbuffer, DBG_SPU3);
         #endif // DISP_DEBUG
 
      unsigned int (*LTCOL)(unsigned int);
@@ -1424,7 +1424,7 @@ GLuint BlackFake15BitTexture(void)
     {
      glGenTextures(1, &gTexFrameName); glError();
      gTexName=gTexFrameName;
-     glBindTexture(GL_TEXTURE_2D, gTexName); glError();
+     glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
 
      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, iClampType); glError();
      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, iClampType); glError();
@@ -1447,7 +1447,7 @@ DEBUG_print(txtbuffer, DBG_SPU1);
    else
     {
      gTexName=gTexFrameName;
-     glBindTexture(GL_TEXTURE_2D, gTexName); glError();
+     glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
     }
       //LOGE("BlackFake15BitTexture x:%d y:%d",4,4);
    ubOpaqueDraw=0;
@@ -1522,7 +1522,7 @@ GLuint Fake15BitTexture(void)
 
    glGenTextures(1, &gTexFrameName); glError();
    gTexName=gTexFrameName;
-   glBindTexture(GL_TEXTURE_2D, gTexName); glError();
+   glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
 
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, iClampType); glError();
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, iClampType); glError();
@@ -1543,7 +1543,7 @@ DEBUG_print(txtbuffer, DBG_SPU1);
  else
   {
    gTexName=gTexFrameName;
-   glBindTexture(GL_TEXTURE_2D, gTexName); glError();
+   glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
   }
       //LOGE("Fake15BitTexture x:%d y:%d",iFTex,iFTex);
  x1+=PreviousPSXDisplay.Range.x0;
@@ -2349,7 +2349,7 @@ void DefineSubTextureSort(void)
  if(!gTexName)
   {
    glGenTextures(1, &gTexName); glError();
-   glBindTexture(GL_TEXTURE_2D, gTexName); glError();
+   glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
 
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, iClampType); glError();
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, iClampType); glError();
@@ -2368,9 +2368,9 @@ void DefineSubTextureSort(void)
   }
  else
  {
-     glBindTexture(GL_TEXTURE_2D, gTexName); glError();
+     glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
      #ifdef DISP_DEBUG
-   sprintf(txtbuffer, "DefineSubTextureSort %d %d %d %d\r\n", XTexS, YTexS, DXTexS, DYTexS);
+   sprintf(txtbuffer, "DefineSubTextureSort  %d %d %d %d\r\n", XTexS, YTexS, DXTexS, DYTexS);
    DEBUG_print(txtbuffer, DBG_SPU3);
    #endif // DISP_DEBUG
      //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0,GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();

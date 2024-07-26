@@ -250,7 +250,7 @@ void _ogx_scramble_4b(unsigned char *src, void *dst,
                     else
                     {
                         *p++ = src[((i + argb) + ((block + c) * width)) * 4];
-                        *p++ = src[((i + argb) + ((block + c) * width)) * 4 + 3];
+                        *p++ = src[((i + argb) + ((block + c) * width)) * 4 + 1];
                     }
                 }
             }
@@ -264,7 +264,7 @@ void _ogx_scramble_4b(unsigned char *src, void *dst,
                     else
                     {
                         *p++ = src[(((i + argb) + ((block + c) * width)) * 4) + 2];
-                        *p++ = src[(((i + argb) + ((block + c) * width)) * 4) + 1];
+                        *p++ = src[(((i + argb) + ((block + c) * width)) * 4) + 3];
                     }
                 }
             }
