@@ -9,7 +9,7 @@ endif
 
 include $(DEVKITPPC)/wii_rules
 
-INCLUDES := ./ ./common/ ./decompress/
+INCLUDES := ./ ./common/ ./decompress/ ./legacy/
 
 # Directories.
 OBJ_DIR			:= obj/release
@@ -25,7 +25,8 @@ PIPE_TO_SED := 2>&1 | sed "s/:\([0-9]*\):/\(\1\) :/"
 # Library source files.
 SDL_SRCS	:= \
 	$(wildcard $(ZSTDLIB_SRC_DIR)/common/*.c) \
-	$(wildcard $(ZSTDLIB_SRC_DIR)/decompress/*.c)
+	$(wildcard $(ZSTDLIB_SRC_DIR)/decompress/*.c) \
+	$(wildcard $(ZSTDLIB_SRC_DIR)/legacy/*.c)
 
 # Library object files.
 ZSTDLIB_OBJS	:= $(subst $(ZSTDLIB_SRC_DIR),$(ZSTDLIB_OBJ_DIR),$(SDL_SRCS:.c=.o))
