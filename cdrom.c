@@ -677,15 +677,15 @@ static void cdrPlayInterrupt_Autopause(s16* cddaBuf)
 		cdr.ReportDelay--;
 }
 
-/*
-static boolean canDoTurbo(void)
+
+static bool canDoTurbo(void)
 {
 	u32 c = psxRegs.cycle;
-	return Config.TurboCD && !cdr.RetryDetected && !cdr.AdpcmActive
+	return fastLoad && !cdr.RetryDetected && !cdr.AdpcmActive
 		//&& c - psxRegs.intCycle[PSXINT_SPUDMA].sCycle > (u32)cdReadTime * 2
 		&& c - psxRegs.intCycle[PSXINT_MDECOUTDMA].sCycle > (u32)cdReadTime * 16;
 }
-*/
+
 
 static int cdrSeekTime(unsigned char *target)
 {
@@ -1120,16 +1120,9 @@ void cdrInterrupt(void) {
 			}
 			else
 			{
-				if (fastLoad)
-				{
-					second_resp_time = cdReadTime;
-				}
-				else
-				{
 					second_resp_time = 2100011;
 					// a hack to try to avoid weird cmd vs irq1 races causing games to retry
 					second_resp_time += (cdr.RetryDetected & 15) * 100001;
-				}
 			}
 			SetPlaySeekRead(cdr.StatP, 0);
 			DriveStateOld = cdr.DriveState;
@@ -1256,14 +1249,8 @@ void cdrInterrupt(void) {
 			StopReading();
 			SetPlaySeekRead(cdr.StatP, STATUS_SEEK | STATUS_ROTATING);
 
-			if (fastLoad)
-			{
-				seekTime = WaitTime1st;
-			}
-			else
-			{
+			if (!canDoTurbo())
 				seekTime = cdrSeekTime(cdr.SetSector);
-			}
 			*((u32*)cdr.SetSectorPlay) = *((u32*)cdr.SetSector);
 			cdr.DriveState = DRIVESTATE_SEEK;
 			/*
@@ -1421,16 +1408,11 @@ void cdrInterrupt(void) {
 			cdr.DriveState = DRIVESTATE_SEEK;
 
 			cycles = (cdr.Mode & MODE_SPEED) ? cdReadTime : cdReadTime * 2;
-			if (fastLoad)
-			{
-				if (seekTime > MinSeekTime)
-				{
-					seekTime = MinSeekTime;
-				}
-			}
 			cycles += seekTime;
 			if (Config.hacks.cdr_read_timing)
 				cycles = cdrAlignTimingHack(cycles);
+			else if (canDoTurbo())
+				cycles = cdReadTime / 2;
 			CDRPLAYREAD_INT(cycles, 1);
 
 			SetPlaySeekRead(cdr.StatP, STATUS_SEEK);
@@ -1893,6 +1875,8 @@ void psxDma3(u32 madr, u32 bcr, u32 chcr) {
 				// halted
 				psxRegs.cycle += cycles - 20;
 			}
+			if (canDoTurbo() && cdr.Reading && cdr.FifoOffset >= 2048)
+				CDRPLAYREAD_INT(cycles + 4096, 1);
 			return;
 
 		default:
