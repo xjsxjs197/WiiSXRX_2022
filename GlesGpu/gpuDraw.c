@@ -495,7 +495,7 @@ int GLinitialize(void *ext_gles_display, void *ext_gles_surface)
    glDisable(GL_DEPTH_TEST); glError();
   }
 
- glClearColor(0.0f, 0.0f, 0.0f, 0.0f); glError();      // first buffer clear
+ glClearColor(0, 0, 0, 0); glError();      // first buffer clear
  glClear(uiBufferBits); glError();
 
  GetExtInfos();                                        // get ext infos
@@ -1151,14 +1151,14 @@ void assignTexture3(void)
 //   vertex[1].tow=(float)gl_vy[1]/TWin.VScaleFactor;
 //   vertex[2].sow=(float)gl_ux[2]/TWin.UScaleFactor;
 //   vertex[2].tow=(float)gl_vy[2]/TWin.VScaleFactor;
- vertex[0].sow=-1.0f; //0.5f/ ST_FACVRAMX;
- vertex[0].tow=0.0f; //0.5f/ ST_FACVRAM;
+ vertex[0].sow=0.0f; //0.5f/ ST_FACVRAMX;
+ vertex[0].tow=1.0f; //0.5f/ ST_FACVRAM;
 
- vertex[1].sow=1.0f; //(float)gl_ux[1]/ ST_FACVRAMX;
- vertex[1].tow=1.0f; //0.5f/ ST_FACVRAM;
+ vertex[1].sow=0.0f; //(float)gl_ux[1]/ ST_FACVRAMX;
+ vertex[1].tow=0.0f; //0.5f/ ST_FACVRAM;
 
- vertex[2].sow=0.0f; //(float)gl_ux[2]/ ST_FACVRAMX;
- vertex[2].tow=-1.0f; //(float)gl_vy[2]/ ST_FACVRAM;
+ vertex[2].sow=1.0f; //(float)gl_ux[2]/ ST_FACVRAMX;
+ vertex[2].tow=0.0f; //(float)gl_vy[2]/ ST_FACVRAM;
    gLastTex=gTexName;
   }
  else
@@ -1171,14 +1171,14 @@ void assignTexture3(void)
 //   vertex[1].tow=(float)gl_vy[1] / ST_FACTRI;
 //   vertex[2].sow=(float)gl_ux[2] / ST_FACTRI;
 //   vertex[2].tow=(float)gl_vy[2] / ST_FACTRI;
- vertex[0].sow=-1.0f; //0.5f/ ST_FACVRAMX;
- vertex[0].tow=0.0f; //0.5f/ ST_FACVRAM;
+ vertex[0].sow=0.0f; //0.5f/ ST_FACVRAMX;
+ vertex[0].tow=1.0f; //0.5f/ ST_FACVRAM;
 
- vertex[1].sow=1.0f; //(float)gl_ux[1]/ ST_FACVRAMX;
- vertex[1].tow=1.0f; //0.5f/ ST_FACVRAM;
+ vertex[1].sow=0.0f; //(float)gl_ux[1]/ ST_FACVRAMX;
+ vertex[1].tow=0.0f; //0.5f/ ST_FACVRAM;
 
- vertex[2].sow=0.0f; //(float)gl_ux[2]/ ST_FACVRAMX;
- vertex[2].tow=-1.0f; //(float)gl_vy[2]/ ST_FACVRAM;
+ vertex[2].sow=1.0f; //(float)gl_ux[2]/ ST_FACVRAMX;
+ vertex[2].tow=0.0f; //(float)gl_vy[2]/ ST_FACVRAM;
 #else
    vertex[0].sow=gl_ux[0];
    vertex[0].tow=gl_vy[0];
@@ -1364,8 +1364,8 @@ void SetOGLDisplaySettings(BOOL DisplaySet)
   }
  //----------------------------------------------------//
 
- PSXDisplay.GDrawOffset.y = 0; //PreviousPSXDisplay.DisplayPosition.y;
- PSXDisplay.GDrawOffset.x = 0; //PreviousPSXDisplay.DisplayPosition.x;
+ PSXDisplay.GDrawOffset.y = PreviousPSXDisplay.DisplayPosition.y;
+ PSXDisplay.GDrawOffset.x = PreviousPSXDisplay.DisplayPosition.x;
  PSXDisplay.CumulOffset.x = PSXDisplay.DrawOffset.x - PSXDisplay.GDrawOffset.x+PreviousPSXDisplay.Range.x0;
  PSXDisplay.CumulOffset.y = PSXDisplay.DrawOffset.y - PSXDisplay.GDrawOffset.y+PreviousPSXDisplay.Range.y0;
 

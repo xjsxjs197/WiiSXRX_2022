@@ -557,6 +557,7 @@ extern int           iTileCheat;
 #endif
 
 extern void gc_vout_render(void);
+extern void gx_vout_render(void);
 extern void showFpsAndDebugInfo(void);
 extern void ChangeDispOffsetsXGl(void);
 extern void updateDisplayIfChangedGl(void);

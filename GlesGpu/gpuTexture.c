@@ -220,37 +220,37 @@ unsigned short MAXSORTTEX    = MAXSORTTEX_MAX;
 // porting... and honestly: nowadays the speed gain would be pointless
 ////////////////////////////////////////////////////////////////////////
 
-// return big endian(abgr)
-unsigned int XP8RGBA_0(unsigned int BGR)
+// return big endian(argb)
+unsigned int XP8RGBA_0(unsigned int RGB)
 {
- if(!(BGR&0xffff)) return 0x50000000;
- return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
+ if(!(RGB&0xffff)) return 0x00000050;
+ return (((RGB<<3)&0xf8)|((RGB<<6)&0xf800)|((RGB<<9)&0xf80000))|0xff000000;
 }
 
-// return big endian(abgr)
-unsigned int CP8RGBA_0(unsigned int BGR)
+// return big endian(argb)
+unsigned int CP8RGBA_0(unsigned int RGB)
 {
  unsigned int l;
 
- if(!(BGR&0xffff)) return 0x50000000;
- l=((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
+ if(!(RGB&0xffff)) return 0x50000000;
+ l=(((RGB<<3)&0xf8)|((RGB<<6)&0xf800)|((RGB<<9)&0xf80000))|0xff000000;
  if(l==0xfff8f800) l=0xff000000;
  return l;
 }
 
-// return big endian(abgr)
-unsigned int XP8RGBA_1(unsigned int BGR)
+// return big endian(argb)
+unsigned int XP8RGBA_1(unsigned int RGB)
 {
- if(!(BGR&0xffff)) return 0x50000000;
- if(!(BGR&0x8000)) {ubOpaqueDraw=1;return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff);}
- return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
+ if(!(RGB&0xffff)) return 0x50000000;
+ if(!(RGB&0x8000)) {ubOpaqueDraw=1;return (((RGB<<3)&0xf8)|((RGB<<6)&0xf800)|((RGB<<9)&0xf80000));}
+ return (((RGB<<3)&0xf8)|((RGB<<6)&0xf800)|((RGB<<9)&0xf80000))|0xff000000;
 }
 
-// return big endian(abgr)
-unsigned int P8RGBA(unsigned int BGR)
+// return big endian(argb)
+unsigned int P8RGBA(unsigned int RGB)
 {
- if(!(BGR&0xffff)) return 0;
- return ((((BGR<<3)&0xf8)|((BGR<<6)&0xf800)|((BGR<<9)&0xf80000))&0xffffff)|0xff000000;
+ if(!(RGB&0xffff)) return 0;
+ return (((RGB<<3)&0xf8)|((RGB<<6)&0xf800)|((RGB<<9)&0xf80000))|0xff000000;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1215,8 +1215,8 @@ void DefineTextureMovie(void)
     }
 
    #ifdef DISP_DEBUG
-   sprintf(txtbuffer, "DefineTextureMovie 0 0 256 256\r\n");
-   DEBUG_print(txtbuffer,  DBG_SPU2);
+   //sprintf(txtbuffer, "DefineTextureMovie 0 0 256 256\r\n");
+   //DEBUG_print(txtbuffer,  DBG_SPU2);
    #endif // DISP_DEBUG
    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
   }
@@ -1224,10 +1224,9 @@ void DefineTextureMovie(void)
   {
    gTexName=gTexMovieName;glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
    #ifdef DISP_DEBUG
-   //sprintf(txtbuffer, "glTexSubImage2D 0 0 %d %d\r\n",    (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0));
+   //sprintf(txtbuffer, "glTexSubImage2D %d %d %d %d\r\n",  (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0), gl_ux[1], gl_vy[2]);
    //DEBUG_print(txtbuffer,  DBG_SPU2);
    #endif // DISP_DEBUG
-   //glTexImage2D(GL_TEXTURE_2D, 0,  GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
                    (xrMovieArea.x1-xrMovieArea.x0),
 				   (xrMovieArea.y1-xrMovieArea.y0),
@@ -1277,14 +1276,37 @@ GLuint LoadTextureMovie(void)
    if(PSXDisplay.RGB24)
     {
         #ifdef DISP_DEBUG
-        sprintf(txtbuffer, "LoadMovie1 %d %d %d %d %d %d\r\n",   xrMovieArea.x0, xrMovieArea.y0, xrMovieArea.x1, xrMovieArea.y1, b_X, b_Y);
-        DEBUG_print(txtbuffer, DBG_SPU2);
+        //sprintf(txtbuffer, "LoadMovie1 %d %d %d %d %d %d\r\n",   xrMovieArea.x0, xrMovieArea.y0, xrMovieArea.x1, xrMovieArea.y1, b_X, b_Y);
+        //DEBUG_print(txtbuffer, DBG_SPU2);
         #endif // DISP_DEBUG
 
      unsigned char * pD;
      unsigned int * ta=(unsigned int *)texturepart;
 
-     if(b_X)
+//     if(b_X)
+//      {
+//       for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
+//        {
+//         startxy=((1024)*column)+xrMovieArea.x0;
+//         pD=(unsigned char *)&psxVuw[startxy];
+//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+//          {
+//           //*ta++=*((unsigned int *)pD)|0xff000000;
+//           PUTLE32(ta, *((unsigned int *)pD)|SWAP32_C(0xff000000));
+//           ta++;
+//           pD+=3;
+//          }
+//         *ta++=*(ta-1);
+//        }
+//       if(b_Y)
+//        {
+//         dx=xrMovieArea.x1-xrMovieArea.x0+1;
+//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+//          *ta++=*(ta-dx);
+//         *ta++=*(ta-1);
+//        }
+//      }
+//     else
       {
        for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
         {
@@ -1297,43 +1319,20 @@ GLuint LoadTextureMovie(void)
            ta++;
            pD+=3;
           }
-         *ta++=*(ta-1);
         }
-       if(b_Y)
-        {
-         dx=xrMovieArea.x1-xrMovieArea.x0+1;
-         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-          *ta++=*(ta-dx);
-         *ta++=*(ta-1);
-        }
-      }
-     else
-      {
-       for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
-        {
-         startxy=((1024)*column)+xrMovieArea.x0;
-         pD=(unsigned char *)&psxVuw[startxy];
-         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-          {
-           //*ta++=*((unsigned int *)pD)|0xff000000;
-           PUTLE32(ta, *((unsigned int *)pD)|SWAP32_C(0xff000000));
-           ta++;
-           pD+=3;
-          }
-        }
-       if(b_Y)
-        {
-         dx=xrMovieArea.x1-xrMovieArea.x0;
-         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-          *ta++=*(ta-dx);
-        }
+//       if(b_Y)
+//        {
+//         dx=xrMovieArea.x1-xrMovieArea.x0;
+//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+//          *ta++=*(ta-dx);
+//        }
       }
     }
    else
     {
         #ifdef DISP_DEBUG
         sprintf(txtbuffer, "LoadMovie2 %d %d %d %d %d %d\r\n", xrMovieArea.x0, xrMovieArea.y0, xrMovieArea.x1, xrMovieArea.y1, b_X, b_Y);
-        DEBUG_print(txtbuffer, DBG_SPU3);
+        DEBUG_print(txtbuffer, DBG_SPU2);
         #endif // DISP_DEBUG
 
      unsigned int (*LTCOL)(unsigned int);
@@ -1344,7 +1343,28 @@ GLuint LoadTextureMovie(void)
      ubOpaqueDraw=0;
      ta=(unsigned int *)texturepart;
 
-     if(b_X)
+//     if(b_X)
+//      {
+//       for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
+//        {
+//         startxy=((1024)*column)+xrMovieArea.x0;
+//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+//         {
+//             *ta++ = LTCOL(GETLE16(&psxVuw[startxy++]) | 0x8000);
+//         }
+//
+//         *ta++=*(ta-1);
+//        }
+//
+//       if(b_Y)
+//        {
+//         dx=xrMovieArea.x1-xrMovieArea.x0+1;
+//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+//          *ta++=*(ta-dx);
+//         *ta++=*(ta-1);
+//        }
+//      }
+//     else
       {
        for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
         {
@@ -1353,41 +1373,20 @@ GLuint LoadTextureMovie(void)
          {
              *ta++ = LTCOL(GETLE16(&psxVuw[startxy++]) | 0x8000);
          }
-
-         *ta++=*(ta-1);
         }
 
-       if(b_Y)
-        {
-         dx=xrMovieArea.x1-xrMovieArea.x0+1;
-         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-          *ta++=*(ta-dx);
-         *ta++=*(ta-1);
-        }
-      }
-     else
-      {
-       for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
-        {
-         startxy=((1024)*column)+xrMovieArea.x0;
-         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-         {
-             *ta++ = LTCOL(GETLE16(&psxVuw[startxy++]) | 0x8000);
-         }
-        }
-
-       if(b_Y)
-        {
-         dx=xrMovieArea.x1-xrMovieArea.x0;
-         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-          *ta++=*(ta-dx);
-        }
+//       if(b_Y)
+//        {
+//         dx=xrMovieArea.x1-xrMovieArea.x0;
+//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+//          *ta++=*(ta-dx);
+//        }
       }
     }
 
-   xrMovieArea.x1+=b_X;xrMovieArea.y1+=b_Y;
+   //xrMovieArea.x1+=b_X;xrMovieArea.y1+=b_Y;
    DefineTextureMovie();
-   xrMovieArea.x1-=b_X;xrMovieArea.y1-=b_Y;
+   //xrMovieArea.x1-=b_X;xrMovieArea.y1-=b_Y;
   }
  return gTexName;
 }
@@ -1612,6 +1611,10 @@ DEBUG_print(txtbuffer, DBG_SPU1);
  if(y1+iYAdjust>iFTex) y1=iFTex-iYAdjust;
 
 
+ #ifdef DISP_DEBUG
+sprintf(txtbuffer, "glCopyTexSubImage2D\r\n");
+DEBUG_print(txtbuffer, DBG_CDR4);
+#endif // DISP_DEBUG
  glCopyTexSubImage2D( GL_TEXTURE_2D, 0,
                       0,
                       iYAdjust,
@@ -2370,8 +2373,8 @@ void DefineSubTextureSort(void)
  {
      glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
      #ifdef DISP_DEBUG
-   sprintf(txtbuffer, "DefineSubTextureSort  %d %d %d %d\r\n", XTexS, YTexS, DXTexS, DYTexS);
-   DEBUG_print(txtbuffer, DBG_SPU3);
+   //sprintf(txtbuffer, "DefineSubTextureSort  %d %d %d %d\r\n", XTexS, YTexS, DXTexS, DYTexS);
+   //DEBUG_print(txtbuffer, DBG_SPU3);
    #endif // DISP_DEBUG
      //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0,GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, DXTexS, DYTexS, 0,GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();

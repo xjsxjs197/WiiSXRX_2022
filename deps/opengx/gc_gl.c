@@ -1085,12 +1085,12 @@ void glRotatef(GLfloat angle, GLfloat x, GLfloat y, GLfloat z)
     glparamstate.dirty.bits.dirty_matrices = 1;
 }
 
-void glClearColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
+void glClearColor(unsigned char red, unsigned char green, unsigned char blue, unsigned char alpha)
 {
-    glparamstate.clear_color.r = clampf_01(red) * 255.0f;
-    glparamstate.clear_color.g = clampf_01(green) * 255.0f;
-    glparamstate.clear_color.b = clampf_01(blue) * 255.0f;
-    glparamstate.clear_color.a = clampf_01(alpha) * 255.0f;
+    glparamstate.clear_color.r = (red);
+    glparamstate.clear_color.g = (green);
+    glparamstate.clear_color.b = (blue);
+    glparamstate.clear_color.a = (alpha);
 }
 void glClearDepth(GLclampd depth)
 {
@@ -1398,15 +1398,13 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
                   GLint border, GLenum format, GLenum type, const GLvoid *data)
 {
 
-    //sprintf(txtbuffer, "Image2D %d %d\r\n", width, height);
-    //writeLogFile(txtbuffer);
     // Initial checks
     if (texture_list[glparamstate.glcurtex].used == 0)
         return;
     if (target != GL_TEXTURE_2D)
         return; // FIXME Implement non 2D textures
 
-    GX_DrawDone(); // Very ugly, we should have a list of used textures and only wait if we are using the curr tex.
+    //GX_DrawDone(); // Very ugly, we should have a list of used textures and only wait if we are using the curr tex.
                    // This way we are sure that we are not modifying a texture which is being drawn
 
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
@@ -1503,7 +1501,6 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
         currtex->minlevel = level;
         currtex->maxlevel = level;
     }
-    //writeLogFile("Image2D 3\r\n");
     currtex->w = wi;
     currtex->h = he;
     if (currtex->maxlevel < level)
@@ -1528,71 +1525,55 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
         memcpy(currtex->data, tempbuf, tsize);
         _mem2_free(tempbuf);
     }
-    //writeLogFile("Image2D 4\r\n");
 
     // Inconditionally convert to 565 all inputs without alpha channel
     // Alpha inputs may be stripped if the user specifies an alpha-free internal format
     if (bytesperpixelinternal > 0) {
-        unsigned char *tempbuf = memalign(32, width * height * bytesperpixelinternal);
+//        unsigned char *tempbuf = memalign(32, width * height * bytesperpixelinternal);
+//
+//        if (format == GL_RGB) {
+//            _ogx_conv_rgb_to_rgb565(data, type, tempbuf, width, height);
+//        } else if (format == GL_RGBA) {
+//            if (internalFormat == GL_RGB) {
+//                _ogx_conv_rgba_to_rgb565(data, type, tempbuf, width, height);
+//            } else if (internalFormat == GL_RGBA) {
+//                _ogx_conv_rgba_to_rgba32(data, type, tempbuf, width, height);
+//            } else if (internalFormat == GL_LUMINANCE_ALPHA) {
+//                _ogx_conv_rgba_to_luminance_alpha((unsigned char *)data, tempbuf, width, height);
+//            }
+//        } else if (format == GL_LUMINANCE_ALPHA) {
+//            if (internalFormat == GL_RGB) {
+//                // TODO
+//            } else if (internalFormat == GL_LUMINANCE_ALPHA) {
+//                _ogx_conv_luminance_alpha_to_ia8(data, type, tempbuf, width, height);
+//            }
+//        }
+//
+//        // Swap R<->B if necessary
+//        if (needswap && internalFormat != GL_LUMINANCE_ALPHA) {
+//            if (bytesperpixelinternal == 4)
+//                _ogx_swap_rgba(tempbuf, width * height);
+//            else
+//                _ogx_swap_rgb565((unsigned short *)tempbuf, width * height);
+//        }
 
-        if (format == GL_RGB) {
-            _ogx_conv_rgb_to_rgb565(data, type, tempbuf, width, height);
-        } else if (format == GL_RGBA) {
-            if (internalFormat == GL_RGB) {
-                _ogx_conv_rgba_to_rgb565(data, type, tempbuf, width, height);
-            } else if (internalFormat == GL_RGBA) {
-                //writeLogFile("Image2D 5\r\n");
-                _ogx_conv_rgba_to_rgba32(data, type, tempbuf, width, height);
-                //writeLogFile("Image2D 6\r\n");
-            } else if (internalFormat == GL_LUMINANCE_ALPHA) {
-                _ogx_conv_rgba_to_luminance_alpha((unsigned char *)data, tempbuf, width, height);
-            }
-        } else if (format == GL_LUMINANCE_ALPHA) {
-            if (internalFormat == GL_RGB) {
-                // TODO
-            } else if (internalFormat == GL_LUMINANCE_ALPHA) {
-                _ogx_conv_luminance_alpha_to_ia8(data, type, tempbuf, width, height);
-            }
-        }
-
-        // Swap R<->B if necessary
-        //writeLogFile("Image2D 6.5\r\n");
-        if (needswap && internalFormat != GL_LUMINANCE_ALPHA) {
-            if (bytesperpixelinternal == 4)
-                _ogx_swap_rgba(tempbuf, width * height);
-            else
-                _ogx_swap_rgb565((unsigned short *)tempbuf, width * height);
-        }
-
-        //writeLogFile("Image2D 6.6\r\n");
         // Calculate the offset and address of the mipmap
         int offset = calc_mipmap_offset(level, currtex->w, currtex->h, currtex->bytespp);
-        unsigned char *dst_addr = currtex->data;
+        unsigned char *dst_addr = ( unsigned char *)currtex->data;
         dst_addr += offset;
 
         // Finally write to the dest. buffer scrambling the data
-        //writeLogFile("Image2D 7\r\n");
         if (bytesperpixelinternal == 4) {
-            _ogx_scramble_4b(tempbuf, dst_addr, width, height);
-
-            // DEBUG out put
-//            static int txtNum = 0;
-//            static FILE* fTexLog = NULL;
-//            if (txtNum < 10)
-//            {
-//                sprintf(txtbuffer, "sd:/wiisxrx/debugTex%d_%d_%d", txtNum++, width, height);
-//                fTexLog = fopen(txtbuffer, "wb");
-//                fwrite(tempbuf, width * height * bytesperpixelinternal, 1, fTexLog);
-//                fclose(fTexLog);
-//            }
-        } else {
-            _ogx_scramble_2b((unsigned short *)tempbuf, dst_addr, width, height);
+            _ogx_scramble_4b((unsigned char *)data, dst_addr, width, height);
+       } else {
+            _ogx_scramble_2b((unsigned short *)data, dst_addr, width, height);
         }
-        free(tempbuf);
-        //writeLogFile("Image2D 8\r\n");
+        //free(tempbuf);
 
         DCFlushRange(dst_addr, currtex->w * currtex->h * bytesperpixelinternal);
-    } else {
+    }
+    else
+    {
         // Compressed texture
 
         // Calculate the offset and address of the mipmap
@@ -1607,22 +1588,22 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
     }
 
     // Slow but necessary! The new textures may be in the same region of some old cached textures
-//    GX_InvalidateTexAll();
-//
-//    if (internalFormat == GL_RGBA) {
-//        GX_InitTexObj(&currtex->texobj, currtex->data,
-//                      currtex->w, currtex->h, GX_TF_RGBA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
-//    } else if (internalFormat == GL_RGB) {
-//        GX_InitTexObj(&currtex->texobj, currtex->data,
-//                      currtex->w, currtex->h, GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE);
-//    } else if (internalFormat == GL_LUMINANCE_ALPHA) {
-//        GX_InitTexObj(&currtex->texobj, currtex->data,
-//                      currtex->w, currtex->h, GX_TF_IA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
-//    } else {
-//        GX_InitTexObj(&currtex->texobj, currtex->data,
-//                      currtex->w, currtex->h, GX_TF_CMPR, GX_CLAMP, GX_CLAMP, GX_FALSE);
-//    }
-//    GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+    GX_InvalidateTexAll();
+
+    if (internalFormat == GL_RGBA) {
+        GX_InitTexObj(&currtex->texobj, currtex->data,
+                      currtex->w, currtex->h, GX_TF_RGBA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
+    } else if (internalFormat == GL_RGB) {
+        GX_InitTexObj(&currtex->texobj, currtex->data,
+                      currtex->w, currtex->h, GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE);
+    } else if (internalFormat == GL_LUMINANCE_ALPHA) {
+        GX_InitTexObj(&currtex->texobj, currtex->data,
+                      currtex->w, currtex->h, GX_TF_IA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
+    } else {
+        GX_InitTexObj(&currtex->texobj, currtex->data,
+                      currtex->w, currtex->h, GX_TF_CMPR, GX_CLAMP, GX_CLAMP, GX_FALSE);
+    }
+    GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
     //writeLogFile("Image2D 9\r\n");
     //GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
 }
@@ -2324,9 +2305,9 @@ void _ogx_apply_state()
         MODELVIEW_UPDATE
         PROJECTION_UPDATE
     }
-    if (glparamstate.dirty.bits.dirty_matrices | glparamstate.dirty.bits.dirty_lighting) {
-        NORMAL_UPDATE
-    }
+//    if (glparamstate.dirty.bits.dirty_matrices | glparamstate.dirty.bits.dirty_lighting) {
+//        NORMAL_UPDATE
+//    }
 
     // All the state has been transferred, no need to update it again next time
     glparamstate.dirty.all = 0;
@@ -2383,15 +2364,15 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 
     // Invalidate vertex data as may have been modified by the user
     GX_InvVtxCache();
-    if (texen)
-    {
-        gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
-        GX_InvalidateTexAll();
-        GX_InitTexObj(&currtex->texobj, currtex->data,
-                              currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_TRUE);
-        GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
-        GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
-    }
+//    if (texen)
+//    {
+//        gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
+//        GX_InvalidateTexAll();
+//        GX_InitTexObj(&currtex->texobj, currtex->data,
+//                              currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
+//        GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+//        //GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
+//    }
 
     bool loop = (mode == GL_LINE_LOOP);
     GX_Begin(gxmode, GX_VTXFMT0, count + loop);
@@ -2407,6 +2388,8 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
                             count, glparamstate.normal_enabled, color_provide, texen, loop);
     }
     GX_End();
+
+    GX_DrawDone();
 }
 
 void glDrawElements(GLenum mode, GLsizei count, GLenum type, const GLvoid *indices)
@@ -2547,10 +2530,10 @@ static void draw_arrays_general(float *ptr_pos, float *ptr_normal, float *ptr_te
         if (color_provide) {
             unsigned char *color = ptr_color + j * glparamstate.color_stride;
             //unsigned char arr[4] = { color[0] * 255.0f, color[1] * 255.0f, color[2] * 255.0f, color[3] * 255.0f };
-            unsigned char arr[4] = { color[0], color[1], color[2], color[3] };
-            GX_Color4u8(arr[0], arr[1], arr[2], arr[3]);
+            //unsigned char arr[4] = { color[0], color[1], color[2], color[3] };
+            GX_Color4u8(color[0], color[1], color[2], color[3]);
             if (color_provide == 2)
-                GX_Color4u8(arr[0], arr[1], arr[2], arr[3]);
+                GX_Color4u8(color[0], color[1], color[2], color[3]);
         }
 
         if (texen) {

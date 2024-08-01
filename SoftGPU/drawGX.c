@@ -137,6 +137,20 @@ void gc_vout_render(void)
 	GX_SetDrawDone();
 }
 
+static which_fb = 0;
+void gx_vout_render(void)
+{
+	// reset swap table from GUI/DEBUG
+	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED ,GX_CH_ALPHA);
+	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
+
+	which_fb ^= 1;
+	GX_CopyDisp(xfb[which_fb], GX_TRUE);
+	GX_Flush();
+	VIDEO_SetNextFramebuffer(xfb[which_fb]);
+	VIDEO_Flush();
+}
+
 void showFpsAndDebugInfo(void)
 {
 	//Write menu/debug text on screen
