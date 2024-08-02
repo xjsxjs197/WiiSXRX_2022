@@ -1283,30 +1283,7 @@ GLuint LoadTextureMovie(void)
      unsigned char * pD;
      unsigned int * ta=(unsigned int *)texturepart;
 
-//     if(b_X)
-//      {
-//       for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
-//        {
-//         startxy=((1024)*column)+xrMovieArea.x0;
-//         pD=(unsigned char *)&psxVuw[startxy];
-//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-//          {
-//           //*ta++=*((unsigned int *)pD)|0xff000000;
-//           PUTLE32(ta, *((unsigned int *)pD)|SWAP32_C(0xff000000));
-//           ta++;
-//           pD+=3;
-//          }
-//         *ta++=*(ta-1);
-//        }
-//       if(b_Y)
-//        {
-//         dx=xrMovieArea.x1-xrMovieArea.x0+1;
-//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-//          *ta++=*(ta-dx);
-//         *ta++=*(ta-1);
-//        }
-//      }
-//     else
+     if(b_X)
       {
        for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
         {
@@ -1314,25 +1291,44 @@ GLuint LoadTextureMovie(void)
          pD=(unsigned char *)&psxVuw[startxy];
          for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
           {
-           //*ta++=*((unsigned int *)pD)|0xff000000;
-           PUTLE32(ta, *((unsigned int *)pD)|SWAP32_C(0xff000000));
-           ta++;
+           PUTLE32(ta++, *((unsigned int *)pD)|SWAP32_C(0xff000000));
+           pD+=3;
+          }
+         *ta++=*(ta-1);
+        }
+       if(b_Y)
+        {
+         dx=xrMovieArea.x1-xrMovieArea.x0+1;
+         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+          *ta++=*(ta-dx);
+         *ta++=*(ta-1);
+        }
+      }
+     else
+      {
+       for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
+        {
+         startxy=((1024)*column)+xrMovieArea.x0;
+         pD=(unsigned char *)&psxVuw[startxy];
+         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+          {
+           PUTLE32(ta++, *((unsigned int *)pD)|SWAP32_C(0xff000000));
            pD+=3;
           }
         }
-//       if(b_Y)
-//        {
-//         dx=xrMovieArea.x1-xrMovieArea.x0;
-//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-//          *ta++=*(ta-dx);
-//        }
+       if(b_Y)
+        {
+         dx=xrMovieArea.x1-xrMovieArea.x0;
+         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+          *ta++=*(ta-dx);
+        }
       }
     }
    else
     {
         #ifdef DISP_DEBUG
-        sprintf(txtbuffer, "LoadMovie2 %d %d %d %d %d %d\r\n", xrMovieArea.x0, xrMovieArea.y0, xrMovieArea.x1, xrMovieArea.y1, b_X, b_Y);
-        DEBUG_print(txtbuffer, DBG_SPU2);
+        //sprintf(txtbuffer, "LoadMovie2 %d %d %d %d %d %d\r\n", xrMovieArea.x0, xrMovieArea.y0, xrMovieArea.x1, xrMovieArea.y1, b_X, b_Y);
+        //DEBUG_print(txtbuffer, DBG_SPU2);
         #endif // DISP_DEBUG
 
      unsigned int (*LTCOL)(unsigned int);
@@ -1343,28 +1339,28 @@ GLuint LoadTextureMovie(void)
      ubOpaqueDraw=0;
      ta=(unsigned int *)texturepart;
 
-//     if(b_X)
-//      {
-//       for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
-//        {
-//         startxy=((1024)*column)+xrMovieArea.x0;
-//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-//         {
-//             *ta++ = LTCOL(GETLE16(&psxVuw[startxy++]) | 0x8000);
-//         }
-//
-//         *ta++=*(ta-1);
-//        }
-//
-//       if(b_Y)
-//        {
-//         dx=xrMovieArea.x1-xrMovieArea.x0+1;
-//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-//          *ta++=*(ta-dx);
-//         *ta++=*(ta-1);
-//        }
-//      }
-//     else
+     if(b_X)
+      {
+       for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
+        {
+         startxy=((1024)*column)+xrMovieArea.x0;
+         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+         {
+             *ta++ = LTCOL(GETLE16(&psxVuw[startxy++]) | 0x8000);
+         }
+
+         *ta++=*(ta-1);
+        }
+
+       if(b_Y)
+        {
+         dx=xrMovieArea.x1-xrMovieArea.x0+1;
+         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+          *ta++=*(ta-dx);
+         *ta++=*(ta-1);
+        }
+      }
+     else
       {
        for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
         {
@@ -1375,18 +1371,18 @@ GLuint LoadTextureMovie(void)
          }
         }
 
-//       if(b_Y)
-//        {
-//         dx=xrMovieArea.x1-xrMovieArea.x0;
-//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-//          *ta++=*(ta-dx);
-//        }
+       if(b_Y)
+        {
+         dx=xrMovieArea.x1-xrMovieArea.x0;
+         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+          *ta++=*(ta-dx);
+        }
       }
     }
 
-   //xrMovieArea.x1+=b_X;xrMovieArea.y1+=b_Y;
+   xrMovieArea.x1+=b_X;xrMovieArea.y1+=b_Y;
    DefineTextureMovie();
-   //xrMovieArea.x1-=b_X;xrMovieArea.y1-=b_Y;
+   xrMovieArea.x1-=b_X;xrMovieArea.y1-=b_Y;
   }
  return gTexName;
 }

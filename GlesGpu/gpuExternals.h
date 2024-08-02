@@ -33,8 +33,8 @@
 extern "C" {
 #endif
 
-#include <Gl/gl.h>
-#include <GL/glext.h>
+#include "../deps/opengx/GL/gl.h"
+#include "../deps/opengx/GL/glext.h"
 
 #ifndef GL_BGRA_EXT
 #define GL_BGRA_EXT GL_RGBA // ??
@@ -62,6 +62,14 @@ extern  void ( APIENTRY * glPixelStorei )(GLenum pname, GLint param);
 #define OWNSCALE 1
 
 /////////////////////////////////////////////////////////////////////////////
+
+#define RGBA_GX_LEN_FIX(x) ((x + 3) & (~(unsigned int)3))
+
+#define BLUE(x)  ((x>>16) & 0xff)
+#define GREEN(x) ((x>>8) & 0xff)
+#define RED(x)   ((x>>0) & 0xff)
+
+#define COLOR(x) (x & 0xffffff)
 
 #define CLUTUSED     0x80000000
 //glColor4ubv(x.c.col)

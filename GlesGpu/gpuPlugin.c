@@ -371,7 +371,7 @@ if(PSXDisplay.Disabled)                               // display disabled?
 
   // moved here
   glDisable(GL_SCISSOR_TEST); glError();
-  glClearColor(0,0,0,255); glError();                 // -> clear whole backbuffer
+  glClearColor(0,0,0,128); glError();                 // -> clear whole backbuffer
   glClear(uiBufferBits); glError();
   glEnable(GL_SCISSOR_TEST); glError();
   gl_z=0.0f;
@@ -442,7 +442,7 @@ if(lClearOnSwap)                                      // clear buffer after swap
   b=((GLclampf)BLUE(lClearOnSwapColor));
   r=((GLclampf)RED(lClearOnSwapColor));
   glDisable(GL_SCISSOR_TEST); glError();
-  glClearColor(r,g,b,255); glError();                 // -> clear
+  glClearColor(r,g,b,128); glError();                 // -> clear
   glClear(uiBufferBits); glError();
   glEnable(GL_SCISSOR_TEST); glError();
   lClearOnSwap=0;                                     // -> done
@@ -712,7 +712,6 @@ if ((PSXDisplay.DisplayMode.y == PSXDisplay.DisplayModeNew.y) &&
  }
 else                                                  // some res change?
  {
-  glMatrixMode(GL_PROJECTION);
   glLoadIdentity(); glError();
   glOrtho(0,PSXDisplay.DisplayModeNew.x,              // -> new psx resolution
             PSXDisplay.DisplayModeNew.y, 0, -1, 1); glError();
@@ -1096,7 +1095,7 @@ switch(lCommand)
 
     PSXDisplay.PAL           = (forceNTSC == FORCENTSC_ENABLE) ? FALSE : ((gdata & 0x08)?TRUE:FALSE); // if 1 - PAL mode, else NTSC
    PSXDisplay.RGB24New      = (gdata & 0x10)?TRUE:FALSE; // if 1 - TrueColor
-    PSXDisplay.InterlacedNew = ((gdata & 0x24) ^ 0x24)?FALSE:TRUE; // if 0 - Interlace
+   PSXDisplay.InterlacedNew = (gdata & 0x20)?TRUE:FALSE; // if 1 - Interlace
 
    STATUSREG&=~GPUSTATUS_WIDTHBITS;                   // clear the width bits
 

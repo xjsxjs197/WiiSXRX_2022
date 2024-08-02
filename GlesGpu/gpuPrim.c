@@ -1781,7 +1781,7 @@ BOOL IsInsideNextScreen(short x, short y, short xoff, short yoff)
 
 void cmdSTP(unsigned char * baseAddr)
 {
- uint32_t gdata = GETLE32(&((uint32_t*)baseAddr)[0]);
+ uint32_t gdata = GETLE32((uint32_t*)baseAddr);
 
  STATUSREG&=~0x1800;                                   // clear the necessary bits
  STATUSREG|=((gdata & 0x03) << 11);                    // set the current bits
@@ -1814,7 +1814,7 @@ void cmdSTP(unsigned char * baseAddr)
 
 void cmdTexturePage(unsigned char * baseAddr)
 {
- uint32_t gdata = GETLE32(&((uint32_t*)baseAddr)[0]);
+ uint32_t gdata = GETLE32((uint32_t*)baseAddr);
  UpdateGlobalTP((unsigned short)gdata);
  //GlobalTextREST = (gdata&0x00ffffff)>>9;
 }
@@ -1825,7 +1825,7 @@ void cmdTexturePage(unsigned char * baseAddr)
 
 static void cmdTextureWindow(unsigned char *baseAddr)
 {
- uint32_t gdata = GETLE32(&((unsigned long*)baseAddr)[0]);
+ uint32_t gdata = GETLE32((uint32_t*)baseAddr);
  uint32_t YAlign,XAlign;
 
  ulGPUInfoVals[INFO_TW]=gdata&0xFFFFF;
@@ -2033,7 +2033,7 @@ void ClampToPSXScreen(short *x0, short *y0, short *x1, short *y1)
 
 void cmdDrawAreaStart(unsigned char * baseAddr)
 {
- uint32_t gdata = GETLE32(&((unsigned long*)baseAddr)[0]);
+ uint32_t gdata = GETLE32((uint32_t*)baseAddr);
 
  drawX = gdata & 0x3ff;                                // for soft drawing
  if(drawX>=1024) drawX=1023;
@@ -2064,7 +2064,7 @@ void cmdDrawAreaStart(unsigned char * baseAddr)
 
 void cmdDrawAreaEnd(unsigned char * baseAddr)
 {
- uint32_t gdata = GETLE32(&((unsigned long*)baseAddr)[0]);
+ uint32_t gdata = GETLE32((uint32_t*)baseAddr);
 
  drawW = gdata & 0x3ff;                                // for soft drawing
  if(drawW>=1024) drawW=1023;
@@ -2099,7 +2099,7 @@ void cmdDrawAreaEnd(unsigned char * baseAddr)
 
 void cmdDrawOffset(unsigned char * baseAddr)
 {
- uint32_t gdata = GETLE32(&((unsigned long*)baseAddr)[0]);
+ uint32_t gdata = GETLE32((uint32_t*)baseAddr);
 
  PreviousPSXDisplay.DrawOffset.x =
   PSXDisplay.DrawOffset.x = (short)(gdata & 0x7ff);
@@ -2364,7 +2364,7 @@ void primBlkFill(unsigned char * baseAddr)
      r=((unsigned char)RED(GETLE32(&gpuData[0])));
 
      //glDisable(GL_SCISSOR_TEST); glError();
-     glClearColor(r,g,b,255); glError();
+     glClearColor(r,g,b,1); glError();
      glClear(uiBufferBits); glError();
      gl_z=0.0f;
 

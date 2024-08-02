@@ -52,7 +52,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "state.h"
 #include "utils.h"
 
-#include <GL/gl.h>
+#include "GL/gl.h"
 #include <gctypes.h>
 #include <malloc.h>
 #include <math.h>
@@ -1366,12 +1366,7 @@ static int calc_original_size(int level, int s, GLint internalFormat)
     // update by xjsxjs197
     if (internalFormat == GL_RGBA)
     {
-        int cnt = s / 4;
-        if ((s % 4) > 0)
-        {
-            cnt++;
-        }
-        s = cnt * 4;
+        s = (s + 3) & ~(unsigned int)3;
     }
 
     return s;
@@ -1404,7 +1399,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
     if (target != GL_TEXTURE_2D)
         return; // FIXME Implement non 2D textures
 
-    //GX_DrawDone(); // Very ugly, we should have a list of used textures and only wait if we are using the curr tex.
+    GX_DrawDone(); // Very ugly, we should have a list of used textures and only wait if we are using the curr tex.
                    // This way we are sure that we are not modifying a texture which is being drawn
 
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
@@ -2387,7 +2382,7 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
         draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
                             count, glparamstate.normal_enabled, color_provide, texen, loop);
     }
-    GX_End();
+    //GX_End();
 
     GX_DrawDone();
 }

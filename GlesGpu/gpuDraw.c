@@ -1066,21 +1066,21 @@ void assignTextureSprite(void)
 {
  if(bUsingTWin)
   {
-//   vertex[0].sow=vertex[3].sow=(float)gl_ux[0]/TWin.UScaleFactor;
-//   vertex[1].sow=vertex[2].sow=(float)sSprite_ux2/TWin.UScaleFactor;
-//   vertex[0].tow=vertex[1].tow=(float)gl_vy[0]/TWin.VScaleFactor;
-//   vertex[2].tow=vertex[3].tow=(float)sSprite_vy2/TWin.VScaleFactor;
- vertex[0].sow=0.0f; //0.5f/ ST_FACVRAMX;
- vertex[0].tow=0.0f; //0.5f/ ST_FACVRAM;
-
- vertex[1].sow=1.0f; //(float)gl_ux[1]/ ST_FACVRAMX;
- vertex[1].tow=0.0f; //0.5f/ ST_FACVRAM;
-
- vertex[2].sow=1.0f; //(float)gl_ux[2]/ ST_FACVRAMX;
- vertex[2].tow=1.0f; //(float)gl_vy[2]/ ST_FACVRAM;
-
- vertex[3].sow=0.0f; //0.5f/ ST_FACVRAMX;
- vertex[3].tow=1.0f; //(float)gl_vy[3]/ ST_FACVRAM;
+   vertex[0].sow=vertex[3].sow=(float)gl_ux[0]/TWin.UScaleFactor;
+   vertex[1].sow=vertex[2].sow=(float)sSprite_ux2/TWin.UScaleFactor;
+   vertex[0].tow=vertex[1].tow=(float)gl_vy[0]/TWin.VScaleFactor;
+   vertex[2].tow=vertex[3].tow=(float)sSprite_vy2/TWin.VScaleFactor;
+// vertex[0].sow=0.0f; //0.5f/ ST_FACVRAMX;
+// vertex[0].tow=0.0f; //0.5f/ ST_FACVRAM;
+//
+// vertex[1].sow=1.0f; //(float)gl_ux[1]/ ST_FACVRAMX;
+// vertex[1].tow=0.0f; //0.5f/ ST_FACVRAM;
+//
+// vertex[2].sow=1.0f; //(float)gl_ux[2]/ ST_FACVRAMX;
+// vertex[2].tow=1.0f; //(float)gl_vy[2]/ ST_FACVRAM;
+//
+// vertex[3].sow=0.0f; //0.5f/ ST_FACVRAMX;
+// vertex[3].tow=1.0f; //(float)gl_vy[3]/ ST_FACVRAM;
    gLastTex=gTexName;
   }
  else
@@ -1145,20 +1145,20 @@ void assignTexture3(void)
 {
  if(bUsingTWin)
   {
-//   vertex[0].sow=(float)gl_ux[0]/TWin.UScaleFactor;
-//   vertex[0].tow=(float)gl_vy[0]/TWin.VScaleFactor;
-//   vertex[1].sow=(float)gl_ux[1]/TWin.UScaleFactor;
-//   vertex[1].tow=(float)gl_vy[1]/TWin.VScaleFactor;
-//   vertex[2].sow=(float)gl_ux[2]/TWin.UScaleFactor;
-//   vertex[2].tow=(float)gl_vy[2]/TWin.VScaleFactor;
- vertex[0].sow=0.0f; //0.5f/ ST_FACVRAMX;
- vertex[0].tow=1.0f; //0.5f/ ST_FACVRAM;
-
- vertex[1].sow=0.0f; //(float)gl_ux[1]/ ST_FACVRAMX;
- vertex[1].tow=0.0f; //0.5f/ ST_FACVRAM;
-
- vertex[2].sow=1.0f; //(float)gl_ux[2]/ ST_FACVRAMX;
- vertex[2].tow=0.0f; //(float)gl_vy[2]/ ST_FACVRAM;
+   vertex[0].sow=(float)gl_ux[0]/TWin.UScaleFactor;
+   vertex[0].tow=(float)gl_vy[0]/TWin.VScaleFactor;
+   vertex[1].sow=(float)gl_ux[1]/TWin.UScaleFactor;
+   vertex[1].tow=(float)gl_vy[1]/TWin.VScaleFactor;
+   vertex[2].sow=(float)gl_ux[2]/TWin.UScaleFactor;
+   vertex[2].tow=(float)gl_vy[2]/TWin.VScaleFactor;
+// vertex[0].sow=0.0f; //0.5f/ ST_FACVRAMX;
+// vertex[0].tow=1.0f; //0.5f/ ST_FACVRAM;
+//
+// vertex[1].sow=0.0f; //(float)gl_ux[1]/ ST_FACVRAMX;
+// vertex[1].tow=0.0f; //0.5f/ ST_FACVRAM;
+//
+// vertex[2].sow=1.0f; //(float)gl_ux[2]/ ST_FACVRAMX;
+// vertex[2].tow=0.0f; //(float)gl_vy[2]/ ST_FACVRAM;
    gLastTex=gTexName;
   }
  else
