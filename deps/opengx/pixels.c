@@ -227,6 +227,41 @@ void _ogx_scramble_2b(unsigned short *src, void *dst,
     }
 }
 
+// The position happens to be the integer position of the Block
+void _ogx_scramble_4b_sub(unsigned char *src, void *dst,
+                      const unsigned int width, const unsigned int height, const unsigned int oldWidth)
+{
+    unsigned int he;
+    unsigned int wi;
+    unsigned char blockHe;
+    unsigned char blockWi;
+    unsigned char *p = (unsigned char *)dst;
+    int oldWidthBlock = W_BLOCK(oldWidth);
+    int newWidthBlock = W_BLOCK(width);
+
+    for (he = 0; he < height; he += 4) {
+        for (wi = 0; wi < width; wi += 4) {
+            for (blockHe = 0; blockHe < 4; blockHe++) {
+                for (blockWi = 0; blockWi < 4; blockWi++) {
+                    if ((wi + blockWi) >= width || (he + blockHe) >= height)
+                    {
+                        *(unsigned short*)p = 0;
+                        *(unsigned short*)(p + 32) = 0;
+                    }
+                    else
+                    {
+                        *(unsigned short*)p = *(unsigned short*)(src + ((wi + blockWi) + ((he + blockHe) * width)) * 4);            // AR
+                        *(unsigned short*)(p + 32) = *(unsigned short*)(src + ((wi + blockWi) + ((he + blockHe) * width)) * 4 + 2); // GB
+                    }
+                    p += 2;
+                }
+            }
+            p += 32;
+        }
+        p += (oldWidthBlock - newWidthBlock) * 64;
+    }
+}
+
 // 4b texel scrambling, opengx conversion: src(rgba) -> dst(ar...gb)
 // custom corrected: src(abgr) -> dst(ar...gb)
 void _ogx_scramble_4b(unsigned char *src, void *dst,
@@ -244,30 +279,18 @@ void _ogx_scramble_4b(unsigned char *src, void *dst,
                 for (argb = 0; argb < 4; argb++) {
                     if ((i + argb) >= width || (block + c) >= height)
                     {
-                        *p++ = 0;
-                        *p++ = 0;
+                        *(unsigned short*)p = 0;
+                        *(unsigned short*)(p + 32) = 0;
                     }
                     else
                     {
-                        *p++ = src[((i + argb) + ((block + c) * width)) * 4];
-                        *p++ = src[((i + argb) + ((block + c) * width)) * 4 + 1];
+                        *(unsigned short*)p = *(unsigned short*)(src + ((i + argb) + ((block + c) * width)) * 4);             // AR
+                        *(unsigned short*)(p + 32) = *(unsigned short*)(src + ((i + argb) + ((block + c) * width)) * 4 + 2);  // GB
                     }
+                    p += 2;
                 }
             }
-            for (c = 0; c < 4; c++) {
-                for (argb = 0; argb < 4; argb++) {
-                    if ((i + argb) >= width || (block + c) >= height)
-                    {
-                        *p++ = 0;
-                        *p++ = 0;
-                    }
-                    else
-                    {
-                        *p++ = src[(((i + argb) + ((block + c) * width)) * 4) + 2];
-                        *p++ = src[(((i + argb) + ((block + c) * width)) * 4) + 3];
-                    }
-                }
-            }
+            p += 32;
         }
     }
 }

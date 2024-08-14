@@ -34,7 +34,7 @@
 /**********************************************************************
  * Begin system-specific stuff. Do not do any of this when building
  * for SciTech SNAP, as this is all done before this header file is
- * included. 
+ * included.
  */
 #if !defined(__SCITECH_SNAP__)
 
@@ -1336,6 +1336,8 @@ GLAPI void GLAPIENTRY glDeleteTextures( GLsizei n, const GLuint *textures);
 
 GLAPI void GLAPIENTRY glBindTexture( GLenum target, GLuint texture );
 GLAPI void GLAPIENTRY glBindTextureBef( GLenum target, GLuint texture );
+
+GLAPI void GLAPIENTRY glGetTextureInfo(GLuint texture, int *width, int *height);
 
 GLAPI void GLAPIENTRY glPrioritizeTextures( GLsizei n,
                                             const GLuint *textures,

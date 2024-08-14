@@ -33,7 +33,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef OPENGX_PIXELS_H
 #define OPENGX_PIXELS_H
 
-#include <GL/gl.h>
+#include "GL/gl.h"
+
+#define W_BLOCK(w) (((w + 3) & ~(unsigned int)3) >> 2)
 
 void _ogx_swap_rgba(unsigned char *pixels, int num_pixels);
 void _ogx_swap_rgb565(unsigned short *pixels, int num_pixels);
@@ -51,6 +53,10 @@ void _ogx_scramble_2b(unsigned short *src, void *dst,
                       const unsigned int width, const unsigned int height);
 void _ogx_scramble_4b(unsigned char *src, void *dst,
                       const unsigned int width, const unsigned int height);
+
+// The position happens to be the integer position of the Block
+void _ogx_scramble_4b_sub(unsigned char *src, void *dst,
+                      const unsigned int width, const unsigned int height, const unsigned int oldWidth);
 
 void _ogx_scale_internal(int components, int widthin, int heightin,
                          const unsigned char *datain,

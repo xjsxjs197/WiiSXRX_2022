@@ -128,7 +128,7 @@ extern int             iFakePrimBusy;
 int             iRumbleVal    = 0;
 int             iRumbleTime   = 0;
 
-static void flipEGL(void);
+static void flipEGL(int forceUpdate);
 
 ////////////////////////////////////////////////////////////////////////
 // stuff to make this a true PDK module
@@ -371,7 +371,7 @@ if(PSXDisplay.Disabled)                               // display disabled?
 
   // moved here
   glDisable(GL_SCISSOR_TEST); glError();
-  glClearColor(0,0,0,128); glError();                 // -> clear whole backbuffer
+  glClearColor(0,0,0,255); glError();                 // -> clear whole backbuffer
   glClear(uiBufferBits); glError();
   glEnable(GL_SCISSOR_TEST); glError();
   gl_z=0.0f;
@@ -415,7 +415,7 @@ if(UseFrameSkip)                                     // frame skipping active ?
  {
   if(!bSkipNextFrame)
    {
-    if(iDrawnSomething)     flipEGL();
+    if(iDrawnSomething)     flipEGL(0);
    }
 //    if((fps_skip < fFrameRateHz) && !(bSkipNextFrame))
 //     {bSkipNextFrame = TRUE; fps_skip=fFrameRateHz;}
@@ -424,7 +424,7 @@ if(UseFrameSkip)                                     // frame skipping active ?
  }
 else                                                  // no skip ?
  {
-  if(iDrawnSomething)  flipEGL();
+  if(iDrawnSomething)  flipEGL(0);
  }
 
 iDrawnSomething=0;
@@ -442,7 +442,7 @@ if(lClearOnSwap)                                      // clear buffer after swap
   b=((GLclampf)BLUE(lClearOnSwapColor));
   r=((GLclampf)RED(lClearOnSwapColor));
   glDisable(GL_SCISSOR_TEST); glError();
-  glClearColor(r,g,b,128); glError();                 // -> clear
+  glClearColor(r,g,b,255); glError();                 // -> clear
   glClear(uiBufferBits); glError();
   glEnable(GL_SCISSOR_TEST); glError();
   lClearOnSwap=0;                                     // -> done
@@ -539,7 +539,7 @@ bRenderFrontBuffer=FALSE;
 // if(ulKeybits&KEY_SHOWFPS) DisplayText();
 
 if(iDrawnSomething)                                   // linux:
-      flipEGL();
+      flipEGL(1);
 
 
 //if(iBlurBuffer) UnBlurBackBuffer();
@@ -1989,14 +1989,13 @@ void CALLBACK GL_GPUrearmedCallbacks(const struct rearmed_cbs *_cbs)
   vout_set_config(_cbs);
 }
 
-static void flipEGL(void)
+static void flipEGL(int forceUpdate)
 {
-    if (isUpdateLace == 0)
+    if (isUpdateLace == 0 && forceUpdate == 0)
     {
         return;
     }
 
- //eglSwapBuffers(display, surface);
     //Write menu/debug text on screen
     showFpsAndDebugInfo();
 

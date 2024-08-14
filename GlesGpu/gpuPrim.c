@@ -402,8 +402,8 @@ if (CSTEXTURE==1) glDisableClientState(GL_TEXTURE_COORD_ARRAY);glError();
 if (CSCOLOR==1) glDisableClientState(GL_COLOR_ARRAY);glError();
 
 #ifdef DISP_DEBUG
-sprintf(txtbuffer, "Vertex5 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y);
-DEBUG_print(txtbuffer, DBG_GPU1);
+//sprintf(txtbuffer, "Vertex5 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y);
+//DEBUG_print(txtbuffer, DBG_GPU1);
 #endif // DISP_DEBUG
 glVertexPointer(3, GL_FLOAT, VERTEX2_STRIDE, &v[0].xyz);glError();
 //glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(v[0]), &v[0].rgba);glError();
@@ -499,10 +499,10 @@ glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(v[0]), &v[0].rgba);glError();
 
 #ifdef DISP_DEBUG
 //sprintf(txtbuffer, "Coord7 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow);
-sprintf(txtbuffer, "Coord7 %d %d %d %d %d %d\r\n", gl_ux[0], gl_vy[0], gl_ux[1], gl_vy[1], gl_ux[2], gl_vy[2]);
-DEBUG_print(txtbuffer, DBG_CORE3);
-sprintf(txtbuffer, "Vertex7 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y);
-DEBUG_print(txtbuffer, DBG_GPU1);
+//sprintf(txtbuffer, "Coord7 %d %d %d %d %d %d\r\n", gl_ux[0], gl_vy[0], gl_ux[1], gl_vy[1], gl_ux[2], gl_vy[2]);
+//DEBUG_print(txtbuffer, DBG_CORE3);
+//sprintf(txtbuffer, "Vertex7 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y);
+//DEBUG_print(txtbuffer, DBG_GPU1);
 #endif // DISP_DEBUG
 glDrawArrays(GL_TRIANGLES, 0, 3);glError();
 CSVERTEX=CSCOLOR=1;
@@ -557,10 +557,10 @@ glVertexPointer(3, GL_FLOAT, VERTEX2_STRIDE, &v[0].xyz);glError();
 glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(v[0]), &v[0].rgba);glError();
 
 #ifdef DISP_DEBUG
-sprintf(txtbuffer, "Coord8 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow);
-DEBUG_print(txtbuffer, DBG_CORE3);
-sprintf(txtbuffer, "Vertex8 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
-DEBUG_print(txtbuffer, DBG_GPU1);
+//sprintf(txtbuffer, "Coord8 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow);
+//DEBUG_print(txtbuffer, DBG_CORE3);
+//sprintf(txtbuffer, "Vertex8 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
+//DEBUG_print(txtbuffer, DBG_GPU1);
 #endif // DISP_DEBUG
 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);glError();
 CSTEXTURE=0;
@@ -1045,7 +1045,20 @@ static inline void SetRenderMode(unsigned int DrawAttributes,BOOL bSCol)
    else                 currTex=SelectSubTextureS(GlobalTextTP,ulClutID);
 
    if(gTexName!=currTex)
-    {gTexName=currTex;glBindTextureBef(GL_TEXTURE_2D,currTex); glError();}
+    {
+        #ifdef DISP_DEBUG
+        sprintf(txtbuffer, "SetRenderMode1 %d %d\r\n", gTexName, currTex);
+        DEBUG_print(txtbuffer,  DBG_SPU2);
+        #endif // DISP_DEBUG
+        gTexName=currTex;glBindTextureBef(GL_TEXTURE_2D,currTex); glError();
+    }
+    else
+    {
+        #ifdef DISP_DEBUG
+        sprintf(txtbuffer, "SetRenderMode2 %d\r\n", gTexName);
+        DEBUG_print(txtbuffer,  DBG_SPU3);
+        #endif // DISP_DEBUG
+    }
 
    if(!bTexEnabled)                                    // -> turn texturing on
     {bTexEnabled=TRUE;glEnable(GL_TEXTURE_2D); glError();}
@@ -2364,7 +2377,7 @@ void primBlkFill(unsigned char * baseAddr)
      r=((unsigned char)RED(GETLE32(&gpuData[0])));
 
      //glDisable(GL_SCISSOR_TEST); glError();
-     glClearColor(r,g,b,1); glError();
+     glClearColor(r,g,b,255); glError();
      glClear(uiBufferBits); glError();
      gl_z=0.0f;
 
@@ -3027,15 +3040,6 @@ void primSprt8(unsigned char * baseAddr)
  gl_vy[2]=gl_vy[3]=s;
 
  ulClutID = GETLE16( &sgpuData[5] );
-    #ifdef DISP_DEBUG
-    int32_t clutY0,clutX0,clutP;
-    clutY0 = (GETLE32(&gpuData[2])>>22) & 511;
-    clutX0 = (GETLE32(&gpuData[2])>>12) & 0x3f0;
-    clutP  = (clutY0<<11) + (clutX0<<1);
-    sprintf(txtbuffer, "primSprt8 %d %d %06x %06x\r\n", ulClutID, clutP, baseAddr[8], baseAddr[9]);
-    DEBUG_print(txtbuffer, DBG_CORE2);
-    //writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
 
  bDrawTextured = TRUE;
  bDrawSmoothShaded = FALSE;
@@ -3147,15 +3151,6 @@ void primSprt16(unsigned char * baseAddr)
  gl_vy[2]=gl_vy[3]=s;
 
  ulClutID = GETLE16(&sgpuData[5]);
-    #ifdef DISP_DEBUG
-    int32_t clutY0,clutX0,clutP;
-    clutY0 = (GETLE32(&gpuData[2])>>22) & 511;
-    clutX0 = (GETLE32(&gpuData[2])>>12) & 0x3f0;
-    clutP  = (clutY0<<11) + (clutX0<<1);
-    sprintf(txtbuffer, "primSprt16 %d %d %06x %06x\r\n", ulClutID, clutP, baseAddr[8], baseAddr[9]);
-    DEBUG_print(txtbuffer, DBG_CORE2);
-    //writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
 
  bDrawTextured = TRUE;
  bDrawSmoothShaded = FALSE;
@@ -3316,15 +3311,6 @@ void primSprtSRest(unsigned char * baseAddr,unsigned short type)
  offsetST();
 
  ulClutID = GETLE16(&sgpuData[5]);
- #ifdef DISP_DEBUG
-    int32_t clutY0,clutX0,clutP;
-    clutY0 = (GETLE32(&gpuData[2])>>22) & 511;
-    clutX0 = (GETLE32(&gpuData[2])>>12) & 0x3f0;
-    clutP  = (clutY0<<11) + (clutX0<<1);
-    sprintf(txtbuffer, "SprtSRest %d %d %06x %06x\r\n", ulClutID, clutP, baseAddr[8], baseAddr[9]);
-    DEBUG_print(txtbuffer, DBG_CORE2);
-    //writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
 
  bDrawTextured = TRUE;
  bDrawSmoothShaded = FALSE;
@@ -3444,15 +3430,6 @@ void primSprtS(unsigned char * baseAddr)
  offsetST();
 
  ulClutID = GETLE16(&sgpuData[5]);
- #ifdef DISP_DEBUG
-    int32_t clutY0,clutX0,clutP;
-    clutY0 = (GETLE32(&gpuData[2])>>22) & 511;
-    clutX0 = (GETLE32(&gpuData[2])>>12) & 0x3f0;
-    clutP  = (clutY0<<11) + (clutX0<<1);
-    sprintf(txtbuffer, "primSprtS %d %d %06x %06x\r\n", ulClutID, clutP, baseAddr[8], baseAddr[9]);
-    DEBUG_print(txtbuffer, DBG_CORE2);
-    //writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
 
  bDrawTextured = TRUE;
  bDrawSmoothShaded = FALSE;

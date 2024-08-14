@@ -647,15 +647,36 @@ void glBindTextureBef(GLenum target, GLuint texture)
     glparamstate.glcurtex = texture;
 }
 
+void glGetTextureInfo(GLuint texture, int *width, int *height)
+{
+    if (texture < 0 || texture >= _MAX_GL_TEX)
+    {
+        *width = 0;
+        *height = 0;
+        return;
+    }
+    gltexture_ *currtex = &texture_list[texture];
+    //*width = currtex->w;
+    *height = currtex->h;
+
+    int i;
+    for (i = 1; i < _MAX_GL_TEX; i++) {
+        if (texture_list[i].used == 0) {
+            break;
+        }
+    }
+    *width = i;
+}
+
 void glDeleteTextures(GLsizei n, const GLuint *textures)
 {
     const GLuint *texlist = textures;
-    GX_DrawDone();
+    //GX_DrawDone();
     while (n-- > 0) {
         int i = *texlist++;
         if (!(i < 0 || i >= _MAX_GL_TEX)) {
             if (texture_list[i].data != 0)
-                free(texture_list[i].data);
+                _mem2_free(texture_list[i].data);
             texture_list[i].data = 0;
             texture_list[i].used = 0;
         }
@@ -666,7 +687,7 @@ void glGenTextures(GLsizei n, GLuint *textures)
 {
     GLuint *texlist = textures;
     int i;
-    for (i = 0; i < _MAX_GL_TEX && n > 0; i++) {
+    for (i = 1; i < _MAX_GL_TEX && n > 0; i++) {
         if (texture_list[i].used == 0) {
             texture_list[i].used = 1;
             texture_list[i].data = 0;
@@ -1389,6 +1410,110 @@ static int calc_mipmap_offset(int level, int w, int h, int b)
     return size;
 }
 
+void glTexSubImage2D(GLenum target, GLint level,
+                   GLint xoffset, GLint yoffset,
+                   GLsizei width, GLsizei height,
+                   GLenum format, GLenum type,
+                   const GLvoid *data )
+{
+    GX_DrawDone();
+    //GX_InvVtxCache();
+    //GX_InvalidateTexAll();
+
+    // GL_TEXTURE_2D GL_RGBA fix
+    gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
+
+    if ((xoffset & 3) == 0 && (yoffset & 3) == 0)
+    {
+        // The position happens to be the integer position of the Block
+        GLint internalFormat = GL_RGBA;
+        int wi = calc_original_size(level, width, internalFormat);
+        int he = calc_original_size(level, height, internalFormat);
+
+        int startOffset = ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 64;
+        _ogx_scramble_4b_sub((unsigned char *)data, currtex->data + startOffset, width, height, currtex->w);
+        //DCFlushRange(currtex->data + startOffset, wi * he * 4);
+        DCFlushRange(currtex->data , currtex->w * currtex->h * 4);
+    }
+    else
+    {
+        // It is not the position of the integer Block, so we need to write data to different blocks
+        unsigned char * dstBlock = currtex->data;
+        unsigned char * src = (unsigned char *)data;
+        int totalWi = xoffset + width;
+        int totalHe = yoffset + height;
+        int oldXoffset = xoffset;
+        //sprintf(txtbuffer, "copyPos %d %d %d %d\r\n", xoffset, yoffset, width, height);
+        //writeLogFile(txtbuffer);
+
+        int y, x;
+        unsigned char copyHe;
+        unsigned char copyWi;
+        int tmp;
+        for (y = 0; y < height;)
+        {
+            tmp = yoffset + (4 - (yoffset & 3));
+            //sprintf(txtbuffer, "chk copyHe %d %d %d %d\r\n", tmp, yoffset, (4 - (yoffset & 3)), totalHe);
+            //writeLogFile(txtbuffer);
+            if (tmp <= totalHe)
+            {
+                copyHe = tmp - yoffset;
+            }
+            else
+            {
+                copyHe = totalHe - yoffset;
+            }
+            //sprintf(txtbuffer, "copyHe %d\r\n", copyHe);
+            //writeLogFile(txtbuffer);
+
+            for (x = 0; x < width;)
+            {
+                tmp = xoffset + (4 - (xoffset & 3));
+                //sprintf(txtbuffer, "chk copyWi %d %d %d %d\r\n", tmp, xoffset, (4 - (xoffset & 3)), totalWi);
+                //writeLogFile(txtbuffer);
+                if (tmp <= totalWi)
+                {
+                    copyWi = tmp - xoffset;
+                }
+                else
+                {
+                    copyWi = totalWi - xoffset;
+                }
+                //sprintf(txtbuffer, "copyWi %d\r\n", copyWi);
+                //writeLogFile(txtbuffer);
+
+                unsigned char he;
+                unsigned char wi;
+                unsigned char blockHe;
+                unsigned char blockWi;
+                src = (unsigned char *)data + (y * width + x) * 4;
+                dstBlock = currtex->data + ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 64;
+                for (he = 0, blockHe = (yoffset & 3); he < copyHe; he++, blockHe++)
+                {
+                    for (wi = 0, blockWi = (xoffset & 3); wi < copyWi; wi++, blockWi++)
+                    {
+                        *(unsigned short*)(dstBlock + (blockHe * 4 + blockWi) * 2)      = *(unsigned short*)(src + (he * width + wi) * 4); // AR
+                        *(unsigned short*)(dstBlock + (blockHe * 4 + blockWi) * 2 + 32) = *(unsigned short*)(src + (he * width + wi) * 4 + 2); // GB
+                    }
+                }
+
+                x += copyWi;
+                xoffset += copyWi;
+
+            }
+            y += copyHe;
+            yoffset += copyHe;
+            xoffset = oldXoffset;
+        }
+
+        DCFlushRange(currtex->data , currtex->w * currtex->h * 4);
+    }
+
+    //GX_InitTexObj(&currtex->texobj, currtex->data,
+    //                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
+    //GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+}
+
 void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height,
                   GLint border, GLenum format, GLenum type, const GLvoid *data)
 {
@@ -1471,55 +1596,76 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
     // or wants to create a new texture from scratch
     int wi = calc_original_size(level, width, internalFormat);
     int he = calc_original_size(level, height, internalFormat);
-    currtex->bytespp = bytesperpixelinternal;
-    //sprintf(txtbuffer, "Image2D 2 %d %d\r\n", wi, he);
-    //writeLogFile(txtbuffer);
 
     // Check if the texture has changed its geometry and proceed to delete it
     // If the specified level is zero, create a onelevel texture to save memory
     if (wi != currtex->w || he != currtex->h || bytesperpixelinternal != currtex->bytespp) {
         if (currtex->data != 0)
-            free(currtex->data);
+            _mem2_free(currtex->data);
+
+        int required_size = calc_memory(wi, he, bytesperpixelinternal);
+        int tex_size_rnd = ROUND_32B(required_size);
+        currtex->data = _mem2_memalign(32, tex_size_rnd);
+        //memset(currtex->data, 0, tex_size_rnd * 2);
+
+        // save the original data
+//        currtex->oldW = width;
+//        currtex->oldH = height;
+//        memcpy(currtex->data + tex_size_rnd, data, width * height * 4);
+//        DCFlushRange(currtex->data + tex_size_rnd, width * height * 4);
+
         if (level == 0) {
-            int required_size = calc_memory(wi, he, bytesperpixelinternal);
-            int tex_size_rnd = ROUND_32B(required_size);
-            currtex->data = memalign(32, tex_size_rnd);
-            memset(currtex->data, 0, tex_size_rnd);
             currtex->onelevel = 1;
         } else {
-            int required_size = calc_tex_size(wi, he, bytesperpixelinternal);
-            int tex_size_rnd = ROUND_32B(required_size);
-            currtex->data = memalign(32, tex_size_rnd);
-            memset(currtex->data, 0, tex_size_rnd);
             currtex->onelevel = 0;
         }
         currtex->minlevel = level;
         currtex->maxlevel = level;
     }
+//    if (wi != currtex->w || he != currtex->h || bytesperpixelinternal != currtex->bytespp) {
+//        if (currtex->data != 0)
+//            free(currtex->data);
+//        if (level == 0) {
+//            int required_size = calc_memory(wi, he, bytesperpixelinternal);
+//            int tex_size_rnd = ROUND_32B(required_size);
+//            currtex->data = memalign(32, tex_size_rnd);
+//            memset(currtex->data, 0, tex_size_rnd);
+//            currtex->onelevel = 1;
+//        } else {
+//            int required_size = calc_tex_size(wi, he, bytesperpixelinternal);
+//            int tex_size_rnd = ROUND_32B(required_size);
+//            currtex->data = memalign(32, tex_size_rnd);
+//            memset(currtex->data, 0, tex_size_rnd);
+//            currtex->onelevel = 0;
+//        }
+//        currtex->minlevel = level;
+//        currtex->maxlevel = level;
+//    }
     currtex->w = wi;
     currtex->h = he;
+    currtex->bytespp = bytesperpixelinternal;
     if (currtex->maxlevel < level)
         currtex->maxlevel = level;
     if (currtex->minlevel > level)
         currtex->minlevel = level;
 
-    if (currtex->onelevel == 1 && level != 0) {
-        // We allocated a onelevel texture (base level 0) but now
-        // we are uploading a non-zero level, so we need to create a mipmap capable buffer
-        // and copy the level zero texture
-        unsigned int tsize = calc_memory(wi, he, bytesperpixelinternal);
-        unsigned char *tempbuf = _mem2_malloc(tsize);
-        memcpy(tempbuf, currtex->data, tsize);
-        free(currtex->data);
-
-        int required_size = calc_tex_size(wi, he, bytesperpixelinternal);
-        int tex_size_rnd = ROUND_32B(required_size);
-        currtex->data = memalign(32, tex_size_rnd);
-        currtex->onelevel = 0;
-
-        memcpy(currtex->data, tempbuf, tsize);
-        _mem2_free(tempbuf);
-    }
+//    if (currtex->onelevel == 1 && level != 0) {
+//        // We allocated a onelevel texture (base level 0) but now
+//        // we are uploading a non-zero level, so we need to create a mipmap capable buffer
+//        // and copy the level zero texture
+//        unsigned int tsize = calc_memory(wi, he, bytesperpixelinternal);
+//        unsigned char *tempbuf = _mem2_malloc(tsize);
+//        memcpy(tempbuf, currtex->data, tsize);
+//        free(currtex->data);
+//
+//        int required_size = calc_tex_size(wi, he, bytesperpixelinternal);
+//        int tex_size_rnd = ROUND_32B(required_size);
+//        currtex->data = memalign(32, tex_size_rnd);
+//        currtex->onelevel = 0;
+//
+//        memcpy(currtex->data, tempbuf, tsize);
+//        _mem2_free(tempbuf);
+//    }
 
     // Inconditionally convert to 565 all inputs without alpha channel
     // Alpha inputs may be stripped if the user specifies an alpha-free internal format
@@ -1582,23 +1728,23 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
         DCFlushRange(dst_addr, calc_memory(width, height, bytesperpixelinternal));
     }
 
-//    // Slow but necessary! The new textures may be in the same region of some old cached textures
-//    GX_InvalidateTexAll();
-//
-//    if (internalFormat == GL_RGBA) {
-//        GX_InitTexObj(&currtex->texobj, currtex->data,
-//                      currtex->w, currtex->h, GX_TF_RGBA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
-//    } else if (internalFormat == GL_RGB) {
-//        GX_InitTexObj(&currtex->texobj, currtex->data,
-//                      currtex->w, currtex->h, GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE);
-//    } else if (internalFormat == GL_LUMINANCE_ALPHA) {
-//        GX_InitTexObj(&currtex->texobj, currtex->data,
-//                      currtex->w, currtex->h, GX_TF_IA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
-//    } else {
-//        GX_InitTexObj(&currtex->texobj, currtex->data,
-//                      currtex->w, currtex->h, GX_TF_CMPR, GX_CLAMP, GX_CLAMP, GX_FALSE);
-//    }
-//    GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+    // Slow but necessary! The new textures may be in the same region of some old cached textures
+    GX_InvalidateTexAll();
+
+    if (internalFormat == GL_RGBA) {
+        GX_InitTexObj(&currtex->texobj, currtex->data,
+                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
+    } else if (internalFormat == GL_RGB) {
+        GX_InitTexObj(&currtex->texobj, currtex->data,
+                      currtex->w, currtex->h, GX_TF_RGB565, currtex->wraps, currtex->wrapt, GX_FALSE);
+    } else if (internalFormat == GL_LUMINANCE_ALPHA) {
+        GX_InitTexObj(&currtex->texobj, currtex->data,
+                      currtex->w, currtex->h, GX_TF_IA8, currtex->wraps, currtex->wrapt, GX_FALSE);
+    } else {
+        GX_InitTexObj(&currtex->texobj, currtex->data,
+                      currtex->w, currtex->h, GX_TF_CMPR, currtex->wraps, currtex->wrapt, GX_FALSE);
+    }
+    //GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
     //writeLogFile("Image2D 9\r\n");
     //GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
 }
@@ -2296,7 +2442,8 @@ void _ogx_apply_state()
     }
 
     // Matrix stuff
-    if (glparamstate.dirty.bits.dirty_matrices) {
+    //if (glparamstate.dirty.bits.dirty_matrices)
+    {
         MODELVIEW_UPDATE
         PROJECTION_UPDATE
     }
@@ -2361,11 +2508,13 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
     GX_InvVtxCache();
     if (texen)
     {
-        gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
         GX_InvalidateTexAll();
-        GX_InitTexObj(&currtex->texobj, currtex->data,
-                              currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
+        gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
+
+        //GX_InitTexObj(&currtex->texobj, currtex->data,
+        //                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
         GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+        //GX_InvalidateTexAll();
         //GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
     }
 
@@ -2382,9 +2531,7 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
         draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
                             count, glparamstate.normal_enabled, color_provide, texen, loop);
     }
-    //GX_End();
-
-    GX_DrawDone();
+    GX_End();
 }
 
 void glDrawElements(GLenum mode, GLsizei count, GLenum type, const GLvoid *indices)
