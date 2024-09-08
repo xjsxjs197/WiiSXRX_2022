@@ -47,8 +47,8 @@ enum ConfigCdda //Config.Cdda
 extern char spuInterpolation;
 enum spuInterpolationEnum
 {
-	SIMPLE_INTERPOLATION = 1,
-	GAUSSI_INTERPOLATION,
+	SIMPLE_INTERPOLATION=1,
+	GAUSSI_INTERPOLATION
 };
 
 extern char showFPSonScreen;
@@ -76,14 +76,14 @@ extern char frameLimit[2];
 enum frameLimit
 {
 	FRAMELIMIT_NONE=0,
-	FRAMELIMIT_AUTO,
+	FRAMELIMIT_AUTO
 };
 
 extern char frameSkip;
 enum frameSkip
 {
 	FRAMESKIP_DISABLE=0,
-	FRAMESKIP_ENABLE,
+	FRAMESKIP_ENABLE
 };
 
 extern int iUseDither;
@@ -129,7 +129,7 @@ enum dynacore
 
 	DYNACORE_DYNAREC=0, // Lightrec
 	DYNACORE_INTERPRETER, // Interpreter
-	DYNACORE_DYNAREC_OLD // old PPC dynarec
+	DYNACORE_DYNAREC_OLD // 'new' PPC dynarec
 };
 
 extern char biosDevice;
@@ -202,14 +202,14 @@ enum padAssign
 	PADASSIGN_INPUT1A,
 	PADASSIGN_INPUT1B,
 	PADASSIGN_INPUT1C,
-	PADASSIGN_INPUT1D,
+	PADASSIGN_INPUT1D
 };
 
 extern char padLightgun[10];
 enum padLightgun
 {
 	PADLIGHTGUN_DISABLE=0,
-	PADLIGHTGUN_ENABLE,
+	PADLIGHTGUN_ENABLE
 
 };
 
@@ -249,7 +249,7 @@ enum numMultitaps
 extern char lang;
 enum lang
 {
-	ENGLISH = 0,
+	ENGLISH=0,
 	SIMP_CHINESE,
 	KOREAN,
 	SPANISH,
@@ -268,35 +268,35 @@ extern char originalMode;
 enum originalMode
 {
 	ORIGINALMODE_DISABLE=0,
-	ORIGINALMODE_ENABLE,
+	ORIGINALMODE_ENABLE
 };
 
 extern char bilinearFilter;
 enum bilinearFilter
 {
 	BILINEARFILTER_DISABLE=0,
-	BILINEARFILTER_ENABLE,
+	BILINEARFILTER_ENABLE
 };
 
 extern char trapFilter;
 enum trapFilter
 {
 	TRAPFILTER_DISABLE=0,
-	TRAPFILTER_ENABLE,
+	TRAPFILTER_ENABLE
 };
 
 extern char interlacedMode;
 enum interlacedMode
 {
 	INTERLACED_DISABLE=0,
-	INTERLACED_ENABLE,
+	INTERLACED_ENABLE
 };
 
 extern char deflickerFilter;
 enum deflickerFilter
 {
 	DEFLICKER_DISABLE=0,
-	DEFLICKER_ENABLE,
+	DEFLICKER_ENABLE
 };
 
 extern char lightGun;
@@ -305,28 +305,28 @@ enum lightGun
 	LIGHTGUN_DISABLE=0,
 	LIGHTGUN_GUNCON,
 	LIGHTGUN_JUST,
-	LIGHTGUN_MOUSE,
+	LIGHTGUN_MOUSE
 };
 
 extern char memCard[2];
 enum memCard
 {
 	MEMCARD_DISABLE=0,
-	MEMCARD_ENABLE,
+	MEMCARD_ENABLE
 };
 
 extern char forceNTSC;
 enum forceNTSC
 {
 	FORCENTSC_DISABLE=0,
-	FORCENTSC_ENABLE,
+	FORCENTSC_ENABLE
 };
 
 extern char gpuPlugin;
 enum gpuPlugin
 {
 	OLD_SOFT=0,
-	NEW_SOFT,
+	NEW_SOFT
 };
 
 extern const unsigned char En_dat[];
