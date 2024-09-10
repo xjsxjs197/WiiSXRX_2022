@@ -128,7 +128,7 @@ extern int             iFakePrimBusy;
 int             iRumbleVal    = 0;
 int             iRumbleTime   = 0;
 
-static void flipEGL(int forceUpdate);
+static void flipEGL(void);
 
 ////////////////////////////////////////////////////////////////////////
 // stuff to make this a true PDK module
@@ -325,6 +325,11 @@ updateDisplayGl();
 void updateDisplayGl(void)                               // UPDATE DISPLAY
 {
 BOOL bBlur=FALSE;
+#ifdef DISP_DEBUG
+sprintf(txtbuffer, "updateDisplayGl 0 \r\n");
+DEBUG_print(txtbuffer, DBG_CDR1);
+writeLogFile(txtbuffer);
+#endif // DISP_DEBUG
 
 
 bFakeFrontBuffer=FALSE;
@@ -345,6 +350,11 @@ iLastRGB24=0;
 if(PSXDisplay.RGB24)// && !bNeedUploadAfter)          // (mdec) upload wanted?
  {
   PrepareFullScreenUpload(-1);
+  #ifdef DISP_DEBUG
+sprintf(txtbuffer, "updateDisplayGl_1 %d %d %d %d %d %d %d %d %d\r\n", PSXDisplay.Disabled, lClearOnSwap, iZBufferDepth, PSXDisplay.Interlaced, bNeedRGB24Update, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+DEBUG_print(txtbuffer, DBG_CDR1);
+writeLogFile(txtbuffer);
+#endif // DISP_DEBUG
   UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
   bNeedUploadTest=FALSE;
   bNeedInterlaceUpdate=FALSE;
@@ -354,6 +364,11 @@ if(PSXDisplay.RGB24)// && !bNeedUploadAfter)          // (mdec) upload wanted?
 else
 if(bNeedInterlaceUpdate)                              // smaller upload?
  {
+     #ifdef DISP_DEBUG
+sprintf(txtbuffer, "updateDisplayGl_2 %d %d %d %d %d %d %d %d %d\r\n", PSXDisplay.Disabled, lClearOnSwap, iZBufferDepth, PSXDisplay.Interlaced, bNeedRGB24Update, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+DEBUG_print(txtbuffer, DBG_CDR2);
+writeLogFile(txtbuffer);
+#endif // DISP_DEBUG
   bNeedInterlaceUpdate=FALSE;
   xrUploadArea=xrUploadAreaIL;                        // -> upload this rect
   UploadScreen(TRUE);
@@ -371,11 +386,16 @@ if(PSXDisplay.Disabled)                               // display disabled?
 
   // moved here
   glDisable(GL_SCISSOR_TEST); glError();
-  glClearColor(0,0,0,255); glError();                 // -> clear whole backbuffer
+  glClearColor2(0,0,0,255); glError();                 // -> clear whole backbuffer
   glClear(uiBufferBits); glError();
   glEnable(GL_SCISSOR_TEST); glError();
   gl_z=0.0f;
   bDisplayNotSet = TRUE;
+  #ifdef DISP_DEBUG
+sprintf(txtbuffer, "updateDisplayGl Disabled\r\n");
+DEBUG_print(txtbuffer, DBG_CDR1);
+writeLogFile(txtbuffer);
+#endif // DISP_DEBUG
  }
 
 if(iSkipTwo)                                          // we are in skipping mood?
@@ -415,7 +435,7 @@ if(UseFrameSkip)                                     // frame skipping active ?
  {
   if(!bSkipNextFrame)
    {
-    if(iDrawnSomething)     flipEGL(0);
+    if(iDrawnSomething)     flipEGL();
    }
 //    if((fps_skip < fFrameRateHz) && !(bSkipNextFrame))
 //     {bSkipNextFrame = TRUE; fps_skip=fFrameRateHz;}
@@ -424,7 +444,7 @@ if(UseFrameSkip)                                     // frame skipping active ?
  }
 else                                                  // no skip ?
  {
-  if(iDrawnSomething)  flipEGL(0);
+  if(iDrawnSomething)  flipEGL();
  }
 
 iDrawnSomething=0;
@@ -433,16 +453,16 @@ iDrawnSomething=0;
 
 if(lClearOnSwap)                                      // clear buffer after swap?
  {
-  GLclampf g,b,r;
+  unsigned char g,b,r;
 
   if(bDisplayNotSet)                                  // -> set new vals
    SetOGLDisplaySettings(1);
 
-  g=((GLclampf)GREEN(lClearOnSwapColor));      // -> get col
-  b=((GLclampf)BLUE(lClearOnSwapColor));
-  r=((GLclampf)RED(lClearOnSwapColor));
+  g=((unsigned char)GREEN(lClearOnSwapColor));      // -> get col
+  b=((unsigned char)BLUE(lClearOnSwapColor));
+  r=((unsigned char)RED(lClearOnSwapColor));
   glDisable(GL_SCISSOR_TEST); glError();
-  glClearColor(r,g,b,255); glError();                 // -> clear
+  glClearColor2(r,g,b,255); glError();                 // -> clear
   glClear(uiBufferBits); glError();
   glEnable(GL_SCISSOR_TEST); glError();
   lClearOnSwap=0;                                     // -> done
@@ -468,6 +488,11 @@ if(bNeedUploadAfter)                                  // upload wanted?
  {
   bNeedUploadAfter=FALSE;
   bNeedUploadTest=FALSE;
+  #ifdef DISP_DEBUG
+sprintf(txtbuffer, "bNeedUploadAfter \r\n");
+DEBUG_print(txtbuffer, DBG_CDR3);
+writeLogFile(txtbuffer);
+#endif // DISP_DEBUG
   UploadScreen(-1);                                   // -> upload
  }
 
@@ -481,6 +506,12 @@ if(bNeedUploadTest)
      PreviousPSXDisplay.DisplayPosition.y==PSXDisplay.DisplayPosition.y &&
      PreviousPSXDisplay.DisplayEnd.y==PSXDisplay.DisplayEnd.y)
    {
+       #ifdef DISP_DEBUG
+sprintf(txtbuffer, "bNeedUploadTest \r\n");
+DEBUG_print(txtbuffer, DBG_CDR3);
+writeLogFile(txtbuffer);
+#endif // DISP_DEBUG
+
     PrepareFullScreenUpload(TRUE);
     UploadScreen(TRUE);
    }
@@ -539,7 +570,7 @@ bRenderFrontBuffer=FALSE;
 // if(ulKeybits&KEY_SHOWFPS) DisplayText();
 
 if(iDrawnSomething)                                   // linux:
-      flipEGL(1);
+      flipEGL();
 
 
 //if(iBlurBuffer) UnBlurBackBuffer();
@@ -712,9 +743,15 @@ if ((PSXDisplay.DisplayMode.y == PSXDisplay.DisplayModeNew.y) &&
  }
 else                                                  // some res change?
  {
+  glMatrixMode(GL_PROJECTION);
   glLoadIdentity(); glError();
   glOrtho(0,PSXDisplay.DisplayModeNew.x,              // -> new psx resolution
             PSXDisplay.DisplayModeNew.y, 0, -1, 1); glError();
+  #ifdef DISP_DEBUG
+sprintf(txtbuffer, "updateDisplayIfChangedGl %d %d\r\n", PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y);
+DEBUG_print(txtbuffer, DBG_SPU3);
+writeLogFile(txtbuffer);
+#endif // DISP_DEBUG
   if(bKeepRatio) SetAspectRatio();
  }
 
@@ -820,11 +857,9 @@ return FALSE;
 
 extern void CALLBACK GPUsetframelimit(unsigned long option);
 static unsigned short usFirstPos=2;
-static int isUpdateLace = 0;
 
 void CALLBACK GL_GPUupdateLace(void)
 {
-    isUpdateLace = 1;
 if(!(dwActFixes&0x1000))
  STATUSREG^=0x80000000;                               // interlaced bit toggle, if the CC game fix is not active (see gpuReadStatus)
 
@@ -944,6 +979,11 @@ switch(lCommand)
 
      if(!PSXDisplay.RGB24)
       {
+          #ifdef DISP_DEBUG
+sprintf(txtbuffer, "dis/enable display \r\n");
+DEBUG_print(txtbuffer, DBG_CDR3);
+writeLogFile(txtbuffer);
+#endif // DISP_DEBUG
        PrepareFullScreenUpload(TRUE);
        UploadScreen(TRUE);
        updateDisplayGl();
@@ -1989,19 +2029,18 @@ void CALLBACK GL_GPUrearmedCallbacks(const struct rearmed_cbs *_cbs)
   vout_set_config(_cbs);
 }
 
-static void flipEGL(int forceUpdate)
+static void flipEGL(void)
 {
-    if (isUpdateLace == 0 && forceUpdate == 0)
-    {
-        return;
-    }
+    #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "flipEGL \r\n");
+    DEBUG_print(txtbuffer, DBG_SPU3);
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     //Write menu/debug text on screen
     showFpsAndDebugInfo();
 
     gx_vout_render();
-
-    isUpdateLace = 0;
 }
 
 extern long GL_GPUopen();

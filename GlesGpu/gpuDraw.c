@@ -495,7 +495,7 @@ int GLinitialize(void *ext_gles_display, void *ext_gles_surface)
    glDisable(GL_DEPTH_TEST); glError();
   }
 
- glClearColor(0, 0, 0, 0); glError();      // first buffer clear
+ glClearColor2(0, 0, 0, 0); glError();      // first buffer clear
  glClear(uiBufferBits); glError();
 
  GetExtInfos();                                        // get ext infos
@@ -1020,17 +1020,17 @@ void assignTextureVRAMWrite(void)
 {
 #ifdef OWNSCALE
 
- vertex[0].sow=0.5f/ ST_FACVRAMX;
- vertex[0].tow=0.5f/ ST_FACVRAM;
+ vertex[0].sow=0.0f; //0.5f/ ST_FACVRAMX;
+ vertex[0].tow=0.0f; //0.5f/ ST_FACVRAM;
 
- vertex[1].sow=(float)gl_ux[1]/ ST_FACVRAMX;
- vertex[1].tow=0.5f/ ST_FACVRAM;
+ vertex[1].sow=(float)(xrMovieArea.x1-xrMovieArea.x0)/ RGBA_GX_LEN_FIX(xrMovieArea.x1-xrMovieArea.x0);
+ vertex[1].tow=0.0f; //0.5f/ ST_FACVRAM;
 
- vertex[2].sow=(float)gl_ux[2]/ ST_FACVRAMX;
- vertex[2].tow=(float)gl_vy[2]/ ST_FACVRAM;
+ vertex[2].sow=(float)(xrMovieArea.x1-xrMovieArea.x0)/ RGBA_GX_LEN_FIX(xrMovieArea.x1-xrMovieArea.x0);
+ vertex[2].tow=(float)(xrMovieArea.y1-xrMovieArea.y0)/ RGBA_GX_LEN_FIX(xrMovieArea.y1-xrMovieArea.y0);
 
- vertex[3].sow=0.5f/ ST_FACVRAMX;
- vertex[3].tow=(float)gl_vy[3]/ ST_FACVRAM;
+ vertex[3].sow=0.0f; //0.5f/ ST_FACVRAMX;
+ vertex[3].tow=(float)(xrMovieArea.y1-xrMovieArea.y0)/ RGBA_GX_LEN_FIX(xrMovieArea.y1-xrMovieArea.y0);
 
 #else
 
@@ -1296,6 +1296,10 @@ void SetOGLDisplaySettings(BOOL DisplaySet)
    if(bSetClip || !EqualRect(&rC,&rX))
     {
      rC=rX;
+     #ifdef DISP_DEBUG
+     sprintf(txtbuffer, "SetDisplay %d %d %d %d\r\n", rC.left,rC.top,rC.right,rC.bottom);
+     DEBUG_print(txtbuffer, DBG_SPU3);
+     #endif // DISP_DEBUG
      glScissor(rC.left,rC.top,rC.right,rC.bottom); glError();
      //LOGE("glscissor:%d %d %d %d",rC.left,rC.top,rC.right,rC.bottom);
      bSetClip=FALSE;

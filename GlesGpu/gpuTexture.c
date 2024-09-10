@@ -126,7 +126,7 @@ void               (*LoadSubTexFn) (int,int,short,short);
 #define SOFFC 2048
 #define SOFFD 3072
 
-#define MAXWNDTEXCACHE 128
+#define MAXWNDTEXCACHE 64
 
 #define XCHECK(pos1,pos2) ((pos1.c.y2>=pos2.c.y1)&&(pos1.c.y1<=pos2.c.y2)&&(pos1.c.x2>=pos2.c.x1)&&(pos1.c.x1<=pos2.c.x2))
 #define INCHECK(pos2,pos1) ((pos1.c.y2<=pos2.c.y2) && (pos1.c.y1>=pos2.c.y1) && (pos1.c.x2<=pos2.c.x2) && (pos1.c.x1>=pos2.c.x1))
@@ -141,6 +141,8 @@ void            DefineSubTextureSort(void);
 ////////////////////////////////////////////////////////////////////////
 // some globals
 ////////////////////////////////////////////////////////////////////////
+int canLogSubImg = 0;
+
 
 int  GlobalTexturePage;
 GLint XTexS;
@@ -188,8 +190,8 @@ typedef struct textureSubCacheEntryTagS
 
 //---------------------------------------------
 
-#define MAXTPAGES_MAX  32 // 64
-#define MAXSORTTEX_MAX 50 // 196
+#define MAXTPAGES_MAX  32
+#define MAXSORTTEX_MAX 40 // 196
 
 //---------------------------------------------
 
@@ -204,12 +206,12 @@ int                      iMaxTexWnds=0;
 int                      iTexWndTurn=0;
 int                      iTexWndLimit=MAXWNDTEXCACHE/2;
 
-GLubyte *                texturepart=NULL;
-GLubyte *                texturebuffer=NULL;
+GLubyte                  texturepart[256 * 256 *4];
+//GLubyte *                texturebuffer=NULL;
 unsigned int             g_x1,g_y1,g_x2,g_y2;
 unsigned char            ubOpaqueDraw=0;
 
-unsigned short MAXTPAGES     = 32;
+unsigned short MAXTPAGES     = MAXTPAGES_MAX;
 unsigned short CLUTMASK      = 0x7fff;
 unsigned short CLUTYMASK     = 0x1ff;
 unsigned short MAXSORTTEX    = MAXSORTTEX_MAX;
@@ -316,7 +318,7 @@ void InitializeTextureStore()
 //  }
 // else
   {
-   MAXTPAGES     = 32;
+   MAXTPAGES     = MAXTPAGES_MAX;
    CLUTMASK      = 0x7fff;
    CLUTYMASK     = 0x1ff;
    MAXSORTTEX    = MAXSORTTEX_MAX;
@@ -331,9 +333,9 @@ void InitializeTextureStore()
 
  memset(wcWndtexStore,0,sizeof(textureWndCacheEntry)*
                         MAXWNDTEXCACHE);
- texturepart=(GLubyte *)_mem2_malloc(256*256*4);
+ //texturepart=(GLubyte *)_mem2_malloc(256*256*4);
  memset(texturepart,0,256*256*4);
-	 texturebuffer=NULL;
+	 //texturebuffer=NULL;
 
  for(i=0;i<3;i++)                                    // -> info for 32*3
   for(j=0;j<MAXTPAGES;j++)
@@ -360,13 +362,13 @@ void CleanupTextureStore()
  glBindTextureBef(GL_TEXTURE_2D,0);
  glError();
  //----------------------------------------------------//
- _mem2_free(texturepart);                                    // free tex part
- texturepart=0;
- if(texturebuffer)
-  {
-   _mem2_free(texturebuffer);
-   texturebuffer=0;
-  }
+ //_mem2_free(texturepart);                                    // free tex part
+ //texturepart=0;
+// if(texturebuffer)
+//  {
+//   _mem2_free(texturebuffer);
+//   texturebuffer=0;
+//  }
  //----------------------------------------------------//
  tsx=wcWndtexStore;                                    // loop tex window cache
  for(i=0;i<MAXWNDTEXCACHE;i++,tsx++)
@@ -675,31 +677,31 @@ void InvalidateTextureArea(int X,int Y,int W, int H)
 
 void DefineTextureWnd(void)
 {
- if(gTexName==0)
-  glGenTextures(1, &gTexName);
- glError();
- glBindTextureBef(GL_TEXTURE_2D, gTexName);
- glError();
- glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
- glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
- glError();
-{
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, iFilter);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, iFilter);
-   glError();
-  }
+    if (gTexName==0)
+    {
+        glGenTextures(1, &gTexName);
+        glError();
+        glBindTextureBef(GL_TEXTURE_2D, gTexName);glError();
 
-#ifdef DISP_DEBUG
-sprintf(txtbuffer, "TextureWnd %d %d\r\n", TWin.Position.x1, TWin.Position.y1);
-DEBUG_print(txtbuffer, DBG_SPU1);
-#endif // DISP_DEBUG
- glTexImage2D(GL_TEXTURE_2D, 0,GL_RGBA,
-              TWin.Position.x1,
-              TWin.Position.y1,
-              0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart);
- glError();
- //LOGE("DefineTextureWnd x:%d y:%d",TWin.Position.x1,TWin.Position.y1);
+        //glInitRGBATextures(TWin.Position.x1, TWin.Position.y1);
+        glError();
+    }
+    else
+    {
+        glBindTextureBef(GL_TEXTURE_2D, gTexName);glError();
+    }
 
+    glTexImage2D(GL_TEXTURE_2D, 0,GL_RGBA,
+        TWin.Position.x1,
+        TWin.Position.y1,
+        0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glError();
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, iFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, iFilter);
+    glError();
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1199,6 +1201,9 @@ void DefineTextureMovie(void)
    gTexName=gTexMovieName;
    glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
 
+    glResetMovieTexPtr();
+    glInitMovieTextures((xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0), texturepart);
+
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, iClampType); glError();
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, iClampType); glError();
 
@@ -1212,25 +1217,27 @@ void DefineTextureMovie(void)
      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, iFilter); glError();
      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, iFilter); glError();
     }
+   //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
 
-   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
   }
  else
   {
    gTexName=gTexMovieName;glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
+   glInitMovieTextures((xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0), texturepart);
   }
-    #ifdef DISP_DEBUG
-    int oldWidth, oldHeight;
-    glGetTextureInfo(gTexName, &oldWidth, &oldHeight);
-    sprintf(txtbuffer, "DefineTextureMovie %d %d 0 0 %d %d\r\n", oldWidth, oldHeight, (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0));
-    DEBUG_print(txtbuffer, DBG_SPU2);
-    //sprintf(txtbuffer, "glTexSubImage2D %d %d %d %d\r\n",  (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0), gl_ux[1], gl_vy[2]);
-    //DEBUG_print(txtbuffer,  DBG_SPU2);
+  #ifdef DISP_DEBUG
+//    static int oldWidth=256, oldHeight=256;
+//    //glGetTextureInfo(gTexName, &oldWidth, &oldHeight);
+//    sprintf(txtbuffer, "DefineTextureMovie %d %d %d %d %d\r\n", PSXDisplay.RGB24, oldWidth, oldHeight, (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0));
+//    DEBUG_print(txtbuffer, DBG_SPU2);
+    //writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                 (xrMovieArea.x1-xrMovieArea.x0),
-                 (xrMovieArea.y1-xrMovieArea.y0),
-                 GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
+
+  canLogSubImg = 0;
+//  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+//                 (xrMovieArea.x1-xrMovieArea.x0),
+//                 (xrMovieArea.y1-xrMovieArea.y0),
+//                 GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
 
 
  //LOGE("DefineTextureMovie x:%d y:%d",(xrMovieArea.x1-xrMovieArea.x0),(xrMovieArea.y1-xrMovieArea.y0));
@@ -1262,10 +1269,10 @@ GLuint LoadTextureMovie(void)
 
  //if(bUseFastMdec) return LoadTextureMovieFast();
 
- b_X=FALSE;b_Y=FALSE;
-
- if((xrMovieArea.x1-xrMovieArea.x0)<255)  b_X=TRUE;
- if((xrMovieArea.y1-xrMovieArea.y0)<255)  b_Y=TRUE;
+// b_X=FALSE;b_Y=FALSE;
+//
+// if((xrMovieArea.x1-xrMovieArea.x0)<255)  b_X=TRUE;
+// if((xrMovieArea.y1-xrMovieArea.y0)<255)  b_Y=TRUE;
 
 
 {
@@ -1279,7 +1286,28 @@ GLuint LoadTextureMovie(void)
      unsigned char * pD;
      unsigned int * ta=(unsigned int *)texturepart;
 
-     if(b_X)
+//     if(b_X)
+//      {
+//       for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
+//        {
+//         startxy=((1024)*column)+xrMovieArea.x0;
+//         pD=(unsigned char *)&psxVuw[startxy];
+//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+//          {
+//           PUTLE32(ta++, *((unsigned int *)pD)|SWAP32_C(0xff000000));
+//           pD+=3;
+//          }
+//         *ta++=*(ta-1);
+//        }
+//       if(b_Y)
+//        {
+//         dx=xrMovieArea.x1-xrMovieArea.x0+1;
+//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+//          *ta++=*(ta-dx);
+//         *ta++=*(ta-1);
+//        }
+//      }
+//     else
       {
        for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
         {
@@ -1290,34 +1318,13 @@ GLuint LoadTextureMovie(void)
            PUTLE32(ta++, *((unsigned int *)pD)|SWAP32_C(0xff000000));
            pD+=3;
           }
-         *ta++=*(ta-1);
         }
-       if(b_Y)
-        {
-         dx=xrMovieArea.x1-xrMovieArea.x0+1;
-         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-          *ta++=*(ta-dx);
-         *ta++=*(ta-1);
-        }
-      }
-     else
-      {
-       for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
-        {
-         startxy=((1024)*column)+xrMovieArea.x0;
-         pD=(unsigned char *)&psxVuw[startxy];
-         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-          {
-           PUTLE32(ta++, *((unsigned int *)pD)|SWAP32_C(0xff000000));
-           pD+=3;
-          }
-        }
-       if(b_Y)
-        {
-         dx=xrMovieArea.x1-xrMovieArea.x0;
-         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-          *ta++=*(ta-dx);
-        }
+//       if(b_Y)
+//        {
+//         dx=xrMovieArea.x1-xrMovieArea.x0;
+//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+//          *ta++=*(ta-dx);
+//        }
       }
     }
    else
@@ -1335,7 +1342,28 @@ GLuint LoadTextureMovie(void)
      ubOpaqueDraw=0;
      ta=(unsigned int *)texturepart;
 
-     if(b_X)
+//     if(b_X)
+//      {
+//       for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
+//        {
+//         startxy=((1024)*column)+xrMovieArea.x0;
+//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+//         {
+//             *ta++ = LTCOL(GETLE16(&psxVuw[startxy++]) | 0x8000);
+//         }
+//
+//         *ta++=*(ta-1);
+//        }
+//
+//       if(b_Y)
+//        {
+//         dx=xrMovieArea.x1-xrMovieArea.x0+1;
+//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+//          *ta++=*(ta-dx);
+//         *ta++=*(ta-1);
+//        }
+//      }
+//     else
       {
        for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
         {
@@ -1344,41 +1372,20 @@ GLuint LoadTextureMovie(void)
          {
              *ta++ = LTCOL(GETLE16(&psxVuw[startxy++]) | 0x8000);
          }
-
-         *ta++=*(ta-1);
         }
 
-       if(b_Y)
-        {
-         dx=xrMovieArea.x1-xrMovieArea.x0+1;
-         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-          *ta++=*(ta-dx);
-         *ta++=*(ta-1);
-        }
-      }
-     else
-      {
-       for(column=xrMovieArea.y0;column<xrMovieArea.y1;column++)
-        {
-         startxy=((1024)*column)+xrMovieArea.x0;
-         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-         {
-             *ta++ = LTCOL(GETLE16(&psxVuw[startxy++]) | 0x8000);
-         }
-        }
-
-       if(b_Y)
-        {
-         dx=xrMovieArea.x1-xrMovieArea.x0;
-         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
-          *ta++=*(ta-dx);
-        }
+//       if(b_Y)
+//        {
+//         dx=xrMovieArea.x1-xrMovieArea.x0;
+//         for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
+//          *ta++=*(ta-dx);
+//        }
       }
     }
 
-   xrMovieArea.x1+=b_X;xrMovieArea.y1+=b_Y;
+   //xrMovieArea.x1+=b_X;xrMovieArea.y1+=b_Y;
    DefineTextureMovie();
-   xrMovieArea.x1-=b_X;xrMovieArea.y1-=b_Y;
+   //xrMovieArea.x1-=b_X;xrMovieArea.y1-=b_Y;
   }
  return gTexName;
 }
@@ -2346,6 +2353,8 @@ void DefineSubTextureSort(void)
    glGenTextures(1, &gTexName); glError();
    glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
 
+   glInitRGBATextures(256, 256);
+
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, iClampType); glError();
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, iClampType); glError();
 
@@ -2369,8 +2378,9 @@ void DefineSubTextureSort(void)
   int oldWidth, oldHeight;
   glGetTextureInfo(gTexName, &oldWidth, &oldHeight);
   sprintf(txtbuffer, "DefineSubTextureSort %d %d %d %d %d %d\r\n", oldWidth, oldHeight, XTexS, YTexS, DXTexS, DYTexS);
-  DEBUG_print(txtbuffer, DBG_CDR1);
+  DEBUG_print(txtbuffer, DBG_CDR2);
   #endif // DISP_DEBUG
+  canLogSubImg = 1;
   glTexSubImage2D(GL_TEXTURE_2D, 0, XTexS, YTexS,
                  DXTexS, DYTexS,
                  GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
@@ -3079,6 +3089,10 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
 
  // found? fine
  usLRUTexPage=iCache;
+ #ifdef DISP_DEBUG
+ sprintf(txtbuffer, "SelectSubTextureS 1\n");
+ DEBUG_print(txtbuffer,  DBG_CDR3);
+ #endif // DISP_DEBUG
  if(!OPtr) return uiStexturePage[iCache];
 
  // not found? upload texture and store infos in cache
@@ -3086,6 +3100,10 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
  LoadSubTexFn(GlobalTexturePage,TextureMode,cx,cy);
  uiStexturePage[iCache]=gTexName;
  *OPtr=ubOpaqueDraw;
+  #ifdef DISP_DEBUG
+ sprintf(txtbuffer, "SelectSubTextureS 2 %d\n", gTexName);
+ DEBUG_print(txtbuffer,  DBG_CDR3);
+ #endif // DISP_DEBUG
  return (GLuint) gTexName;
 }
 

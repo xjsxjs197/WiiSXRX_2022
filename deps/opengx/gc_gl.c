@@ -62,6 +62,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "../../mem2_manager.h"
 
 #define ROUND_32B(x) (((x) + 31) & (~31))
+#define min(a,b)     (((a) < (b)) ? (a) : (b))
 
 static FILE* fdebugLog = NULL;
 static char *debugLogFile = "sd:/wiisxrx/debugLog.txt";
@@ -1106,7 +1107,7 @@ void glRotatef(GLfloat angle, GLfloat x, GLfloat y, GLfloat z)
     glparamstate.dirty.bits.dirty_matrices = 1;
 }
 
-void glClearColor(unsigned char red, unsigned char green, unsigned char blue, unsigned char alpha)
+void glClearColor2(unsigned char red, unsigned char green, unsigned char blue, unsigned char alpha)
 {
     glparamstate.clear_color.r = (red);
     glparamstate.clear_color.g = (green);
@@ -1410,6 +1411,73 @@ static int calc_mipmap_offset(int level, int w, int h, int b)
     return size;
 }
 
+void glInitRGBATextures( GLsizei width, GLsizei height )
+{
+    gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
+
+    int wi = (width + 3) & ~(unsigned int)3;
+    int he = (height + 3) & ~(unsigned int)3;
+
+    if (currtex->data != 0)
+        _mem2_free(currtex->data);
+
+    int required_size = wi * he * 4;
+    int tex_size_rnd = ROUND_32B(required_size);
+    currtex->data = _mem2_memalign(32, tex_size_rnd);
+    memset(currtex->data, 0, tex_size_rnd);
+    DCFlushRange(currtex->data, tex_size_rnd);
+
+    currtex->w = wi;
+    currtex->h = he;
+
+    GX_InitTexObj(&currtex->texobj, currtex->data,
+                  currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
+}
+
+#define RESY_MAX 512	//Vmem height
+#define GXRESX_MAX 1366	//1024 * 1.33 for ARGB
+#define MOVIE_BUF_SIZE (GXRESX_MAX*RESY_MAX*2)
+
+extern unsigned char GXtexture[MOVIE_BUF_SIZE];
+static unsigned char *movieTexPtr;
+static int movieUsedSize = 0;
+
+void glResetMovieTexPtr( void )
+{
+    movieUsedSize = 0;
+    movieTexPtr = (unsigned char *)GXtexture;
+}
+
+void glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
+{
+    gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
+
+    int wi = (width + 3) & ~(unsigned int)3;
+    int he = (height + 3) & ~(unsigned int)3;
+
+    int required_size = wi * he * 4;
+    int tex_size_rnd = ROUND_32B(required_size);
+    if ((movieUsedSize + tex_size_rnd) > MOVIE_BUF_SIZE)
+    {
+        glResetMovieTexPtr();
+    }
+    currtex->data = (unsigned char *)movieTexPtr;
+    memset(currtex->data, 0, tex_size_rnd);
+    movieTexPtr += tex_size_rnd;
+    movieUsedSize += tex_size_rnd;
+
+    currtex->w = wi;
+    currtex->h = he;
+
+    _ogx_scramble_4b((unsigned char *)texData, currtex->data, width, height);
+
+    GX_InitTexObj(&currtex->texobj, currtex->data,
+                  currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
+}
+
+extern int canLogSubImg;
+static int subImgIdx = 0;
+
 void glTexSubImage2D(GLenum target, GLint level,
                    GLint xoffset, GLint yoffset,
                    GLsizei width, GLsizei height,
@@ -1423,6 +1491,16 @@ void glTexSubImage2D(GLenum target, GLint level,
     // GL_TEXTURE_2D GL_RGBA fix
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
+
+//    if (canLogSubImg && subImgIdx <= 16)
+//    {
+//        subImgIdx++;
+//        sprintf(txtbuffer, "sd:/wiisxrx/debugImg%d_%d_%d_%d_B%d", currtex->w, currtex->h, width, height, subImgIdx);
+//        FILE* subImgLog = fopen(txtbuffer, "wb");
+//        fwrite(currtex->data, currtex->w * currtex->h * 4, 1, subImgLog);
+//        fclose(subImgLog);
+//    }
+
     if ((xoffset & 3) == 0 && (yoffset & 3) == 0)
     {
         // The position happens to be the integer position of the Block
@@ -1432,7 +1510,6 @@ void glTexSubImage2D(GLenum target, GLint level,
 
         int startOffset = ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 64;
         _ogx_scramble_4b_sub((unsigned char *)data, currtex->data + startOffset, width, height, currtex->w);
-        //DCFlushRange(currtex->data + startOffset, wi * he * 4);
         DCFlushRange(currtex->data , currtex->w * currtex->h * 4);
     }
     else
@@ -1440,11 +1517,10 @@ void glTexSubImage2D(GLenum target, GLint level,
         // It is not the position of the integer Block, so we need to write data to different blocks
         unsigned char * dstBlock = currtex->data;
         unsigned char * src = (unsigned char *)data;
-        int totalWi = xoffset + width;
-        int totalHe = yoffset + height;
+        int totalWi = min(xoffset + width, currtex->w);
+        int totalHe = min(yoffset + height, currtex->h);
         int oldXoffset = xoffset;
-        //sprintf(txtbuffer, "copyPos %d %d %d %d\r\n", xoffset, yoffset, width, height);
-        //writeLogFile(txtbuffer);
+        int oldYoffset = yoffset;
 
         int y, x;
         unsigned char copyHe;
@@ -1453,8 +1529,6 @@ void glTexSubImage2D(GLenum target, GLint level,
         for (y = 0; y < height;)
         {
             tmp = yoffset + (4 - (yoffset & 3));
-            //sprintf(txtbuffer, "chk copyHe %d %d %d %d\r\n", tmp, yoffset, (4 - (yoffset & 3)), totalHe);
-            //writeLogFile(txtbuffer);
             if (tmp <= totalHe)
             {
                 copyHe = tmp - yoffset;
@@ -1463,14 +1537,10 @@ void glTexSubImage2D(GLenum target, GLint level,
             {
                 copyHe = totalHe - yoffset;
             }
-            //sprintf(txtbuffer, "copyHe %d\r\n", copyHe);
-            //writeLogFile(txtbuffer);
 
             for (x = 0; x < width;)
             {
                 tmp = xoffset + (4 - (xoffset & 3));
-                //sprintf(txtbuffer, "chk copyWi %d %d %d %d\r\n", tmp, xoffset, (4 - (xoffset & 3)), totalWi);
-                //writeLogFile(txtbuffer);
                 if (tmp <= totalWi)
                 {
                     copyWi = tmp - xoffset;
@@ -1479,8 +1549,6 @@ void glTexSubImage2D(GLenum target, GLint level,
                 {
                     copyWi = totalWi - xoffset;
                 }
-                //sprintf(txtbuffer, "copyWi %d\r\n", copyWi);
-                //writeLogFile(txtbuffer);
 
                 unsigned char he;
                 unsigned char wi;
@@ -1507,10 +1575,30 @@ void glTexSubImage2D(GLenum target, GLint level,
         }
 
         DCFlushRange(currtex->data , currtex->w * currtex->h * 4);
+
+//        if (canLogSubImg && subImgIdx <= 66)
+//        {
+//            subImgIdx++;
+//            sprintf(txtbuffer, "sd:/wiisxrx/debugImg_B%02d_%d_%d_%d_%d_%d_%d", subImgIdx, currtex->w, currtex->h, oldXoffset, oldYoffset, width, height);
+//            FILE* subImgLog = fopen(txtbuffer, "wb");
+//            fwrite(currtex->data, currtex->w * currtex->h * 4, 1, subImgLog);
+//            fclose(subImgLog);
+//        }
     }
 
-    //GX_InitTexObj(&currtex->texobj, currtex->data,
-    //                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
+    // Slow but necessary! The new textures may be in the same region of some old cached textures
+    //GX_InvalidateTexAll();
+
+//    if (canLogSubImg && subImgIdx <= 17)
+//    {
+//        sprintf(txtbuffer, "sd:/wiisxrx/debugImg%d_%d_%d_%d_A%d", currtex->w, currtex->h, width, height, subImgIdx);
+//        FILE* subImgLog = fopen(txtbuffer, "wb");
+//        fwrite(currtex->data, currtex->w * currtex->h * 4, 1, subImgLog);
+//        fclose(subImgLog);
+//    }
+
+//    GX_InitTexObj(&currtex->texobj, currtex->data,
+//                          currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
     //GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
 }
 
@@ -1601,18 +1689,14 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
     // If the specified level is zero, create a onelevel texture to save memory
     if (wi != currtex->w || he != currtex->h || bytesperpixelinternal != currtex->bytespp) {
         if (currtex->data != 0)
+        {
             _mem2_free(currtex->data);
+        }
 
         int required_size = calc_memory(wi, he, bytesperpixelinternal);
         int tex_size_rnd = ROUND_32B(required_size);
         currtex->data = _mem2_memalign(32, tex_size_rnd);
-        //memset(currtex->data, 0, tex_size_rnd * 2);
-
-        // save the original data
-//        currtex->oldW = width;
-//        currtex->oldH = height;
-//        memcpy(currtex->data + tex_size_rnd, data, width * height * 4);
-//        DCFlushRange(currtex->data + tex_size_rnd, width * height * 4);
+        memset(currtex->data, 0, tex_size_rnd);
 
         if (level == 0) {
             currtex->onelevel = 1;
@@ -1622,25 +1706,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
         currtex->minlevel = level;
         currtex->maxlevel = level;
     }
-//    if (wi != currtex->w || he != currtex->h || bytesperpixelinternal != currtex->bytespp) {
-//        if (currtex->data != 0)
-//            free(currtex->data);
-//        if (level == 0) {
-//            int required_size = calc_memory(wi, he, bytesperpixelinternal);
-//            int tex_size_rnd = ROUND_32B(required_size);
-//            currtex->data = memalign(32, tex_size_rnd);
-//            memset(currtex->data, 0, tex_size_rnd);
-//            currtex->onelevel = 1;
-//        } else {
-//            int required_size = calc_tex_size(wi, he, bytesperpixelinternal);
-//            int tex_size_rnd = ROUND_32B(required_size);
-//            currtex->data = memalign(32, tex_size_rnd);
-//            memset(currtex->data, 0, tex_size_rnd);
-//            currtex->onelevel = 0;
-//        }
-//        currtex->minlevel = level;
-//        currtex->maxlevel = level;
-//    }
+
     currtex->w = wi;
     currtex->h = he;
     currtex->bytespp = bytesperpixelinternal;
@@ -1729,7 +1795,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
     }
 
     // Slow but necessary! The new textures may be in the same region of some old cached textures
-    GX_InvalidateTexAll();
+    //GX_InvalidateTexAll();
 
     if (internalFormat == GL_RGBA) {
         GX_InitTexObj(&currtex->texobj, currtex->data,
@@ -2448,7 +2514,7 @@ void _ogx_apply_state()
         PROJECTION_UPDATE
     }
 //    if (glparamstate.dirty.bits.dirty_matrices | glparamstate.dirty.bits.dirty_lighting) {
-//        NORMAL_UPDATE
+        NORMAL_UPDATE
 //    }
 
     // All the state has been transferred, no need to update it again next time
@@ -2508,13 +2574,13 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
     GX_InvVtxCache();
     if (texen)
     {
-        GX_InvalidateTexAll();
         gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
+        GX_SetZMode(GX_ENABLE, GX_ALWAYS, GX_TRUE);
+        GX_InvalidateTexAll();
         //GX_InitTexObj(&currtex->texobj, currtex->data,
         //                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
         GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
-        //GX_InvalidateTexAll();
         //GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
     }
 
@@ -2741,6 +2807,13 @@ void glOrtho(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLdou
     glMultMatrixf((float *)newmat);
 }
 
+void glOrtho2(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLdouble near_val, GLdouble far_val)
+{
+    Mtx44 GXprojection2D;
+    guOrtho(GXprojection2D, 0, bottom, 0, right, -1, 1);
+    GX_LoadProjectionMtx(GXprojection2D, GX_ORTHOGRAPHIC);
+}
+
 // NOT GOING TO IMPLEMENT
 
 void glBlendEquation(GLenum mode) {}
@@ -2755,6 +2828,7 @@ static unsigned char gcgl_texwrap_conv(GLint param)
     case GL_MIRRORED_REPEAT:
         return GX_MIRROR;
     case GL_CLAMP:
+    case GL_CLAMP_TO_EDGE:
         return GX_CLAMP;
     case GL_REPEAT:
     default:

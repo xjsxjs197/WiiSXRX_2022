@@ -65,15 +65,15 @@ extern  void ( APIENTRY * glPixelStorei )(GLenum pname, GLint param);
 
 #define RGBA_GX_LEN_FIX(x) ((x + 3) & (~(unsigned int)3))
 
-#define BLUE(x)  ((x>>16) & 0xff)
+#define RED(x)   ((x>>16) & 0xff)
 #define GREEN(x) ((x>>8) & 0xff)
-#define RED(x)   ((x>>0) & 0xff)
+#define BLUE(x)  ((x>>0) & 0xff)
 
 #define COLOR(x) (x & 0xffffff)
 
 #define CLUTUSED     0x80000000
 //glColor4ubv(x.c.col)
-#define SETCOL(x)  if(x.c.lcol!=ulOLDCOL) {ulOLDCOL=x.c.lcol;glColor4ub(x.c.col[0],x.c.col[1],x.c.col[2],x.c.col[3]);}
+#define SETCOL(x)  if(x.c.lcol!=ulOLDCOL) {ulOLDCOL=x.c.lcol;glColor4ub(x.c.col.b,x.c.col.g,x.c.col.r,x.c.col.a);}
 //#define SETPCOL(x)  if(x->c.lcol!=ulOLDCOL) {ulOLDCOL=x->c.lcol;glColor4ub(x->c.col[0],x->c.col[1],x->c.col[2],x->c.col[3]);}
 
 #define INFO_TW        0
@@ -244,7 +244,8 @@ typedef struct OGLVertexTag
  union
 COLTAG
   {
-   unsigned char col[4];
+   //unsigned char col[4];
+   struct { unsigned char b, g, r, a; } col;
    unsigned int  lcol;
   } c;
 
@@ -259,11 +260,7 @@ COLTAG
 typedef union EXLongTag
 {
  //unsigned char c[4];
- #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
  struct { unsigned char y2, y1, x2, x1; } c;
- #else
- struct { unsigned char x1, x2, y1, y2; } c;
- #endif
  unsigned int  l;
  //EXShort       s[2];
 } EXLong;

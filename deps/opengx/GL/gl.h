@@ -773,7 +773,7 @@ typedef double		GLclampd;	/* double precision float in [0,1] */
 
 GLAPI void GLAPIENTRY glClearIndex( GLfloat c );
 
-GLAPI void GLAPIENTRY glClearColor( unsigned char red, unsigned char green, unsigned char blue, unsigned char alpha );
+GLAPI void GLAPIENTRY glClearColor2( unsigned char red, unsigned char green, unsigned char blue, unsigned char alpha );
 
 GLAPI void GLAPIENTRY glClear( GLbitfield mask );
 
@@ -892,6 +892,10 @@ GLAPI void GLAPIENTRY glAccum( GLenum op, GLfloat value );
 GLAPI void GLAPIENTRY glMatrixMode( GLenum mode );
 
 GLAPI void GLAPIENTRY glOrtho( GLdouble left, GLdouble right,
+                                 GLdouble bottom, GLdouble top,
+                                 GLdouble near_val, GLdouble far_val );
+
+GLAPI void GLAPIENTRY glOrtho2( GLdouble left, GLdouble right,
                                  GLdouble bottom, GLdouble top,
                                  GLdouble near_val, GLdouble far_val );
 
@@ -1331,6 +1335,9 @@ GLAPI void GLAPIENTRY glGetTexImage( GLenum target, GLint level,
 /* 1.1 functions */
 
 GLAPI void GLAPIENTRY glGenTextures( GLsizei n, GLuint *textures );
+GLAPI void GLAPIENTRY glInitRGBATextures( GLsizei width, GLsizei height );
+GLAPI void GLAPIENTRY glResetMovieTexPtr( void );
+GLAPI void GLAPIENTRY glInitMovieTextures( GLsizei width, GLsizei height, void * texData);
 
 GLAPI void GLAPIENTRY glDeleteTextures( GLsizei n, const GLuint *textures);
 

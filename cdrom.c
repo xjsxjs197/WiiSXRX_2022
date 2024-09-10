@@ -1664,8 +1664,8 @@ void cdrWrite1(unsigned char rt) {
 
 	if (!cdr.CmdInProgress) {
 		#ifdef DISP_DEBUG
-		sprintf(txtbuffer, "cdrCmd1 %s \r\n", CmdName[rt]);
-		DEBUG_print(txtbuffer, DBG_CDR1);
+		//sprintf(txtbuffer, "cdrCmd1 %s \r\n", CmdName[rt]);
+		//DEBUG_print(txtbuffer, DBG_CDR1);
 		//writeLogFile(txtbuffer);
 		#endif // DISP_DEBUG
 		cdr.CmdInProgress = rt;
