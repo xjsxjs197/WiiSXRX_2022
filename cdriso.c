@@ -1403,7 +1403,8 @@ static long CALLBACK ISOopen(void) {
 	// maybe user selected metadata file instead of main .bin ..
 	bin_filename = GetIsoFile();
 	if (ftello(cdHandle) < 2352 * 0x10) {
-		static const char *exts[] = { ".bin", ".BIN", ".img", ".IMG" };
+		//static const char *exts[] = { ".bin", ".BIN", ".img", ".IMG" };
+		static const char *exts[] = { ".bin", ".BIN" };
 		FILE *tmpf = NULL;
 		size_t i;
 		char *p;
