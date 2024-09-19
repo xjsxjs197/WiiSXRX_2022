@@ -477,6 +477,7 @@ static int parsecue(const char *isofile) {
 
 // this function tries to get the .ccd file of the given .img
 // the necessary data is put into the ti (trackinformation)-array
+/*
 static int parseccd(const char *isofile) {
 	char			ccdname[MAXPATHLEN];
 	FILE			*fi;
@@ -533,6 +534,7 @@ static int parseccd(const char *isofile) {
 
 	return 0;
 }
+*/
 
 // this function tries to get the .mds file of the given .mdf
 // the necessary data is put into the ti (trackinformation)-array
@@ -1017,6 +1019,7 @@ fail_io:
 #endif // USE_LIBCHDR
 
 // this function tries to get the .sub file of the given .img
+/*
 static int opensubfile(const char *isoname) {
 	char		subname[MAXPATHLEN];
 
@@ -1037,6 +1040,7 @@ static int opensubfile(const char *isoname) {
 
 	return 0;
 }
+*/
 
 static int opensbifile(const char *isoname) {
 	char		sbiname[MAXPATHLEN], disknum[MAXPATHLEN] = "0";
@@ -1359,9 +1363,9 @@ static long CALLBACK ISOopen(void) {
 	if (parsetoc(GetIsoFile()) == 0) {
 		strcat(image_str, "[+toc]");
 	}
-	else if (parseccd(GetIsoFile()) == 0) {
-		strcat(image_str, "[+ccd]");
-	}
+//	else if (parseccd(GetIsoFile()) == 0) {
+//		strcat(image_str, "[+ccd]");
+//	}
 	else if (parsemds(GetIsoFile()) == 0) {
 		strcat(image_str, "[+mds]");
 	}
@@ -1387,9 +1391,9 @@ static long CALLBACK ISOopen(void) {
 	}
 #endif // USE_LIBCHDR
 
-	if (!subChanMixed && opensubfile(GetIsoFile()) == 0) {
-		strcat(image_str, "[+sub]");
-	}
+//	if (!subChanMixed && opensubfile(GetIsoFile()) == 0) {
+//		strcat(image_str, "[+sub]");
+//	}
 	if (opensbifile(GetIsoFile()) == 0) {
 		strcat(image_str, "[+sbi]");
 	}

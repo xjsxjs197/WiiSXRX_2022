@@ -198,7 +198,8 @@ void InitRemovalThread()
 #endif
 }
 
-static bool isCueCcdFileExist(const char *filePath, const char *fileName, const char *fileType) {
+//static bool isCueCcdFileExist(const char *filePath, const char *fileName, const char *fileType) {
+static bool isCueFileExist(const char *filePath, const char *fileName, const char *fileType) {
     static char cuename[FILE_BROWSER_MAX_PATH_LEN];
     memset(cuename, 0, FILE_BROWSER_MAX_PATH_LEN);
     sprintf(cuename, "%s/%s", filePath, fileName);
@@ -232,8 +233,8 @@ static bool isCueCcdFileExist(const char *filePath, const char *fileName, const 
 static bool isFileOk(const char *filePath, const char *fileName) {
     if (strstr(fileName, ".cue")
         || strstr(fileName, ".CUE")
-        || strstr(fileName, ".ccd")
-        || strstr(fileName, ".CCD")
+//      || strstr(fileName, ".ccd")
+//      || strstr(fileName, ".CCD")
         || strstr(fileName, ".iso")
         || strstr(fileName, ".ISO")
         || strstr(fileName, ".chd")
@@ -241,15 +242,15 @@ static bool isFileOk(const char *filePath, const char *fileName) {
     {
         return true;
     }
-    else if (strstr(fileName, ".sub") || strstr(fileName, ".SUB"))
-    {
-        return false;
-    }
+//  else if (strstr(fileName, ".sub") || strstr(fileName, ".SUB"))
+//  {
+//      return false;
+//  }
     else if (((strstr(fileName, ".bin") || strstr(fileName, ".BIN")) &&
-             (isCueCcdFileExist(filePath, fileName, ".cue") || isCueCcdFileExist(filePath, fileName, ".CUE")))
-             ||
-             ((strstr(fileName, ".img") || strstr(fileName, ".IMG")) &&
-             (isCueCcdFileExist(filePath, fileName, ".ccd") || isCueCcdFileExist(filePath, fileName, ".CCD")))
+             (isCueFileExist(filePath, fileName, ".cue") || isCueFileExist(filePath, fileName, ".CUE")))
+//           ||
+//           ((strstr(fileName, ".img") || strstr(fileName, ".IMG")) &&
+//           (isCueFileExist(filePath, fileName, ".ccd") || isCueFileExist(filePath, fileName, ".CCD")))
              )
     {
         return false;
