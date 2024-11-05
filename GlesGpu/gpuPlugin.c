@@ -28,16 +28,19 @@
 
 //#include <mmsystem.h>
 //#define _IN_GPU
+#define _IN_GPU_LIB
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+
 #include "gpuExternals.h"
 #include "gpuPlugin.h"
-#include "gpuDraw.h"
-#include "gpuTexture.h"
-#include "gpuPrim.h"
+//#include "gpuDraw.h"
+//#include "gpuTexture.h"
+//#include "gpuPrim.h"
+
 #include "../gpu.h" // meh
 #include "../gpulib/gpu.h"
 #include "../SoftGPU/oldGpuFps.h"
@@ -49,6 +52,7 @@
 #include "gpuStdafx.h"
 
 #include "../Gamecube/DEBUG.h"
+#include "../Gamecube/MEM2.h"
 
 //short g_m1=255,g_m2=255,g_m3=255;
 //short DrawSemiTrans=FALSE;
@@ -57,11 +61,10 @@
 
 //short          ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;        // global psx vertex coords
 //int            GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
-//int            GlobalTextREST,GlobalTextABR,GlobalTextPAGE;
 
-//unsigned int  dwGPUVersion=0;
-//int           iGPUHeight=512;
-//int           iGPUHeightMask=511;
+unsigned int  dwGPUVersion=0;
+int           iGPUHeight=512;
+int           iGPUHeightMask=511;
 int           GlobalTextIL=0;
 int           iTileCheat=0;
 
@@ -127,6 +130,11 @@ unsigned int    ulGPUInfoVals[16];
 extern int             iFakePrimBusy;
 int             iRumbleVal    = 0;
 int             iRumbleTime   = 0;
+
+
+#include "gpuDraw.c"
+#include "gpuTexture.c"
+#include "gpuPrim.c"
 
 static void flipEGL(void);
 
@@ -328,7 +336,7 @@ BOOL bBlur=FALSE;
 #ifdef DISP_DEBUG
 sprintf(txtbuffer, "updateDisplayGl 0 \r\n");
 DEBUG_print(txtbuffer, DBG_CDR1);
-writeLogFile(txtbuffer);
+//writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
 
@@ -351,9 +359,10 @@ if(PSXDisplay.RGB24)// && !bNeedUploadAfter)          // (mdec) upload wanted?
  {
   PrepareFullScreenUpload(-1);
   #ifdef DISP_DEBUG
-sprintf(txtbuffer, "updateDisplayGl_1 %d %d %d %d %d %d %d %d %d\r\n", PSXDisplay.Disabled, lClearOnSwap, iZBufferDepth, PSXDisplay.Interlaced, bNeedRGB24Update, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+//sprintf(txtbuffer, "updateDisplayGl_1 %d %d %d %d %d %d %d %d %d\r\n", PSXDisplay.Disabled, lClearOnSwap, iZBufferDepth, PSXDisplay.Interlaced, bNeedRGB24Update, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+sprintf(txtbuffer, "updateDisplayGl_1 %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
 DEBUG_print(txtbuffer, DBG_CDR1);
-writeLogFile(txtbuffer);
+//writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
   UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
   bNeedUploadTest=FALSE;
@@ -365,9 +374,9 @@ else
 if(bNeedInterlaceUpdate)                              // smaller upload?
  {
      #ifdef DISP_DEBUG
-sprintf(txtbuffer, "updateDisplayGl_2 %d %d %d %d %d %d %d %d %d\r\n", PSXDisplay.Disabled, lClearOnSwap, iZBufferDepth, PSXDisplay.Interlaced, bNeedRGB24Update, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
-DEBUG_print(txtbuffer, DBG_CDR2);
-writeLogFile(txtbuffer);
+//sprintf(txtbuffer, "updateDisplayGl_2 %d %d %d %d %d %d %d %d %d\r\n", PSXDisplay.Disabled, lClearOnSwap, iZBufferDepth, PSXDisplay.Interlaced, bNeedRGB24Update, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+//DEBUG_print(txtbuffer, DBG_CDR2);
+//writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
   bNeedInterlaceUpdate=FALSE;
   xrUploadArea=xrUploadAreaIL;                        // -> upload this rect
@@ -394,7 +403,7 @@ if(PSXDisplay.Disabled)                               // display disabled?
   #ifdef DISP_DEBUG
 sprintf(txtbuffer, "updateDisplayGl Disabled\r\n");
 DEBUG_print(txtbuffer, DBG_CDR1);
-writeLogFile(txtbuffer);
+//writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
  }
 
@@ -458,6 +467,7 @@ if(lClearOnSwap)                                      // clear buffer after swap
   if(bDisplayNotSet)                                  // -> set new vals
    SetOGLDisplaySettings(1);
 
+  // lClearOnSwapColor (BGR)
   g=((unsigned char)GREEN(lClearOnSwapColor));      // -> get col
   b=((unsigned char)BLUE(lClearOnSwapColor));
   r=((unsigned char)RED(lClearOnSwapColor));
@@ -489,9 +499,9 @@ if(bNeedUploadAfter)                                  // upload wanted?
   bNeedUploadAfter=FALSE;
   bNeedUploadTest=FALSE;
   #ifdef DISP_DEBUG
-sprintf(txtbuffer, "bNeedUploadAfter \r\n");
-DEBUG_print(txtbuffer, DBG_CDR3);
-writeLogFile(txtbuffer);
+//sprintf(txtbuffer, "bNeedUploadAfter \r\n");
+//DEBUG_print(txtbuffer, DBG_CDR3);
+//writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
   UploadScreen(-1);                                   // -> upload
  }
@@ -507,9 +517,9 @@ if(bNeedUploadTest)
      PreviousPSXDisplay.DisplayEnd.y==PSXDisplay.DisplayEnd.y)
    {
        #ifdef DISP_DEBUG
-sprintf(txtbuffer, "bNeedUploadTest \r\n");
-DEBUG_print(txtbuffer, DBG_CDR3);
-writeLogFile(txtbuffer);
+//sprintf(txtbuffer, "bNeedUploadTest \r\n");
+//DEBUG_print(txtbuffer, DBG_CDR3);
+//writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
     PrepareFullScreenUpload(TRUE);
@@ -653,78 +663,81 @@ if(sO!=PreviousPSXDisplay.Range.y0)                   // something changed?
 ////////////////////////////////////////////////////////////////////////
 // Aspect ratio of ogl screen: simply adjusting ogl view port
 ////////////////////////////////////////////////////////////////////////
-//
-//void SetAspectRatio(void)
-//{
-//float xs,ys,s;RECT r;
-//
+
+void SetAspectRatio(void)
+{
+float xs,ys,s;RECT r;
+
 //if(!PSXDisplay.DisplayModeNew.x) return;
-//if(!PSXDisplay.DisplayModeNew.y) return;
-//
-//#if 0
-//xs=(float)iResX/(float)PSXDisplay.DisplayModeNew.x;
-//ys=(float)iResY/(float)PSXDisplay.DisplayModeNew.y;
-//
-//s=min(xs,ys);
-//r.right =(int)((float)PSXDisplay.DisplayModeNew.x*s);
-//r.bottom=(int)((float)PSXDisplay.DisplayModeNew.y*s);
-//if(r.right  > iResX) r.right  = iResX;
-//if(r.bottom > iResY) r.bottom = iResY;
-//if(r.right  < 1)     r.right  = 1;
-//if(r.bottom < 1)     r.bottom = 1;
-//
-//r.left = (iResX-r.right)/2;
-//r.top  = (iResY-r.bottom)/2;
-//if(r.bottom<rRatioRect.bottom ||
-//   r.right <rRatioRect.right)
-// {
-//  RECT rC;
-//  glClearColor(0,0,0,128);
-//
-//  if(r.right <rRatioRect.right)
-//   {
-//    rC.left=0;
-//    rC.top=0;
-//    rC.right=r.left;
-//    rC.bottom=iResY;
-//    glScissor(rC.left,rC.top,rC.right,rC.bottom);
-//    glClear(uiBufferBits);
-//    rC.left=iResX-rC.right;
-//    glScissor(rC.left,rC.top,rC.right,rC.bottom);
-//
-//    glClear(uiBufferBits);
-//   }
-//
-//  if(r.bottom <rRatioRect.bottom)
-//   {
-//    rC.left=0;
-//    rC.top=0;
-//    rC.right=iResX;
-//    rC.bottom=r.top;
-//    glScissor(rC.left,rC.top,rC.right,rC.bottom);
-//
-//    glClear(uiBufferBits);
-//    rC.top=iResY-rC.bottom;
-//    glScissor(rC.left,rC.top,rC.right,rC.bottom);
-//    glClear(uiBufferBits);
-//   }
-//
-//  bSetClip=TRUE;
-//  bDisplayNotSet=TRUE;
-// }
-//
-//rRatioRect=r;
-//#else
-// // pcsx-rearmed hack
-// if (rearmed_get_layer_pos != NULL)
-//   rearmed_get_layer_pos(&rRatioRect.left, &rRatioRect.top, &rRatioRect.right, &rRatioRect.bottom);
-//#endif
-//
-//glViewport(rRatioRect.left,
-//           iResY-(rRatioRect.top+rRatioRect.bottom),
-//           rRatioRect.right,
-//           rRatioRect.bottom);               // init viewport
-//}
+//if(!height) return;
+
+#if 0
+xs=(float)iResX/(float)PSXDisplay.DisplayModeNew.x;
+ys=(float)iResY/(float)height;
+
+s=min(xs,ys);
+r.right =(int)((float)PSXDisplay.DisplayModeNew.x*s);
+r.bottom=(int)((float)height*s);
+if(r.right  > iResX) r.right  = iResX;
+if(r.bottom > iResY) r.bottom = iResY;
+if(r.right  < 1)     r.right  = 1;
+if(r.bottom < 1)     r.bottom = 1;
+
+r.left = (iResX-r.right)/2;
+r.top  = (iResY-r.bottom)/2;
+if(r.bottom<rRatioRect.bottom ||
+   r.right <rRatioRect.right)
+ {
+  RECT rC;
+  glClearColor2(0,0,0,128);
+
+  if(r.right <rRatioRect.right)
+   {
+    rC.left=0;
+    rC.top=0;
+    rC.right=r.left;
+    rC.bottom=iResY;
+    glScissor(rC.left,rC.top,rC.right,rC.bottom);
+    glClear(uiBufferBits);
+    rC.left=iResX-rC.right;
+    glScissor(rC.left,rC.top,rC.right,rC.bottom);
+
+    glClear(uiBufferBits);
+   }
+
+  if(r.bottom <rRatioRect.bottom)
+   {
+    rC.left=0;
+    rC.top=0;
+    rC.right=iResX;
+    rC.bottom=r.top;
+    glScissor(rC.left,rC.top,rC.right,rC.bottom);
+
+    glClear(uiBufferBits);
+    rC.top=iResY-rC.bottom;
+    glScissor(rC.left,rC.top,rC.right,rC.bottom);
+    glClear(uiBufferBits);
+   }
+
+  bSetClip=TRUE;
+  bDisplayNotSet=TRUE;
+ }
+
+rRatioRect=r;
+#else
+ // pcsx-rearmed hack
+ //if (rearmed_get_layer_pos != NULL)
+ //  rearmed_get_layer_pos(&rRatioRect.left, &rRatioRect.top, &rRatioRect.right, &rRatioRect.bottom);
+  glScissor(rRatioRect.left,
+           iResY-(rRatioRect.top+rRatioRect.bottom),
+           rRatioRect.right,rRatioRect.bottom);
+#endif
+
+glViewport(rRatioRect.left,
+           iResY-(rRatioRect.top+rRatioRect.bottom),
+           rRatioRect.right,
+           rRatioRect.bottom);               // init viewport
+}
 
 ////////////////////////////////////////////////////////////////////////
 // big ass check, if an ogl swap buffer is needed
@@ -739,6 +752,11 @@ if ((PSXDisplay.DisplayMode.y == PSXDisplay.DisplayModeNew.y) &&
  {
   if((PSXDisplay.RGB24      == PSXDisplay.RGB24New) &&
      (PSXDisplay.Interlaced == PSXDisplay.InterlacedNew))
+     #ifdef DISP_DEBUG
+//sprintf(txtbuffer, "updateDisplay NoChanged %d %d %d %d\r\n", PreviousPSXDisplay.Range.x1 & 0xFFF8, PreviousPSXDisplay.DisplayMode.y, PSXDisplay.RGB24, PreviousPSXDisplay.Range.y0);
+//DEBUG_print(txtbuffer, DBG_SPU3);
+//writeLogFile(txtbuffer);
+#endif // DISP_DEBUG
      return;                                          // nothing has changed? fine, no swap buffer needed
  }
 else                                                  // some res change?
@@ -748,9 +766,9 @@ else                                                  // some res change?
   glOrtho(0,PSXDisplay.DisplayModeNew.x,              // -> new psx resolution
             PSXDisplay.DisplayModeNew.y, 0, -1, 1); glError();
   #ifdef DISP_DEBUG
-sprintf(txtbuffer, "updateDisplayIfChangedGl %d %d\r\n", PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y);
+sprintf(txtbuffer, "glOrtho %d %d %d\r\n", PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y, xrUploadArea.y1 - xrUploadArea.y0);
 DEBUG_print(txtbuffer, DBG_SPU3);
-writeLogFile(txtbuffer);
+//writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
   if(bKeepRatio) SetAspectRatio();
  }
@@ -980,9 +998,9 @@ switch(lCommand)
      if(!PSXDisplay.RGB24)
       {
           #ifdef DISP_DEBUG
-sprintf(txtbuffer, "dis/enable display \r\n");
-DEBUG_print(txtbuffer, DBG_CDR3);
-writeLogFile(txtbuffer);
+//sprintf(txtbuffer, "dis/enable display \r\n");
+//DEBUG_print(txtbuffer, DBG_CDR3);
+//writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
        PrepareFullScreenUpload(TRUE);
        UploadScreen(TRUE);
@@ -1133,7 +1151,7 @@ writeLogFile(txtbuffer);
 
    ChangeDispOffsetsYGl();
 
-    PSXDisplay.PAL           = (forceNTSC == FORCENTSC_ENABLE) ? FALSE : ((gdata & 0x08)?TRUE:FALSE); // if 1 - PAL mode, else NTSC
+   PSXDisplay.PAL           = (gdata & 0x08)?TRUE:FALSE; // if 1 - PAL mode, else NTSC
    PSXDisplay.RGB24New      = (gdata & 0x10)?TRUE:FALSE; // if 1 - TrueColor
    PSXDisplay.InterlacedNew = (gdata & 0x20)?TRUE:FALSE; // if 1 - Interlace
 
@@ -1413,6 +1431,11 @@ void CheckVRamReadEx(int x, int y, int dx, int dy)
 // vram read check (reading from card's back/frontbuffer if needed...
 // slow!)
 ////////////////////////////////////////////////////////////////////////
+
+// don't do GL vram read
+void CheckVRamRead(int x, int y, int dx, int dy, bool bFront)
+{
+}
 
 //void CheckVRamRead(int x, int y, int dx, int dy, bool bFront)
 //{
@@ -2034,7 +2057,7 @@ static void flipEGL(void)
     #ifdef DISP_DEBUG
     sprintf(txtbuffer, "flipEGL \r\n");
     DEBUG_print(txtbuffer, DBG_SPU3);
-    writeLogFile(txtbuffer);
+    //writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
     //Write menu/debug text on screen
@@ -2043,8 +2066,47 @@ static void flipEGL(void)
     gx_vout_render();
 }
 
-extern long GL_GPUopen();
-extern long GL_GPUclose(void);
+#define CALLBACK
+extern void CALLBACK GPUsetframelimit(unsigned long option);
+long GL_GPUopen()
+{
+ int ret;
+
+ InitFPS();
+
+ GPUsetframelimit(0);
+
+ iResX = 640;
+ iResY = 480;
+ iOffscreenDrawing = 0;
+ rRatioRect.left   = rRatioRect.top=0;
+ rRatioRect.right  = iResX;
+ rRatioRect.bottom = iResY;
+
+ bIsFirstFrame = TRUE;
+ bDisplayNotSet = TRUE;
+ bSetClip = TRUE;
+ CSTEXTURE = CSVERTEX = CSCOLOR = 0;
+
+ InitializeTextureStore();                             // init texture mem
+
+ ret = GLinitialize(NULL, NULL);
+ //MakeDisplayLists();
+
+ gx_vout_open();
+
+// is_opened = 1;
+ return ret;
+}
+
+long GL_GPUclose(void)
+{
+// is_opened = 0;
+
+ //KillDisplayLists();
+ GLcleanup();                                          // close OGL
+ return 0;
+}
 
 gpu_t glesGpu = {
     GL_GPUopen,

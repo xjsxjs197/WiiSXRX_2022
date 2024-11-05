@@ -137,18 +137,20 @@ void gc_vout_render(void)
 	GX_SetDrawDone();
 }
 
-static int which_fb2 = 0;
 void gx_vout_render(void)
 {
 	// reset swap table from GUI/DEBUG
-	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED ,GX_CH_ALPHA);
+	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_RED, GX_CH_GREEN, GX_CH_BLUE ,GX_CH_ALPHA);
 	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
 
-	which_fb2 ^= 1;
-	GX_CopyDisp(xfb[which_fb2], GX_FALSE);
+	GX_DrawDone();
+	GX_CopyDisp(xfb[FB_BACK], GX_TRUE);
 	GX_Flush();
-	VIDEO_SetNextFramebuffer(xfb[which_fb2]);
-	VIDEO_Flush();
+
+	GX_DrawDone();
+	GX_Flush();
+
+	gc_vout_copydone();
 }
 
 void showFpsAndDebugInfo(void)
@@ -445,7 +447,7 @@ int gc_vout_open(void) {
 }
 
 int gx_vout_open(void) {
-	//VIDEO_SetPreRetraceCallback(gc_vout_vsync);
+	VIDEO_SetPreRetraceCallback(gc_vout_vsync);
 	return 0;
 }
 

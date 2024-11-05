@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#include "gpuExternals.h"
+//#include "gpuExternals.h"
 #include "gpuStdafx.h"
 
 #ifndef _WINDOWS

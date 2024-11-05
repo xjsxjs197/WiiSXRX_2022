@@ -30,9 +30,9 @@
 
 
 #include "gpuExternals.h"
-#include "gpuPlugin.h"
+//#include "gpuPlugin.h"
 #include "gpuDraw.h"
-#include "gpuPrim.h"
+//#include "gpuPrim.h"
 #include "gpuTexture.h"
 #include "gpuStdafx.h"
 #include "../Gamecube/DEBUG.h"
@@ -226,7 +226,7 @@ void SetExtGLFuncs(void)
 #define O_TSP 0x45,0x45,0x45,0xff
 #define N_TSP 0x00,0x00,0x00,0xff
 
-GLuint  gTexScanName=0;
+//GLuint  gTexScanName=0;
 
 GLubyte texscan[4][16]=
 {
@@ -981,6 +981,16 @@ void offsetScreenUpload(int Position)
  vertex[1].y=ly1 + PreviousPSXDisplay.Range.y0;
  vertex[2].y=ly2 + PreviousPSXDisplay.Range.y0;
  vertex[3].y=ly3 + PreviousPSXDisplay.Range.y0;
+
+ #ifdef DISP_DEBUG
+// sprintf(txtbuffer, "UploadPos %d %d %d %d %d %d %d %d\r\n",
+//         lx0 + PreviousPSXDisplay.Range.x0, ly0 + PreviousPSXDisplay.Range.y0,
+//         lx1 + PreviousPSXDisplay.Range.x0, ly1 + PreviousPSXDisplay.Range.y0,
+//         lx2 + PreviousPSXDisplay.Range.x0, ly2 + PreviousPSXDisplay.Range.y0,
+//         lx3 + PreviousPSXDisplay.Range.x0, ly3 + PreviousPSXDisplay.Range.y0);
+// DEBUG_print(txtbuffer, DBG_SPU3);
+// writeLogFile(txtbuffer);
+ #endif // DISP_DEBUG
 
  if(iUseMask)
   {

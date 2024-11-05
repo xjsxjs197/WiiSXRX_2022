@@ -1,4 +1,4 @@
-CFLAGS += -ggdb -fPIC -O2 # -Wall
+CFLAGS += -ggdb -fPIC -Ofast # -Wall
 
 include ../../config.mak
 

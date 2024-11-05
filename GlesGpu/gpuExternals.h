@@ -65,15 +65,15 @@ extern  void ( APIENTRY * glPixelStorei )(GLenum pname, GLint param);
 
 #define RGBA_GX_LEN_FIX(x) ((x + 3) & (~(unsigned int)3))
 
-#define RED(x)   ((x>>16) & 0xff)
+#define RED(x)   ((x>>0) & 0xff)
 #define GREEN(x) ((x>>8) & 0xff)
-#define BLUE(x)  ((x>>0) & 0xff)
+#define BLUE(x)  ((x>>16) & 0xff)
 
 #define COLOR(x) (x & 0xffffff)
 
 #define CLUTUSED     0x80000000
 //glColor4ubv(x.c.col)
-#define SETCOL(x)  if(x.c.lcol!=ulOLDCOL) {ulOLDCOL=x.c.lcol;glColor4ub(x.c.col.b,x.c.col.g,x.c.col.r,x.c.col.a);}
+#define SETCOL(x)  if(x.c.lcol!=ulOLDCOL) {ulOLDCOL=x.c.lcol;glColor4ub(x.c.col.r,x.c.col.g,x.c.col.b,x.c.col.a);}
 //#define SETPCOL(x)  if(x->c.lcol!=ulOLDCOL) {ulOLDCOL=x->c.lcol;glColor4ub(x->c.col[0],x->c.col[1],x->c.col[2],x->c.col[3]);}
 
 #define INFO_TW        0
@@ -245,7 +245,7 @@ typedef struct OGLVertexTag
 COLTAG
   {
    //unsigned char col[4];
-   struct { unsigned char b, g, r, a; } col;
+   struct { unsigned char r, g, b, a; } col;
    unsigned int  lcol;
   } c;
 
@@ -296,7 +296,7 @@ extern short          sprtY,sprtX,sprtH,sprtW;
 //extern HWND           hWWindow;
 #endif
 extern BOOL           bIsFirstFrame;
-extern int            iWinSize;
+//extern int            iWinSize;
 extern int            iZBufferDepth;
 extern GLbitfield     uiBufferBits;
 extern int            iUseMask;
@@ -306,23 +306,19 @@ extern BOOL           bCheckMask;
 extern unsigned short sSetMask;
 extern unsigned int   lSetMask;
 extern BOOL           bSetClip;
-extern GLuint         gTexScanName;
+//extern GLuint         gTexScanName;
 
 #endif
 
 //-----------------------------------------------------//
 
-#ifndef _IN_SOFT
-
-extern int            GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
-extern int            GlobalTextREST,GlobalTextABR,GlobalTextPAGE;
+extern long           GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
+extern long           GlobalTextABR;
 extern short          ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;
 extern short          g_m1;
 extern short          g_m2;
 extern short          g_m3;
 extern short          DrawSemiTrans;
-
-#endif
 
 //-----------------------------------------------------//
 
@@ -403,8 +399,8 @@ extern GLuint         gTexFrameName;
 extern GLuint         gTexBlurName;
 extern int            iVRamSize;
 extern int            iTexGarbageCollection;
-extern int            iFTexA;
-extern int            iFTexB;
+//extern int            iFTexA;
+//extern int            iFTexB;
 extern BOOL           bIgnoreNextTile;
 
 

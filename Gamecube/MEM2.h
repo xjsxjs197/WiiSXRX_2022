@@ -24,8 +24,8 @@
 #define MCD2_LO       (MCD1_HI)
 #define MCD2_HI       (MCD2_LO + MCD2_SIZE)
 
-// We want 20MB for max font
-#define CN_FONT_SIZE (20*MB)
+// We want 10MB for max font
+#define CN_FONT_SIZE (10*MB)
 #define CN_FONT_LO   (MCD2_HI)
 #define CN_FONT_HI   (CN_FONT_LO + CN_FONT_SIZE)
 

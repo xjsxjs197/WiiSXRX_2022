@@ -79,7 +79,7 @@
 #include "gpuPlugin.h"
 #include "gpuPrim.h"
 
-#include "../mem2_manager.h"
+#include "../Gamecube/DEBUG.h"
 #include "../gpulib/gpu.h"
 
 #define CLUTCHK   0x00060000
@@ -108,25 +108,25 @@ void               (*LoadSubTexFn) (int,int,short,short);
 //#define PALCOL(x) PalTexturedColourFn (x)
 
 #define CSUBSIZE  2048
-#define CSUBSIZEA 8192
+//#define CSUBSIZEA 8192
 #define CSUBSIZES 4096
 
-#define OFFA 0
-#define OFFB 2048
-#define OFFC 4096
-#define OFFD 6144
+//#define OFFA 0
+//#define OFFB 2048
+//#define OFFC 4096
+//#define OFFD 6144
 
-#define XOFFA 0
-#define XOFFB 512
-#define XOFFC 1024
-#define XOFFD 1536
+//#define XOFFA 0
+//#define XOFFB 512
+//#define XOFFC 1024
+//#define XOFFD 1536
 
 #define SOFFA 0
 #define SOFFB 1024
 #define SOFFC 2048
 #define SOFFD 3072
 
-#define MAXWNDTEXCACHE 64
+//#define MAXWNDTEXCACHE 64
 
 #define XCHECK(pos1,pos2) ((pos1.c.y2>=pos2.c.y1)&&(pos1.c.y1<=pos2.c.y2)&&(pos1.c.x2>=pos2.c.x1)&&(pos1.c.x1<=pos2.c.x2))
 #define INCHECK(pos2,pos1) ((pos1.c.y2<=pos2.c.y2) && (pos1.c.y1>=pos2.c.y1) && (pos1.c.x2<=pos2.c.x2) && (pos1.c.x1>=pos2.c.x1))
@@ -190,15 +190,16 @@ typedef struct textureSubCacheEntryTagS
 
 //---------------------------------------------
 
-#define MAXTPAGES_MAX  32
-#define MAXSORTTEX_MAX 40 // 196
+#define MAXWNDTEXCACHE 64
+#define MAXTPAGES_MAX  64
+#define MAXSORTTEX_MAX 48
 
 //---------------------------------------------
 
-textureWndCacheEntry     wcWndtexStore[MAXWNDTEXCACHE];
-textureSubCacheEntryS *  pscSubtexStore[3][MAXTPAGES_MAX];
-EXLong *                 pxSsubtexLeft [MAXSORTTEX_MAX];
-GLuint                   uiStexturePage[MAXSORTTEX_MAX];
+textureWndCacheEntry     wcWndtexStore[MAXWNDTEXCACHE];    // 64 * 20 > 1 KB
+textureSubCacheEntryS *  pscSubtexStore[3][MAXTPAGES_MAX]; // 3 * 32 * 4096 * 12 > 4 MB
+EXLong *                 pxSsubtexLeft [MAXSORTTEX_MAX];   // 40 * 2048 * 4 = 320 KB
+GLuint                   uiStexturePage[MAXSORTTEX_MAX];   // 40 * 4 = 160 B
 
 unsigned short           usLRUTexPage=0;
 
@@ -211,7 +212,7 @@ GLubyte                  texturepart[256 * 256 *4];
 unsigned int             g_x1,g_y1,g_x2,g_y2;
 unsigned char            ubOpaqueDraw=0;
 
-unsigned short MAXTPAGES     = MAXTPAGES_MAX;
+unsigned short MAXTPAGES     = MAXTPAGES_MAX / 2;
 unsigned short CLUTMASK      = 0x7fff;
 unsigned short CLUTYMASK     = 0x1ff;
 unsigned short MAXSORTTEX    = MAXSORTTEX_MAX;
@@ -221,45 +222,45 @@ unsigned short MAXSORTTEX    = MAXSORTTEX_MAX;
 // porting... and honestly: nowadays the speed gain would be pointless
 ////////////////////////////////////////////////////////////////////////
 
-// return big endian(argb)
-unsigned int XP8RGBA_0(unsigned int RGB)
+// BGR => big endian(argb)
+unsigned int XP8RGBA_0(unsigned int BGR)
 {
- if(!(RGB&0xffff)) return 0x00000050;
- return (((RGB<<3)&0xf8)|((RGB<<6)&0xf800)|((RGB<<9)&0xf80000))|0xff000000;
+ if(!(BGR&0xffff)) return 0x50000000;
+ return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
 }
 
-// return big endian(argb)
-unsigned int CP8RGBA_0(unsigned int RGB)
+// BGR => big endian(argb)
+unsigned int CP8RGBA_0(unsigned int BGR)
 {
  unsigned int l;
 
- if(!(RGB&0xffff)) return 0x50000000;
- l=(((RGB<<3)&0xf8)|((RGB<<6)&0xf800)|((RGB<<9)&0xf80000))|0xff000000;
- if(l==0xfff8f800) l=0xff000000;
+ if(!(BGR&0xffff)) return 0x50000000;
+ l=(((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
+ if(l==0xff00f8f8) l=0xff000000;
  return l;
 }
 
-// return big endian(argb)
-unsigned int XP8RGBA_1(unsigned int RGB)
+// BGR => big endian(argb)
+unsigned int XP8RGBA_1(unsigned int BGR)
 {
- if(!(RGB&0xffff)) return 0x50000000;
- if(!(RGB&0x8000)) {ubOpaqueDraw=1;return (((RGB<<3)&0xf8)|((RGB<<6)&0xf800)|((RGB<<9)&0xf80000));}
- return (((RGB<<3)&0xf8)|((RGB<<6)&0xf800)|((RGB<<9)&0xf80000))|0xff000000;
+ if(!(BGR&0xffff)) return 0x50000000;
+ if(!(BGR&0x8000)) {ubOpaqueDraw=1;return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7));}
+ return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
 }
 
-// return big endian(argb)
-unsigned int P8RGBA(unsigned int RGB)
+// BGR => big endian(argb)
+unsigned int P8RGBA(unsigned int BGR)
 {
- if(!(RGB&0xffff)) return 0;
- return (((RGB<<3)&0xf8)|((RGB<<6)&0xf800)|((RGB<<9)&0xf80000))|0xff000000;
+ if(!(BGR&0xffff)) return 0;
+ return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
 }
 
 ////////////////////////////////////////////////////////////////////////
 // CHECK TEXTURE MEM (on plugin startup)
 ////////////////////////////////////////////////////////////////////////
 
-int iFTexA=512;
-int iFTexB=512;
+//int iFTexA=512;
+//int iFTexB=512;
 
 void CheckTextureMemory(void)
 {
@@ -268,31 +269,31 @@ void CheckTextureMemory(void)
  int iTSize;char * p;
 
 
- if(iVRamSize)
-  {
-   int ts;
-
-   iRam-=(iResX*iResY*8);
-   iRam-=(iResX*iResY*(iZBufferDepth/8));
-
-	   ts=4;
-	   iSortTexCnt=iRam/(256*256*ts);
-
-   if(iSortTexCnt>MAXSORTTEX)
-    {
-     iSortTexCnt=MAXSORTTEX-min(1,0);
-    }
-   else
-    {
-     iSortTexCnt-=3+min(1,0);
-     if(iSortTexCnt<8) iSortTexCnt=8;
-    }
-
-   for(i=0;i<MAXSORTTEX;i++)
-    uiStexturePage[i]=0;
-
-   return;
-  }
+// if(iVRamSize)
+//  {
+//   int ts;
+//
+//   iRam-=(iResX*iResY*8);
+//   iRam-=(iResX*iResY*(iZBufferDepth/8));
+//
+//	   ts=4;
+//	   iSortTexCnt=iRam/(256*256*ts);
+//
+//   if(iSortTexCnt>MAXSORTTEX)
+//    {
+//     iSortTexCnt=MAXSORTTEX-min(1,0);
+//    }
+//   else
+//    {
+//     iSortTexCnt-=3+min(1,0);
+//     if(iSortTexCnt<8) iSortTexCnt=8;
+//    }
+//
+//   for(i=0;i<MAXSORTTEX;i++)
+//    uiStexturePage[i]=0;
+//
+//   return;
+//  }
 
 #if 1
  iSortTexCnt=MAXSORTTEX;
@@ -308,17 +309,17 @@ void InitializeTextureStore()
 {
  int i,j;
 
-// if(iGPUHeight==1024)
-//  {
-//   MAXTPAGES     = 64;
-//   CLUTMASK      = 0xffff;
-//   CLUTYMASK     = 0x3ff;
-//   MAXSORTTEX    = 128;
-//   iTexGarbageCollection=0;
-//  }
-// else
+ if(iGPUHeight==1024)
   {
    MAXTPAGES     = MAXTPAGES_MAX;
+   CLUTMASK      = 0xffff;
+   CLUTYMASK     = 0x3ff;
+   MAXSORTTEX    = MAXSORTTEX_MAX;
+   iTexGarbageCollection=0;
+  }
+ else
+  {
+   MAXTPAGES     = MAXTPAGES_MAX / 2;
    CLUTMASK      = 0x7fff;
    CLUTYMASK     = 0x1ff;
    MAXSORTTEX    = MAXSORTTEX_MAX;
@@ -1228,8 +1229,9 @@ void DefineTextureMovie(void)
   #ifdef DISP_DEBUG
 //    static int oldWidth=256, oldHeight=256;
 //    //glGetTextureInfo(gTexName, &oldWidth, &oldHeight);
-//    sprintf(txtbuffer, "DefineTextureMovie %d %d %d %d %d\r\n", PSXDisplay.RGB24, oldWidth, oldHeight, (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0));
-//    DEBUG_print(txtbuffer, DBG_SPU2);
+    //sprintf(txtbuffer, "DefineTextureMovie %d %d %d %d %d\r\n", PSXDisplay.RGB24, oldWidth, oldHeight, (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0));
+    sprintf(txtbuffer, "DefineTextureMovie %d %d %d\r\n", PSXDisplay.RGB24, (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0));
+    DEBUG_print(txtbuffer, DBG_SPU2);
     //writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
@@ -1281,6 +1283,7 @@ GLuint LoadTextureMovie(void)
         #ifdef DISP_DEBUG
         //sprintf(txtbuffer, "LoadMovie1 %d %d %d %d %d %d\r\n",   xrMovieArea.x0, xrMovieArea.y0, xrMovieArea.x1, xrMovieArea.y1, b_X, b_Y);
         //DEBUG_print(txtbuffer, DBG_SPU2);
+        //writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
 
      unsigned char * pD;
@@ -1315,7 +1318,8 @@ GLuint LoadTextureMovie(void)
          pD=(unsigned char *)&psxVuw[startxy];
          for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
           {
-           PUTLE32(ta++, *((unsigned int *)pD)|SWAP32_C(0xff000000));
+           //PUTLE32(ta++, *((unsigned int *)pD)|SWAP32_C(0xff000000));
+           *ta++ = (*((unsigned int *)pD) >> 8) | 0xff000000;
            pD+=3;
           }
         }
@@ -1332,6 +1336,7 @@ GLuint LoadTextureMovie(void)
         #ifdef DISP_DEBUG
         //sprintf(txtbuffer, "LoadMovie2 %d %d %d %d %d %d\r\n", xrMovieArea.x0, xrMovieArea.y0, xrMovieArea.x1, xrMovieArea.y1, b_X, b_Y);
         //DEBUG_print(txtbuffer, DBG_SPU2);
+        //writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
 
      unsigned int (*LTCOL)(unsigned int);
@@ -1464,6 +1469,13 @@ int iFTex=512;
 
 GLuint Fake15BitTexture(void)
 {
+
+    #ifdef DISP_DEBUG
+sprintf(txtbuffer, "Fake15BitTexture 0\r\n");
+DEBUG_print(txtbuffer, DBG_SPU1);
+//writeLogFile(txtbuffer);
+#endif // DISP_DEBUG
+
  int pmult;short x1,x2,y1,y2;int iYAdjust;
  float ScaleX,ScaleY;RECT rSrc;
 
@@ -2353,7 +2365,7 @@ void DefineSubTextureSort(void)
    glGenTextures(1, &gTexName); glError();
    glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
 
-   glInitRGBATextures(256, 256);
+   //glInitRGBATextures(256, 256);
 
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, iClampType); glError();
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, iClampType); glError();
@@ -2375,10 +2387,25 @@ void DefineSubTextureSort(void)
      glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
   }
   #ifdef DISP_DEBUG
-  int oldWidth, oldHeight;
-  glGetTextureInfo(gTexName, &oldWidth, &oldHeight);
-  sprintf(txtbuffer, "DefineSubTextureSort %d %d %d %d %d %d\r\n", oldWidth, oldHeight, XTexS, YTexS, DXTexS, DYTexS);
+  //int oldWidth, oldHeight;
+  //glGetTextureInfo(gTexName, &oldWidth, &oldHeight);
+  //sprintf(txtbuffer, "DefineSubTextureSort %d %d %d %d %d %d\r\n", oldWidth, oldHeight, XTexS, YTexS, DXTexS, DYTexS);
+  sprintf(txtbuffer, "DefineSubTextureSort %d %d %d %d\r\n", XTexS, YTexS, DXTexS, DYTexS);
   DEBUG_print(txtbuffer, DBG_CDR2);
+  //writeLogFile(txtbuffer);
+
+//  static unsigned int subImgIdx = 0;
+//  if (DYTexS == 66)
+//  {
+//      if (subImgIdx <= 30)
+//      {
+//          subImgIdx++;
+//          sprintf(txtbuffer, "sd:/wiisxrx/debugImg%03d_%d_%d_%d_%d", subImgIdx, XTexS, YTexS, DXTexS, DYTexS);
+//          FILE* subImgLog = fopen(txtbuffer, "wb");
+//          fwrite(texturepart, DXTexS * DYTexS * 4, 1, subImgLog);
+//          fclose(subImgLog);
+//      }
+//  }
   #endif // DISP_DEBUG
   canLogSubImg = 1;
   glTexSubImage2D(GL_TEXTURE_2D, 0, XTexS, YTexS,
@@ -3055,7 +3082,10 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
    GivenClutId=CLUTUSED|(DrawSemiTrans<<30);cx=cy=0;
 
    if(iFrameTexType && Fake15BitTexture())
-    return (GLuint)gTexName;
+   {
+
+       return (GLuint)gTexName;
+   }
   }
  else
   {
@@ -3090,19 +3120,26 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
  // found? fine
  usLRUTexPage=iCache;
  #ifdef DISP_DEBUG
- sprintf(txtbuffer, "SelectSubTextureS 1\n");
+ sprintf(txtbuffer, "SelectSubTextureS 1 %d %d\r\n", *OPtr, iCache);
  DEBUG_print(txtbuffer,  DBG_CDR3);
+//writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
  if(!OPtr) return uiStexturePage[iCache];
 
  // not found? upload texture and store infos in cache
  gTexName=uiStexturePage[iCache];
+ #ifdef DISP_DEBUG
+ sprintf(txtbuffer, "SelectSubTextureS 2 %d %d\r\n", iCache, gTexName);
+ DEBUG_print(txtbuffer,  DBG_CDR3);
+ //writeLogFile(txtbuffer);
+ #endif // DISP_DEBUG
  LoadSubTexFn(GlobalTexturePage,TextureMode,cx,cy);
  uiStexturePage[iCache]=gTexName;
  *OPtr=ubOpaqueDraw;
-  #ifdef DISP_DEBUG
- sprintf(txtbuffer, "SelectSubTextureS 2 %d\n", gTexName);
+ #ifdef DISP_DEBUG
+ sprintf(txtbuffer, "SelectSubTextureS 3 %d\r\n", gTexName);
  DEBUG_print(txtbuffer,  DBG_CDR3);
+ //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
  return (GLuint) gTexName;
 }
