@@ -258,10 +258,10 @@ static __inline void PRIMdrawTexturedTri ( OGLVertex* vertex1, OGLVertex* vertex
     glError();
 #ifdef DISP_DEBUG
 //sprintf(txtbuffer, "Coord2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow);
-    sprintf ( txtbuffer, "Coord2 %d %d %d %d %d %d\r\n", gl_ux[0], gl_vy[0], gl_ux[1], gl_vy[1], gl_ux[2], gl_vy[2] );
-    DEBUG_print ( txtbuffer, DBG_CORE3 );
-    sprintf ( txtbuffer, "Vertex2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y );
-    DEBUG_print ( txtbuffer, DBG_GPU1 );
+//    sprintf ( txtbuffer, "Coord2 %d %d %d %d %d %d\r\n", gl_ux[0], gl_vy[0], gl_ux[1], gl_vy[1], gl_ux[2], gl_vy[2] );
+//    DEBUG_print ( txtbuffer, DBG_CORE3 );
+//    sprintf ( txtbuffer, "Vertex2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y );
+//    DEBUG_print ( txtbuffer, DBG_GPU1 );
 #endif // DISP_DEBUG
     glDrawArrays ( GL_TRIANGLES, 0, 3 );
     glError();
@@ -324,10 +324,10 @@ static __inline void PRIMdrawTexGouraudTriColor ( OGLVertex* vertex1, OGLVertex*
     glError();
 #ifdef DISP_DEBUG
 //sprintf(txtbuffer, "Coord3 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow);
-    sprintf ( txtbuffer, "Coord3 %d %d %d %d %d %d\r\n", gl_ux[0], gl_vy[0], gl_ux[1], gl_vy[1], gl_ux[2], gl_vy[2] );
-    DEBUG_print ( txtbuffer, DBG_CORE3 );
-    sprintf ( txtbuffer, "Vertex3 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y );
-    DEBUG_print ( txtbuffer, DBG_GPU1 );
+//    sprintf ( txtbuffer, "Coord3 %d %d %d %d %d %d\r\n", gl_ux[0], gl_vy[0], gl_ux[1], gl_vy[1], gl_ux[2], gl_vy[2] );
+//    DEBUG_print ( txtbuffer, DBG_CORE3 );
+//    sprintf ( txtbuffer, "Vertex3 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y );
+//    DEBUG_print ( txtbuffer, DBG_GPU1 );
 #endif // DISP_DEBUG
     glDrawArrays ( GL_TRIANGLES, 0, 3 );
     glError();
@@ -397,8 +397,8 @@ static __inline void PRIMdrawTexGouraudTriColorQuad ( OGLVertex* vertex1, OGLVer
     glError();
 
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "Coord4 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow );
-    DEBUG_print ( txtbuffer, DBG_CORE3 );
+//    sprintf ( txtbuffer, "Coord4 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow );
+//    DEBUG_print ( txtbuffer, DBG_CORE3 );
 //sprintf(txtbuffer, "Vertex4 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
 //DEBUG_print(txtbuffer, DBG_GPU1);
 #endif // DISP_DEBUG
@@ -434,8 +434,8 @@ static __inline void PRIMdrawTri ( OGLVertex* vertex1, OGLVertex* vertex2, OGLVe
     glError();
 
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "Vertex5 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y );
-    DEBUG_print ( txtbuffer, DBG_GPU1 );
+//    sprintf ( txtbuffer, "Vertex5 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y );
+//    DEBUG_print ( txtbuffer, DBG_GPU1 );
 #endif // DISP_DEBUG
     glVertexPointer ( 3, GL_FLOAT, VERTEX2_STRIDE, &v[0].xyz );
     glError();
@@ -482,8 +482,8 @@ static __inline void PRIMdrawTri2 ( OGLVertex* vertex1, OGLVertex* vertex2,
     glError();
 
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "Coord6 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex3->sow, vertex3->tow, vertex2->sow, vertex2->tow, vertex4->sow, vertex4->tow );
-    DEBUG_print ( txtbuffer, DBG_CORE3 );
+//    sprintf ( txtbuffer, "Coord6 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex3->sow, vertex3->tow, vertex2->sow, vertex2->tow, vertex4->sow, vertex4->tow );
+//    DEBUG_print ( txtbuffer, DBG_CORE3 );
 //sprintf(txtbuffer, "Vertex6 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex3->x, vertex3->y, vertex2->x, vertex2->y, vertex4->x, vertex4->y);
 //DEBUG_print(txtbuffer, DBG_GPU1);
 #endif // DISP_DEBUG
@@ -540,9 +540,9 @@ static __inline void PRIMdrawGouraudTriColor ( OGLVertex* vertex1, OGLVertex* ve
     glError();
 
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "Coord7 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow );
+//    sprintf ( txtbuffer, "Coord7 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow );
 //sprintf(txtbuffer, "Coord7 %d %d %d %d %d %d\r\n", gl_ux[0], gl_vy[0], gl_ux[1], gl_vy[1], gl_ux[2], gl_vy[2]);
-    DEBUG_print ( txtbuffer, DBG_CORE3 );
+//    DEBUG_print ( txtbuffer, DBG_CORE3 );
 //sprintf(txtbuffer, "Vertex7 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y);
 //DEBUG_print(txtbuffer, DBG_GPU1);
 #endif // DISP_DEBUG
@@ -605,8 +605,8 @@ static __inline void PRIMdrawGouraudTri2Color ( OGLVertex* vertex1, OGLVertex* v
     glError();
 
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "Coord8 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow );
-    DEBUG_print ( txtbuffer, DBG_CORE3 );
+//    sprintf ( txtbuffer, "Coord8 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow );
+//    DEBUG_print ( txtbuffer, DBG_CORE3 );
 //sprintf(txtbuffer, "Vertex8 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
 //DEBUG_print(txtbuffer, DBG_GPU1);
 #endif // DISP_DEBUG
@@ -668,8 +668,8 @@ static __inline void PRIMdrawFlatLine ( OGLVertex* vertex1, OGLVertex* vertex2, 
     glError();
 
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "Coord9 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow );
-    DEBUG_print ( txtbuffer, DBG_CORE3 );
+//    sprintf ( txtbuffer, "Coord9 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow );
+//    DEBUG_print ( txtbuffer, DBG_CORE3 );
 //sprintf(txtbuffer, "Vertex9 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
 //DEBUG_print(txtbuffer, DBG_GPU1);
 #endif // DISP_DEBUG
@@ -733,8 +733,8 @@ static __inline void PRIMdrawGouraudLine ( OGLVertex* vertex1, OGLVertex* vertex
     glError();
 
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "Coord10 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow );
-    DEBUG_print ( txtbuffer, DBG_CORE3 );
+//    sprintf ( txtbuffer, "Coord10 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->sow, vertex1->tow, vertex2->sow, vertex2->tow, vertex3->sow, vertex3->tow, vertex4->sow, vertex4->tow );
+//    DEBUG_print ( txtbuffer, DBG_CORE3 );
 //sprintf(txtbuffer, "Vertex10 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex1->x, vertex1->y, vertex2->x, vertex2->y, vertex3->x, vertex3->y, vertex4->x, vertex4->y);
 //DEBUG_print(txtbuffer, DBG_GPU1);
 #endif // DISP_DEBUG
@@ -1150,16 +1150,16 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         if ( gTexName != currTex )
         {
 #ifdef DISP_DEBUG
-            if ( bUsingTWin )
-            {
-                sprintf ( txtbuffer, "SetRenderMode bUsingTWin1 %d %d %d %d %d\r\n", gTexName, currTex, bUsingTWin, bUsingMovie, ubOpaqueDraw );
-                DEBUG_print ( txtbuffer,  DBG_SPU2 );
-            }
-            else if ( !bUsingTWin && !bUsingMovie )
-            {
-                sprintf ( txtbuffer, "SetRenderMode bUsingTWin2 %d %d %d %d %d\r\n", gTexName, currTex, bUsingTWin, bUsingMovie, ubOpaqueDraw );
-                DEBUG_print ( txtbuffer,  DBG_SPU2 );
-            }
+//            if ( bUsingTWin )
+//            {
+//                sprintf ( txtbuffer, "SetRenderMode bUsingTWin1 %d %d %d %d %d\r\n", gTexName, currTex, bUsingTWin, bUsingMovie, ubOpaqueDraw );
+//                DEBUG_print ( txtbuffer,  DBG_SPU2 );
+//            }
+//            else if ( !bUsingTWin && !bUsingMovie )
+//            {
+//                sprintf ( txtbuffer, "SetRenderMode bUsingTWin2 %d %d %d %d %d\r\n", gTexName, currTex, bUsingTWin, bUsingMovie, ubOpaqueDraw );
+//                DEBUG_print ( txtbuffer,  DBG_SPU2 );
+//            }
             //sprintf(txtbuffer, "SetRenderMode1 %d %d %d %d %d\r\n", gTexMovieName, gTexName, currTex, bUsingTWin, bUsingMovie, ubOpaqueDraw);
             //DEBUG_print(txtbuffer,  DBG_SPU2);
 #endif // DISP_DEBUG
@@ -1170,8 +1170,8 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         else
         {
 #ifdef DISP_DEBUG
-            sprintf ( txtbuffer, "SetRenderMode2 %d %d %d %d %d\r\n", bBlendEnable, gTexName, bUsingTWin, bUsingMovie, ubOpaqueDraw );
-            DEBUG_print ( txtbuffer,  DBG_SPU3 );
+//            sprintf ( txtbuffer, "SetRenderMode2 %d %d %d %d %d\r\n", bBlendEnable, gTexName, bUsingTWin, bUsingMovie, ubOpaqueDraw );
+//            DEBUG_print ( txtbuffer,  DBG_SPU3 );
 #endif // DISP_DEBUG
         }
 
@@ -1192,8 +1192,8 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         }
 
 #ifdef DISP_DEBUG
-        sprintf ( txtbuffer, "SetRenderMode3 \r\n" );
-        DEBUG_print ( txtbuffer, DBG_CORE3 );
+//        sprintf ( txtbuffer, "SetRenderMode3 \r\n" );
+//        DEBUG_print ( txtbuffer, DBG_CORE3 );
 #endif // DISP_DEBUG
     }
 #ifdef DISP_DEBUG
@@ -1202,11 +1202,11 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
 
 
 #ifdef DISP_DEBUG
-    if ( ubOpaqueDraw )
-    {
-        sprintf ( txtbuffer, "ubOpaqueDraw %d \r\n", gTexName );
-        DEBUG_print ( txtbuffer,  DBG_SPU3 );
-    }
+//    if ( ubOpaqueDraw )
+//    {
+//        sprintf ( txtbuffer, "ubOpaqueDraw %d \r\n", gTexName );
+//        DEBUG_print ( txtbuffer,  DBG_SPU3 );
+//    }
 #endif // DISP_DEBUG
 
     if ( bSCol )                                          // also set color ?
@@ -1629,19 +1629,20 @@ void PrepareFullScreenUpload ( int Position )
 
         if ( bNeedRGB24Update )
         {
-            if ( lClearOnSwap )
-            {
-//       lClearOnSwap=0;
-            }
-            else if ( PSXDisplay.Interlaced && PreviousPSXDisplay.RGB24 < 2 ) // in interlaced mode we upload at least two full frames (GT1 menu)
-            {
-                PreviousPSXDisplay.RGB24++;
-            }
-            else
-            {
-                xrUploadArea.y1 = min ( xrUploadArea.y0 + xrUploadAreaRGB24.y1, xrUploadArea.y1 );
-                xrUploadArea.y0 += xrUploadAreaRGB24.y0;
-            }
+//            if ( lClearOnSwap )
+//            {
+////       lClearOnSwap=0;
+//            }
+//            else if ( PSXDisplay.Interlaced && PreviousPSXDisplay.RGB24 < 2 ) // in interlaced mode we upload at least two full frames (GT1 menu)
+//            {
+//                PreviousPSXDisplay.RGB24++;
+//            }
+//            else
+//            {
+//                xrUploadArea.y1 = min ( xrUploadArea.y0 + xrUploadAreaRGB24.y1, xrUploadArea.y1 );
+//                xrUploadArea.y0 += xrUploadAreaRGB24.y0;
+//            }
+            xrUploadArea = xrUploadAreaRGB24;
         }
     }
     else if ( Position )
@@ -1789,8 +1790,8 @@ void UploadScreen ( int Position )
     if ( bSkipNextFrame ) return;
 
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "UploadScreen %d %d %d %d %d %d %d\r\n", Position, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0 );
-    DEBUG_print ( txtbuffer, DBG_SPU3 );
+//    sprintf ( txtbuffer, "UploadScreen %d %d %d %d %d %d %d\r\n", Position, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0 );
+//    DEBUG_print ( txtbuffer, DBG_SPU3 );
     //writeLogFile ( txtbuffer );
 #endif // DISP_DEBUG
 
@@ -2293,8 +2294,8 @@ static void primLoadImage ( unsigned char * baseAddr )
     VRAMWrite.Height = GETLEs16 ( &sgpuData[5] );
 
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primLoadImage %d %d %d %d\r\n", VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height );
-    DEBUG_print ( txtbuffer, DBG_SPU1 );
+//    sprintf ( txtbuffer, "primLoadImage %d %d %d %d\r\n", VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height );
+//    DEBUG_print ( txtbuffer, DBG_SPU1 );
     //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -2321,13 +2322,18 @@ static void PrepareRGB24Upload ( void )
         xrUploadArea.y0 -= PreviousPSXDisplay.DisplayPosition.y;
         xrUploadArea.y1 -= PreviousPSXDisplay.DisplayPosition.y;
 
-        PrepareFullScreenUpload(-1);
-        UploadScreen ( PSXDisplay.Interlaced );
-        //bNeedUploadTest = TRUE;
-//        bNeedUploadTest = FALSE;
-//        bNeedInterlaceUpdate = FALSE;
-//        bNeedUploadAfter = FALSE;
-//        bNeedRGB24Update = FALSE;
+        #ifdef DISP_DEBUG
+        sprintf(txtbuffer, "PrepareRGB24Upload1 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
+                           PreviousPSXDisplay.DisplayPosition.x, PreviousPSXDisplay.DisplayEnd.x, PreviousPSXDisplay.DisplayPosition.y, PreviousPSXDisplay.DisplayEnd.y);
+        DEBUG_print(txtbuffer, DBG_CDR1);
+        //writeLogFile(txtbuffer);
+        #endif // DISP_DEBUG
+
+        if (PreviousPSXDisplay.DisplayEnd.x - PreviousPSXDisplay.DisplayPosition.x == xrUploadArea.x1)
+        {
+            PrepareFullScreenUpload(-1);
+            UploadScreen ( PreviousPSXDisplay.Interlaced );
+        }
     }
     else if ( CheckAgainstFrontScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
@@ -2336,13 +2342,14 @@ static void PrepareRGB24Upload ( void )
         xrUploadArea.y0 -= PSXDisplay.DisplayPosition.y;
         xrUploadArea.y1 -= PSXDisplay.DisplayPosition.y;
 
-        PrepareFullScreenUpload(-1);
-        UploadScreen ( PSXDisplay.Interlaced );
-        //bNeedUploadTest = TRUE;
-//        bNeedUploadTest = FALSE;
-//        bNeedInterlaceUpdate = FALSE;
-//        bNeedUploadAfter = FALSE;
-//        bNeedRGB24Update = FALSE;
+//        PrepareFullScreenUpload(-1);
+//        UploadScreen ( PSXDisplay.Interlaced );
+        #ifdef DISP_DEBUG
+        sprintf(txtbuffer, "PrepareRGB24Upload2 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
+                           PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayEnd.x, PSXDisplay.DisplayPosition.y, PSXDisplay.DisplayEnd.y);
+        DEBUG_print(txtbuffer, DBG_CDR1);
+        //writeLogFile(txtbuffer);
+        #endif // DISP_DEBUG
     }
     //else return;
 
@@ -2351,18 +2358,19 @@ static void PrepareRGB24Upload ( void )
 //        updateFrontDisplayGl();
 //    }
 //
-//    if ( bNeedRGB24Update == FALSE )
-//    {
-//        xrUploadAreaRGB24 = xrUploadArea;
-//        bNeedRGB24Update = TRUE;
-//    }
-//    else
-//    {
-//        xrUploadAreaRGB24.x0 = min ( xrUploadAreaRGB24.x0, xrUploadArea.x0 );
-//        xrUploadAreaRGB24.x1 = max ( xrUploadAreaRGB24.x1, xrUploadArea.x1 );
-//        xrUploadAreaRGB24.y0 = min ( xrUploadAreaRGB24.y0, xrUploadArea.y0 );
-//        xrUploadAreaRGB24.y1 = max ( xrUploadAreaRGB24.y1, xrUploadArea.y1 );
-//    }
+    if ( bNeedRGB24Update == FALSE )
+    {
+        xrUploadAreaRGB24 = xrUploadArea;
+        bNeedRGB24Update = TRUE;
+    }
+    else
+    {
+        bNeedRGB24Update = TRUE;
+        xrUploadAreaRGB24.x0 = min ( xrUploadAreaRGB24.x0, xrUploadArea.x0 );
+        xrUploadAreaRGB24.x1 = max ( xrUploadAreaRGB24.x1, xrUploadArea.x1 );
+        xrUploadAreaRGB24.y0 = min ( xrUploadAreaRGB24.y0, xrUploadArea.y0 );
+        xrUploadAreaRGB24.y1 = max ( xrUploadAreaRGB24.y1, xrUploadArea.y1 );
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2376,16 +2384,11 @@ void CheckWriteUpdate()
 
     InvalidateTextureArea ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width - iX, VRAMWrite.Height - iY );
 
-    if (PSXDisplay.Interlaced && !iOffscreenDrawing) return;
+    //if (PSXDisplay.Interlaced && !iOffscreenDrawing) return;
 
     if ( PSXDisplay.RGB24 )
     {
         PrepareRGB24Upload();
-#ifdef DISP_DEBUG
-        sprintf(txtbuffer, "CheckWriteUpdate1 %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
-        DEBUG_print(txtbuffer, DBG_SPU3);
-        //writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
         return;
     }
 
@@ -2490,8 +2493,8 @@ static void primStoreImage ( unsigned char * baseAddr )
     VRAMRead.Height = GETLEs16 ( &sgpuData[5] );
 
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primStoreImage %d %d %d %d\r\n", VRAMRead.x, VRAMRead.y, VRAMRead.Width, VRAMRead.Height );
-    DEBUG_print ( txtbuffer, DBG_SPU1 );
+//    sprintf ( txtbuffer, "primStoreImage %d %d %d %d\r\n", VRAMRead.x, VRAMRead.y, VRAMRead.Width, VRAMRead.Height );
+//    DEBUG_print ( txtbuffer, DBG_SPU1 );
     //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -2582,9 +2585,9 @@ static void primBlkFill ( unsigned char * baseAddr )
                     vertex[3].y = vertex[2].y;
                     PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 #ifdef DISP_DEBUG
-                    sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+//                    sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
 //sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-                    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//                    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
                 }
@@ -2600,17 +2603,17 @@ static void primBlkFill ( unsigned char * baseAddr )
                     vertex[3].y = vertex[2].y;
                     PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 #ifdef DISP_DEBUG
-                    sprintf ( txtbuffer, "blkFill1_2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+//                    sprintf ( txtbuffer, "blkFill1_2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
 //sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-                    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//                    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
                 }
             }
 #ifdef DISP_DEBUG
-            sprintf ( txtbuffer, "blkFill1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+//            sprintf ( txtbuffer, "blkFill1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
 //sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-            DEBUG_print ( txtbuffer, DBG_CORE2 );
+//            DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -2619,8 +2622,8 @@ static void primBlkFill ( unsigned char * baseAddr )
         else
         {
 #ifdef DISP_DEBUG
-            sprintf ( txtbuffer, "blkFil2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-            DEBUG_print ( txtbuffer, DBG_CORE3 );
+//            sprintf ( txtbuffer, "blkFil2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+//            DEBUG_print ( txtbuffer, DBG_CORE3 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
             bDrawTextured     = FALSE;
@@ -2748,8 +2751,8 @@ static void primMoveImage ( unsigned char * baseAddr )
 //if(iGPUHeight==1024 && sgpuData[7]>1024) return;
 
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primMoveImage %d %d %d %d %d %d\r\n", imageX0, imageY0, imageX1, imageY1, imageSX, imageSY );
-    DEBUG_print ( txtbuffer, DBG_SPU3 );
+//    sprintf ( txtbuffer, "primMoveImage %d %d %d %d %d %d\r\n", imageX0, imageY0, imageX1, imageY1, imageSX, imageSY );
+//    DEBUG_print ( txtbuffer, DBG_SPU3 );
     //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -2759,8 +2762,8 @@ static void primMoveImage ( unsigned char * baseAddr )
             ( imageX1 + imageSX ) > 1024 )
     {
 #ifdef DISP_DEBUG
-        sprintf ( txtbuffer, "moveImage1 %d %d %d %d %d %d\r\n", imageX0, imageY0, imageX1, imageY1, imageSX, imageSY );
-        DEBUG_print ( txtbuffer, DBG_SPU1 );
+//        sprintf ( txtbuffer, "moveImage1 %d %d %d %d %d %d\r\n", imageX0, imageY0, imageX1, imageY1, imageSX, imageSY );
+//        DEBUG_print ( txtbuffer, DBG_SPU1 );
 #endif // DISP_DEBUG
         MoveImageWrapped ( imageX0, imageY0, imageX1, imageY1, imageSX, imageSY );
         if ( ( imageY0 + imageSY ) > iGPUHeight ) imageSY = iGPUHeight - imageY0;
@@ -2814,8 +2817,8 @@ static void primMoveImage ( unsigned char * baseAddr )
     if ( !PSXDisplay.RGB24 )
     {
 #ifdef DISP_DEBUG
-        sprintf ( txtbuffer, "moveImage3 %d %d %d %d %d %d\r\n", imageX0, imageY0, imageX1, imageY1, imageSX, imageSY );
-        DEBUG_print ( txtbuffer, DBG_SPU1 );
+//        sprintf ( txtbuffer, "moveImage3 %d %d %d %d %d %d\r\n", imageX0, imageY0, imageX1, imageY1, imageSX, imageSY );
+//        DEBUG_print ( txtbuffer, DBG_SPU1 );
 #endif // DISP_DEBUG
         InvalidateTextureArea ( imageX1, imageY1, imageSX - 1, imageSY - 1 );
 
@@ -2847,8 +2850,8 @@ static void primMoveImage ( unsigned char * baseAddr )
                         }
 
 #ifdef DISP_DEBUG
-                        sprintf ( txtbuffer, "MoveImage %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1 );
-                        DEBUG_print ( txtbuffer, DBG_SPU3 );
+//                        sprintf ( txtbuffer, "MoveImage %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1 );
+//                        DEBUG_print ( txtbuffer, DBG_SPU3 );
                         //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
                         UploadScreen ( FALSE );
@@ -2928,8 +2931,8 @@ static void primTileS ( unsigned char * baseAddr )
 
     offsetST();
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "TileS %d %d %d %d %d %d %d %d\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "TileS %d %d %d %d %d %d %d %d\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -2988,8 +2991,8 @@ static void primTileS ( unsigned char * baseAddr )
 static void primTile1 ( unsigned char * baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primTile1 0\r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primTile1 0\r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
     //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int* ) baseAddr );
@@ -3041,8 +3044,8 @@ static void primTile1 ( unsigned char * baseAddr )
 static void primTile8 ( unsigned char * baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primTile8 0\r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primTile8 0\r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
     //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int* ) baseAddr );
@@ -3093,8 +3096,8 @@ static void primTile8 ( unsigned char * baseAddr )
 static void primTile16 ( unsigned char * baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primTile16 0\r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primTile16 0\r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
     //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int* ) baseAddr );
@@ -3268,8 +3271,8 @@ static void primSprt8 ( unsigned char * baseAddr )
     ulClutID = GETLE16 ( &sgpuData[5] );
 
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primSprt8 %d %d 8 8\r\n", sprtX, sprtY );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primSprt8 %d %d 8 8\r\n", sprtX, sprtY );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
     bDrawTextured = TRUE;
@@ -3390,8 +3393,8 @@ static void primSprt16 ( unsigned char * baseAddr )
     ulClutID = GETLE16 ( &sgpuData[5] );
 
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primSprt16 %d %d 16 16\r\n", sprtX, sprtY );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primSprt16 %d %d 16 16\r\n", sprtX, sprtY );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -3570,8 +3573,8 @@ static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
     ulClutID = GETLE16 ( &sgpuData[5] );
 
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primSprtSRest %d %d %d %d\r\n", sprtX, sprtY, sprtW, sprtH );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primSprtSRest %d %d %d %d\r\n", sprtX, sprtY, sprtW, sprtH );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -3710,8 +3713,8 @@ static void primSprtS ( unsigned char * baseAddr )
     ulClutID = GETLE16 ( &sgpuData[5] );
 
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primSprtS %d %d %d %d\r\n", sprtX, sprtY, sprtW, sprtH );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primSprtS %d %d %d %d\r\n", sprtX, sprtY, sprtW, sprtH );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -3772,8 +3775,8 @@ static void primSprtS ( unsigned char * baseAddr )
 static void primPolyF4 ( unsigned char *baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primPolyF4 \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primPolyF4 \r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -3887,8 +3890,8 @@ BOOL bCheckFF9G4 ( unsigned char * baseAddr )
 static void primPolyG4 ( unsigned char * baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primPolyG4 \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primPolyG4 \r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
     unsigned int *gpuData = ( unsigned int * ) baseAddr;
@@ -4111,8 +4114,8 @@ static BOOL DoLineCheck ( unsigned int * gpuData )
 static void primPolyFT3 ( unsigned char * baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primPolyFT3 \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primPolyFT3 \r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -4548,8 +4551,8 @@ static void RectTexAlign ( void )
 static void primPolyFT4 ( unsigned char * baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primPolyFT4 \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primPolyFT4 \r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -4631,8 +4634,8 @@ static void primPolyFT4 ( unsigned char * baseAddr )
 static void primPolyGT3 ( unsigned char *baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primPolyGT3 \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primPolyGT3 \r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -4745,8 +4748,8 @@ static void primPolyGT3 ( unsigned char *baseAddr )
 static void primPolyG3 ( unsigned char *baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primPolyG3 \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primPolyG3 \r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -4796,8 +4799,8 @@ static void primPolyG3 ( unsigned char *baseAddr )
 static void primPolyGT4 ( unsigned char *baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primPolyGT4 \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primPolyGT4 \r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -4921,8 +4924,8 @@ static void primPolyGT4 ( unsigned char *baseAddr )
 static void primPolyF3 ( unsigned char *baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primPolyF3 \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primPolyF3 \r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -4971,8 +4974,8 @@ static void primPolyF3 ( unsigned char *baseAddr )
 static void primLineGSkip ( unsigned char *baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primLineGSkip \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primLineGSkip \r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -5002,8 +5005,8 @@ static void primLineGSkip ( unsigned char *baseAddr )
 static void primLineGEx ( unsigned char *baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primLineGEx \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primLineGEx \r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -5076,8 +5079,8 @@ static void primLineGEx ( unsigned char *baseAddr )
 static void primLineG2 ( unsigned char *baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primLineG2 \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primLineG2 \r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -5127,8 +5130,8 @@ static void primLineG2 ( unsigned char *baseAddr )
 static void primLineFSkip ( unsigned char *baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primLineFSkip \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primLineFSkip \r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -5153,8 +5156,8 @@ static void primLineFSkip ( unsigned char *baseAddr )
 static void primLineFEx ( unsigned char *baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primLineFEx \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primLineFEx \r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -5220,8 +5223,8 @@ static void primLineFEx ( unsigned char *baseAddr )
 static void primLineF2 ( unsigned char *baseAddr )
 {
 #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "primLineF2 \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//    sprintf ( txtbuffer, "primLineF2 \r\n" );
+//    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 

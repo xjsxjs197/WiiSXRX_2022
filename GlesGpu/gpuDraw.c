@@ -1307,8 +1307,8 @@ void SetOGLDisplaySettings(BOOL DisplaySet)
     {
      rC=rX;
      #ifdef DISP_DEBUG
-     sprintf(txtbuffer, "SetDisplay %d %d %d %d\r\n", rC.left,rC.top,rC.right,rC.bottom);
-     DEBUG_print(txtbuffer, DBG_SPU3);
+//     sprintf(txtbuffer, "SetDisplay %d %d %d %d\r\n", rC.left,rC.top,rC.right,rC.bottom);
+//     DEBUG_print(txtbuffer, DBG_SPU3);
      #endif // DISP_DEBUG
      glScissor(rC.left,rC.top,rC.right,rC.bottom); glError();
      //LOGE("glscissor:%d %d %d %d",rC.left,rC.top,rC.right,rC.bottom);

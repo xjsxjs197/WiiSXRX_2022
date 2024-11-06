@@ -334,8 +334,8 @@ void updateDisplayGl(void)                               // UPDATE DISPLAY
 {
 BOOL bBlur=FALSE;
 #ifdef DISP_DEBUG
-sprintf(txtbuffer, "updateDisplayGl 0 \r\n");
-DEBUG_print(txtbuffer, DBG_CDR1);
+//sprintf(txtbuffer, "updateDisplayGl 0 \r\n");
+//DEBUG_print(txtbuffer, DBG_CDR1);
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -357,13 +357,17 @@ iLastRGB24=0;
 
 if(PSXDisplay.RGB24)// && !bNeedUploadAfter)          // (mdec) upload wanted?
  {
+  #ifdef DISP_DEBUG
+  sprintf(txtbuffer, "updateDisplayGl_1a %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+  DEBUG_print(txtbuffer, DBG_CDR1);
+  //writeLogFile(txtbuffer);
+  #endif // DISP_DEBUG
   PrepareFullScreenUpload(-1);
   #ifdef DISP_DEBUG
-//sprintf(txtbuffer, "updateDisplayGl_1 %d %d %d %d %d %d %d %d %d\r\n", PSXDisplay.Disabled, lClearOnSwap, iZBufferDepth, PSXDisplay.Interlaced, bNeedRGB24Update, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
-sprintf(txtbuffer, "updateDisplayGl_1 %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
-DEBUG_print(txtbuffer, DBG_CDR1);
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+  sprintf(txtbuffer, "updateDisplayGl_1b %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+  DEBUG_print(txtbuffer, DBG_CDR2);
+  //writeLogFile(txtbuffer);
+  #endif // DISP_DEBUG
   UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
   bNeedUploadTest=FALSE;
   bNeedInterlaceUpdate=FALSE;
@@ -374,10 +378,10 @@ else
 if(bNeedInterlaceUpdate)                              // smaller upload?
  {
      #ifdef DISP_DEBUG
-//sprintf(txtbuffer, "updateDisplayGl_2 %d %d %d %d %d %d %d %d %d\r\n", PSXDisplay.Disabled, lClearOnSwap, iZBufferDepth, PSXDisplay.Interlaced, bNeedRGB24Update, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
-//DEBUG_print(txtbuffer, DBG_CDR2);
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+     sprintf(txtbuffer, "updateDisplayGl_2 %d %d %d %d %d %d %d %d %d\r\n", PSXDisplay.Disabled, lClearOnSwap, iZBufferDepth, PSXDisplay.Interlaced, bNeedRGB24Update, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+     DEBUG_print(txtbuffer, DBG_CDR2);
+     //writeLogFile(txtbuffer);
+     #endif // DISP_DEBUG
   bNeedInterlaceUpdate=FALSE;
   xrUploadArea=xrUploadAreaIL;                        // -> upload this rect
   UploadScreen(TRUE);
@@ -401,8 +405,8 @@ if(PSXDisplay.Disabled)                               // display disabled?
   gl_z=0.0f;
   bDisplayNotSet = TRUE;
   #ifdef DISP_DEBUG
-sprintf(txtbuffer, "updateDisplayGl Disabled\r\n");
-DEBUG_print(txtbuffer, DBG_CDR1);
+//sprintf(txtbuffer, "updateDisplayGl Disabled\r\n");
+//DEBUG_print(txtbuffer, DBG_CDR1);
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
  }
@@ -766,8 +770,8 @@ else                                                  // some res change?
   glOrtho(0,PSXDisplay.DisplayModeNew.x,              // -> new psx resolution
             PSXDisplay.DisplayModeNew.y, 0, -1, 1); glError();
   #ifdef DISP_DEBUG
-sprintf(txtbuffer, "glOrtho %d %d %d\r\n", PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y, xrUploadArea.y1 - xrUploadArea.y0);
-DEBUG_print(txtbuffer, DBG_SPU3);
+//sprintf(txtbuffer, "glOrtho %d %d %d\r\n", PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y, xrUploadArea.y1 - xrUploadArea.y0);
+//DEBUG_print(txtbuffer, DBG_SPU3);
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
   if(bKeepRatio) SetAspectRatio();
@@ -2055,8 +2059,8 @@ void CALLBACK GL_GPUrearmedCallbacks(const struct rearmed_cbs *_cbs)
 static void flipEGL(void)
 {
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "flipEGL \r\n");
-    DEBUG_print(txtbuffer, DBG_SPU3);
+//    sprintf(txtbuffer, "flipEGL \r\n");
+//    DEBUG_print(txtbuffer, DBG_SPU3);
     //writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 

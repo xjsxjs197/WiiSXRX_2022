@@ -1230,8 +1230,8 @@ void DefineTextureMovie(void)
 //    static int oldWidth=256, oldHeight=256;
 //    //glGetTextureInfo(gTexName, &oldWidth, &oldHeight);
     //sprintf(txtbuffer, "DefineTextureMovie %d %d %d %d %d\r\n", PSXDisplay.RGB24, oldWidth, oldHeight, (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0));
-    sprintf(txtbuffer, "DefineTextureMovie %d %d %d\r\n", PSXDisplay.RGB24, (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0));
-    DEBUG_print(txtbuffer, DBG_SPU2);
+//    sprintf(txtbuffer, "DefineTextureMovie %d %d %d\r\n", PSXDisplay.RGB24, (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0));
+//    DEBUG_print(txtbuffer, DBG_SPU2);
     //writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
@@ -1441,8 +1441,8 @@ GLuint BlackFake15BitTexture(void)
          *ta++=0xff000000;
       }
       #ifdef DISP_DEBUG
-sprintf(txtbuffer, "Fake15BitTexture 4 4\r\n");
-DEBUG_print(txtbuffer, DBG_SPU1);
+//sprintf(txtbuffer, "Fake15BitTexture 4 4\r\n");
+//DEBUG_print(txtbuffer, DBG_SPU1);
 #endif // DISP_DEBUG
      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
 
@@ -1471,8 +1471,8 @@ GLuint Fake15BitTexture(void)
 {
 
     #ifdef DISP_DEBUG
-sprintf(txtbuffer, "Fake15BitTexture 0\r\n");
-DEBUG_print(txtbuffer, DBG_SPU1);
+//sprintf(txtbuffer, "Fake15BitTexture 0\r\n");
+//DEBUG_print(txtbuffer, DBG_SPU1);
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -1542,8 +1542,8 @@ DEBUG_print(txtbuffer, DBG_SPU1);
    p=(char *)_mem2_malloc(iFTex*iFTex*4);
    memset(p,0,iFTex*iFTex*4);
    #ifdef DISP_DEBUG
-sprintf(txtbuffer, "Fake15BitTexture            %d %d\r\n", iFTex, iFTex);
-DEBUG_print(txtbuffer, DBG_SPU1);
+//sprintf(txtbuffer, "Fake15BitTexture            %d %d\r\n", iFTex, iFTex);
+//DEBUG_print(txtbuffer, DBG_SPU1);
 #endif // DISP_DEBUG
    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, iFTex, iFTex, 0, GL_RGBA, GL_UNSIGNED_BYTE, p); glError();
    _mem2_free(p);
@@ -1623,8 +1623,8 @@ DEBUG_print(txtbuffer, DBG_SPU1);
 
 
  #ifdef DISP_DEBUG
-sprintf(txtbuffer, "glCopyTexSubImage2D\r\n");
-DEBUG_print(txtbuffer, DBG_CDR4);
+//sprintf(txtbuffer, "glCopyTexSubImage2D\r\n");
+//DEBUG_print(txtbuffer, DBG_CDR4);
 #endif // DISP_DEBUG
  glCopyTexSubImage2D( GL_TEXTURE_2D, 0,
                       0,
@@ -2390,8 +2390,8 @@ void DefineSubTextureSort(void)
   //int oldWidth, oldHeight;
   //glGetTextureInfo(gTexName, &oldWidth, &oldHeight);
   //sprintf(txtbuffer, "DefineSubTextureSort %d %d %d %d %d %d\r\n", oldWidth, oldHeight, XTexS, YTexS, DXTexS, DYTexS);
-  sprintf(txtbuffer, "DefineSubTextureSort %d %d %d %d\r\n", XTexS, YTexS, DXTexS, DYTexS);
-  DEBUG_print(txtbuffer, DBG_CDR2);
+//  sprintf(txtbuffer, "DefineSubTextureSort %d %d %d %d\r\n", XTexS, YTexS, DXTexS, DYTexS);
+//  DEBUG_print(txtbuffer, DBG_CDR2);
   //writeLogFile(txtbuffer);
 
 //  static unsigned int subImgIdx = 0;
@@ -3120,8 +3120,8 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
  // found? fine
  usLRUTexPage=iCache;
  #ifdef DISP_DEBUG
- sprintf(txtbuffer, "SelectSubTextureS 1 %d %d\r\n", *OPtr, iCache);
- DEBUG_print(txtbuffer,  DBG_CDR3);
+// sprintf(txtbuffer, "SelectSubTextureS 1 %d %d\r\n", *OPtr, iCache);
+// DEBUG_print(txtbuffer,  DBG_CDR3);
 //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
  if(!OPtr) return uiStexturePage[iCache];
@@ -3129,16 +3129,16 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
  // not found? upload texture and store infos in cache
  gTexName=uiStexturePage[iCache];
  #ifdef DISP_DEBUG
- sprintf(txtbuffer, "SelectSubTextureS 2 %d %d\r\n", iCache, gTexName);
- DEBUG_print(txtbuffer,  DBG_CDR3);
+// sprintf(txtbuffer, "SelectSubTextureS 2 %d %d\r\n", iCache, gTexName);
+// DEBUG_print(txtbuffer,  DBG_CDR3);
  //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
  LoadSubTexFn(GlobalTexturePage,TextureMode,cx,cy);
  uiStexturePage[iCache]=gTexName;
  *OPtr=ubOpaqueDraw;
  #ifdef DISP_DEBUG
- sprintf(txtbuffer, "SelectSubTextureS 3 %d\r\n", gTexName);
- DEBUG_print(txtbuffer,  DBG_CDR3);
+// sprintf(txtbuffer, "SelectSubTextureS 3 %d\r\n", gTexName);
+// DEBUG_print(txtbuffer,  DBG_CDR3);
  //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
  return (GLuint) gTexName;
