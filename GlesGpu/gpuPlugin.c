@@ -357,18 +357,22 @@ iLastRGB24=0;
 
 if(PSXDisplay.RGB24)// && !bNeedUploadAfter)          // (mdec) upload wanted?
  {
-  #ifdef DISP_DEBUG
-  sprintf(txtbuffer, "updateDisplayGl_1a %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
-  DEBUG_print(txtbuffer, DBG_CDR1);
-  //writeLogFile(txtbuffer);
-  #endif // DISP_DEBUG
-  PrepareFullScreenUpload(-1);
-  #ifdef DISP_DEBUG
-  sprintf(txtbuffer, "updateDisplayGl_1b %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
-  DEBUG_print(txtbuffer, DBG_CDR2);
-  //writeLogFile(txtbuffer);
-  #endif // DISP_DEBUG
-  UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
+  //if (bRGB24Uploaded == TRUE)
+  {
+      #ifdef DISP_DEBUG
+      //sprintf(txtbuffer, "updateDisplayGl_1a %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+      //DEBUG_print(txtbuffer, DBG_CDR1);
+      //writeLogFile(txtbuffer);
+      #endif // DISP_DEBUG
+      PrepareFullScreenUpload(-1);
+      #ifdef DISP_DEBUG
+      sprintf(txtbuffer, "updateDisplayGl_1b %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+      DEBUG_print(txtbuffer, DBG_CDR2);
+      //writeLogFile(txtbuffer);
+      #endif // DISP_DEBUG
+      UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
+  }
+
   bNeedUploadTest=FALSE;
   bNeedInterlaceUpdate=FALSE;
   bNeedUploadAfter=FALSE;
@@ -405,8 +409,8 @@ if(PSXDisplay.Disabled)                               // display disabled?
   gl_z=0.0f;
   bDisplayNotSet = TRUE;
   #ifdef DISP_DEBUG
-//sprintf(txtbuffer, "updateDisplayGl Disabled\r\n");
-//DEBUG_print(txtbuffer, DBG_CDR1);
+sprintf(txtbuffer, "updateDisplayGl Disabled\r\n");
+DEBUG_print(txtbuffer, DBG_CDR1);
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
  }
@@ -466,6 +470,12 @@ iDrawnSomething=0;
 
 if(lClearOnSwap)                                      // clear buffer after swap?
  {
+     #ifdef DISP_DEBUG
+sprintf(txtbuffer, "updateDisplayGl lClearOnSwap\r\n");
+DEBUG_print(txtbuffer, DBG_CDR1);
+//writeLogFile(txtbuffer);
+#endif // DISP_DEBUG
+
   unsigned char g,b,r;
 
   if(bDisplayNotSet)                                  // -> set new vals
@@ -503,10 +513,10 @@ if(bNeedUploadAfter)                                  // upload wanted?
   bNeedUploadAfter=FALSE;
   bNeedUploadTest=FALSE;
   #ifdef DISP_DEBUG
-//sprintf(txtbuffer, "bNeedUploadAfter \r\n");
-//DEBUG_print(txtbuffer, DBG_CDR3);
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+      sprintf(txtbuffer, "bNeedUploadAfter %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+      DEBUG_print(txtbuffer, DBG_CDR2);
+      //writeLogFile(txtbuffer);
+      #endif // DISP_DEBUG
   UploadScreen(-1);                                   // -> upload
  }
 
@@ -521,10 +531,10 @@ if(bNeedUploadTest)
      PreviousPSXDisplay.DisplayEnd.y==PSXDisplay.DisplayEnd.y)
    {
        #ifdef DISP_DEBUG
-//sprintf(txtbuffer, "bNeedUploadTest \r\n");
-//DEBUG_print(txtbuffer, DBG_CDR3);
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+      sprintf(txtbuffer, "bNeedUploadTest %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+      DEBUG_print(txtbuffer, DBG_CDR2);
+      //writeLogFile(txtbuffer);
+      #endif // DISP_DEBUG
 
     PrepareFullScreenUpload(TRUE);
     UploadScreen(TRUE);
@@ -1001,12 +1011,12 @@ switch(lCommand)
 
      if(!PSXDisplay.RGB24)
       {
-          #ifdef DISP_DEBUG
-//sprintf(txtbuffer, "dis/enable display \r\n");
-//DEBUG_print(txtbuffer, DBG_CDR3);
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
        PrepareFullScreenUpload(TRUE);
+       #ifdef DISP_DEBUG
+      sprintf(txtbuffer, "dis/enable display %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+      DEBUG_print(txtbuffer, DBG_CDR2);
+      //writeLogFile(txtbuffer);
+      #endif // DISP_DEBUG
        UploadScreen(TRUE);
        updateDisplayGl();
       }

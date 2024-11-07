@@ -2322,15 +2322,14 @@ static void PrepareRGB24Upload ( void )
         xrUploadArea.y0 -= PreviousPSXDisplay.DisplayPosition.y;
         xrUploadArea.y1 -= PreviousPSXDisplay.DisplayPosition.y;
 
-        #ifdef DISP_DEBUG
-        sprintf(txtbuffer, "PrepareRGB24Upload1 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
-                           PreviousPSXDisplay.DisplayPosition.x, PreviousPSXDisplay.DisplayEnd.x, PreviousPSXDisplay.DisplayPosition.y, PreviousPSXDisplay.DisplayEnd.y);
-        DEBUG_print(txtbuffer, DBG_CDR1);
-        //writeLogFile(txtbuffer);
-        #endif // DISP_DEBUG
-
         if (PreviousPSXDisplay.DisplayEnd.x - PreviousPSXDisplay.DisplayPosition.x == xrUploadArea.x1)
         {
+            #ifdef DISP_DEBUG
+//            sprintf(txtbuffer, "PrepareRGB24Upload1 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
+//                               PreviousPSXDisplay.DisplayPosition.x, PreviousPSXDisplay.DisplayEnd.x, PreviousPSXDisplay.DisplayPosition.y, PreviousPSXDisplay.DisplayEnd.y);
+//            DEBUG_print(txtbuffer, DBG_CDR1);
+//            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
             PrepareFullScreenUpload(-1);
             UploadScreen ( PreviousPSXDisplay.Interlaced );
         }
@@ -2342,13 +2341,13 @@ static void PrepareRGB24Upload ( void )
         xrUploadArea.y0 -= PSXDisplay.DisplayPosition.y;
         xrUploadArea.y1 -= PSXDisplay.DisplayPosition.y;
 
-//        PrepareFullScreenUpload(-1);
-//        UploadScreen ( PSXDisplay.Interlaced );
+        PrepareFullScreenUpload(-1);
+        UploadScreen ( PSXDisplay.Interlaced );
         #ifdef DISP_DEBUG
         sprintf(txtbuffer, "PrepareRGB24Upload2 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
                            PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayEnd.x, PSXDisplay.DisplayPosition.y, PSXDisplay.DisplayEnd.y);
         DEBUG_print(txtbuffer, DBG_CDR1);
-        //writeLogFile(txtbuffer);
+        writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
     }
     //else return;
@@ -2384,7 +2383,7 @@ void CheckWriteUpdate()
 
     InvalidateTextureArea ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width - iX, VRAMWrite.Height - iY );
 
-    //if (PSXDisplay.Interlaced && !iOffscreenDrawing) return;
+    if (PSXDisplay.Interlaced && !iOffscreenDrawing) return;
 
     if ( PSXDisplay.RGB24 )
     {
@@ -2405,7 +2404,7 @@ void CheckWriteUpdate()
 #ifdef DISP_DEBUG
         sprintf ( txtbuffer, "CheckWriteUpdate2 %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1 );
         DEBUG_print ( txtbuffer, DBG_SPU3 );
-        //writeLogFile ( txtbuffer );
+        writeLogFile ( txtbuffer );
 #endif // DISP_DEBUG
         UploadScreen ( FALSE );
 
