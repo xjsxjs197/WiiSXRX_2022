@@ -357,8 +357,6 @@ iLastRGB24=0;
 
 if(PSXDisplay.RGB24)// && !bNeedUploadAfter)          // (mdec) upload wanted?
  {
-  //if (bRGB24Uploaded == TRUE)
-  {
       #ifdef DISP_DEBUG
       //sprintf(txtbuffer, "updateDisplayGl_1a %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
       //DEBUG_print(txtbuffer, DBG_CDR1);
@@ -367,12 +365,10 @@ if(PSXDisplay.RGB24)// && !bNeedUploadAfter)          // (mdec) upload wanted?
       PrepareFullScreenUpload(-1);
       #ifdef DISP_DEBUG
       sprintf(txtbuffer, "updateDisplayGl_1b %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
-      DEBUG_print(txtbuffer, DBG_CDR2);
-      //writeLogFile(txtbuffer);
+      DEBUG_print(txtbuffer, DBG_CDR3);
+      writeLogFile(txtbuffer);
       #endif // DISP_DEBUG
       UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
-  }
-
   bNeedUploadTest=FALSE;
   bNeedInterlaceUpdate=FALSE;
   bNeedUploadAfter=FALSE;

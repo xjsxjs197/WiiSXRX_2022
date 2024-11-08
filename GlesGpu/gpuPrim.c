@@ -1449,11 +1449,10 @@ BOOL bDrawOffscreen3 ( void )
 }
 
 ////////////////////////////////////////////////////////////////////////
+static PSXRect_t xUploadArea;
 
 BOOL FastCheckAgainstScreen ( short imageX0, short imageY0, short imageX1, short imageY1 )
 {
-    PSXRect_t xUploadArea;
-
     imageX1 += imageX0;
     imageY1 += imageY0;
 
@@ -1530,8 +1529,6 @@ BOOL CheckAgainstScreen ( short imageX0, short imageY0, short imageX1, short ima
 
 BOOL FastCheckAgainstFrontScreen ( short imageX0, short imageY0, short imageX1, short imageY1 )
 {
-    PSXRect_t xUploadArea;
-
     imageX1 += imageX0;
     imageY1 += imageY0;
 
@@ -1627,23 +1624,23 @@ void PrepareFullScreenUpload ( int Position )
             xrUploadArea.y1 = PreviousPSXDisplay.DisplayEnd.y;
         }
 
-        if ( bNeedRGB24Update )
-        {
-//            if ( lClearOnSwap )
-//            {
-////       lClearOnSwap=0;
-//            }
-//            else if ( PSXDisplay.Interlaced && PreviousPSXDisplay.RGB24 < 2 ) // in interlaced mode we upload at least two full frames (GT1 menu)
-//            {
-//                PreviousPSXDisplay.RGB24++;
-//            }
-//            else
-//            {
-//                xrUploadArea.y1 = min ( xrUploadArea.y0 + xrUploadAreaRGB24.y1, xrUploadArea.y1 );
-//                xrUploadArea.y0 += xrUploadAreaRGB24.y0;
-//            }
-            xrUploadArea = xrUploadAreaRGB24;
-        }
+//        if ( bNeedRGB24Update )
+//        {
+////            if ( lClearOnSwap )
+////            {
+//////       lClearOnSwap=0;
+////            }
+////            else if ( PSXDisplay.Interlaced && PreviousPSXDisplay.RGB24 < 2 ) // in interlaced mode we upload at least two full frames (GT1 menu)
+////            {
+////                PreviousPSXDisplay.RGB24++;
+////            }
+////            else
+////            {
+////                xrUploadArea.y1 = min ( xrUploadArea.y0 + xrUploadAreaRGB24.y1, xrUploadArea.y1 );
+////                xrUploadArea.y0 += xrUploadAreaRGB24.y0;
+////            }
+//            xrUploadArea = xrUploadAreaRGB24;
+//        }
     }
     else if ( Position )
     {
@@ -1685,88 +1682,6 @@ void PrepareFullScreenUpload ( int Position )
 
 unsigned char * LoadDirectMovieFast ( void );
 
-//void UploadScreenEx(int Position)
-//{
-// short ya,yb,xa,xb,x, y, YStep, XStep, U, UStep,ux[4],vy[4];
-//
-// if(!PSXDisplay.DisplayMode.x) return;
-// if(!PSXDisplay.DisplayMode.y) return;
-//
-// //GXDisable(GX_SCISSOR_TEST);
-// //glShadeModel(GX_FLAT);
-// bOldSmoothShaded=FALSE;
-// //GXDisable(GX_BLEND);
-// bBlendEnable=FALSE;
-// //GXDisable(GX_TEXTURE_2D);
-// //GXDisable(GX_ALPHA_TEST);
-//
-// //glPixelZoom(((float)rRatioRect.right)/((float)PSXDisplay.DisplayMode.x),
-// //            -1.0f*(((float)rRatioRect.bottom)/((float)PSXDisplay.DisplayMode.y)));
-//
-// //----------------------------------------------------//
-//
-// YStep = 256;                                          // max texture size
-// XStep = 256;
-// UStep = (PSXDisplay.RGB24 ? 128 : 0);
-// ya    = xrUploadArea.y0;
-// yb    = xrUploadArea.y1;
-// xa    = xrUploadArea.x0;
-// xb    = xrUploadArea.x1;
-//
-// for(y=ya;y<=yb;y+=YStep)                              // loop y
-//  {
-//   U = 0;
-//   for(x=xa;x<=xb;x+=XStep)                            // loop x
-//    {
-//     ly0 = ly1 = y;                                    // -> get y coords
-//     ly2 = y + YStep;
-//     if (ly2 > yb) ly2 = yb;
-//     ly3 = ly2;
-//
-//     lx0 = lx3 = x;                                    // -> get x coords
-//     lx1 = x + XStep;
-//     if (lx1 > xb) lx1 = xb;
-//
-//     lx2 = lx1;
-//
-//     ux[0]=ux[3]=(xa - x);                             // -> set tex x coords
-//     if (ux[0] < 0) ux[0]=ux[3]=0;
-//     ux[2]=ux[1]=(xb - x);
-//     if (ux[2] > 256) ux[2]=ux[1]=256;
-//
-//     vy[0]=vy[1]=(ya - y);                             // -> set tex y coords
-//     if (vy[0] < 0) vy[0]=vy[1]=0;
-//     vy[2]=vy[3]=(yb - y);
-//     if (vy[2] > 256) vy[2]=vy[3]=256;
-//
-//     if ((ux[0] >= ux[2]) ||                           // -> cheaters never win...
-//         (vy[0] >= vy[2])) continue;                   //    (but winners always cheat...)
-//
-//     xrMovieArea.x0=lx0+U; xrMovieArea.y0=ly0;
-//     xrMovieArea.x1=lx2+U; xrMovieArea.y1=ly2;
-//
-//     offsetScreenUpload(Position);
-//
-//     //glRasterPos2f(vertex[0].x,vertex[0].y);
-//
-//     // TODO
-//	 //glDrawPixels(xrMovieArea.x1-xrMovieArea.x0,
-//     //             xrMovieArea.y1-xrMovieArea.y0,
-//     //             GL_RGBA,GL_UNSIGNED_BYTE,
-//                  LoadDirectMovieFast();//);
-//
-//     U+=UStep;
-//    }
-//  }
-//
-// //----------------------------------------------------//
-//
-//// glPixelZoom(1.0F,1.0F);
-//
-// //glEnable(GL_ALPHA_TEST);
-// //glEnable(GX_SCISSOR_TEST);
-//}
-
 ////////////////////////////////////////////////////////////////////////
 
 void UploadScreen ( int Position )
@@ -1794,17 +1709,6 @@ void UploadScreen ( int Position )
 //    DEBUG_print ( txtbuffer, DBG_SPU3 );
     //writeLogFile ( txtbuffer );
 #endif // DISP_DEBUG
-
-//    static int oldHeight = 0;
-//    if (oldHeight != (xrUploadArea.y1 - xrUploadArea.y0))
-//    {
-//        oldHeight = xrUploadArea.y1 - xrUploadArea.y0;
-//        glMatrixMode(GL_PROJECTION);
-//        glLoadIdentity(); glError();
-//        glOrtho(0,PSXDisplay.DisplayModeNew.x,              // -> new psx resolution
-//                oldHeight, 0, -1, 1); glError();
-//        if (bKeepRatio) SetAspectRatio(oldHeight);
-//    }
 
 //if(dwActFixes & 2) {UploadScreenEx(Position);return;}
 
@@ -1881,8 +1785,6 @@ void UploadScreen ( int Position )
             U += UStep;
         }
     }
-
-    //GX_DrawDone();
 
     bUsingMovie = FALSE;                                  // done...
     bDisplayNotSet = TRUE;
@@ -2094,45 +1996,6 @@ static void cmdTextureWindow ( unsigned char *baseAddr )
 // mmm, Lewpy uses that in TileS ... I don't ;)
 ////////////////////////////////////////////////////////////////////////
 
-/*
-void ClampToPSXDrawAreaOffset(short *x0, short *y0, short *x1, short *y1)
-{
- if (*x0 < PSXDisplay.DrawArea.x0)
-  {
-   *x1 -= (PSXDisplay.DrawArea.x0 - *x0);
-   *x0 = PSXDisplay.DrawArea.x0;
-  }
- else
- if (*x0 > PSXDisplay.DrawArea.x1)
-  {
-   *x0 = PSXDisplay.DrawArea.x1;
-   *x1 = 0;
-  }
-
- if (*y0 < PSXDisplay.DrawArea.y0)
-  {
-   *y1 -= (PSXDisplay.DrawArea.y0 - *y0);
-   *y0 = PSXDisplay.DrawArea.y0;
-  }
- else
- if (*y0 > PSXDisplay.DrawArea.y1)
-  {
-   *y0 = PSXDisplay.DrawArea.y1;
-   *y1 = 0;
-  }
-
- if (*x1 < 0) *x1 = 0;
-
- if ((*x1 + *x0) > PSXDisplay.DrawArea.x1)
-  *x1 = (PSXDisplay.DrawArea.x1 -  *x0 + 1);
-
- if (*y1 < 0) *y1 = 0;
-
- if ((*y1 + *y0) > PSXDisplay.DrawArea.y1)
-  *y1 = (PSXDisplay.DrawArea.y1 -  *y0 + 1);
-}
-*/
-
 ////////////////////////////////////////////////////////////////////////
 // Check draw area dimensions
 ////////////////////////////////////////////////////////////////////////
@@ -2155,29 +2018,6 @@ void ClampToPSXScreen ( short *x0, short *y0, short *x1, short *y1 )
 ////////////////////////////////////////////////////////////////////////
 // Used in Load Image and Blk Fill
 ////////////////////////////////////////////////////////////////////////
-
-//void ClampToPSXScreenOffset(short *x0, short *y0, short *x1, short *y1)
-//{
-// if (*x0 < 0)
-//  { *x1 += *x0;  *x0 = 0; }
-// else
-// if (*x0 > 1023)
-//  { *x0 = 1023;  *x1 = 0; }
-//
-// if (*y0 < 0)
-//  { *y1 += *y0;  *y0 = 0; }
-// else
-// if (*y0 > iGPUHeightMask)
-//  { *y0 = iGPUHeightMask;   *y1 = 0; }
-//
-// if (*x1 < 0) *x1 = 0;
-//
-// if ((*x1 + *x0) > 1024) *x1 = (1024 -  *x0);
-//
-// if (*y1 < 0) *y1 = 0;
-//
-// if ((*y1 + *y0) > iGPUHeight)  *y1 = (iGPUHeight -  *y0);
-//}
 
 ////////////////////////////////////////////////////////////////////////
 // cmd: start of drawing area... primitives will be clipped inside
@@ -2315,27 +2155,32 @@ static void PrepareRGB24Upload ( void )
     VRAMWrite.Width = ( VRAMWrite.Width * 2 ) / 3;
 
     if ( !PSXDisplay.InterlacedTest && // NEW
-            CheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
+            FastCheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
+        xrUploadArea = xUploadArea;
         xrUploadArea.x0 -= PreviousPSXDisplay.DisplayPosition.x;
         xrUploadArea.x1 -= PreviousPSXDisplay.DisplayPosition.x;
         xrUploadArea.y0 -= PreviousPSXDisplay.DisplayPosition.y;
         xrUploadArea.y1 -= PreviousPSXDisplay.DisplayPosition.y;
 
+        //InvalidateTextureArea ( xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0 );
+        //UploadScreen ( PSXDisplay.Interlaced );
+
         if (PreviousPSXDisplay.DisplayEnd.x - PreviousPSXDisplay.DisplayPosition.x == xrUploadArea.x1)
         {
             #ifdef DISP_DEBUG
-//            sprintf(txtbuffer, "PrepareRGB24Upload1 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
-//                               PreviousPSXDisplay.DisplayPosition.x, PreviousPSXDisplay.DisplayEnd.x, PreviousPSXDisplay.DisplayPosition.y, PreviousPSXDisplay.DisplayEnd.y);
-//            DEBUG_print(txtbuffer, DBG_CDR1);
-//            writeLogFile(txtbuffer);
+            sprintf(txtbuffer, "PrepareRGB24Upload1 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
+                               PreviousPSXDisplay.DisplayPosition.x, PreviousPSXDisplay.DisplayEnd.x, PreviousPSXDisplay.DisplayPosition.y, PreviousPSXDisplay.DisplayEnd.y);
+            DEBUG_print(txtbuffer, DBG_CDR1);
+            writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
             PrepareFullScreenUpload(-1);
-            UploadScreen ( PreviousPSXDisplay.Interlaced );
+            UploadScreen ( PSXDisplay.Interlaced );
         }
     }
-    else if ( CheckAgainstFrontScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
+    else if ( FastCheckAgainstFrontScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
+        xrUploadArea = xUploadArea;
         xrUploadArea.x0 -= PSXDisplay.DisplayPosition.x;
         xrUploadArea.x1 -= PSXDisplay.DisplayPosition.x;
         xrUploadArea.y0 -= PSXDisplay.DisplayPosition.y;
@@ -2357,19 +2202,19 @@ static void PrepareRGB24Upload ( void )
 //        updateFrontDisplayGl();
 //    }
 //
-    if ( bNeedRGB24Update == FALSE )
-    {
-        xrUploadAreaRGB24 = xrUploadArea;
-        bNeedRGB24Update = TRUE;
-    }
-    else
-    {
-        bNeedRGB24Update = TRUE;
-        xrUploadAreaRGB24.x0 = min ( xrUploadAreaRGB24.x0, xrUploadArea.x0 );
-        xrUploadAreaRGB24.x1 = max ( xrUploadAreaRGB24.x1, xrUploadArea.x1 );
-        xrUploadAreaRGB24.y0 = min ( xrUploadAreaRGB24.y0, xrUploadArea.y0 );
-        xrUploadAreaRGB24.y1 = max ( xrUploadAreaRGB24.y1, xrUploadArea.y1 );
-    }
+//    if ( bNeedRGB24Update == FALSE )
+//    {
+//        xrUploadAreaRGB24 = xrUploadArea;
+//        bNeedRGB24Update = TRUE;
+//    }
+//    else
+//    {
+//        bNeedRGB24Update = TRUE;
+//        xrUploadAreaRGB24.x0 = min ( xrUploadAreaRGB24.x0, xrUploadArea.x0 );
+//        xrUploadAreaRGB24.x1 = max ( xrUploadAreaRGB24.x1, xrUploadArea.x1 );
+//        xrUploadAreaRGB24.y0 = min ( xrUploadAreaRGB24.y0, xrUploadArea.y0 );
+//        xrUploadAreaRGB24.y1 = max ( xrUploadAreaRGB24.y1, xrUploadArea.y1 );
+//    }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2392,8 +2237,10 @@ void CheckWriteUpdate()
     }
 
     if ( !PSXDisplay.InterlacedTest &&
-            CheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
+            FastCheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
+        xrUploadArea = xUploadArea;
+
         if ( dwActFixes & 0x800 ) return;
 
         if ( bRenderFrontBuffer )
@@ -2401,70 +2248,76 @@ void CheckWriteUpdate()
             updateFrontDisplayGl();
         }
 
-#ifdef DISP_DEBUG
-        sprintf ( txtbuffer, "CheckWriteUpdate2 %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1 );
+        #ifdef DISP_DEBUG
+        sprintf ( txtbuffer, "CheckWriteUpdate2 %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1, PSXDisplay.InterlacedTest );
         DEBUG_print ( txtbuffer, DBG_SPU3 );
         writeLogFile ( txtbuffer );
-#endif // DISP_DEBUG
+        #endif // DISP_DEBUG
         UploadScreen ( FALSE );
 
         bNeedUploadTest = TRUE;
     }
-//    else if ( iOffscreenDrawing )
-//    {
-//#ifdef DISP_DEBUG
-//        sprintf ( txtbuffer, "CheckWriteUpdate3 %d\r\n", iOffscreenDrawing );
-//        DEBUG_print ( txtbuffer, DBG_CDR4 );
-//        writeLogFile ( txtbuffer );
-//#endif // DISP_DEBUG
-//
-//        if ( CheckAgainstFrontScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
-//        {
-//            if ( PSXDisplay.InterlacedTest )
-//            {
-//                if ( PreviousPSXDisplay.InterlacedNew )
-//                {
-//                    PreviousPSXDisplay.InterlacedNew = FALSE;
-//                    bNeedInterlaceUpdate = TRUE;
-//                    xrUploadAreaIL.x0 = PSXDisplay.DisplayPosition.x;
-//                    xrUploadAreaIL.y0 = PSXDisplay.DisplayPosition.y;
-//                    xrUploadAreaIL.x1 = PSXDisplay.DisplayPosition.x + PSXDisplay.DisplayModeNew.x;
-//                    xrUploadAreaIL.y1 = PSXDisplay.DisplayPosition.y + PSXDisplay.DisplayModeNew.y;
-//                    if ( xrUploadAreaIL.x1 > 1023 ) xrUploadAreaIL.x1 = 1023;
-//                    if ( xrUploadAreaIL.y1 > 511 )  xrUploadAreaIL.y1 = 511;
-//                }
-//
-//                if ( bNeedInterlaceUpdate == FALSE )
-//                {
-//                    xrUploadAreaIL = xrUploadArea;
-//                    bNeedInterlaceUpdate = TRUE;
-//                }
-//                else
-//                {
-//                    xrUploadAreaIL.x0 = min ( xrUploadAreaIL.x0, xrUploadArea.x0 );
-//                    xrUploadAreaIL.x1 = max ( xrUploadAreaIL.x1, xrUploadArea.x1 );
-//                    xrUploadAreaIL.y0 = min ( xrUploadAreaIL.y0, xrUploadArea.y0 );
-//                    xrUploadAreaIL.y1 = max ( xrUploadAreaIL.y1, xrUploadArea.y1 );
-//                }
-//                return;
-//            }
-//
-//            if ( !bNeedUploadAfter )
-//            {
-//                bNeedUploadAfter = TRUE;
-//                xrUploadArea.x0 = VRAMWrite.x;
-//                xrUploadArea.x1 = VRAMWrite.x + VRAMWrite.Width;
-//                xrUploadArea.y0 = VRAMWrite.y;
-//                xrUploadArea.y1 = VRAMWrite.y + VRAMWrite.Height;
-//            }
-//            else
-//            {
-//                xrUploadArea.x0 = min ( xrUploadArea.x0, VRAMWrite.x );
-//                xrUploadArea.x1 = max ( xrUploadArea.x1, VRAMWrite.x + VRAMWrite.Width );
-//                xrUploadArea.y0 = min ( xrUploadArea.y0, VRAMWrite.y );
-//                xrUploadArea.y1 = max ( xrUploadArea.y1, VRAMWrite.y + VRAMWrite.Height );
-//            }
-//
+    else if ( 1 )
+    {
+        if ( FastCheckAgainstFrontScreen  ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
+        {
+            xrUploadArea = xUploadArea;
+            if ( PSXDisplay.InterlacedTest )
+            {
+                if ( PreviousPSXDisplay.InterlacedNew )
+                {
+                    PreviousPSXDisplay.InterlacedNew = FALSE;
+                    bNeedInterlaceUpdate = TRUE;
+                    xrUploadAreaIL.x0 = PSXDisplay.DisplayPosition.x;
+                    xrUploadAreaIL.y0 = PSXDisplay.DisplayPosition.y;
+                    xrUploadAreaIL.x1 = PSXDisplay.DisplayPosition.x + PSXDisplay.DisplayModeNew.x;
+                    xrUploadAreaIL.y1 = PSXDisplay.DisplayPosition.y + PSXDisplay.DisplayModeNew.y;
+                    if ( xrUploadAreaIL.x1 > 1023 ) xrUploadAreaIL.x1 = 1023;
+                    if ( xrUploadAreaIL.y1 > 511 )  xrUploadAreaIL.y1 = 511;
+                }
+
+                if ( bNeedInterlaceUpdate == FALSE )
+                {
+                    xrUploadAreaIL = xrUploadArea;
+                    bNeedInterlaceUpdate = TRUE;
+                }
+                else
+                {
+                    xrUploadAreaIL.x0 = min ( xrUploadAreaIL.x0, xrUploadArea.x0 );
+                    xrUploadAreaIL.x1 = max ( xrUploadAreaIL.x1, xrUploadArea.x1 );
+                    xrUploadAreaIL.y0 = min ( xrUploadAreaIL.y0, xrUploadArea.y0 );
+                    xrUploadAreaIL.y1 = max ( xrUploadAreaIL.y1, xrUploadArea.y1 );
+                }
+                #ifdef DISP_DEBUG
+                sprintf ( txtbuffer, "CheckWriteUpdate3 %d %d %d %d\r\n", xrUploadAreaIL.x0, xrUploadAreaIL.x1, xrUploadAreaIL.y0, xrUploadAreaIL.y1 );
+                DEBUG_print ( txtbuffer, DBG_SPU3 );
+                writeLogFile ( txtbuffer );
+                #endif // DISP_DEBUG
+                return;
+            }
+
+            if ( !bNeedUploadAfter )
+            {
+                bNeedUploadAfter = TRUE;
+                xrUploadArea.x0 = VRAMWrite.x;
+                xrUploadArea.x1 = VRAMWrite.x + VRAMWrite.Width;
+                xrUploadArea.y0 = VRAMWrite.y;
+                xrUploadArea.y1 = VRAMWrite.y + VRAMWrite.Height;
+            }
+            else
+            {
+                xrUploadArea.x0 = min ( xrUploadArea.x0, VRAMWrite.x );
+                xrUploadArea.x1 = max ( xrUploadArea.x1, VRAMWrite.x + VRAMWrite.Width );
+                xrUploadArea.y0 = min ( xrUploadArea.y0, VRAMWrite.y );
+                xrUploadArea.y1 = max ( xrUploadArea.y1, VRAMWrite.y + VRAMWrite.Height );
+            }
+            #ifdef DISP_DEBUG
+            sprintf(txtbuffer, "CheckWriteUpdate4 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
+                           VRAMWrite.x, VRAMWrite.Width, VRAMWrite.y, VRAMWrite.Height);
+            DEBUG_print ( txtbuffer, DBG_SPU3 );
+            writeLogFile ( txtbuffer );
+            #endif // DISP_DEBUG
+
 //            if ( dwActFixes & 0x8000 )
 //            {
 //                if ( ( xrUploadArea.x1 - xrUploadArea.x0 ) >= ( PSXDisplay.DisplayMode.x - 32 ) &&
@@ -2474,8 +2327,8 @@ void CheckWriteUpdate()
 //                    updateFrontDisplayGl();
 //                }
 //            }
-//        }
-//    }
+        }
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2749,21 +2602,11 @@ static void primMoveImage ( unsigned char * baseAddr )
 
 //if(iGPUHeight==1024 && sgpuData[7]>1024) return;
 
-#ifdef DISP_DEBUG
-//    sprintf ( txtbuffer, "primMoveImage %d %d %d %d %d %d\r\n", imageX0, imageY0, imageX1, imageY1, imageSX, imageSY );
-//    DEBUG_print ( txtbuffer, DBG_SPU3 );
-    //writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
-
     if ( ( imageY0 + imageSY ) > iGPUHeight ||
             ( imageX0 + imageSX ) > 1024       ||
             ( imageY1 + imageSY ) > iGPUHeight ||
             ( imageX1 + imageSX ) > 1024 )
     {
-#ifdef DISP_DEBUG
-//        sprintf ( txtbuffer, "moveImage1 %d %d %d %d %d %d\r\n", imageX0, imageY0, imageX1, imageY1, imageSX, imageSY );
-//        DEBUG_print ( txtbuffer, DBG_SPU1 );
-#endif // DISP_DEBUG
         MoveImageWrapped ( imageX0, imageY0, imageX1, imageY1, imageSX, imageSY );
         if ( ( imageY0 + imageSY ) > iGPUHeight ) imageSY = iGPUHeight - imageY0;
         if ( ( imageX0 + imageSX ) > 1024 )       imageSX = 1024 - imageX0;
@@ -2815,14 +2658,11 @@ static void primMoveImage ( unsigned char * baseAddr )
 
     if ( !PSXDisplay.RGB24 )
     {
-#ifdef DISP_DEBUG
-//        sprintf ( txtbuffer, "moveImage3 %d %d %d %d %d %d\r\n", imageX0, imageY0, imageX1, imageY1, imageSX, imageSY );
-//        DEBUG_print ( txtbuffer, DBG_SPU1 );
-#endif // DISP_DEBUG
         InvalidateTextureArea ( imageX1, imageY1, imageSX - 1, imageSY - 1 );
 
-        if ( CheckAgainstScreen ( imageX1, imageY1, imageSX, imageSY ) )
+        if ( FastCheckAgainstScreen ( imageX1, imageY1, imageSX, imageSY ) )
         {
+            xrUploadArea = xUploadArea;
             if ( imageX1 >= PreviousPSXDisplay.DisplayPosition.x &&
                     imageX1 < PreviousPSXDisplay.DisplayEnd.x &&
                     imageY1 >= PreviousPSXDisplay.DisplayPosition.y &&
@@ -2848,11 +2688,6 @@ static void primMoveImage ( unsigned char * baseAddr )
                             updateFrontDisplayGl();
                         }
 
-#ifdef DISP_DEBUG
-//                        sprintf ( txtbuffer, "MoveImage %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1 );
-//                        DEBUG_print ( txtbuffer, DBG_SPU3 );
-                        //writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
                         UploadScreen ( FALSE );
                     }
                     else bFakeFrontBuffer = TRUE;
@@ -2861,50 +2696,51 @@ static void primMoveImage ( unsigned char * baseAddr )
 
             bNeedUploadTest = TRUE;
         }
-//        else if ( iOffscreenDrawing )
-//        {
-//#ifdef DISP_DEBUG
-//            sprintf ( txtbuffer, "MoveImage 3 %d\r\n", iOffscreenDrawing );
-//            DEBUG_print ( txtbuffer, DBG_SPU3 );
-//            writeLogFile ( txtbuffer );
-//#endif // DISP_DEBUG
-//            if ( CheckAgainstFrontScreen ( imageX1, imageY1, imageSX, imageSY ) )
-//            {
-//                if ( !PSXDisplay.InterlacedTest &&
-////          !bFullVRam &&
-//                        ( (
-//                              imageX0 >= PreviousPSXDisplay.DisplayPosition.x &&
-//                              imageX0 < PreviousPSXDisplay.DisplayEnd.x &&
-//                              imageY0 >= PreviousPSXDisplay.DisplayPosition.y &&
-//                              imageY0 < PreviousPSXDisplay.DisplayEnd.y
-//                          ) ||
-//                          (
-//                              imageX0 >= PSXDisplay.DisplayPosition.x &&
-//                              imageX0 < PSXDisplay.DisplayEnd.x &&
-//                              imageY0 >= PSXDisplay.DisplayPosition.y &&
-//                              imageY0 < PSXDisplay.DisplayEnd.y
-//                          ) ) )
-//                    return;
-//
-//                bNeedUploadTest = TRUE;
-//
-//                if ( !bNeedUploadAfter )
-//                {
-//                    bNeedUploadAfter = TRUE;
-//                    xrUploadArea.x0 = imageX0;
-//                    xrUploadArea.x1 = imageX0 + imageSX;
-//                    xrUploadArea.y0 = imageY0;
-//                    xrUploadArea.y1 = imageY0 + imageSY;
-//                }
-//                else
-//                {
-//                    xrUploadArea.x0 = min ( xrUploadArea.x0, imageX0 );
-//                    xrUploadArea.x1 = max ( xrUploadArea.x1, imageX0 + imageSX );
-//                    xrUploadArea.y0 = min ( xrUploadArea.y0, imageY0 );
-//                    xrUploadArea.y1 = max ( xrUploadArea.y1, imageY0 + imageSY );
-//                }
-//            }
-//        }
+        else if ( 1 )
+        {
+#ifdef DISP_DEBUG
+            sprintf ( txtbuffer, "MoveImage 3 %d\r\n", iOffscreenDrawing );
+            DEBUG_print ( txtbuffer, DBG_SPU3 );
+            //writeLogFile ( txtbuffer );
+#endif // DISP_DEBUG
+            if ( FastCheckAgainstFrontScreen ( imageX1, imageY1, imageSX, imageSY ) )
+            {
+                xrUploadArea = xUploadArea;
+                if ( !PSXDisplay.InterlacedTest &&
+//          !bFullVRam &&
+                        ( (
+                              imageX0 >= PreviousPSXDisplay.DisplayPosition.x &&
+                              imageX0 < PreviousPSXDisplay.DisplayEnd.x &&
+                              imageY0 >= PreviousPSXDisplay.DisplayPosition.y &&
+                              imageY0 < PreviousPSXDisplay.DisplayEnd.y
+                          ) ||
+                          (
+                              imageX0 >= PSXDisplay.DisplayPosition.x &&
+                              imageX0 < PSXDisplay.DisplayEnd.x &&
+                              imageY0 >= PSXDisplay.DisplayPosition.y &&
+                              imageY0 < PSXDisplay.DisplayEnd.y
+                          ) ) )
+                    return;
+
+                bNeedUploadTest = TRUE;
+
+                if ( !bNeedUploadAfter )
+                {
+                    bNeedUploadAfter = TRUE;
+                    xrUploadArea.x0 = imageX0;
+                    xrUploadArea.x1 = imageX0 + imageSX;
+                    xrUploadArea.y0 = imageY0;
+                    xrUploadArea.y1 = imageY0 + imageSY;
+                }
+                else
+                {
+                    xrUploadArea.x0 = min ( xrUploadArea.x0, imageX0 );
+                    xrUploadArea.x1 = max ( xrUploadArea.x1, imageX0 + imageSX );
+                    xrUploadArea.y0 = min ( xrUploadArea.y0, imageY0 );
+                    xrUploadArea.y1 = max ( xrUploadArea.y1, imageY0 + imageSY );
+                }
+            }
+        }
     }
 }
 
