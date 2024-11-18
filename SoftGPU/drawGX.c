@@ -24,7 +24,7 @@
 #include <ogc/machine/processor.h>
 #include <wiiuse/wpad.h>
 #include "../coredebug.h"
-#include "stdafx.h"
+#include "../gpulib/stdafx.h"
 //#define _IN_DRAW
 #include "externals.h"
 #include "gpu.h"

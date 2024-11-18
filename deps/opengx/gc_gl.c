@@ -672,7 +672,7 @@ void glGetTextureInfo(GLuint texture, int *width, int *height)
 void glDeleteTextures(GLsizei n, const GLuint *textures)
 {
     const GLuint *texlist = textures;
-    //GX_DrawDone();
+    GX_DrawDone();
     while (n-- > 0) {
         int i = *texlist++;
         if (!(i < 0 || i >= _MAX_GL_TEX)) {
@@ -1795,7 +1795,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
     }
 
     // Slow but necessary! The new textures may be in the same region of some old cached textures
-    //GX_InvalidateTexAll();
+    GX_InvalidateTexAll();
 
     if (internalFormat == GL_RGBA) {
         GX_InitTexObj(&currtex->texobj, currtex->data,
@@ -2576,8 +2576,8 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
     {
         gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
-        GX_SetZMode(GX_ENABLE, GX_ALWAYS, GX_TRUE);
-        GX_InvalidateTexAll();
+        //GX_SetZMode(GX_ENABLE, GX_ALWAYS, GX_TRUE);
+        //GX_InvalidateTexAll();
         //GX_InitTexObj(&currtex->texobj, currtex->data,
         //                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
         GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);

@@ -41,6 +41,7 @@
 // - generic cleanup for the Peops release
 //
 //*************************************************************************//
+#include "../gpulib/stdafx.h"
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -80,92 +81,6 @@
 
 #define GPUIsNotReadyForCommands (lGPUstatusRet &= ~GPUSTATUS_READYFORCOMMANDS)
 #define GPUIsReadyForCommands (lGPUstatusRet |= GPUSTATUS_READYFORCOMMANDS)
-
-/////////////////////////////////////////////////////////////////////////////
-
-typedef struct VRAMLOADTTAG
-{
- short x;
- short y;
- short Width;
- short Height;
- short RowsRemaining;
- short ColsRemaining;
- unsigned short *ImagePtr;
-} VRAMLoad_t;
-
-/////////////////////////////////////////////////////////////////////////////
-
-typedef struct PSXPOINTTAG
-{
- long x;
- long y;
-} PSXPoint_t;
-
-typedef struct PSXSPOINTTAG
-{
- short x;
- short y;
-} PSXSPoint_t;
-
-typedef struct PSXRECTTAG
-{
- short x0;
- short x1;
- short y0;
- short y1;
-} PSXRect_t;
-
-
-// linux defines for some windows stuff
-
-#define FALSE 0
-#define TRUE 1
-#define BOOL unsigned short
-#define LOWORD(l)           ((unsigned short)(l))
-#define HIWORD(l)           ((unsigned short)(((unsigned long)(l) >> 16) & 0xFFFF))
-#define max(a,b)            (((a) > (b)) ? (a) : (b))
-#define min(a,b)            (((a) < (b)) ? (a) : (b))
-#define DWORD unsigned long
-#define __int64 long long int
-
-typedef struct RECTTAG
-{
- int left;
- int top;
- int right;
- int bottom;
-}RECT;
-
-/////////////////////////////////////////////////////////////////////////////
-
-typedef struct TWINTAG
-{
- PSXRect_t  Position;
- int xmask, ymask;
-} TWin_t;
-
-/////////////////////////////////////////////////////////////////////////////
-
-typedef struct PSXDISPLAYTAG
-{
- PSXPoint_t  DisplayModeNew;
- PSXPoint_t  DisplayMode;
- PSXPoint_t  DisplayPosition;
- PSXPoint_t  DisplayEnd;
-
- long        Double;
- long        Height;
- long        PAL;
- long        InterlacedNew;
- long        Interlaced;
- long        RGB24New;
- long        RGB24;
- PSXSPoint_t DrawOffset;
- long        Disabled;
- PSXRect_t   Range;
-
-} PSXDisplay_t;
 
 /////////////////////////////////////////////////////////////////////////////
 

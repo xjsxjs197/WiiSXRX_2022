@@ -28,7 +28,7 @@
 
 #define _IN_PRIMDRAW
 
-#include "gpuStdafx.h"
+#include "../gpulib/stdafx.h"
 #include "gpuExternals.h"
 #include "gpuPlugin.h"
 #include "gpuDraw.h"
@@ -110,7 +110,7 @@ void offsetPSX4 ( void )
 // Update global TP infos
 ////////////////////////////////////////////////////////////////////////
 
-void UpdateGlobalTP ( unsigned short gdata )
+static inline void UpdateGlobalTP ( unsigned short gdata )
 {
     GlobalTextAddrX = ( gdata << 6 ) & 0x3c0;
     GlobalTextAddrY = ( gdata << 4 ) & 0x100;        // "normal" psx gpu
@@ -802,7 +802,7 @@ typedef struct SEMITRANSTAG
     GLubyte alpha;
 } SemiTransParams;
 
-SemiTransParams TransSets[4] =
+static SemiTransParams TransSets[4] =
 {
     {GL_SRC_ALPHA, GL_SRC_ALPHA,          127},
     {GL_ONE,      GL_ONE,                255},
@@ -812,7 +812,7 @@ SemiTransParams TransSets[4] =
 
 ////////////////////////////////////////////////////////////////////////
 
-void SetSemiTrans ( void )
+static void SetSemiTrans ( void )
 {
     /*
     * 0.5 x B + 0.5 x F
@@ -903,7 +903,7 @@ void SetScanTexTrans ( void )                          // blending for scan mask
 // multi pass in old 'Advanced blending' mode... got it from Lewpy :)
 ////////////////////////////////////////////////////////////////////////
 
-SemiTransParams MultiTexTransSets[4][2] =
+static SemiTransParams MultiTexTransSets[4][2] =
 {
     {
         {GL_ONE, GL_SRC_ALPHA,          127},
@@ -925,7 +925,7 @@ SemiTransParams MultiTexTransSets[4][2] =
 
 ////////////////////////////////////////////////////////////////////////
 
-SemiTransParams MultiColTransSets[4] =
+static SemiTransParams MultiColTransSets[4] =
 {
     {GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, 127},
     {GL_ONE,      GL_ONE,                255},
@@ -935,7 +935,7 @@ SemiTransParams MultiColTransSets[4] =
 
 ////////////////////////////////////////////////////////////////////////
 
-void SetSemiTransMulti ( int Pass )
+static void SetSemiTransMulti ( int Pass )
 {
     static GLenum bm1 = GL_ZERO;
     static GLenum bm2 = GL_ONE;
@@ -997,7 +997,7 @@ void SetSemiTransMulti ( int Pass )
 // Set several rendering stuff including blending
 ////////////////////////////////////////////////////////////////////////
 
-void SetZMask3O ( void )
+static void SetZMask3O ( void )
 {
     if ( iUseMask && DrawSemiTrans && !iSetMask )
     {
@@ -1006,7 +1006,7 @@ void SetZMask3O ( void )
     }
 }
 
-void SetZMask3 ( void )
+static void SetZMask3 ( void )
 {
     if ( iUseMask )
     {
@@ -1022,7 +1022,7 @@ void SetZMask3 ( void )
     }
 }
 
-void SetZMask3NT ( void )
+static void SetZMask3NT ( void )
 {
     if ( iUseMask )
     {
@@ -1040,7 +1040,7 @@ void SetZMask3NT ( void )
 
 ////////////////////////////////////////////////////////////////////////
 
-void SetZMask4O ( void )
+static void SetZMask4O ( void )
 {
     if ( iUseMask && DrawSemiTrans && !iSetMask )
     {
@@ -1049,7 +1049,7 @@ void SetZMask4O ( void )
     }
 }
 
-void SetZMask4 ( void )
+static void SetZMask4 ( void )
 {
     if ( iUseMask )
     {
@@ -1065,7 +1065,7 @@ void SetZMask4 ( void )
     }
 }
 
-void SetZMask4NT ( void )
+static void SetZMask4NT ( void )
 {
     if ( iUseMask )
     {
@@ -1081,7 +1081,7 @@ void SetZMask4NT ( void )
     }
 }
 
-void SetZMask4SP ( void )
+static void SetZMask4SP ( void )
 {
     if ( iUseMask )
     {
@@ -1112,18 +1112,6 @@ static inline void SetRenderState ( unsigned int DrawAttributes )
     DrawSemiTrans = ( SEMITRANSBIT ( DrawAttributes ) ) ? TRUE : FALSE;
 }
 
-////////////////////////////////////////////////////////////////////////
-
-// void SetRenderColor(unsigned int DrawAttributes)
-//{
-// if(bDrawNonShaded) {g_m1=g_m2=g_m3=128;}
-// else
-//  {
-//   g_m1=DrawAttributes&0xff;
-//   g_m2=(DrawAttributes>>8)&0xff;
-//   g_m3=(DrawAttributes>>16)&0xff;
-//  }
-//}
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -1242,7 +1230,7 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
 // Set Opaque multipass color
 ////////////////////////////////////////////////////////////////////////
 
-void SetOpaqueColor ( unsigned int DrawAttributes )
+static void SetOpaqueColor ( unsigned int DrawAttributes )
 {
     if ( bDrawNonShaded ) return;                         // no shading? bye
 
@@ -1256,7 +1244,7 @@ void SetOpaqueColor ( unsigned int DrawAttributes )
 // Fucking stupid screen coord checking
 ////////////////////////////////////////////////////////////////////////
 
-BOOL ClipVertexListScreen ( void )
+static BOOL ClipVertexListScreen ( void )
 {
     if ( lx0 >= PSXDisplay.DisplayEnd.x )      goto NEXTSCRTEST;
     if ( ly0 >= PSXDisplay.DisplayEnd.y )      goto NEXTSCRTEST;
@@ -1278,7 +1266,7 @@ NEXTSCRTEST:
 
 ////////////////////////////////////////////////////////////////////////
 
-BOOL bDrawOffscreenFront ( void )
+static BOOL bDrawOffscreenFront ( void )
 {
     if ( sxmin < PSXDisplay.DisplayPosition.x ) return FALSE; // must be complete in front
     if ( symin < PSXDisplay.DisplayPosition.y ) return FALSE;
@@ -1287,7 +1275,7 @@ BOOL bDrawOffscreenFront ( void )
     return TRUE;
 }
 
-BOOL bOnePointInFront ( void )
+static BOOL bOnePointInFront ( void )
 {
     if ( sxmax < PSXDisplay.DisplayPosition.x )
         return FALSE;
@@ -1305,7 +1293,7 @@ BOOL bOnePointInFront ( void )
 }
 
 
-BOOL bOnePointInBack ( void )
+static BOOL bOnePointInBack ( void )
 {
     if ( sxmax < PreviousPSXDisplay.DisplayPosition.x )
         return FALSE;
@@ -1322,7 +1310,7 @@ BOOL bOnePointInBack ( void )
     return TRUE;
 }
 
-BOOL bDrawOffscreen4 ( void )
+static BOOL bDrawOffscreen4 ( void )
 {
     BOOL bFront;
     short sW, sH;
@@ -1393,7 +1381,7 @@ BOOL bDrawOffscreen4 ( void )
 
 ////////////////////////////////////////////////////////////////////////
 
-BOOL bDrawOffscreen3 ( void )
+static BOOL bDrawOffscreen3 ( void )
 {
     BOOL bFront;
     short sW, sH;
@@ -1624,23 +1612,22 @@ void PrepareFullScreenUpload ( int Position )
             xrUploadArea.y1 = PreviousPSXDisplay.DisplayEnd.y;
         }
 
-//        if ( bNeedRGB24Update )
-//        {
-////            if ( lClearOnSwap )
-////            {
-//////       lClearOnSwap=0;
-////            }
-////            else if ( PSXDisplay.Interlaced && PreviousPSXDisplay.RGB24 < 2 ) // in interlaced mode we upload at least two full frames (GT1 menu)
-////            {
-////                PreviousPSXDisplay.RGB24++;
-////            }
-////            else
-////            {
-////                xrUploadArea.y1 = min ( xrUploadArea.y0 + xrUploadAreaRGB24.y1, xrUploadArea.y1 );
-////                xrUploadArea.y0 += xrUploadAreaRGB24.y0;
-////            }
-//            xrUploadArea = xrUploadAreaRGB24;
-//        }
+        if ( bNeedRGB24Update )
+        {
+            if ( lClearOnSwap )
+            {
+//       lClearOnSwap=0;
+            }
+            else if ( PSXDisplay.Interlaced && PreviousPSXDisplay.RGB24 < 2 ) // in interlaced mode we upload at least two full frames (GT1 menu)
+            {
+                PreviousPSXDisplay.RGB24++;
+            }
+            else
+            {
+                xrUploadArea.y1 = min ( xrUploadArea.y0 + xrUploadAreaRGB24.y1, xrUploadArea.y1 );
+                xrUploadArea.y0 += xrUploadAreaRGB24.y0;
+            }
+        }
     }
     else if ( Position )
     {
@@ -1679,8 +1666,6 @@ void PrepareFullScreenUpload ( int Position )
 // Upload screen (MDEC and such)
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
-
-unsigned char * LoadDirectMovieFast ( void );
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -1794,7 +1779,7 @@ void UploadScreen ( int Position )
 // Detect next screen
 ////////////////////////////////////////////////////////////////////////
 
-BOOL IsCompleteInsideNextScreen ( short x, short y, short xoff, short yoff )
+static BOOL IsCompleteInsideNextScreen ( short x, short y, short xoff, short yoff )
 {
     if ( x > PSXDisplay.DisplayPosition.x + 1 )     return FALSE;
     if ( ( x + xoff ) < PSXDisplay.DisplayEnd.x - 1 ) return FALSE;
@@ -1810,7 +1795,7 @@ BOOL IsCompleteInsideNextScreen ( short x, short y, short xoff, short yoff )
     return TRUE;
 }
 
-BOOL IsPrimCompleteInsideNextScreen ( short x, short y, short xoff, short yoff )
+static BOOL IsPrimCompleteInsideNextScreen ( short x, short y, short xoff, short yoff )
 {
     x += PSXDisplay.DrawOffset.x;
     if ( x > PSXDisplay.DisplayPosition.x + 1 ) return FALSE;
@@ -1823,7 +1808,7 @@ BOOL IsPrimCompleteInsideNextScreen ( short x, short y, short xoff, short yoff )
     return TRUE;
 }
 
-BOOL IsInsideNextScreen ( short x, short y, short xoff, short yoff )
+static BOOL IsInsideNextScreen ( short x, short y, short xoff, short yoff )
 {
     if ( x > PSXDisplay.DisplayEnd.x ) return FALSE;
     if ( y > PSXDisplay.DisplayEnd.y ) return FALSE;
@@ -2000,7 +1985,7 @@ static void cmdTextureWindow ( unsigned char *baseAddr )
 // Check draw area dimensions
 ////////////////////////////////////////////////////////////////////////
 
-void ClampToPSXScreen ( short *x0, short *y0, short *x1, short *y1 )
+static void ClampToPSXScreen ( short *x0, short *y0, short *x1, short *y1 )
 {
     if ( *x0 < 0 )               *x0 = 0;
     else if ( *x0 > 1023 )            *x0 = 1023;
@@ -2163,20 +2148,17 @@ static void PrepareRGB24Upload ( void )
         xrUploadArea.y0 -= PreviousPSXDisplay.DisplayPosition.y;
         xrUploadArea.y1 -= PreviousPSXDisplay.DisplayPosition.y;
 
-        //InvalidateTextureArea ( xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0 );
-        //UploadScreen ( PSXDisplay.Interlaced );
-
-        if (PreviousPSXDisplay.DisplayEnd.x - PreviousPSXDisplay.DisplayPosition.x == xrUploadArea.x1)
-        {
-            #ifdef DISP_DEBUG
-            sprintf(txtbuffer, "PrepareRGB24Upload1 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
-                               PreviousPSXDisplay.DisplayPosition.x, PreviousPSXDisplay.DisplayEnd.x, PreviousPSXDisplay.DisplayPosition.y, PreviousPSXDisplay.DisplayEnd.y);
-            DEBUG_print(txtbuffer, DBG_CDR1);
-            writeLogFile(txtbuffer);
-            #endif // DISP_DEBUG
-            PrepareFullScreenUpload(-1);
-            UploadScreen ( PSXDisplay.Interlaced );
-        }
+//        if (PreviousPSXDisplay.DisplayEnd.x - PreviousPSXDisplay.DisplayPosition.x == xrUploadArea.x1)
+//        {
+//            #ifdef DISP_DEBUG
+//            sprintf(txtbuffer, "PrepareRGB24Upload1 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
+//                               PreviousPSXDisplay.DisplayPosition.x, PreviousPSXDisplay.DisplayEnd.x, PreviousPSXDisplay.DisplayPosition.y, PreviousPSXDisplay.DisplayEnd.y);
+//            DEBUG_print(txtbuffer, DBG_CDR1);
+//            //writeLogFile(txtbuffer);
+//            #endif // DISP_DEBUG
+//            PrepareFullScreenUpload(-1);
+//            UploadScreen ( PSXDisplay.Interlaced );
+//        }
     }
     else if ( FastCheckAgainstFrontScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
@@ -2186,14 +2168,14 @@ static void PrepareRGB24Upload ( void )
         xrUploadArea.y0 -= PSXDisplay.DisplayPosition.y;
         xrUploadArea.y1 -= PSXDisplay.DisplayPosition.y;
 
-        PrepareFullScreenUpload(-1);
-        UploadScreen ( PSXDisplay.Interlaced );
         #ifdef DISP_DEBUG
         sprintf(txtbuffer, "PrepareRGB24Upload2 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
                            PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayEnd.x, PSXDisplay.DisplayPosition.y, PSXDisplay.DisplayEnd.y);
         DEBUG_print(txtbuffer, DBG_CDR1);
-        writeLogFile(txtbuffer);
+        //writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
+        PrepareFullScreenUpload(-1);
+        UploadScreen ( PSXDisplay.Interlaced );
     }
     //else return;
 
@@ -2251,7 +2233,7 @@ void CheckWriteUpdate()
         #ifdef DISP_DEBUG
         sprintf ( txtbuffer, "CheckWriteUpdate2 %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1, PSXDisplay.InterlacedTest );
         DEBUG_print ( txtbuffer, DBG_SPU3 );
-        writeLogFile ( txtbuffer );
+        //writeLogFile ( txtbuffer );
         #endif // DISP_DEBUG
         UploadScreen ( FALSE );
 
@@ -2291,7 +2273,7 @@ void CheckWriteUpdate()
                 #ifdef DISP_DEBUG
                 sprintf ( txtbuffer, "CheckWriteUpdate3 %d %d %d %d\r\n", xrUploadAreaIL.x0, xrUploadAreaIL.x1, xrUploadAreaIL.y0, xrUploadAreaIL.y1 );
                 DEBUG_print ( txtbuffer, DBG_SPU3 );
-                writeLogFile ( txtbuffer );
+                //writeLogFile ( txtbuffer );
                 #endif // DISP_DEBUG
                 return;
             }
@@ -2315,7 +2297,7 @@ void CheckWriteUpdate()
             sprintf(txtbuffer, "CheckWriteUpdate4 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
                            VRAMWrite.x, VRAMWrite.Width, VRAMWrite.y, VRAMWrite.Height);
             DEBUG_print ( txtbuffer, DBG_SPU3 );
-            writeLogFile ( txtbuffer );
+            //writeLogFile ( txtbuffer );
             #endif // DISP_DEBUG
 
 //            if ( dwActFixes & 0x8000 )
@@ -2977,71 +2959,38 @@ static void primTile16 ( unsigned char * baseAddr )
 }
 
 ////////////////////////////////////////////////////////////////////////
-// helper: filter effect by multipass rendering
-////////////////////////////////////////////////////////////////////////
-
-/*void DrawMultiBlur(void)
-{
- int lABR,lDST;float fx,fy;
-
- lABR=GlobalTextABR;
- lDST=DrawSemiTrans;
-
- fx=(float)PSXDisplay.DisplayMode.x/(float)(iResX);
- fy=(float)PSXDisplay.DisplayMode.y/(float)(iResY);
-
- vertex[0].x+=fx;vertex[1].x+=fx;
- vertex[2].x+=fx;vertex[3].x+=fx;
-
- GlobalTextABR=0;
- DrawSemiTrans=1;
- SetSemiTrans();
-
- PRIMdrawTexturedQuad(&vertex[0], &vertex[1], &vertex[2], &vertex[3]);
-
- vertex[0].y+=fy;vertex[1].y+=fy;
- vertex[2].y+=fy;vertex[3].y+=fy;
- PRIMdrawTexturedQuad(&vertex[0], &vertex[1], &vertex[2], &vertex[3]);
-
- if(bDrawMultiPass) {obm1=obm2=GL_SRC_ALPHA;}
-
- GlobalTextABR=lABR;
- DrawSemiTrans=lDST;
-}
-*/
-////////////////////////////////////////////////////////////////////////
 
 #define   POFF 0.375f
 
 void DrawMultiFilterSprite ( void )
 {
-    int lABR, lDST;
-
-    if ( bUseMultiPass || DrawSemiTrans || ubOpaqueDraw )
-    {
-        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-        return;
-    }
-
-    lABR = GlobalTextABR;
-    lDST = DrawSemiTrans;
-    vertex[0].c.col.a = ubGloAlpha / 2;                  // -> set color with
-    SETCOL ( vertex[0] );                                 //    texture alpha
-    PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-    vertex[0].x += POFF;
-    vertex[1].x += POFF;
-    vertex[2].x += POFF;
-    vertex[3].x += POFF;
-    vertex[0].y += POFF;
-    vertex[1].y += POFF;
-    vertex[2].y += POFF;
-    vertex[3].y += POFF;
-    GlobalTextABR = 0;
-    DrawSemiTrans = 1;
-    SetSemiTrans();
-    PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-    GlobalTextABR = lABR;
-    DrawSemiTrans = lDST;
+//    int lABR, lDST;
+//
+//    if ( bUseMultiPass || DrawSemiTrans || ubOpaqueDraw )
+//    {
+//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//        return;
+//    }
+//
+//    lABR = GlobalTextABR;
+//    lDST = DrawSemiTrans;
+//    vertex[0].c.col.a = ubGloAlpha / 2;                  // -> set color with
+//    SETCOL ( vertex[0] );                                 //    texture alpha
+//    PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//    vertex[0].x += POFF;
+//    vertex[1].x += POFF;
+//    vertex[2].x += POFF;
+//    vertex[3].x += POFF;
+//    vertex[0].y += POFF;
+//    vertex[1].y += POFF;
+//    vertex[2].y += POFF;
+//    vertex[3].y += POFF;
+//    GlobalTextABR = 0;
+//    DrawSemiTrans = 1;
+//    SetSemiTrans();
+//    PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//    GlobalTextABR = lABR;
+//    DrawSemiTrans = lDST;
 }
 
 ////////////////////////////////////////////////////////////////////////

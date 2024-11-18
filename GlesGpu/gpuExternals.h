@@ -35,6 +35,7 @@ extern "C" {
 
 #include "../deps/opengx/GL/gl.h"
 #include "../deps/opengx/GL/glext.h"
+#include "../gpulib/stdafx.h"
 
 #ifndef GL_BGRA_EXT
 #define GL_BGRA_EXT GL_RGBA // ??
@@ -130,107 +131,6 @@ extern  void ( APIENTRY * glPixelStorei )(GLenum pname, GLint param);
 #define KEY_TOGGLEFBREAD    512
 
 /////////////////////////////////////////////////////////////////////////////
-// Linux is missing some stuff, eh? ;)
-
-#ifndef _WINDOWS
-#ifndef FALSE
-#define FALSE 0
-#endif
-#ifndef TRUE
-#define TRUE  1
-#endif
-#ifndef BOOL
-#define BOOL unsigned short
-#endif
-#ifndef bool
-#define bool unsigned short
-#endif
-#define LOWORD(l)           ((unsigned short)(l))
-#define HIWORD(l)           ((unsigned short)(((unsigned int)(l) >> 16) & 0xFFFF))
-#define max(a,b)            (((a) > (b)) ? (a) : (b))
-#define min(a,b)            (((a) < (b)) ? (a) : (b))
-#define DWORD unsigned int
-
-typedef struct RECTTAG
-{
- int left;
- int top;
- int right;
- int bottom;
-}RECT;
-
-#endif
-
-/////////////////////////////////////////////////////////////////////////////
-
-typedef struct VRAMLOADTAG
-{
- short x;
- short y;
- short Width;
- short Height;
- short RowsRemaining;
- short ColsRemaining;
- unsigned short *ImagePtr;
-} VRAMLoad_t;
-
-typedef struct PSXPOINTTAG
-{
- int x;
- int y;
-} PSXPoint_t;
-
-typedef struct PSXSPOINTTAG
-{
- short x;
- short y;
-} PSXSPoint_t;
-
-typedef struct PSXRECTTAG
-{
- short x0;
- short x1;
- short y0;
- short y1;
-} PSXRect_t;
-
-/////////////////////////////////////////////////////////////////////////////
-
-typedef struct TWINTAG
-{
- PSXRect_t  Position;
- PSXRect_t  OPosition;
- PSXPoint_t TextureSize;
- float      UScaleFactor;
- float      VScaleFactor;
-} TWin_t;
-
-/////////////////////////////////////////////////////////////////////////////
-
-typedef struct PSXDISPLAYTAG
-{
- PSXPoint_t  DisplayModeNew;
- PSXPoint_t  DisplayMode;
- PSXPoint_t  DisplayPosition;
- PSXPoint_t  DisplayEnd;
-
- int         Double;
- int         Height;
- int         PAL;
- int         InterlacedNew;
- int         Interlaced;
- int         InterlacedTest;
- int         RGB24New;
- int         RGB24;
- PSXSPoint_t DrawOffset;
- PSXRect_t   DrawArea;
- PSXPoint_t  GDrawOffset;
- PSXPoint_t  CumulOffset;
- int         Disabled;
- PSXRect_t   Range;
-} PSXDisplay_t;
-
-/////////////////////////////////////////////////////////////////////////////
 
 typedef struct OGLVertexTag
 {
@@ -304,7 +204,7 @@ extern int            iSetMask;
 extern int            iDepthFunc;
 extern BOOL           bCheckMask;
 extern unsigned short sSetMask;
-extern unsigned int   lSetMask;
+extern unsigned long  lSetMask;
 extern BOOL           bSetClip;
 //extern GLuint         gTexScanName;
 
@@ -355,7 +255,7 @@ extern void (*primTableSkipGx[256])(unsigned char *);
 extern unsigned short  usMirror;
 extern unsigned int  dwCfgFixes;
 extern unsigned int  dwActFixes;
-extern unsigned int  dwEmuFixes;
+extern unsigned long  dwEmuFixes;
 extern BOOL          bUseFixes;
 extern int           iSpriteTex;
 extern int           iDrawnSomething;
@@ -424,7 +324,7 @@ extern PSXDisplay_t   PreviousPSXDisplay;
 //extern unsigned int   ulKeybits;
 extern TWin_t         TWin;
 extern BOOL           bDisplayNotSet;
-extern int            lGPUstatusRet;
+extern long           lGPUstatusRet;
 extern short          imageX0,imageX1;
 extern short          imageY0,imageY1;
 extern int            lClearOnSwap,lClearOnSwapColor;

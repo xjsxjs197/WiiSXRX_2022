@@ -7,7 +7,7 @@
  *   additional informations.                                              *
  *                                                                         *
  ***************************************************************************/
-#include "stdafx.h"
+#include "../gpulib/stdafx.h"
 #include "externals.h"
 
 short g_m1=255,g_m2=255,g_m3=255;

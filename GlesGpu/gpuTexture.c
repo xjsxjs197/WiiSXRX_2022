@@ -70,7 +70,7 @@
 
 #define _IN_TEXTURE
 
-#include "gpuStdafx.h"
+#include "../gpulib/stdafx.h"
 
 #include "gpuDraw.h"
 //#include "plugins.h"

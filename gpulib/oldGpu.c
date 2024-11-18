@@ -112,7 +112,7 @@
 //*************************************************************************//
 
 
-#include "../SoftGPU/stdafx.h"
+#include "stdafx.h"
 #include <stdbool.h>
 #include "../Gamecube/DEBUG.h"
 #include "../Gamecube/wiiSXconfig.h"

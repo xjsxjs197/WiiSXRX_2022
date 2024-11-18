@@ -32,7 +32,7 @@ extern "C" {
 #endif
 
 //#include "gpuExternals.h"
-#include "gpuStdafx.h"
+#include "../gpulib/stdafx.h"
 
 #ifndef _WINDOWS
 //extern EGLSurface surface;

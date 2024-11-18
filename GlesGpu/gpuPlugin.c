@@ -49,7 +49,7 @@
 
 //#include "NoPic.h"
 
-#include "gpuStdafx.h"
+#include "../gpulib/stdafx.h"
 
 #include "../Gamecube/DEBUG.h"
 #include "../Gamecube/MEM2.h"
@@ -883,6 +883,7 @@ return FALSE;
 // here, and in interlaced mode we swap ogl display buffers.
 ////////////////////////////////////////////////////////////////////////
 
+#define CALLBACK
 extern void CALLBACK GPUsetframelimit(unsigned long option);
 static unsigned short usFirstPos=2;
 
@@ -2076,8 +2077,6 @@ static void flipEGL(void)
     gx_vout_render();
 }
 
-#define CALLBACK
-extern void CALLBACK GPUsetframelimit(unsigned long option);
 long GL_GPUopen()
 {
  int ret;

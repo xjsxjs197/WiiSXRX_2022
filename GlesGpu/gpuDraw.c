@@ -34,7 +34,7 @@
 #include "gpuDraw.h"
 //#include "gpuPrim.h"
 #include "gpuTexture.h"
-#include "gpuStdafx.h"
+#include "../gpulib/stdafx.h"
 #include "../Gamecube/DEBUG.h"
 
 #include <stdio.h>
