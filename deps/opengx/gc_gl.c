@@ -1470,13 +1470,11 @@ void glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
     currtex->h = he;
 
     _ogx_scramble_4b((unsigned char *)texData, currtex->data, width, height);
+    DCFlushRange(currtex->data, tex_size_rnd);
 
     GX_InitTexObj(&currtex->texobj, currtex->data,
                   currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
 }
-
-extern int canLogSubImg;
-static int subImgIdx = 0;
 
 void glTexSubImage2D(GLenum target, GLint level,
                    GLint xoffset, GLint yoffset,
@@ -1490,16 +1488,6 @@ void glTexSubImage2D(GLenum target, GLint level,
 
     // GL_TEXTURE_2D GL_RGBA fix
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
-
-
-//    if (canLogSubImg && subImgIdx <= 16)
-//    {
-//        subImgIdx++;
-//        sprintf(txtbuffer, "sd:/wiisxrx/debugImg%d_%d_%d_%d_B%d", currtex->w, currtex->h, width, height, subImgIdx);
-//        FILE* subImgLog = fopen(txtbuffer, "wb");
-//        fwrite(currtex->data, currtex->w * currtex->h * 4, 1, subImgLog);
-//        fclose(subImgLog);
-//    }
 
     if ((xoffset & 3) == 0 && (yoffset & 3) == 0)
     {
@@ -1575,31 +1563,10 @@ void glTexSubImage2D(GLenum target, GLint level,
         }
 
         DCFlushRange(currtex->data , currtex->w * currtex->h * 4);
-
-//        if (canLogSubImg && subImgIdx <= 66)
-//        {
-//            subImgIdx++;
-//            sprintf(txtbuffer, "sd:/wiisxrx/debugImg_B%02d_%d_%d_%d_%d_%d_%d", subImgIdx, currtex->w, currtex->h, oldXoffset, oldYoffset, width, height);
-//            FILE* subImgLog = fopen(txtbuffer, "wb");
-//            fwrite(currtex->data, currtex->w * currtex->h * 4, 1, subImgLog);
-//            fclose(subImgLog);
-//        }
     }
 
     // Slow but necessary! The new textures may be in the same region of some old cached textures
     //GX_InvalidateTexAll();
-
-//    if (canLogSubImg && subImgIdx <= 17)
-//    {
-//        sprintf(txtbuffer, "sd:/wiisxrx/debugImg%d_%d_%d_%d_A%d", currtex->w, currtex->h, width, height, subImgIdx);
-//        FILE* subImgLog = fopen(txtbuffer, "wb");
-//        fwrite(currtex->data, currtex->w * currtex->h * 4, 1, subImgLog);
-//        fclose(subImgLog);
-//    }
-
-//    GX_InitTexObj(&currtex->texobj, currtex->data,
-//                          currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
-    //GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
 }
 
 void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height,
@@ -1795,7 +1762,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
     }
 
     // Slow but necessary! The new textures may be in the same region of some old cached textures
-    GX_InvalidateTexAll();
+    //GX_InvalidateTexAll();
 
     if (internalFormat == GL_RGBA) {
         GX_InitTexObj(&currtex->texobj, currtex->data,
@@ -2500,11 +2467,13 @@ void _ogx_apply_state()
     if (glparamstate.dirty.bits.dirty_z)
         GX_SetZMode(glparamstate.ztest, glparamstate.zfunc, glparamstate.zwrite & glparamstate.ztest);
 
-    if (glparamstate.dirty.bits.dirty_blend) {
+    //if (glparamstate.dirty.bits.dirty_blend)
+    {
         if (glparamstate.blendenabled)
             GX_SetBlendMode(GX_BM_BLEND, glparamstate.srcblend, glparamstate.dstblend, GX_LO_CLEAR);
         else
-            GX_SetBlendMode(GX_BM_NONE, glparamstate.srcblend, glparamstate.dstblend, GX_LO_CLEAR);
+            //GX_SetBlendMode(GX_BM_NONE, glparamstate.srcblend, glparamstate.dstblend, GX_LO_CLEAR);
+            GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
     }
 
     // Matrix stuff
@@ -2577,7 +2546,7 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
         gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
         //GX_SetZMode(GX_ENABLE, GX_ALWAYS, GX_TRUE);
-        //GX_InvalidateTexAll();
+        GX_InvalidateTexAll();
         //GX_InitTexObj(&currtex->texobj, currtex->data,
         //                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
         GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);

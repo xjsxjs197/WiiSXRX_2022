@@ -154,7 +154,6 @@ extern unsigned short *psxVuw_eom;
 
 static long       lGPUdataRet;
 extern long       lGPUstatusRet;
-extern char       szDispBuf[64];
 static unsigned long ulStatusControl[256];
 
 static unsigned   long gpuDataM[256];
@@ -174,7 +173,6 @@ short             sDispWidths[8] = {256,320,512,640,368,384,512,640};
 int               dispHeight;
 unsigned long     newDwFrameRateTicks;
 long              lSelectedSlot=0;
-//BOOL              bChangeWinMode=FALSE;
 BOOL              bDoLazyUpdate=FALSE;
 extern unsigned int      lGPUInfoVals[16];
 
@@ -251,7 +249,6 @@ long PEOPS_GPUopen(void)
 
  gc_vout_open();
 
- bIsFirstFrame  = TRUE;                                // we have to init later
  bDoVSyncUpdate = TRUE;
 
  return 0;
@@ -514,6 +511,7 @@ void PEOPS_GPUupdateLace(void)
 ////////////////////////////////////////////////////////////////////////
 // process read request from GPU status register
 ////////////////////////////////////////////////////////////////////////
+static int iFakePrimBusy = 0;
 
 unsigned long PEOPS_GPUreadStatus(void)
 {

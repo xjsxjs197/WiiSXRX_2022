@@ -98,8 +98,6 @@ void  glColorTableEXT(GLenum target, GLenum internalFormat, GLsizei width, GLenu
 
 // draw globals; most will be initialized again later (by config or checks)
 
-//BOOL           bIsFirstFrame=TRUE;
-
 // resolution/ratio vars
 
 //int            iResX;
@@ -1305,11 +1303,12 @@ void SetOGLDisplaySettings(BOOL DisplaySet)
 
    if(bSetClip || !EqualRect(&rC,&rX))
     {
-     rC=rX;
      #ifdef DISP_DEBUG
-//     sprintf(txtbuffer, "SetDisplay %d %d %d %d\r\n", rC.left,rC.top,rC.right,rC.bottom);
-//     DEBUG_print(txtbuffer, DBG_SPU3);
+     sprintf(txtbuffer, "SetDisplay %d %d %d %d %d %d %d %d\r\n", rC.left,rC.top,rC.right,rC.bottom, rX.left,rX.top,rX.right,rX.bottom);
+     DEBUG_print(txtbuffer, DBG_SPU3);
+     writeLogFile ( txtbuffer );
      #endif // DISP_DEBUG
+     rC=rX;
      glScissor(rC.left,rC.top,rC.right,rC.bottom); glError();
      //LOGE("glscissor:%d %d %d %d",rC.left,rC.top,rC.right,rC.bottom);
      bSetClip=FALSE;

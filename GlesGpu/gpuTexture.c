@@ -141,8 +141,6 @@ void            DefineSubTextureSort(void);
 ////////////////////////////////////////////////////////////////////////
 // some globals
 ////////////////////////////////////////////////////////////////////////
-int canLogSubImg = 0;
-
 
 int  GlobalTexturePage;
 GLint XTexS;
@@ -647,18 +645,18 @@ void InvalidateSubSTextureArea(int X,int Y,int W, int H)
 // Invalidate some parts of cache: main routine
 ////////////////////////////////////////////////////////////////////////
 
-void InvalidateTextureAreaEx(void)
-{
- short W=sxmax-sxmin;
- short H=symax-symin;
-
- if(W==0 && H==0) return;
-
- if(iMaxTexWnds)
-  InvalidateWndTextureArea(sxmin,symin,W,H);
-
- InvalidateSubSTextureArea(sxmin,symin,W,H);
-}
+//void InvalidateTextureAreaEx(void)
+//{
+// short W=sxmax-sxmin;
+// short H=symax-symin;
+//
+// if(W==0 && H==0) return;
+//
+// if(iMaxTexWnds)
+//  InvalidateWndTextureArea(sxmin,symin,W,H);
+//
+// InvalidateSubSTextureArea(sxmin,symin,W,H);
+//}
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -1226,16 +1224,7 @@ void DefineTextureMovie(void)
    gTexName=gTexMovieName;glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
    glInitMovieTextures((xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0), texturepart);
   }
-  #ifdef DISP_DEBUG
-//    static int oldWidth=256, oldHeight=256;
-//    //glGetTextureInfo(gTexName, &oldWidth, &oldHeight);
-    //sprintf(txtbuffer, "DefineTextureMovie %d %d %d %d %d\r\n", PSXDisplay.RGB24, oldWidth, oldHeight, (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0));
-//    sprintf(txtbuffer, "DefineTextureMovie %d %d %d\r\n", PSXDisplay.RGB24, (xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0));
-//    DEBUG_print(txtbuffer, DBG_SPU2);
-    //writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
 
-  canLogSubImg = 0;
 //  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
 //                 (xrMovieArea.x1-xrMovieArea.x0),
 //                 (xrMovieArea.y1-xrMovieArea.y0),
@@ -1275,7 +1264,6 @@ GLuint LoadTextureMovie(void)
 //
 // if((xrMovieArea.x1-xrMovieArea.x0)<255)  b_X=TRUE;
 // if((xrMovieArea.y1-xrMovieArea.y0)<255)  b_Y=TRUE;
-
 
 {
    if(PSXDisplay.RGB24)
@@ -2365,7 +2353,7 @@ void DefineSubTextureSort(void)
    glGenTextures(1, &gTexName); glError();
    glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
 
-   //glInitRGBATextures(256, 256);
+   glInitRGBATextures(256, 256);
 
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, iClampType); glError();
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, iClampType); glError();
@@ -2380,7 +2368,7 @@ void DefineSubTextureSort(void)
      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, iFilter); glError();
      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, iFilter); glError();
     }
-   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0,GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
+   //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0,GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
   }
  else
  {
@@ -2393,21 +2381,8 @@ void DefineSubTextureSort(void)
 //  sprintf(txtbuffer, "DefineSubTextureSort %d %d %d %d\r\n", XTexS, YTexS, DXTexS, DYTexS);
 //  DEBUG_print(txtbuffer, DBG_CDR2);
   //writeLogFile(txtbuffer);
-
-//  static unsigned int subImgIdx = 0;
-//  if (DYTexS == 66)
-//  {
-//      if (subImgIdx <= 30)
-//      {
-//          subImgIdx++;
-//          sprintf(txtbuffer, "sd:/wiisxrx/debugImg%03d_%d_%d_%d_%d", subImgIdx, XTexS, YTexS, DXTexS, DYTexS);
-//          FILE* subImgLog = fopen(txtbuffer, "wb");
-//          fwrite(texturepart, DXTexS * DYTexS * 4, 1, subImgLog);
-//          fclose(subImgLog);
-//      }
-//  }
   #endif // DISP_DEBUG
-  canLogSubImg = 1;
+
   glTexSubImage2D(GL_TEXTURE_2D, 0, XTexS, YTexS,
                  DXTexS, DYTexS,
                  GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();

@@ -49,7 +49,6 @@
 ////////////////////////////////////////////////////////////////////////
 
 
-//int            iUseDither=0;
 BOOL           bDrawTextured;                          // current active drawing states
 BOOL           bDrawSmoothShaded;
 BOOL           bOldSmoothShaded;
@@ -73,11 +72,9 @@ PSXRect_t      xrUploadArea;                           // rect to upload
 PSXRect_t      xrUploadAreaIL;                         // rect to upload
 PSXRect_t      xrUploadAreaRGB24;                      // rect to upload rgb24
 int            iSpriteTex = 0;                         // flag for "hey, it's a sprite"
-//unsigned short usMirror;                               // mirror, mirror on the wall
 
 BOOL           bNeedUploadAfter = FALSE;               // sign for uploading in next frame
 BOOL           bNeedUploadTest = FALSE;                // sign for upload test
-//BOOL           bUsingTWin=FALSE;                       // tex win active flag
 BOOL           bUsingMovie = FALSE;                    // movie active flag
 PSXRect_t      xrMovieArea;                            // rect for movie upload
 short          sSprite_ux2;                            // needed for sprire adjust
@@ -85,12 +82,10 @@ short          sSprite_vy2;                            //
 unsigned int   ulOLDCOL = 0;                           // active color
 unsigned int   ulClutID;                               // clut
 
-//unsigned int  dwCfgFixes;                              // game fixes
 //unsigned int  dwActFixes=0;
 //unsigned int  dwEmuFixes=0;
 BOOL          bUseFixes;
 
-//int           drawX,drawY,drawW,drawH;                 // offscreen drawing checkers
 short         sxmin, sxmax, symin, symax;
 unsigned int CSVERTEX = 0, CSCOLOR = 0, CSTEXTURE = 0;
 
@@ -1692,7 +1687,7 @@ void UploadScreen ( int Position )
 #ifdef DISP_DEBUG
 //    sprintf ( txtbuffer, "UploadScreen %d %d %d %d %d %d %d\r\n", Position, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0 );
 //    DEBUG_print ( txtbuffer, DBG_SPU3 );
-    //writeLogFile ( txtbuffer );
+//    writeLogFile ( txtbuffer );
 #endif // DISP_DEBUG
 
 //if(dwActFixes & 2) {UploadScreenEx(Position);return;}
@@ -2169,9 +2164,9 @@ static void PrepareRGB24Upload ( void )
         xrUploadArea.y1 -= PSXDisplay.DisplayPosition.y;
 
         #ifdef DISP_DEBUG
-        sprintf(txtbuffer, "PrepareRGB24Upload2 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
-                           PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayEnd.x, PSXDisplay.DisplayPosition.y, PSXDisplay.DisplayEnd.y);
-        DEBUG_print(txtbuffer, DBG_CDR1);
+        //sprintf(txtbuffer, "PrepareRGB24Upload2 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
+        //                   PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayEnd.x, PSXDisplay.DisplayPosition.y, PSXDisplay.DisplayEnd.y);
+        //DEBUG_print(txtbuffer, DBG_CDR1);
         //writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
         PrepareFullScreenUpload(-1);
@@ -2231,15 +2226,15 @@ void CheckWriteUpdate()
         }
 
         #ifdef DISP_DEBUG
-        sprintf ( txtbuffer, "CheckWriteUpdate2 %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1, PSXDisplay.InterlacedTest );
-        DEBUG_print ( txtbuffer, DBG_SPU3 );
+        //sprintf ( txtbuffer, "CheckWriteUpdate2 %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1, PSXDisplay.InterlacedTest );
+        //DEBUG_print ( txtbuffer, DBG_SPU3 );
         //writeLogFile ( txtbuffer );
         #endif // DISP_DEBUG
         UploadScreen ( FALSE );
 
         bNeedUploadTest = TRUE;
     }
-    else if ( 1 )
+    else if ( iOffscreenDrawing )
     {
         if ( FastCheckAgainstFrontScreen  ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
         {
@@ -2271,8 +2266,8 @@ void CheckWriteUpdate()
                     xrUploadAreaIL.y1 = max ( xrUploadAreaIL.y1, xrUploadArea.y1 );
                 }
                 #ifdef DISP_DEBUG
-                sprintf ( txtbuffer, "CheckWriteUpdate3 %d %d %d %d\r\n", xrUploadAreaIL.x0, xrUploadAreaIL.x1, xrUploadAreaIL.y0, xrUploadAreaIL.y1 );
-                DEBUG_print ( txtbuffer, DBG_SPU3 );
+                //sprintf ( txtbuffer, "CheckWriteUpdate3 %d %d %d %d\r\n", xrUploadAreaIL.x0, xrUploadAreaIL.x1, xrUploadAreaIL.y0, xrUploadAreaIL.y1 );
+                //DEBUG_print ( txtbuffer, DBG_SPU3 );
                 //writeLogFile ( txtbuffer );
                 #endif // DISP_DEBUG
                 return;
@@ -2294,9 +2289,9 @@ void CheckWriteUpdate()
                 xrUploadArea.y1 = max ( xrUploadArea.y1, VRAMWrite.y + VRAMWrite.Height );
             }
             #ifdef DISP_DEBUG
-            sprintf(txtbuffer, "CheckWriteUpdate4 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
-                           VRAMWrite.x, VRAMWrite.Width, VRAMWrite.y, VRAMWrite.Height);
-            DEBUG_print ( txtbuffer, DBG_SPU3 );
+            //sprintf(txtbuffer, "CheckWriteUpdate4 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
+            //               VRAMWrite.x, VRAMWrite.Width, VRAMWrite.y, VRAMWrite.Height);
+            //DEBUG_print ( txtbuffer, DBG_SPU3 );
             //writeLogFile ( txtbuffer );
             #endif // DISP_DEBUG
 
@@ -2678,11 +2673,11 @@ static void primMoveImage ( unsigned char * baseAddr )
 
             bNeedUploadTest = TRUE;
         }
-        else if ( 1 )
+        else if ( iOffscreenDrawing )
         {
 #ifdef DISP_DEBUG
-            sprintf ( txtbuffer, "MoveImage 3 %d\r\n", iOffscreenDrawing );
-            DEBUG_print ( txtbuffer, DBG_SPU3 );
+            //sprintf ( txtbuffer, "MoveImage 3 %d\r\n", iOffscreenDrawing );
+            //DEBUG_print ( txtbuffer, DBG_SPU3 );
             //writeLogFile ( txtbuffer );
 #endif // DISP_DEBUG
             if ( FastCheckAgainstFrontScreen ( imageX1, imageY1, imageSX, imageSY ) )

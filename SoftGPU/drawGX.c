@@ -39,18 +39,14 @@
 ////////////////////////////////////////////////////////////////////////////////////
 // misc globals
 ////////////////////////////////////////////////////////////////////////////////////
-//char           szDispBuf[64];
 int            iResX;
 int            iResY;
 //long           lLowerpart;
-//BOOL           bIsFirstFrame = TRUE;
 //BOOL           bCheckMask=FALSE;
 //unsigned short sSetMask=0;
 //unsigned long  lSetMask=0;
 int            iDesktopCol=16;
 int            iShowFPS=1;
-//int            iWinSize;
-//int            iUseScanLines=0;
 int            iUseNoStretchBlt=0;
 int            iFastFwd=0;
 int            iDebugMode=0;
@@ -151,6 +147,21 @@ void gx_vout_render(void)
 	GX_Flush();
 
 	gc_vout_copydone();
+}
+
+void gx_vout_clear(void)
+{
+	GX_DrawDone();
+	GX_SetCopyClear((GXColor){0, 0, 0, 0xFF}, GX_MAX_Z24);
+	GX_CopyDisp(xfb[FB_BACK], GX_TRUE);
+	GX_Flush();
+
+	GX_DrawDone();
+	GX_Flush();
+
+	new_frame = 1;
+	gc_vout_copydone();
+	gc_vout_vsync(0);
 }
 
 void showFpsAndDebugInfo(void)
@@ -553,7 +564,7 @@ void DoClearFrontBuffer(void)                          // CLEAR DX BUFFER
 	{
 	    GXColor fontColor = {150,255,150,255};
         IplFont_drawInit(fontColor);
-		IplFont_drawString(10,35,szDispBuf, 1.0, false);
+		IplFont_drawString(10,35,fpsInfo, 1.0, false);
 		#ifdef SHOW_DEBUG
 		int i = 0;
         DEBUG_update();

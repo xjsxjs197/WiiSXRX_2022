@@ -195,8 +195,6 @@ extern short          sprtY,sprtX,sprtH,sprtW;
 #ifdef _WINDOWS
 //extern HWND           hWWindow;
 #endif
-extern BOOL           bIsFirstFrame;
-//extern int            iWinSize;
 extern int            iZBufferDepth;
 extern GLbitfield     uiBufferBits;
 extern int            iUseMask;
@@ -212,14 +210,6 @@ extern BOOL           bSetClip;
 
 //-----------------------------------------------------//
 
-extern long           GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
-extern long           GlobalTextABR;
-extern short          ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;
-extern short          g_m1;
-extern short          g_m2;
-extern short          g_m3;
-extern short          DrawSemiTrans;
-
 //-----------------------------------------------------//
 
 #ifndef _IN_PRIMDRAW
@@ -234,7 +224,6 @@ extern BOOL          bFullVRam;
 extern BOOL          bUseMultiPass;
 extern int           iOffscreenDrawing;
 extern BOOL          bOldSmoothShaded;
-extern BOOL          bUsingTWin;
 extern BOOL          bUsingMovie;
 extern PSXRect_t     xrMovieArea;
 extern PSXRect_t     xrUploadArea;
@@ -252,18 +241,12 @@ extern unsigned int  ulOLDCOL;
 extern unsigned int  ulClutID;
 extern void (*primTableJGx[256])(unsigned char *);
 extern void (*primTableSkipGx[256])(unsigned char *);
-extern unsigned short  usMirror;
-extern unsigned int  dwCfgFixes;
 extern unsigned int  dwActFixes;
 extern unsigned long  dwEmuFixes;
 extern BOOL          bUseFixes;
 extern int           iSpriteTex;
 extern int           iDrawnSomething;
 
-extern int  drawX;
-extern int  drawY;
-extern int  drawW;
-extern int  drawH;
 extern short sxmin;
 extern short sxmax;
 extern short symin;
@@ -317,12 +300,10 @@ extern int            iDataReadMode;
 extern int            iColDepth;
 extern BOOL           bChangeRes;
 extern BOOL           bWindowMode;
-extern char           szDispBuf[];
 extern char           szGPUKeys[];
 extern PSXDisplay_t   PSXDisplay;
 extern PSXDisplay_t   PreviousPSXDisplay;
 //extern unsigned int   ulKeybits;
-extern TWin_t         TWin;
 extern BOOL           bDisplayNotSet;
 extern long           lGPUstatusRet;
 extern short          imageX0,imageX1;
@@ -337,9 +318,7 @@ extern unsigned short * psxVuw;
 extern unsigned short * psxVuw_eom;
 extern GLfloat        gl_z;
 extern BOOL           bNeedRGB24Update;
-extern BOOL           bChangeWinMode;
 extern GLuint         uiScanLine;
-extern int            iUseScanLines;
 //extern int            lSelectedSlot;
 extern int            iScanBlend;
 extern BOOL           bInitCap;
@@ -459,6 +438,7 @@ extern int           iTileCheat;
 
 extern void gc_vout_render(void);
 extern void gx_vout_render(void);
+extern void gx_vout_clear(void);
 extern void showFpsAndDebugInfo(void);
 extern void ChangeDispOffsetsXGl(void);
 extern void updateDisplayIfChangedGl(void);

@@ -93,28 +93,18 @@ extern char *         pCaptionText;
 
 extern int            iResX;
 extern int            iResY;
-extern long           GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
-extern long           GlobalTextREST,GlobalTextABR,GlobalTextPAGE;
-extern short          ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;
+extern int            GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
+extern long           GlobalTextABR,GlobalTextPAGE;
 extern long           lLowerpart;
-extern BOOL           bIsFirstFrame;
 extern BOOL           bCheckMask;
 extern unsigned short sSetMask;
 extern unsigned long  lSetMask;
 extern BOOL           bDeviceOK;
-extern short          g_m1;
-extern short          g_m2;
-extern short          g_m3;
-extern short          DrawSemiTrans;
 extern int            iUseGammaVal;
 extern int            iFastFwd;
 extern PSXPoint_t     ptCursorPoint[];
 extern unsigned short usCursorActive;
-
-extern short Ymin;
-extern short Ymax;
-extern int  gInterlaceLine;
-
+extern BOOL           bDoVSyncUpdate;
 //#endif
 
 // prim.c
@@ -122,22 +112,17 @@ extern int  gInterlaceLine;
 #ifndef _IN_PRIMDRAW
 
 extern BOOL           bUsingTWin;
-extern TWin_t         TWin;
 extern unsigned long  clutid;
 extern void (*primTableJ[256])(unsigned char *);
 extern void (*primTableSkip[256])(unsigned char *);
 extern unsigned short  usMirror;
-extern int            iDither;
-extern unsigned int   dwCfgFixes;
 extern unsigned int   dwActFixes;
 extern unsigned long  dwEmuFixes;
-extern int            iUseFixes;
 extern int            iUseDither;
-extern BOOL           bDoVSyncUpdate;
-extern long           drawX;
-extern long           drawY;
-extern long           drawW;
-extern long           drawH;
+extern int            drawX;
+extern int            drawY;
+extern int            drawW;
+extern int            drawH;
 
 #endif
 
@@ -162,15 +147,10 @@ extern long           drawingLines;
 extern unsigned char  * psxVub;
 extern unsigned short * psxVuw;
 extern unsigned short * psxVuw_eom;
-extern BOOL           bChangeWinMode;
 extern long           lSelectedSlot;
 extern unsigned int   lGPUInfoVals[];
 
 extern int            gMouse[4];
-extern int            iFakePrimBusy;
-extern int            iWinSize;
-extern int            iUseScanLines;
-extern char           szDispBuf[];
 extern BOOL           bDisplayNotSet;
 //#endif
 

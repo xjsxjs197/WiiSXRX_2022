@@ -54,13 +54,16 @@
 #include "../Gamecube/DEBUG.h"
 #include "../Gamecube/MEM2.h"
 
-//short g_m1=255,g_m2=255,g_m3=255;
-//short DrawSemiTrans=FALSE;
-//short Ymin;
-//short Ymax;
-
-//short          ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;        // global psx vertex coords
-//int            GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
+static short DrawSemiTrans=FALSE;
+static short ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;        // global psx vertex coords
+static int   GlobalTextAddrX, GlobalTextAddrY, GlobalTextTP;
+static long  GlobalTextABR,GlobalTextPAGE;
+static BOOL  bUsingTWin=FALSE;
+static unsigned short usMirror=0;                             // sprite mirror
+static TWin_t         TWin;
+static int   drawX,drawY,drawW,drawH;                 // offscreen drawing checkers
+static int   iFakePrimBusy;
+static BOOL  bIsFirstFrame=TRUE;
 
 unsigned int  dwGPUVersion=0;
 int           iGPUHeight=512;
@@ -87,7 +90,6 @@ int           iTileCheat=0;
 GLfloat         gl_z=0.0f;
 BOOL            bNeedInterlaceUpdate=FALSE;
 BOOL            bNeedRGB24Update=FALSE;
-//BOOL            bChangeWinMode=FALSE;
 
 unsigned long   ulStatusControl[256];
 
@@ -110,7 +112,6 @@ int             lClearOnSwapColor;
 int             iColDepth;
 BOOL            bChangeRes;
 BOOL            bWindowMode;
-//int             iWinSize;
 
 // possible psx display widths
 short dispWidths[8] = {256,320,512,640,368,384,512,640};
@@ -127,7 +128,6 @@ int             iScanBlend=0;
 int             iRenderFVR=0;
 int             iNoScreenSaver=0;
 unsigned int    ulGPUInfoVals[16];
-extern int             iFakePrimBusy;
 int             iRumbleVal    = 0;
 int             iRumbleTime   = 0;
 
@@ -364,9 +364,9 @@ if(PSXDisplay.RGB24)// && !bNeedUploadAfter)          // (mdec) upload wanted?
       #endif // DISP_DEBUG
       PrepareFullScreenUpload(-1);
       #ifdef DISP_DEBUG
-      sprintf(txtbuffer, "updateDisplayGl_1b %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
-      DEBUG_print(txtbuffer, DBG_CDR3);
-      writeLogFile(txtbuffer);
+      //sprintf(txtbuffer, "updateDisplayGl_1b %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+      //DEBUG_print(txtbuffer, DBG_CDR3);
+      //writeLogFile(txtbuffer);
       #endif // DISP_DEBUG
       UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
   bNeedUploadTest=FALSE;
@@ -378,8 +378,8 @@ else
 if(bNeedInterlaceUpdate)                              // smaller upload?
  {
      #ifdef DISP_DEBUG
-     sprintf(txtbuffer, "updateDisplayGl_2 %d %d %d %d %d %d %d %d %d\r\n", PSXDisplay.Disabled, lClearOnSwap, iZBufferDepth, PSXDisplay.Interlaced, bNeedRGB24Update, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
-     DEBUG_print(txtbuffer, DBG_CDR2);
+     //sprintf(txtbuffer, "updateDisplayGl_2 %d %d %d %d %d %d %d %d %d\r\n", PSXDisplay.Disabled, lClearOnSwap, iZBufferDepth, PSXDisplay.Interlaced, bNeedRGB24Update, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+     //DEBUG_print(txtbuffer, DBG_CDR2);
      //writeLogFile(txtbuffer);
      #endif // DISP_DEBUG
   bNeedInterlaceUpdate=FALSE;
@@ -405,8 +405,8 @@ if(PSXDisplay.Disabled)                               // display disabled?
   gl_z=0.0f;
   bDisplayNotSet = TRUE;
   #ifdef DISP_DEBUG
-sprintf(txtbuffer, "updateDisplayGl Disabled\r\n");
-DEBUG_print(txtbuffer, DBG_CDR1);
+//sprintf(txtbuffer, "updateDisplayGl Disabled\r\n");
+//DEBUG_print(txtbuffer, DBG_CDR1);
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
  }
@@ -467,8 +467,8 @@ iDrawnSomething=0;
 if(lClearOnSwap)                                      // clear buffer after swap?
  {
      #ifdef DISP_DEBUG
-sprintf(txtbuffer, "updateDisplayGl lClearOnSwap\r\n");
-DEBUG_print(txtbuffer, DBG_CDR1);
+//sprintf(txtbuffer, "updateDisplayGl lClearOnSwap\r\n");
+//DEBUG_print(txtbuffer, DBG_CDR1);
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
@@ -509,8 +509,8 @@ if(bNeedUploadAfter)                                  // upload wanted?
   bNeedUploadAfter=FALSE;
   bNeedUploadTest=FALSE;
   #ifdef DISP_DEBUG
-      sprintf(txtbuffer, "bNeedUploadAfter %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
-      DEBUG_print(txtbuffer, DBG_CDR2);
+      //sprintf(txtbuffer, "bNeedUploadAfter %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+      //DEBUG_print(txtbuffer, DBG_CDR2);
       //writeLogFile(txtbuffer);
       #endif // DISP_DEBUG
   UploadScreen(-1);                                   // -> upload
@@ -527,8 +527,8 @@ if(bNeedUploadTest)
      PreviousPSXDisplay.DisplayEnd.y==PSXDisplay.DisplayEnd.y)
    {
        #ifdef DISP_DEBUG
-      sprintf(txtbuffer, "bNeedUploadTest %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
-      DEBUG_print(txtbuffer, DBG_CDR2);
+      //sprintf(txtbuffer, "bNeedUploadTest %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+      //DEBUG_print(txtbuffer, DBG_CDR2);
       //writeLogFile(txtbuffer);
       #endif // DISP_DEBUG
 
@@ -678,8 +678,8 @@ void SetAspectRatio(void)
 {
 float xs,ys,s;RECT r;
 
-//if(!PSXDisplay.DisplayModeNew.x) return;
-//if(!height) return;
+if(!PSXDisplay.DisplayModeNew.x) return;
+if(!PSXDisplay.DisplayModeNew.y) return;
 
 #if 0
 xs=(float)iResX/(float)PSXDisplay.DisplayModeNew.x;
@@ -1010,8 +1010,8 @@ switch(lCommand)
       {
        PrepareFullScreenUpload(TRUE);
        #ifdef DISP_DEBUG
-      sprintf(txtbuffer, "dis/enable display %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
-      DEBUG_print(txtbuffer, DBG_CDR2);
+      //sprintf(txtbuffer, "dis/enable display %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+      //DEBUG_print(txtbuffer, DBG_CDR2);
       //writeLogFile(txtbuffer);
       #endif // DISP_DEBUG
        UploadScreen(TRUE);
@@ -1289,8 +1289,8 @@ __inline void FinishedVRAMRead(void)
 void CheckVRamReadEx(int x, int y, int dx, int dy)
 {
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "CheckVRamReadEx  \r\n");
-    DEBUG_print(txtbuffer, DBG_CORE2);
+    //sprintf(txtbuffer, "CheckVRamReadEx  \r\n");
+    //DEBUG_print(txtbuffer, DBG_CORE2);
     #endif // DISP_DEBUG
 
 // unsigned short sArea;
