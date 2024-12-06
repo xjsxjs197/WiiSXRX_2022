@@ -156,6 +156,7 @@ typedef struct glparams_
     gltexture_ textures[_MAX_GL_TEX];
 
     GLenum error;
+    short globalTextABR;
 } glparams_;
 
 extern glparams_ _ogx_state;

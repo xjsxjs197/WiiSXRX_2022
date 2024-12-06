@@ -799,7 +799,7 @@ typedef struct SEMITRANSTAG
 
 static SemiTransParams TransSets[4] =
 {
-    {GL_SRC_ALPHA, GL_SRC_ALPHA,          127},
+    {GL_SRC_ALPHA, GL_ONE_MINUS_SRC_COLOR, 127},
     {GL_ONE,      GL_ONE,                255},
     {GL_ZERO,     GL_ONE_MINUS_SRC_COLOR, 255},
     {GL_ONE_MINUS_SRC_ALPHA, GL_ONE,      192}
@@ -1105,6 +1105,7 @@ static inline void SetRenderState ( unsigned int DrawAttributes )
 {
     bDrawNonShaded = ( SHADETEXBIT ( DrawAttributes ) ) ? TRUE : FALSE;
     DrawSemiTrans = ( SEMITRANSBIT ( DrawAttributes ) ) ? TRUE : FALSE;
+    glSetGlobalTextABR(DrawSemiTrans + GlobalTextABR);
 }
 
 

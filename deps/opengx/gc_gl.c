@@ -640,6 +640,11 @@ void glBindTexture(GLenum target, GLuint texture)
     }
 }
 
+void glSetGlobalTextABR( short globalTextABR )
+{
+    glparamstate.globalTextABR = globalTextABR;
+}
+
 void glBindTextureBef(GLenum target, GLuint texture)
 {
     if (texture < 0 || texture >= _MAX_GL_TEX)
@@ -2470,10 +2475,20 @@ void _ogx_apply_state()
     //if (glparamstate.dirty.bits.dirty_blend)
     {
         if (glparamstate.blendenabled)
-            GX_SetBlendMode(GX_BM_BLEND, glparamstate.srcblend, glparamstate.dstblend, GX_LO_CLEAR);
+        {
+            if (glparamstate.globalTextABR == 3)
+            {
+                GX_SetBlendMode(GX_BM_SUBTRACT, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+            }
+            else
+            {
+                GX_SetBlendMode(GX_BM_BLEND, glparamstate.srcblend, glparamstate.dstblend, GX_LO_CLEAR);
+            }
+        }
         else
-            //GX_SetBlendMode(GX_BM_NONE, glparamstate.srcblend, glparamstate.dstblend, GX_LO_CLEAR);
+        {
             GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+        }
     }
 
     // Matrix stuff
