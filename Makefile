@@ -6,7 +6,7 @@ endif
 
 VERSION = beta2.5
 
-.PHONY:  all Wii Wii_Release
+.PHONY:  all Wii_Release Wii
 
 #all:
 #	@$(ECHO) "Rebuilding Wii and logging to build.log..."
@@ -17,6 +17,12 @@ VERSION = beta2.5
 #  #note that msys doesn't seem to like sed -i
 #	@rm temp.log
 all: Wii Wii_Release
+
+opengx.a:
+	@echo " "
+	@echo "Building opengx.a library for PPC"
+	@echo " "
+	$(MAKE) -C deps/opengx -f Makefile
 
 lightrecNoLog.a:
 	@echo " "
@@ -54,13 +60,14 @@ chdrstatic.a:
 	@echo " "
 	$(MAKE) -C deps/libchdr -f Makefile.wii
 
-Wii: lightrecWithLog.a zstd.a lzma.a zlibstatic.a chdrstatic.a
+Wii: opengx.a lightrecWithLog.a zstd.a lzma.a zlibstatic.a chdrstatic.a
 	@$(ECHO) "Building Wii..."
 	@$(MAKE) -C Gamecube -f Makefile_Wii
 
-Wii_Release: lightrecNoLog.a zstd.a lzma.a zlibstatic.a chdrstatic.a
+Wii_Release: opengx.a lightrecNoLog.a zstd.a lzma.a zlibstatic.a chdrstatic.a
 	@$(ECHO) "Building Wii_Release..."
 	@$(MAKE) -C Gamecube -f Makefile_Wii_Release
+
 
 #GC:
 #	@$(ECHO) "Building GC..."
@@ -71,6 +78,7 @@ dist: Wii
 
 clean:
 	@$(ECHO) "Cleaning..."
+	@$(MAKE) -C deps/opengx clean -f Makefile
 	@$(MAKE) -C deps/lightrec clean -f Makefile.NoLog
 	@$(MAKE) -C deps/lightrec clean -f Makefile.WithLog
 	@$(MAKE) -C deps/libchdr/deps/zstd-1.5.6 clean -f Makefile.wii

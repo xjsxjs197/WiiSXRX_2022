@@ -41,6 +41,7 @@
 // - generic cleanup for the Peops release
 //
 //*************************************************************************//
+#include "../gpulib/stdafx.h"
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -83,92 +84,6 @@
 
 /////////////////////////////////////////////////////////////////////////////
 
-typedef struct VRAMLOADTTAG
-{
- short x;
- short y;
- short Width;
- short Height;
- short RowsRemaining;
- short ColsRemaining;
- unsigned short *ImagePtr;
-} VRAMLoad_t;
-
-/////////////////////////////////////////////////////////////////////////////
-
-typedef struct PSXPOINTTAG
-{
- long x;
- long y;
-} PSXPoint_t;
-
-typedef struct PSXSPOINTTAG
-{
- short x;
- short y;
-} PSXSPoint_t;
-
-typedef struct PSXRECTTAG
-{
- short x0;
- short x1;
- short y0;
- short y1;
-} PSXRect_t;
-
-
-// linux defines for some windows stuff
-
-#define FALSE 0
-#define TRUE 1
-#define BOOL unsigned short
-#define LOWORD(l)           ((unsigned short)(l))
-#define HIWORD(l)           ((unsigned short)(((unsigned long)(l) >> 16) & 0xFFFF))
-#define max(a,b)            (((a) > (b)) ? (a) : (b))
-#define min(a,b)            (((a) < (b)) ? (a) : (b))
-#define DWORD unsigned long
-#define __int64 long long int
-
-typedef struct RECTTAG
-{
- int left;
- int top;
- int right;
- int bottom;
-}RECT;
-
-/////////////////////////////////////////////////////////////////////////////
-
-typedef struct TWINTAG
-{
- PSXRect_t  Position;
- int xmask, ymask;
-} TWin_t;
-
-/////////////////////////////////////////////////////////////////////////////
-
-typedef struct PSXDISPLAYTAG
-{
- PSXPoint_t  DisplayModeNew;
- PSXPoint_t  DisplayMode;
- PSXPoint_t  DisplayPosition;
- PSXPoint_t  DisplayEnd;
-
- long        Double;
- long        Height;
- long        PAL;
- long        InterlacedNew;
- long        Interlaced;
- long        RGB24New;
- long        RGB24;
- PSXSPoint_t DrawOffset;
- long        Disabled;
- PSXRect_t   Range;
-
-} PSXDisplay_t;
-
-/////////////////////////////////////////////////////////////////////////////
-
 // draw.c
 
 //#ifndef _IN_DRAW
@@ -178,28 +93,18 @@ extern char *         pCaptionText;
 
 extern int            iResX;
 extern int            iResY;
-extern long           GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
-extern long           GlobalTextREST,GlobalTextABR,GlobalTextPAGE;
-extern short          ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;
+extern int            GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
+extern long           GlobalTextABR,GlobalTextPAGE;
 extern long           lLowerpart;
-extern BOOL           bIsFirstFrame;
 extern BOOL           bCheckMask;
 extern unsigned short sSetMask;
 extern unsigned long  lSetMask;
 extern BOOL           bDeviceOK;
-extern short          g_m1;
-extern short          g_m2;
-extern short          g_m3;
-extern short          DrawSemiTrans;
 extern int            iUseGammaVal;
 extern int            iFastFwd;
 extern PSXPoint_t     ptCursorPoint[];
 extern unsigned short usCursorActive;
-
-extern short Ymin;
-extern short Ymax;
-extern int  gInterlaceLine;
-
+extern BOOL           bDoVSyncUpdate;
 //#endif
 
 // prim.c
@@ -207,22 +112,17 @@ extern int  gInterlaceLine;
 #ifndef _IN_PRIMDRAW
 
 extern BOOL           bUsingTWin;
-extern TWin_t         TWin;
 extern unsigned long  clutid;
 extern void (*primTableJ[256])(unsigned char *);
 extern void (*primTableSkip[256])(unsigned char *);
 extern unsigned short  usMirror;
-extern int            iDither;
-extern unsigned int   dwCfgFixes;
 extern unsigned int   dwActFixes;
 extern unsigned long  dwEmuFixes;
-extern int            iUseFixes;
 extern int            iUseDither;
-extern BOOL           bDoVSyncUpdate;
-extern long           drawX;
-extern long           drawY;
-extern long           drawW;
-extern long           drawH;
+extern int            drawX;
+extern int            drawY;
+extern int            drawW;
+extern int            drawH;
 
 #endif
 
@@ -247,12 +147,11 @@ extern long           drawingLines;
 extern unsigned char  * psxVub;
 extern unsigned short * psxVuw;
 extern unsigned short * psxVuw_eom;
-extern BOOL           bChangeWinMode;
 extern long           lSelectedSlot;
 extern unsigned int   lGPUInfoVals[];
 
 extern int            gMouse[4];
-extern int            iFakePrimBusy;
+extern BOOL           bDisplayNotSet;
 //#endif
 
 // menu.c
