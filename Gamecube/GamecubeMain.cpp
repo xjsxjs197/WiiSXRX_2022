@@ -252,7 +252,6 @@ static void setGpuPlugin()
     {
         gpuPtr = &newSoftGpu;
     }
-    gpuPtr = &glesGpu;
 }
 
 static bool loadControllerMapping(char* usbSd)

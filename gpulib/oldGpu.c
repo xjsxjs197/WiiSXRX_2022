@@ -112,7 +112,7 @@
 //*************************************************************************//
 
 
-#include "stdafx.h"
+#include "../SoftGPU/stdafx.h"
 #include <stdbool.h>
 #include "../Gamecube/DEBUG.h"
 #include "../Gamecube/wiiSXconfig.h"
@@ -154,6 +154,7 @@ extern unsigned short *psxVuw_eom;
 
 static long       lGPUdataRet;
 extern long       lGPUstatusRet;
+extern char       szDispBuf[64];
 static unsigned long ulStatusControl[256];
 
 static unsigned   long gpuDataM[256];
@@ -173,6 +174,7 @@ short             sDispWidths[8] = {256,320,512,640,368,384,512,640};
 int               dispHeight;
 unsigned long     newDwFrameRateTicks;
 long              lSelectedSlot=0;
+BOOL              bChangeWinMode=FALSE;
 BOOL              bDoLazyUpdate=FALSE;
 extern unsigned int      lGPUInfoVals[16];
 
@@ -249,6 +251,7 @@ long PEOPS_GPUopen(void)
 
  gc_vout_open();
 
+ bIsFirstFrame  = TRUE;                                // we have to init later
  bDoVSyncUpdate = TRUE;
 
  return 0;
@@ -314,7 +317,7 @@ void updateDisplay(void)                               // UPDATE DISPLAY
 
 void ChangeDispOffsetsX(void)                          // X CENTER
 {
- long lx,l;short sO;
+ long lx,l;
 
  if(!PSXDisplay.Range.x1) return;
 
@@ -324,9 +327,6 @@ void ChangeDispOffsetsX(void)                          // X CENTER
  l/=2560;lx=l;l&=0xfffffff8;
 
  if(l==PreviousPSXDisplay.Range.y1) return;            // abusing range.y1 for
-
- sO=PreviousPSXDisplay.Range.x0;                       // store old
-
  PreviousPSXDisplay.Range.y1=(short)l;                 // storing last x range and test
 
  if(lx>=PreviousPSXDisplay.DisplayMode.x)
@@ -366,10 +366,6 @@ void ChangeDispOffsetsX(void)                          // X CENTER
   }
 
  bDoVSyncUpdate=TRUE;
- if(sO!=PreviousPSXDisplay.Range.x0)                   // something changed?
- {
-  bDisplayNotSet=TRUE;                                // -> recalc display stuff
- }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -424,11 +420,10 @@ void ChangeDispOffsetsY(void)                          // Y CENTER
  else
   PreviousPSXDisplay.Range.y0=0;
 
- if(iO!=PreviousPSXDisplay.Range.y0)
-  {
-   //DoClearScreenBuffer();
-   bDisplayNotSet=TRUE;                                // -> recalc display stuff
- }
+// if(iO!=PreviousPSXDisplay.Range.y0)
+//  {
+//   DoClearScreenBuffer();
+// }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -511,7 +506,6 @@ void PEOPS_GPUupdateLace(void)
 ////////////////////////////////////////////////////////////////////////
 // process read request from GPU status register
 ////////////////////////////////////////////////////////////////////////
-static int iFakePrimBusy = 0;
 
 unsigned long PEOPS_GPUreadStatus(void)
 {

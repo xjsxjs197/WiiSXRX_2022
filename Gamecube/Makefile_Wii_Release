@@ -25,7 +25,7 @@ TARGET		:=	WiiSXRX_Release
 BUILD		:=	build_release
 SOURCES		:=	../lang ../fonts \
                 ../HidController/ . ./gc_input/ ./libgui/ ./menu/ ./fileBrowser/ .. \
-                ../GlesGpu/ ../gpulib/ ../SoftGPU/ \
+                ../gpulib/ ../SoftGPU/ \
 				./libgui/gui2 ../dfsound/ ./vm ../ppc
 
 DATA		:=	data
@@ -49,7 +49,7 @@ LDFLAGS	=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map,-wrap,wiiuse_register
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS	:=	-ldi -liso9660 -lm -lSDL -lfat -ldb -lwiiuse -lwupc -lwiidrc -lbte -logc -lz -ltinysmb -lwiikeyboard -llightrecNoLog -llightning -llzma -lzstd -lzlibstatic -lchdr -lopengx
+LIBS	:=	-ldi -liso9660 -lm -lSDL -lfat -ldb -lwiiuse -lwupc -lwiidrc -lbte -logc -lz -ltinysmb -lwiikeyboard -llightrecNoLog -llightning -llzma -lzstd -lzlibstatic -lchdr
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
@@ -115,8 +115,7 @@ export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
 					-L../../deps/libchdr/deps/zstd-1.5.6/bin/lib \
 					-L../../deps/libchdr/deps/lzma-19.00/lib \
 					-L../../deps/libchdr/deps/zlib-1.3.1/bin/lib \
-					-L../../deps/libchdr/lib \
-					-L../../deps/opengx/lib
+					-L../../deps/libchdr/lib
 
 export OUTPUT	:=	$(CURDIR)/$(TARGET)
 .PHONY: $(BUILD) clean

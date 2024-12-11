@@ -152,28 +152,35 @@
 
 // draw.c
 
+//extern int32_t           GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
+//extern int32_t           GlobalTextABR,GlobalTextPAGE;
+//extern short          ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;
 //extern long           lLowerpart;
 //extern BOOL           bCheckMask;
 //extern unsigned short sSetMask;
 //extern unsigned long  lSetMask;
+//extern short          g_m1;
+//extern short          g_m2;
+//extern short          g_m3;
+//extern short          DrawSemiTrans;
 
 // prim.c
 
+//extern BOOL           bUsingTWin;
+//extern TWin_t         TWin;
 //extern void (*primTableJ[256])(unsigned char *);
 //extern void (*primTableSkip[256])(unsigned char *);
-
-static short g_m1=255,g_m2=255,g_m3=255;
-static short DrawSemiTrans=FALSE;
-static short Ymin, Ymax;
-static short ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;        // global psx vertex coords
-int          GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
-long         GlobalTextABR,GlobalTextPAGE;
-BOOL         bUsingTWin=FALSE;
-unsigned short  usMirror;
-static TWin_t   TWin;
-static int   iDither;
-BOOL         bDoVSyncUpdate=FALSE;
-int          gMouse[4];
+//extern unsigned short  usMirror;
+//extern int            iDither;
+//extern uint32_t  dwCfgFixes;
+//extern uint32_t  dwActFixes;
+//extern int            iUseFixes;
+//extern int            iUseDither;
+//extern BOOL           bDoVSyncUpdate;
+//extern int32_t           drawX;
+//extern int32_t           drawY;
+//extern int32_t           drawW;
+//extern int32_t           drawH;
 
 // gpu.h
 
