@@ -2497,9 +2497,9 @@ void _ogx_apply_state()
         MODELVIEW_UPDATE
         PROJECTION_UPDATE
     }
-//    if (glparamstate.dirty.bits.dirty_matrices | glparamstate.dirty.bits.dirty_lighting) {
+    if (glparamstate.dirty.bits.dirty_matrices | glparamstate.dirty.bits.dirty_lighting) {
         NORMAL_UPDATE
-//    }
+    }
 
     // All the state has been transferred, no need to update it again next time
     glparamstate.dirty.all = 0;
@@ -2556,16 +2556,11 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 
     // Invalidate vertex data as may have been modified by the user
     GX_InvVtxCache();
+    GX_InvalidateTexAll();
     if (texen)
     {
         gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
-
-        //GX_SetZMode(GX_ENABLE, GX_ALWAYS, GX_TRUE);
-        GX_InvalidateTexAll();
-        //GX_InitTexObj(&currtex->texobj, currtex->data,
-        //                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
         GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
-        //GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
     }
 
     bool loop = (mode == GL_LINE_LOOP);

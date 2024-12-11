@@ -143,10 +143,10 @@ static unsigned int DoubleBGR2RGB ( unsigned int BGR )
     return ( ebx | eax | edx );
 }
 
-//unsigned short BGR24to16 (unsigned int BGR)
-//{
-// return ((BGR>>3)&0x1f)|((BGR&0xf80000)>>9)|((BGR&0xf800)>>6);
-//}
+unsigned short BGR24to16 (unsigned int BGR)
+{
+ return ((BGR>>3)&0x1f)|((BGR&0xf80000)>>9)|((BGR&0xf800)>>6);
+}
 
 
 #define VERTEX_STRIDE    5
@@ -2163,15 +2163,6 @@ static void PrepareRGB24Upload ( void )
         xrUploadArea.x1 -= PSXDisplay.DisplayPosition.x;
         xrUploadArea.y0 -= PSXDisplay.DisplayPosition.y;
         xrUploadArea.y1 -= PSXDisplay.DisplayPosition.y;
-
-        #ifdef DISP_DEBUG
-        //sprintf(txtbuffer, "PrepareRGB24Upload2 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
-        //                   PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayEnd.x, PSXDisplay.DisplayPosition.y, PSXDisplay.DisplayEnd.y);
-        //DEBUG_print(txtbuffer, DBG_CDR1);
-        //writeLogFile(txtbuffer);
-        #endif // DISP_DEBUG
-        PrepareFullScreenUpload(-1);
-        UploadScreen ( PSXDisplay.Interlaced );
     }
     //else return;
 
@@ -2351,131 +2342,137 @@ static void primBlkFill ( unsigned char * baseAddr )
     sprtX = GETLEs16 ( &sgpuData[2] );
     sprtY = GETLEs16 ( &sgpuData[3] );
     sprtW = GETLEs16 ( &sgpuData[4] ) & 0x3ff;
-    sprtH = GETLEs16 ( &sgpuData[5] ) & iGPUHeightMask;
+    sprtH = GETLEs16 ( &sgpuData[5] ) & 0x3ff;
 
     sprtW = ( sprtW + 15 ) & ~15;
 
 // Increase H & W if they are one short of full values, because they never can be full values
-    if ( sprtH == iGPUHeightMask )  sprtH = iGPUHeight;
-    if ( sprtW == 1023 )            sprtW = 1024;
+    if ( sprtH >= 1023 )  sprtH = 1023;
+    if ( sprtW >= 1023 )  sprtW = 1024;
 
-// x and y of start
-    ly0 = ly1 = sprtY;
-    ly2 = ly3 = ( sprtY + sprtH );
-    lx0 = lx3 = sprtX;
-    lx1 = lx2 = ( sprtX + sprtW );
+    // x and y of end pos
+    sprtW += sprtX;
+    sprtH += sprtY;
 
-    offsetBlk();
+    FillSoftwareArea(sprtX, sprtY, sprtW, sprtH, BGR24to16(GETLE32(&gpuData[0])));
 
-    if ( ClipVertexListScreen() )
-    {
-        PSXDisplay_t * pd;
-        if ( PSXDisplay.InterlacedTest ) pd = &PSXDisplay;
-        else                          pd = &PreviousPSXDisplay;
-
-        if ( ( lx0 <= pd->DisplayPosition.x + 16 ) &&
-                ( ly0 <= pd->DisplayPosition.y + 16 ) &&
-                ( lx2 >= pd->DisplayEnd.x - 16 ) &&
-                ( ly2 >= pd->DisplayEnd.y - 16 ) )
-        {
-            unsigned char g, b, r;
-            //r=((unsigned char)RED(GETLE32(&gpuData[0])));
-            //g=((unsigned char)GREEN(GETLE32(&gpuData[0])));
-            //b=((unsigned char)BLUE(GETLE32(&gpuData[0])));
-            r = baseAddr[0];
-            g = baseAddr[1];
-            b = baseAddr[2];
-
-            //glDisable(GL_SCISSOR_TEST); glError();
-            glClearColor2 ( r, g, b, 255 );
-            glError();
-            glClear ( uiBufferBits );
-            glError();
-            gl_z = 0.0f;
-
-            if ( GETLE32 ( &gpuData[0] ) != 0x02000000 &&
-                    ( ly0 > pd->DisplayPosition.y ||
-                      ly2 < pd->DisplayEnd.y ) )
-            {
-                bDrawTextured     = FALSE;
-                bDrawSmoothShaded = FALSE;
-                SetRenderState ( ( unsigned int ) 0x01000000 );
-                SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
-                vertex[0].c.lcol = SWAP32_C ( 0xff000000 );
-                SETCOL ( vertex[0] );
-                if ( ly0 > pd->DisplayPosition.y )
-                {
-                    vertex[0].x = 0;
-                    vertex[0].y = 0;
-                    vertex[1].x = pd->DisplayEnd.x - pd->DisplayPosition.x;
-                    vertex[1].y = 0;
-                    vertex[2].x = vertex[1].x;
-                    vertex[2].y = ly0 - pd->DisplayPosition.y;
-                    vertex[3].x = 0;
-                    vertex[3].y = vertex[2].y;
-                    PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-#ifdef DISP_DEBUG
-//                    sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-//sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-//                    DEBUG_print ( txtbuffer, DBG_CORE2 );
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
-                }
-                if ( ly2 < pd->DisplayEnd.y )
-                {
-                    vertex[0].x = 0;
-                    vertex[0].y = ( pd->DisplayEnd.y - pd->DisplayPosition.y ) - ( pd->DisplayEnd.y - ly2 );
-                    vertex[1].x = pd->DisplayEnd.x - pd->DisplayPosition.x;
-                    vertex[1].y = vertex[0].y;
-                    vertex[2].x = vertex[1].x;
-                    vertex[2].y = pd->DisplayEnd.y;
-                    vertex[3].x = 0;
-                    vertex[3].y = vertex[2].y;
-                    PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-#ifdef DISP_DEBUG
-//                    sprintf ( txtbuffer, "blkFill1_2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-//sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-//                    DEBUG_print ( txtbuffer, DBG_CORE2 );
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
-                }
-            }
-#ifdef DISP_DEBUG
-//            sprintf ( txtbuffer, "blkFill1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-//sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-//            DEBUG_print ( txtbuffer, DBG_CORE2 );
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
-
-            //glEnable(GL_SCISSOR_TEST); glError();
-        }
-        else
-        {
-#ifdef DISP_DEBUG
-//            sprintf ( txtbuffer, "blkFil2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-//            DEBUG_print ( txtbuffer, DBG_CORE3 );
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
-            bDrawTextured     = FALSE;
-            bDrawSmoothShaded = FALSE;
-            SetRenderState ( ( unsigned int ) 0x01000000 );
-            SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
-            vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
-            SETCOL ( vertex[0] );
-            //glDisable(GL_SCISSOR_TEST); glError();
-            PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-            //glEnable(GL_SCISSOR_TEST); glError();
-        }
-    }
-
-//mmm... will clean all stuff, also if not all _should_ be cleaned...
-//if (IsInsideNextScreen(sprtX, sprtY, sprtW, sprtH))
-// try this:
-    if ( IsCompleteInsideNextScreen ( sprtX, sprtY, sprtW, sprtH ) )
-    {
-        lClearOnSwapColor = COLOR ( GETLE32 ( &gpuData[0] ) );
-        lClearOnSwap = 1;
-    }
+//// x and y of start
+//    ly0 = ly1 = sprtY;
+//    ly2 = ly3 = ( sprtY + sprtH );
+//    lx0 = lx3 = sprtX;
+//    lx1 = lx2 = ( sprtX + sprtW );
+//
+//    offsetBlk();
+//
+//    if ( ClipVertexListScreen() )
+//    {
+//        PSXDisplay_t * pd;
+//        if ( PSXDisplay.InterlacedTest ) pd = &PSXDisplay;
+//        else                          pd = &PreviousPSXDisplay;
+//
+//        if ( ( lx0 <= pd->DisplayPosition.x + 16 ) &&
+//                ( ly0 <= pd->DisplayPosition.y + 16 ) &&
+//                ( lx2 >= pd->DisplayEnd.x - 16 ) &&
+//                ( ly2 >= pd->DisplayEnd.y - 16 ) )
+//        {
+//            unsigned char g, b, r;
+//            //r=((unsigned char)RED(GETLE32(&gpuData[0])));
+//            //g=((unsigned char)GREEN(GETLE32(&gpuData[0])));
+//            //b=((unsigned char)BLUE(GETLE32(&gpuData[0])));
+//            r = baseAddr[0];
+//            g = baseAddr[1];
+//            b = baseAddr[2];
+//
+//            //glDisable(GL_SCISSOR_TEST); glError();
+//            glClearColor2 ( r, g, b, 255 );
+//            glError();
+//            glClear ( uiBufferBits );
+//            glError();
+//            gl_z = 0.0f;
+//
+//            if ( GETLE32 ( &gpuData[0] ) != 0x02000000 &&
+//                    ( ly0 > pd->DisplayPosition.y ||
+//                      ly2 < pd->DisplayEnd.y ) )
+//            {
+//                bDrawTextured     = FALSE;
+//                bDrawSmoothShaded = FALSE;
+//                SetRenderState ( ( unsigned int ) 0x01000000 );
+//                SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
+//                vertex[0].c.lcol = SWAP32_C ( 0xff000000 );
+//                SETCOL ( vertex[0] );
+//                if ( ly0 > pd->DisplayPosition.y )
+//                {
+//                    vertex[0].x = 0;
+//                    vertex[0].y = 0;
+//                    vertex[1].x = pd->DisplayEnd.x - pd->DisplayPosition.x;
+//                    vertex[1].y = 0;
+//                    vertex[2].x = vertex[1].x;
+//                    vertex[2].y = ly0 - pd->DisplayPosition.y;
+//                    vertex[3].x = 0;
+//                    vertex[3].y = vertex[2].y;
+//                    PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//#ifdef DISP_DEBUG
+////                    sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+////sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
+////                    DEBUG_print ( txtbuffer, DBG_CORE2 );
+////writeLogFile(txtbuffer);
+//#endif // DISP_DEBUG
+//                }
+//                if ( ly2 < pd->DisplayEnd.y )
+//                {
+//                    vertex[0].x = 0;
+//                    vertex[0].y = ( pd->DisplayEnd.y - pd->DisplayPosition.y ) - ( pd->DisplayEnd.y - ly2 );
+//                    vertex[1].x = pd->DisplayEnd.x - pd->DisplayPosition.x;
+//                    vertex[1].y = vertex[0].y;
+//                    vertex[2].x = vertex[1].x;
+//                    vertex[2].y = pd->DisplayEnd.y;
+//                    vertex[3].x = 0;
+//                    vertex[3].y = vertex[2].y;
+//                    PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//#ifdef DISP_DEBUG
+////                    sprintf ( txtbuffer, "blkFill1_2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+////sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
+////                    DEBUG_print ( txtbuffer, DBG_CORE2 );
+////writeLogFile(txtbuffer);
+//#endif // DISP_DEBUG
+//                }
+//            }
+//#ifdef DISP_DEBUG
+////            sprintf ( txtbuffer, "blkFill1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+////sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
+////            DEBUG_print ( txtbuffer, DBG_CORE2 );
+////writeLogFile(txtbuffer);
+//#endif // DISP_DEBUG
+//
+//            //glEnable(GL_SCISSOR_TEST); glError();
+//        }
+//        else
+//        {
+//#ifdef DISP_DEBUG
+////            sprintf ( txtbuffer, "blkFil2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+////            DEBUG_print ( txtbuffer, DBG_CORE3 );
+////writeLogFile(txtbuffer);
+//#endif // DISP_DEBUG
+//            bDrawTextured     = FALSE;
+//            bDrawSmoothShaded = FALSE;
+//            SetRenderState ( ( unsigned int ) 0x01000000 );
+//            SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
+//            vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
+//            SETCOL ( vertex[0] );
+//            //glDisable(GL_SCISSOR_TEST); glError();
+//            PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//            //glEnable(GL_SCISSOR_TEST); glError();
+//        }
+//    }
+//
+////mmm... will clean all stuff, also if not all _should_ be cleaned...
+////if (IsInsideNextScreen(sprtX, sprtY, sprtW, sprtH))
+//// try this:
+//    if ( IsCompleteInsideNextScreen ( sprtX, sprtY, sprtW, sprtH ) )
+//    {
+//        lClearOnSwapColor = COLOR ( GETLE32 ( &gpuData[0] ) );
+//        lClearOnSwap = 1;
+//    }
 }
 
 ////////////////////////////////////////////////////////////////////////
