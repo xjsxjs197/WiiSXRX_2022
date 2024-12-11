@@ -24,9 +24,14 @@
 #define MCD2_LO       (MCD1_HI)
 #define MCD2_HI       (MCD2_LO + MCD2_SIZE)
 
-// We want 10MB for max font
-#define CN_FONT_SIZE (10*MB)
-#define CN_FONT_LO   (MCD2_HI)
+// We want 128KB for HID BUF
+#define HID_BUF_SIZE  (128*KB)
+#define HID_BUF_LO    (MCD2_HI)
+#define HID_BUF_HI    (HID_BUF_LO + HID_BUF_SIZE)
+
+// We want 9MB for max font
+#define CN_FONT_SIZE (9*MB)
+#define CN_FONT_LO   (HID_BUF_HI)
 #define CN_FONT_HI   (CN_FONT_LO + CN_FONT_SIZE)
 
 // We want 10MB for the recompiled blocks of the 'new' PPC Dynarec

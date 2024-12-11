@@ -9,7 +9,7 @@ endif
 
 include $(DEVKITPPC)/wii_rules
 
-INCLUDES := ./ ./common/ ./decompress/
+INCLUDES := ./ ./common/ ./decompress/ ./legacy/
 
 # Directories.
 OBJ_DIR			:= obj/release
@@ -25,7 +25,8 @@ PIPE_TO_SED := 2>&1 | sed "s/:\([0-9]*\):/\(\1\) :/"
 # Library source files.
 SDL_SRCS	:= \
 	$(wildcard $(ZSTDLIB_SRC_DIR)/common/*.c) \
-	$(wildcard $(ZSTDLIB_SRC_DIR)/decompress/*.c)
+	$(wildcard $(ZSTDLIB_SRC_DIR)/decompress/*.c) \
+	$(wildcard $(ZSTDLIB_SRC_DIR)/legacy/*.c)
 
 # Library object files.
 ZSTDLIB_OBJS	:= $(subst $(ZSTDLIB_SRC_DIR),$(ZSTDLIB_OBJ_DIR),$(SDL_SRCS:.c=.o))
@@ -60,7 +61,7 @@ $(LIB_DIR)/libzstd.a: $(ZSTDLIB_OBJS)
 COMMON_FLAGS	:= -g -O2 -DNDEBUG
 INCLUDES		:= -Iinclude -I$(LIBOGC_INC)
 DEFINES			:= -mrvl -DGEKKO -mcpu=750 -meabi -mhard-float -ffunction-sections
-CFLAGS			:= $(COMMON_FLAGS) $(INCLUDES) $(INCLUDE) $(DEFINES) --pedantic -D__BIG_ENDIAN__ -D__powerpc__ -DBIG_ENDIAN -D__BYTE_ORDER__=__ORDER_BIG_ENDIAN__
+CFLAGS			:= $(COMMON_FLAGS) $(INCLUDES) $(INCLUDE) $(DEFINES) --pedantic -D__BIG_ENDIAN__ -D__powerpc__ -DBIG_ENDIAN -D__BYTE_ORDER__=__ORDER_BIG_ENDIAN__ -DZSTD_LEGACY_SUPPORT=4
 
 # Test link flags.
 LDFLAGS			:= $(COMMON_FLAGS) -L$(LIB_DIR) -L$(LIBOGC_LIB) $(PORTLIBS_PATH)/wii/lib

@@ -30,24 +30,24 @@
 #define PAD_CHAN0_BIT                0x80000000
 
 
-static vu32* const MotorCommand = (vu32*)0x93003010;
-static vu32* HID_STATUS = (vu32*)0x93003440;
-static vu32* HID_CHANGE = (vu32*)0x93003444;
-static vu32* HID_CFG_SIZE = (vu32*)0x93003448;
-static vu32* HID_CFG_FILE = (vu32*)0x93003460;
+static vu32* const MotorCommand = (vu32*)HID_MEM2_WIIU_MOTOR_CMD;
+static vu32* HID_STATUS = (vu32*)HID_MEM2_STATUS;
+static vu32* HID_CHANGE = (vu32*)HID_MEM2_CHANGE;
+static vu32* HID_CFG_SIZE = (vu32*)HID_MEM2_CFG_SIZE;
+static vu32* HID_CFG_FILE = (vu32*)HID_MEM2_CFG_SIZE;
 
-static vu32* HIDMotor = (vu32*)0x93003020;
-static vu32* PadUsed = (vu32*)0x93003024;
+static vu32* HIDMotor = (vu32*)HID_MEM2_MOTOR_CMD;
+static vu32* PadUsed = (vu32*)HID_MEM2_PAD_USED;
 
-static vu32* PADIsBarrel = (vu32*)0x93003130;
-static vu32* PADBarrelEnabled = (vu32*)0x93003140;
-static vu32* PADBarrelPress = (vu32*)0x93003150;
+static vu32* PADIsBarrel = (vu32*)HID_MEM2_PAD_IS_BARREL;
+static vu32* PADBarrelEnabled = (vu32*)HID_MEM2_PAD_IS_BARREL;
+static vu32* PADBarrelPress = (vu32*)HID_MEM2_PAD_BARREL_PRESS;
 
-static volatile struct BTPadCont *BTPad = (volatile struct BTPadCont*)0x932F0000;
-static vu32* BTMotor = (vu32*)0x93003040;
-static vu32* BTPadFree = (vu32*)0x93003050;
-static vu32* PADSwitchRequired = (vu32*)0x93003064;
-static vu32* PADForceConnected = (vu32*)0x93003068;
+//static volatile struct BTPadCont *BTPad = (volatile struct BTPadCont*)0x932F0000;
+//static vu32* BTMotor = (vu32*)0x93003040;
+//static vu32* BTPadFree = (vu32*)0x93003050;
+//static vu32* PADSwitchRequired = (vu32*)0x93003064;
+//static vu32* PADForceConnected = (vu32*)0x93003068;
 
 static u32 PrevAdapterChannel1 = 0;
 static u32 PrevAdapterChannel2 = 0;
@@ -55,7 +55,7 @@ static u32 PrevAdapterChannel3 = 0;
 static u32 PrevAdapterChannel4 = 0;
 static u32 PrevDRCButton = 0;
 
-static volatile controller *HID_CTRL = (volatile controller*)0x93005000;
+static volatile controller *HID_CTRL = (volatile controller*)HID_MEM2_CTRL_ADDR;
 
 const s8 DEADZONE = 0x1A;
 
@@ -152,12 +152,12 @@ u32 HidFormatData(void)
     u32 Rumble = 0, memInvalidate, memFlush;
     u32 used = 0;
 
-    PADStatusKernel *Pad = (PADStatusKernel*)(0x93003100); //PadBuff
+    PADStatusKernel *Pad = (PADStatusKernel*)(HID_MEM2_PAD_BUFF); //PadBuff
 
     u32 chan;
 
     u32 HIDMemPrep = 0;
-    vu8* HID_Packet = (vu8*)HID_Packet_ADDR;
+    vu8* HID_Packet = (vu8*)HID_MEM2_PACKET_ADDR;
     #ifdef DISP_DEBUG
     //sprintf(txtbuffer, "HID %08x %08x\r\n", *(u32*)HID_Packet, *((u32*)HID_Packet + 1));
     //DEBUG_print(txtbuffer, DBG_GPU1);
@@ -166,7 +166,7 @@ u32 HidFormatData(void)
     {
         if(HIDMemPrep == 0) // first run
         {
-            HID_Packet = (vu8*)HID_Packet_ADDR; // reset back to default offset
+            HID_Packet = (vu8*)HID_MEM2_PACKET_ADDR; // reset back to default offset
             memInvalidate = (u32)HID_Packet; // prepare memory
             asm volatile("dcbi 0,%0" : : "b"(memInvalidate) : "memory");
             //invalidate cache block for controllers using more than 0x10 bytes
@@ -188,7 +188,7 @@ u32 HidFormatData(void)
 
         if (HID_CTRL->MultiIn == 3)        //multiple controllers connected to a single usb port all in one message
         {
-            HID_Packet = (vu8*)(HID_Packet_ADDR + (chan * HID_CTRL->MultiInValue));    //skip forward how ever many bytes in each controller
+            HID_Packet = (vu8*)(HID_MEM2_PACKET_ADDR + (chan * HID_CTRL->MultiInValue));    //skip forward how ever many bytes in each controller
             u32 HID_CacheEndBlock = ALIGN32(((u32)HID_Packet) + HID_CTRL->MultiInValue); //calculate upper cache block used
             if(HID_CacheEndBlock > HIDMemPrep) //new cache block, prepare memory
             {
@@ -504,23 +504,23 @@ u32 HidFormatData(void)
     }
 
     /* Some games always need the controllers "used" */
-    if(*PADForceConnected)
-    {
-        for(chan = 0; chan < 4; ++chan)
-            used |= (1<<chan);
-    }
-
-    if(*PADSwitchRequired)
-    {
-        *(vu32*)0xD3026438 = (*(vu32*)0xD3026438 == 0) ? 0x20202020 : 0; //switch between new data and no data
-        for(chan = 0; chan < 4; ++chan)
-            Pad[chan].err = ((used & (1<<chan))) ? ((*(vu32*)0xD3026438 == 0) ? -3 : 0) : -1;
-    }
-    else
-    {
-        for(chan = 0; chan < 4; ++chan)
-            Pad[chan].err = ((used & (1<<chan))) ? 0 : -1;
-    }
+//    if(*PADForceConnected)
+//    {
+//        for(chan = 0; chan < 4; ++chan)
+//            used |= (1<<chan);
+//    }
+//
+//    if(*PADSwitchRequired)
+//    {
+//        *(vu32*)0xD3026438 = (*(vu32*)0xD3026438 == 0) ? 0x20202020 : 0; //switch between new data and no data
+//        for(chan = 0; chan < 4; ++chan)
+//            Pad[chan].err = ((used & (1<<chan))) ? ((*(vu32*)0xD3026438 == 0) ? -3 : 0) : -1;
+//    }
+//    else
+//    {
+//        for(chan = 0; chan < 4; ++chan)
+//            Pad[chan].err = ((used & (1<<chan))) ? 0 : -1;
+//    }
     *PadUsed = used;
 
     return Rumble;

@@ -55,7 +55,7 @@ void Focus::updateFocus()
 	int buttonsDown = 0;
 #ifdef HW_RVL
 	WPADData* wiiPad = Input::getInstance().getWpad();
-	PADStatus* hidGcPad = (PADStatus*)(0x93003100); //PadBuff
+	PADStatus* hidGcPad = (PADStatus*)(HID_MEM2_PAD_BUFF); //PadBuff
 	if (hidControllerConnected)
 	{
 		HidFormatData();

@@ -3,6 +3,7 @@
  * Copyright (C) 2014-2021 Paul Cercueil <paul@crapouillou.net>
  */
 
+#include "arch.h"
 #include "blockcache.h"
 #include "debug.h"
 #include "disassembler.h"
@@ -959,7 +960,7 @@ static struct block * generate_wrapper(struct lightrec_state *state)
 	jit_tramp(256);
 
 	/* Load pointer to C wrapper */
-	jit_addr(JIT_R1, JIT_R1, LIGHTREC_REG_STATE);
+	jit_add_state(JIT_R1, JIT_R1);
 	jit_ldxi(JIT_R1, JIT_R1, lightrec_offset(c_wrappers));
 
 	jit_epilog();
@@ -1137,6 +1138,9 @@ static struct block * generate_dispatcher(struct lightrec_state *state)
 		jit_movr(JIT_V(i + FIRST_REG), JIT_V(i + FIRST_REG));
 
 	loop = jit_label();
+
+	if (!arch_has_fast_mask())
+		jit_movi(JIT_R1, 0x1fffffff);
 
 	/* Call the block's code */
 	jit_jmpr(JIT_V1);
@@ -1581,6 +1585,9 @@ int lightrec_compile_block(struct lightrec_cstate *cstate,
 
 	if (OPT_PRELOAD_PC && (block->flags & BLOCK_PRELOAD_PC))
 		lightrec_preload_pc(cstate->reg_cache, _jit);
+
+	if (!arch_has_fast_mask())
+		lightrec_preload_imm(cstate->reg_cache, _jit, JIT_R1, 0x1fffffff);
 
 	cstate->cycles = 0;
 	cstate->nb_local_branches = 0;

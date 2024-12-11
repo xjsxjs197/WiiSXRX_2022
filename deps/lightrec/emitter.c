@@ -3,6 +3,7 @@
  * Copyright (C) 2014-2021 Paul Cercueil <paul@crapouillou.net>
  */
 
+#include "arch.h"
 #include "blockcache.h"
 #include "debug.h"
 #include "disassembler.h"
@@ -247,11 +248,11 @@ static void rec_b(struct lightrec_cstate *state, const struct block *block, u16 
 	struct lightrec_branch *branch;
 	const struct opcode *op = &block->opcode_list[offset],
 			    *ds = get_delay_slot(block->opcode_list, offset);
-	jit_node_t *addr;
 	bool is_forward = (s16)op->i.imm >= 0;
 	int op_cycles = lightrec_cycles_of_opcode(state->state, op->c);
 	u32 target_offset, cycles = state->cycles + op_cycles;
 	bool no_indirection = false;
+	jit_node_t *addr = NULL;
 	u32 next_pc;
 	u8 rs, rt;
 
@@ -941,7 +942,7 @@ static void rec_alu_mult(struct lightrec_cstate *state,
 	u8 reg_lo = get_mult_div_lo(c);
 	u8 reg_hi = get_mult_div_hi(c);
 	jit_state_t *_jit = block->_jit;
-	u8 lo, hi, rs, rt, rflags = 0;
+	u8 lo, hi = 0, rs, rt, rflags = 0;
 	bool no_lo = op_flag_no_lo(flags);
 	bool no_hi = op_flag_no_hi(flags);
 
@@ -1276,10 +1277,16 @@ static void rec_and_mask(struct lightrec_cstate *cstate,
 	struct regcache *reg_cache = cstate->reg_cache;
 	u8 reg_imm;
 
-	reg_imm = lightrec_alloc_reg_temp_with_value(reg_cache, _jit, mask);
-	jit_andr(reg_out, reg_in, reg_imm);
+	if (arch_has_fast_mask()
+	    && (is_low_mask(mask) || is_high_mask(mask))) {
+		jit_andi(reg_out, reg_in, mask);
+	} else {
+		reg_imm = lightrec_alloc_reg_temp_with_value(reg_cache, _jit,
+							     mask);
+		jit_andr(reg_out, reg_in, reg_imm);
 
-	lightrec_free_reg(reg_cache, reg_imm);
+		lightrec_free_reg(reg_cache, reg_imm);
+	}
 }
 
 static void rec_store_memory(struct lightrec_cstate *cstate,
@@ -1293,7 +1300,7 @@ static void rec_store_memory(struct lightrec_cstate *cstate,
 	struct opcode *op = &block->opcode_list[offset];
 	jit_state_t *_jit = block->_jit;
 	union code c = op->c;
-	u8 rs, rt, tmp = 0, tmp2 = 0, tmp3, addr_reg, addr_reg2;
+	u8 rs, rt, tmp = 0, tmp2 = 0, tmp3, addr_reg, addr_reg2, src_reg;
 	s16 imm = (s16)c.i.imm;
 	s32 simm = (s32)imm << (1 - lut_is_32bit(state));
 	s32 lut_offt = lightrec_offset(code_lut);
@@ -1335,25 +1342,23 @@ static void rec_store_memory(struct lightrec_cstate *cstate,
 	}
 
 	rt = lightrec_alloc_reg_in(reg_cache, _jit, in_reg, 0);
+	src_reg = rt;
 
 	if (is_big_endian() && swap_code && in_reg) {
 		tmp3 = lightrec_alloc_reg_temp(reg_cache, _jit);
 
 		jit_new_node_ww(swap_code, tmp3, rt);
 
-		if (c.i.op == OP_META_SWU)
-			jit_unstr(addr_reg2, tmp3, LIGHTNING_UNALIGNED_32BIT);
-		else
-			jit_new_node_www(code, imm, addr_reg2, tmp3);
-
-		lightrec_free_reg(reg_cache, tmp3);
-	} else if (c.i.op == OP_META_SWU) {
-		jit_unstr(addr_reg2, rt, LIGHTNING_UNALIGNED_32BIT);
-	} else {
-		jit_new_node_www(code, imm, addr_reg2, rt);
+		lightrec_free_reg(reg_cache, rt);
+		src_reg = tmp3;
 	}
 
-	lightrec_free_reg(reg_cache, rt);
+	if (c.i.op == OP_META_SWU)
+		jit_unstr(addr_reg2, src_reg, LIGHTNING_UNALIGNED_32BIT);
+	else
+		jit_new_node_www(code, imm, addr_reg2, src_reg);
+
+	lightrec_free_reg(reg_cache, src_reg);
 
 	if (invalidate) {
 		tmp3 = lightrec_alloc_reg_in(reg_cache, _jit, 0, 0);
@@ -1438,7 +1443,7 @@ static void rec_store_direct_no_invalidate(struct lightrec_cstate *cstate,
 	jit_state_t *_jit = block->_jit;
 	jit_node_t *to_not_ram, *to_end;
 	bool swc2 = c.i.op == OP_SWC2;
-	u8 addr_reg, tmp, tmp2 = 0, rs, rt, in_reg = swc2 ? REG_TEMP : c.i.rt;
+	u8 addr_reg, tmp, tmp2 = 0, rs, rt, src_reg, in_reg = swc2 ? REG_TEMP : c.i.rt;
 	s16 imm;
 
 	jit_note(__FILE__, __LINE__);
@@ -1482,25 +1487,23 @@ static void rec_store_direct_no_invalidate(struct lightrec_cstate *cstate,
 	}
 
 	rt = lightrec_alloc_reg_in(reg_cache, _jit, in_reg, 0);
+	src_reg = rt;
 
 	if (is_big_endian() && swap_code && in_reg) {
 		tmp2 = lightrec_alloc_reg_temp(reg_cache, _jit);
 
 		jit_new_node_ww(swap_code, tmp2, rt);
+		src_reg = tmp2;
 
-		if (c.i.op == OP_META_SWU)
-			jit_unstr(tmp, tmp2, LIGHTNING_UNALIGNED_32BIT);
-		else
-			jit_new_node_www(code, imm, tmp, tmp2);
-
-		lightrec_free_reg(reg_cache, tmp2);
-	} else if (c.i.op == OP_META_SWU) {
-		jit_unstr(tmp, rt, LIGHTNING_UNALIGNED_32BIT);
-	} else {
-		jit_new_node_www(code, imm, tmp, rt);
+		lightrec_free_reg(reg_cache, rt);
 	}
 
-	lightrec_free_reg(reg_cache, rt);
+	if (c.i.op == OP_META_SWU)
+		jit_unstr(tmp, src_reg, LIGHTNING_UNALIGNED_32BIT);
+	else
+		jit_new_node_www(code, imm, tmp, src_reg);
+
+	lightrec_free_reg(reg_cache, src_reg);
 	lightrec_free_reg(reg_cache, tmp);
 }
 
@@ -1514,7 +1517,7 @@ static void rec_store_direct(struct lightrec_cstate *cstate, const struct block 
 	jit_state_t *_jit = block->_jit;
 	jit_node_t *to_not_ram, *to_end;
 	bool swc2 = c.i.op == OP_SWC2;
-	u8 addr_reg, tmp, tmp2, tmp3, rs, rt, reg_imm;
+	u8 src_reg, addr_reg, tmp, tmp2, tmp3, rs, rt, reg_imm;
 	u8 in_reg = swc2 ? REG_TEMP : c.i.rt;
 	u32 mask;
 	bool different_offsets = state->offset_ram != state->offset_scratch;
@@ -1595,25 +1598,23 @@ static void rec_store_direct(struct lightrec_cstate *cstate, const struct block 
 	lightrec_free_reg(reg_cache, reg_imm);
 
 	rt = lightrec_alloc_reg_in(reg_cache, _jit, in_reg, 0);
+	src_reg = rt;
 
 	if (is_big_endian() && swap_code && in_reg) {
 		tmp = lightrec_alloc_reg_temp(reg_cache, _jit);
 
 		jit_new_node_ww(swap_code, tmp, rt);
+		src_reg = tmp;
 
-		if (c.i.op == OP_META_SWU)
-			jit_unstr(tmp2, tmp, LIGHTNING_UNALIGNED_32BIT);
-		else
-			jit_new_node_www(code, 0, tmp2, tmp);
-
-		lightrec_free_reg(reg_cache, tmp);
-	} else if (c.i.op == OP_META_SWU) {
-		jit_unstr(tmp2, rt, LIGHTNING_UNALIGNED_32BIT);
-	} else {
-		jit_new_node_www(code, 0, tmp2, rt);
+		lightrec_free_reg(reg_cache, rt);
 	}
 
-	lightrec_free_reg(reg_cache, rt);
+	if (c.i.op == OP_META_SWU)
+		jit_unstr(tmp2, src_reg, LIGHTNING_UNALIGNED_32BIT);
+	else
+		jit_new_node_www(code, 0, tmp2, src_reg);
+
+	lightrec_free_reg(reg_cache, src_reg);
 	lightrec_free_reg(reg_cache, tmp2);
 }
 
@@ -1875,18 +1876,18 @@ static void rec_load_direct(struct lightrec_cstate *cstate,
 		else
 			addr_mask = 0x1fffffff;
 
-		reg_imm = lightrec_alloc_reg_temp_with_value(reg_cache, _jit,
-							     addr_mask);
 		if (!state->mirrors_mapped) {
+			reg_imm = lightrec_alloc_reg_temp_with_value(reg_cache, _jit,
+								     addr_mask);
 			jit_andi(tmp, addr_reg, BIT(28));
 			jit_rshi_u(tmp, tmp, 28 - 22);
 			jit_orr(tmp, tmp, reg_imm);
 			jit_andr(rt, addr_reg, tmp);
-		} else {
-			jit_andr(rt, addr_reg, reg_imm);
-		}
 
-		lightrec_free_reg(reg_cache, reg_imm);
+			lightrec_free_reg(reg_cache, reg_imm);
+		} else {
+			rec_and_mask(cstate, _jit, rt, addr_reg, addr_mask);
+		}
 
 		if (state->offset_ram) {
 			offt_reg = lightrec_get_reg_with_value(reg_cache,
