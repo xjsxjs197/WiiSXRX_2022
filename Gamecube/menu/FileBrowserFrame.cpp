@@ -170,7 +170,7 @@ void FileBrowserFrame::drawChildren(menu::Graphics &gfx)
 	{
 #ifdef HW_RVL
 		WPADData* wiiPad = menu::Input::getInstance().getWpad();
-		PADStatus* hidGcPad = (PADStatus*)(0x93003100); //PadBuff
+		PADStatus* hidGcPad = (PADStatus*)(HID_MEM2_PAD_BUFF); //PadBuff
 #endif
 		for (int i=0; i<4; i++)
 		{

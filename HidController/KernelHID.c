@@ -31,7 +31,7 @@
 extern int dbgprintf( const char *fmt, ...);
 #endif
 
-static u8 *kb_input = (u8*)0x93026C60;
+//static u8 *kb_input = (u8*)0x93026C60;
 
 #define GetDeviceChange 1
 #define GetDeviceParameters 3
@@ -116,13 +116,14 @@ static s32 HIDControlMessage(u32 isKBreq, u8 *Data, u32 Length, u32 RequestType,
 
 static s32 ipcCallBack(s32 result, void *usrdata);
 
-static controller *HID_CTRL = (controller*)HID_CTRL_ADDR;
-static void *HID_Packet = (void*)HID_Packet_ADDR;
+static controller *HID_CTRL = (controller*)HID_MEM2_CTRL_ADDR;
+static void *HID_Packet = (void*)HID_MEM2_PACKET_ADDR;
+static vu32 MotorCommand = HID_MEM2_MOTOR_CMD;
 
-#define HID_STATUS 0x93003440
-#define HID_CHANGE HID_STATUS + 4
-#define HID_CFG_SIZE HID_STATUS + 8
-#define HID_CFG_FILE 0x93003460
+#define HID_STATUS      HID_MEM2_STATUS
+#define HID_CHANGE      HID_MEM2_CHANGE
+#define HID_CFG_SIZE    HID_MEM2_CFG_SIZE
+#define HID_CFG_FILE    HID_MEM2_CFG_FILE
 
 
 #define READ_CONTROLLER_MSG   1
@@ -164,10 +165,10 @@ static s32 ipcCallBack(s32 result, void *usrdata)
     {
         hidread = 1;
     }
-    else if (msgParam->msgData == READ_KEYBOARD_MSG)
-    {
-        keyboardread = 1;
-    }
+//    else if (msgParam->msgData == READ_KEYBOARD_MSG)
+//    {
+//        keyboardread = 1;
+//    }
     else if (msgParam->msgData == HID_CHANGE_MSG)
     {
         if (result >= 0)
@@ -198,8 +199,8 @@ void HIDInit( u32 ios )
     if (ios != 58)
     {
         #ifdef DISP_DEBUG
-        sprintf(txtbuffer, "IOS Ver is not 58\r\n");
-        writeLogFile(txtbuffer);
+//        sprintf(txtbuffer, "IOS Ver is not 58\r\n");
+//        writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
         return;
     }
@@ -213,8 +214,8 @@ void HIDInit( u32 ios )
     if (checkRet == 0x40001)
     {
         #ifdef DISP_DEBUG
-        sprintf(txtbuffer, "HID chk V4 error\r\n");
-        writeLogFile(txtbuffer);
+//        sprintf(txtbuffer, "HID chk V4 error\r\n");
+//        writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
         IOS_Close(HIDHandle);
         iosFree(hId, hid_ver);
@@ -225,8 +226,8 @@ void HIDInit( u32 ios )
     if (checkRet  || hid_ver[0] != 0x50001)
     {
         #ifdef DISP_DEBUG
-        sprintf(txtbuffer, "HID chk V5 error %08x %05x\r\n", checkRet, hid_ver[0]);
-        writeLogFile(txtbuffer);
+//        sprintf(txtbuffer, "HID chk V5 error %08x %05x\r\n", checkRet, hid_ver[0]);
+//        writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
         IOS_Close(HIDHandle);
         iosFree(hId, hid_ver);
@@ -265,8 +266,8 @@ void HIDInit( u32 ios )
     checkRet = IOS_IoctlAsync(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, ATTACHED_DEVICES_SIZE, ipcCallBack, comMsg);
     //hidchange = 1;
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "GetDeviceChange %08x\r\n", checkRet);
-    writeLogFile(txtbuffer);
+//    sprintf(txtbuffer, "GetDeviceChange %08x\r\n", checkRet);
+//    writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
     hidRun = 1;
@@ -279,8 +280,8 @@ void HIDInit( u32 ios )
 
     usleep(100);
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "HIDInit end\r\n");
-    writeLogFile(txtbuffer);
+//    sprintf(txtbuffer, "HIDInit end\r\n");
+//    writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 }
 
@@ -303,9 +304,9 @@ static s32 HIDOpen( u32 LoaderRequest )
         if(AttachedDevices[i].vid != 0)
         {
             #ifdef DISP_DEBUG
-            sprintf(txtbuffer, "Device VID %05x PID %05x\r\n", AttachedDevices[i].vid, AttachedDevices[i].pid);
-            writeLogFile(txtbuffer);
-            DEBUG_print(txtbuffer, DBG_CORE3);
+//            sprintf(txtbuffer, "Device VID %05x PID %05x\r\n", AttachedDevices[i].vid, AttachedDevices[i].pid);
+//            writeLogFile(txtbuffer);
+//            DEBUG_print(txtbuffer, DBG_CORE3);
             #endif // DISP_DEBUG
             u32 DeviceID = AttachedDevices[i].device_id;
             if(DeviceID == ControllerID)
@@ -314,11 +315,11 @@ static s32 HIDOpen( u32 LoaderRequest )
                 hidControllerConnected = 1;
                 continue;
             }
-            if(DeviceID == KeyboardID)
-            {
-                HIDKeyboardConnected = 1;
-                continue;
-            }
+//            if(DeviceID == KeyboardID)
+//            {
+//                HIDKeyboardConnected = 1;
+//                continue;
+//            }
             DeviceVID = AttachedDevices[i].vid;
             DevicePID = AttachedDevices[i].pid;
 
@@ -330,8 +331,8 @@ static s32 HIDOpen( u32 LoaderRequest )
             io_buffer[2] = 1; //resume device
             chkRet = IOS_Ioctl(HIDHandle, ResumeDevice, io_buffer, 0x20, NULL, 0);
             #ifdef DISP_DEBUG
-            sprintf(txtbuffer, "ResumeDevice %05x\r\n", chkRet);
-            writeLogFile(txtbuffer);
+//            sprintf(txtbuffer, "ResumeDevice %05x\r\n", chkRet);
+//            writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
 
             memset(HIDHeap, 0, 0x60);
@@ -341,8 +342,8 @@ static s32 HIDOpen( u32 LoaderRequest )
             io_buffer[2] = 0;
             chkRet = IOS_Ioctl(HIDHandle, GetDeviceParameters, io_buffer, 0x20, HIDHeap, 0x60);
             #ifdef DISP_DEBUG
-            sprintf(txtbuffer, "GetDeviceParameters %05x\r\n", chkRet);
-            writeLogFile(txtbuffer);
+//            sprintf(txtbuffer, "GetDeviceParameters %05x\r\n", chkRet);
+//            writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
 
             u32 Offset = 36;
@@ -380,42 +381,43 @@ static s32 HIDOpen( u32 LoaderRequest )
             dbgprintf("HID:wMaxPacketSize  :%u\r\n", wMaxPacketSize );
 
             #ifdef DISP_DEBUG
-            sprintf(txtbuffer, "Chk %04x %04x %04x\r\n", bInterfaceClass, bInterfaceSubClass, bInterfaceProtocol);
-            writeLogFile(txtbuffer);
+//            sprintf(txtbuffer, "Chk %04x %04x %04x\r\n", bInterfaceClass, bInterfaceSubClass, bInterfaceProtocol);
+//            writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
 
-            if(!HIDKeyboardConnected &&
-                (bInterfaceClass == USB_CLASS_HID) &&
-                (bInterfaceSubClass == USB_SUBCLASS_BOOT) &&
-                (bInterfaceProtocol == USB_PROTOCOL_KEYBOARD))
-            {
-                dbgprintf("HID:Keyboard detected\r\n");
-                KeyboardID = DeviceID;
-                bEndpointAddressKeyboard = bEndpointAddress;
-                #ifdef DISP_DEBUG
-                sprintf(txtbuffer, "HIDKeyboardConnected %08x\r\n", bEndpointAddress);
-                writeLogFile(txtbuffer);
-                #endif // DISP_DEBUG
-                HIDKeyboardConnected = 1;
-                //set to boot protocol (0)
-                chkRet = HIDControlMessage(1, NULL, 0, USB_REQTYPE_INTERFACE_SET, USB_REQ_SETPROTOCOL, 0, 0);
-                #ifdef DISP_DEBUG
-                sprintf(txtbuffer, "HIDKeyboard CTRL MSG %08x\r\n", chkRet);
-                writeLogFile(txtbuffer);
-                #endif // DISP_DEBUG
-                //start reading data
-                HIDInterruptMessage(1, kbbuf, 8, bEndpointAddressKeyboard, READ_KEYBOARD_MSG);
-                //keyboardread = 1;
-                if(HIDControllerConnected)
-                    break;
-            }
-            else if(!HIDControllerConnected &&
+//            if(!HIDKeyboardConnected &&
+//                (bInterfaceClass == USB_CLASS_HID) &&
+//                (bInterfaceSubClass == USB_SUBCLASS_BOOT) &&
+//                (bInterfaceProtocol == USB_PROTOCOL_KEYBOARD))
+//            {
+//                dbgprintf("HID:Keyboard detected\r\n");
+//                KeyboardID = DeviceID;
+//                bEndpointAddressKeyboard = bEndpointAddress;
+//                #ifdef DISP_DEBUG
+////                sprintf(txtbuffer, "HIDKeyboardConnected %08x\r\n", bEndpointAddress);
+////                writeLogFile(txtbuffer);
+//                #endif // DISP_DEBUG
+//                HIDKeyboardConnected = 1;
+//                //set to boot protocol (0)
+//                chkRet = HIDControlMessage(1, NULL, 0, USB_REQTYPE_INTERFACE_SET, USB_REQ_SETPROTOCOL, 0, 0);
+//                #ifdef DISP_DEBUG
+////                sprintf(txtbuffer, "HIDKeyboard CTRL MSG %08x\r\n", chkRet);
+////                writeLogFile(txtbuffer);
+//                #endif // DISP_DEBUG
+//                //start reading data
+//                HIDInterruptMessage(1, kbbuf, 8, bEndpointAddressKeyboard, READ_KEYBOARD_MSG);
+//                //keyboardread = 1;
+//                if(HIDControllerConnected)
+//                    break;
+//            }
+//            else
+            if(!HIDControllerConnected &&
                 (bInterfaceProtocol != USB_PROTOCOL_KEYBOARD) &&
                 (bInterfaceProtocol != USB_PROTOCOL_MOUSE))
             {
                 #ifdef DISP_DEBUG
-                sprintf(txtbuffer, "HIDControllerConnected \r\n");
-                writeLogFile(txtbuffer);
+//                sprintf(txtbuffer, "HIDControllerConnected \r\n");
+//                writeLogFile(txtbuffer);
                 #endif // DISP_DEBUG
 
                 memset(ps3buf, 0, 64);
@@ -463,8 +465,8 @@ static s32 HIDOpen( u32 LoaderRequest )
                         HID_CTRL->VID = DeviceVID;
 
                         #ifdef DISP_DEBUG
-                        sprintf(txtbuffer, "Waiting LoadHIDControllerIni\r\n");
-                        writeLogFile(txtbuffer);
+                        //sprintf(txtbuffer, "Waiting LoadHIDControllerIni\r\n");
+                        //writeLogFile(txtbuffer);
                         #endif // DISP_DEBUG
                         loadingControllerIni = 1;
                         while (hidRun)
@@ -504,14 +506,14 @@ static s32 HIDOpen( u32 LoaderRequest )
                         }
                     }
                     #ifdef DISP_DEBUG
-                    sprintf(txtbuffer, "HIDController ID %05x\r\n", HID_CTRL->VID);
-                    writeLogFile(txtbuffer);
+                    //sprintf(txtbuffer, "HIDController ID %05x\r\n", HID_CTRL->VID);
+                    //writeLogFile(txtbuffer);
                     #endif // DISP_DEBUG
                     if(Data == NULL)
                     {
                         #ifdef DISP_DEBUG
-                        sprintf(txtbuffer, "HIDController Data NULL\r\n");
-                        writeLogFile(txtbuffer);
+                        //sprintf(txtbuffer, "HIDController Data NULL\r\n");
+                        //writeLogFile(txtbuffer);
                         #endif // DISP_DEBUG
                         continue;
                     }
@@ -719,8 +721,8 @@ static s32 HIDOpen( u32 LoaderRequest )
 
                 HIDControllerConnected = 1;
                 hidControllerConnected = 1;
-                if (HIDKeyboardConnected)
-                    break;
+//                if (HIDKeyboardConnected)
+//                    break;
             }
         }
     }
@@ -729,8 +731,8 @@ static s32 HIDOpen( u32 LoaderRequest )
     iosFree(hId, HIDHeap);
 
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "HIDOpen ConnInfo %d %d \r\n", HIDControllerConnected, HIDKeyboardConnected);
-    writeLogFile(txtbuffer);
+    //sprintf(txtbuffer, "HIDOpen ConnInfo %d %d \r\n", HIDControllerConnected, HIDKeyboardConnected);
+    //writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
     hidread = 0;
     if( !HIDControllerConnected )
@@ -756,18 +758,18 @@ static s32 HIDOpen( u32 LoaderRequest )
         }
     }
 
-    keyboardread = 0;
-    if ( !HIDKeyboardConnected )
-    {
-        dbgprintf("HID:No keyboard connected!\r\n");
-        KeyboardID = 0;
-        memset(kb_input, 0, 8);
-    }
-    else {
-        //(re)start reading
-        HIDInterruptMessage(1, kbbuf, 8, bEndpointAddressKeyboard, READ_KEYBOARD_MSG);
-        //keyboardread = 1;
-    }
+//    keyboardread = 0;
+//    if ( !HIDKeyboardConnected )
+//    {
+//        dbgprintf("HID:No keyboard connected!\r\n");
+//        KeyboardID = 0;
+//        memset(kb_input, 0, 8);
+//    }
+//    else {
+//        //(re)start reading
+//        HIDInterruptMessage(1, kbbuf, 8, bEndpointAddressKeyboard, READ_KEYBOARD_MSG);
+//        //keyboardread = 1;
+//    }
 
     return 0;
 }
@@ -922,8 +924,8 @@ static void HIDGCInit()
     if( ret < 0 )
     {
         #ifdef DISP_DEBUG
-        sprintf(txtbuffer, "HIDGCInit error %08x\r\n", ret);
-        writeLogFile(txtbuffer);
+//        sprintf(txtbuffer, "HIDGCInit error %08x\r\n", ret);
+//        writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
     }
 }
@@ -937,8 +939,8 @@ static void HIDPS3Init()
     if( ret < 0 )
     {
         #ifdef DISP_DEBUG
-        sprintf(txtbuffer, "HIDPS3Init error %08x\r\n", ret);
-        writeLogFile(txtbuffer);
+//        sprintf(txtbuffer, "HIDPS3Init error %08x\r\n", ret);
+//        writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
     }
     iosFree(hId, buf);
@@ -990,7 +992,6 @@ static void HIDPS3SetRumble( u8 duration_right, u8 power_right, u8 duration_left
 }
 
 static vu32 HIDRumbleCurrent = 0, HIDRumbleLast = 0;
-static vu32 MotorCommand = 0x93003020;
 
 static void HIDPS3Read()
 {
@@ -1242,11 +1243,11 @@ static u32 ConfigGetDecValue( char *Data, const char *EntryName, u32 Entry )
     return ret;
 }
 
-static void KeyboardRead()
-{
-    memcpy(kb_input, kbbuf, 8);
-    HIDInterruptMessage(1, kbbuf, 8, bEndpointAddressKeyboard, READ_KEYBOARD_MSG);
-}
+//static void KeyboardRead()
+//{
+//    memcpy(kb_input, kbbuf, 8);
+//    HIDInterruptMessage(1, kbbuf, 8, bEndpointAddressKeyboard, READ_KEYBOARD_MSG);
+//}
 
 static void HIDUpdateRegisters(u32 LoaderRequest)
 {
@@ -1263,8 +1264,8 @@ static void HIDUpdateRegisters(u32 LoaderRequest)
             else
             {
                 #ifdef DISP_DEBUG
-                sprintf(txtbuffer, "AttachFinish\r\n");
-                writeLogFile(txtbuffer);
+//                sprintf(txtbuffer, "AttachFinish\r\n");
+//                writeLogFile(txtbuffer);
                 #endif // DISP_DEBUG
                 hidchange = 0;
                 hidwaittimer = 0;
@@ -1282,8 +1283,8 @@ static void HIDUpdateRegisters(u32 LoaderRequest)
             comMsg->msgData = HID_CHANGE_MSG;
             u32 checkRet = IOS_IoctlAsync(HIDHandle, GetDeviceChange, NULL, 0, AttachedDevices, ATTACHED_DEVICES_SIZE, ipcCallBack, comMsg);
             #ifdef DISP_DEBUG
-            sprintf(txtbuffer, "GetDeviceChange %08x\r\n", checkRet);
-            writeLogFile(txtbuffer);
+//            sprintf(txtbuffer, "GetDeviceChange %08x\r\n", checkRet);
+//            writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
             //hidchange = 1;
         }
@@ -1304,11 +1305,11 @@ static void HIDUpdateRegisters(u32 LoaderRequest)
                 hidread = 0;
                 if(HIDRead) HIDRead();
             }
-            if(keyboardread == 1)
-            {
-                keyboardread = 0;
-                KeyboardRead();
-            }
+//            if(keyboardread == 1)
+//            {
+//                keyboardread = 0;
+//                KeyboardRead();
+//            }
         }
         HID_Timer = gettime();
     }
@@ -1325,11 +1326,11 @@ void HIDReadData(void)
             hidread = 0;
             if(HIDRead) HIDRead();
         }
-        if(keyboardread == 1)
-        {
-            keyboardread = 0;
-            KeyboardRead();
-        }
+//        if(keyboardread == 1)
+//        {
+//            keyboardread = 0;
+//            KeyboardRead();
+//        }
         if (RumbleEnabled)
         {
             HIDRumbleCurrent = *((u32*)(MotorCommand));

@@ -77,7 +77,7 @@ void IplFont::loadFontFile(FILE* charPngFile)
         fseek(charPngFile, 0, SEEK_END);
         fontSize = (int)ftell(charPngFile);
         searchLen = (int)(fontSize / (CHAR_IMG_SIZE + 4));
-        fontBuffer = (u8*) __lwp_heap_allocate(GXtexCache, fontSize);
+        fontBuffer = (u8*) RECMEM2_LO;
 
         fseek(charPngFile, 0, SEEK_SET);
         fread(fontBuffer, 1, fontSize, charPngFile);
@@ -110,7 +110,7 @@ void IplFont::loadFontFile(FILE* charPngFile)
     }
     if (charPngFile != NULL)
     {
-        __lwp_heap_free(GXtexCache, fontBuffer);
+        //__lwp_heap_free(GXtexCache, fontBuffer);
     }
 }
 

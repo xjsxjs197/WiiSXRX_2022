@@ -7,10 +7,32 @@ extern "C" {
 
 #include "global.h"
 #include "PS3Controller.h"
+#include "../Gamecube/MEM2.h"
 
 #define C_NOT_SET	(0<<0)
-#define HID_CTRL_ADDR                    0x93005000
-#define HID_Packet_ADDR                  0x93005100
+//#define HID_CTRL_ADDR                    0x93005000
+//#define HID_Packet_ADDR                  0x93005100
+
+/////////////////////////////
+
+#define HID_MEM2_WIIU_MOTOR_CMD          (HID_BUF_LO + 0x10)   // MotorCommand 0x93003010
+#define HID_MEM2_MOTOR_CMD               (HID_BUF_LO + 0x20)   // MotorCommand 0x93003020
+#define HID_MEM2_PAD_USED                (HID_BUF_LO + 0x24)   // PadUsed      0x93003024
+#define HID_MEM2_PAD_BUFF                (HID_BUF_LO + 0x100)  // PadBuff      0x93003100
+
+#define HID_MEM2_PAD_IS_BARREL           (HID_BUF_LO + 0x130)  // PADIsBarrel      0x93003130
+#define HID_MEM2_PAD_BARREL_ENABLED      (HID_BUF_LO + 0x140)  // PADBarrelEnabled 0x93003140
+#define HID_MEM2_PAD_BARREL_PRESS        (HID_BUF_LO + 0x150)  // PADBarrelPress   0x93003150
+
+#define HID_MEM2_STATUS                  (HID_BUF_LO + 0x440)  // HID_STATUS      0x93003440
+#define HID_MEM2_CHANGE                  (HID_BUF_LO + 0x444)  // HID_CHANGE      0x93003444
+#define HID_MEM2_CFG_SIZE                (HID_BUF_LO + 0x448)  // HID_CFG_SIZE    0x93003448
+#define HID_MEM2_CFG_FILE                (HID_BUF_LO + 0x460)  // HID_CFG_FILE    0x93003460
+
+#define HID_MEM2_CTRL_ADDR               (HID_BUF_LO + 0x600)  // HID_CTRL_ADDR   0x93005000
+#define HID_MEM2_PACKET_ADDR             (HID_BUF_LO + 0x700)  // HID_Packet_ADDR 0x93005100
+
+///////////////////////////////
 
 #define USB_REPTYPE_FEATURE                             0x03
 #define USB_REPTYPE_OUTPUT                              0x02

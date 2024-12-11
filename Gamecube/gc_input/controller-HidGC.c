@@ -111,7 +111,7 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
     PAD_SubStick_X = 0;
     int i;
 
-    PADStatus *Pad = (PADStatus*)(0x93003100); //PadBuff
+    PADStatus *Pad = (PADStatus*)(HID_MEM2_PAD_BUFF); //PadBuff
     HidFormatData();
     //for(i = 0; i < PAD_CHANMAX; ++i) TODO
     for(i = 0; i < 1; ++i)
@@ -174,7 +174,7 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
     return 0;
 }
 
-static u32* MotorCommand = (u32*)(0x93003020);
+static u32* MotorCommand = (u32*)(HID_MEM2_MOTOR_CMD);
 
 static void pause(int Control){
     *MotorCommand = PAD_MOTOR_STOP;
