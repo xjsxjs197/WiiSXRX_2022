@@ -1664,6 +1664,12 @@ void PrepareFullScreenUpload ( int Position )
 ////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////
+static short clearMovieGarbageFlg = 0;
+static short clearMovieGarbageCnt = 0;
+static short clearMovieGarbageX0 = 0;
+static short clearMovieGarbageX1 = 0;
+static short clearMovieGarbageY0 = 0;
+static short clearMovieGarbageY1 = 0;
 
 void UploadScreen ( int Position )
 {
@@ -1685,11 +1691,50 @@ void UploadScreen ( int Position )
 
     if ( bSkipNextFrame ) return;
 
-#ifdef DISP_DEBUG
-//    sprintf ( txtbuffer, "UploadScreen %d %d %d %d %d %d %d\r\n", Position, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0 );
-//    DEBUG_print ( txtbuffer, DBG_SPU3 );
-//    writeLogFile ( txtbuffer );
-#endif // DISP_DEBUG
+    if (PSXDisplay.RGB24)
+    {
+        #ifdef DISP_DEBUG
+        sprintf ( txtbuffer, "UploadScreen %d %d %d %d %d %d %d\r\n", Position, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0 );
+        DEBUG_print ( txtbuffer, DBG_SPU2 );
+        writeLogFile ( txtbuffer );
+        #endif // DISP_DEBUG
+
+        if (clearMovieGarbageFlg == 1 && clearMovieGarbageCnt++ < 3)
+        {
+            int realMovieHeight = clearMovieGarbageY1 - clearMovieGarbageY0;
+            int clearH = (xrUploadArea.y1 - xrUploadArea.y0 - realMovieHeight);
+
+            // clear top area
+            int startY = xrUploadArea.y0;
+            #ifdef DISP_DEBUG
+            sprintf ( txtbuffer, "clear1 %d %d %d %d\r\n", clearMovieGarbageX0, clearMovieGarbageX1, startY, xrUploadArea.y0 + clearH);
+            DEBUG_print ( txtbuffer, DBG_SPU2 );
+            writeLogFile ( txtbuffer );
+            #endif // DISP_DEBUG
+            for (; startY < xrUploadArea.y0 + clearH; startY++)
+            {
+                memset(psxVuw + (startY << 10) + clearMovieGarbageX0, 0, (clearMovieGarbageX1 - clearMovieGarbageX0) * 2);
+            }
+
+            // clear bottom area
+            startY = xrUploadArea.y1 - clearH;
+            int endY = xrUploadArea.y1;
+            #ifdef DISP_DEBUG
+            sprintf ( txtbuffer, "clear2 %d %d %d %d\r\n", clearMovieGarbageX0, clearMovieGarbageX1, startY, endY);
+            DEBUG_print ( txtbuffer, DBG_SPU2 );
+            writeLogFile ( txtbuffer );
+            #endif // DISP_DEBUG
+            for (; startY < endY; startY++)
+            {
+                memset(psxVuw + (startY << 10) + clearMovieGarbageX0, 0, (clearMovieGarbageX1 - clearMovieGarbageX0) * 2);
+            }
+        }
+    }
+    else
+    {
+        clearMovieGarbageCnt = 0;
+    }
+
 
 //if(dwActFixes & 2) {UploadScreenEx(Position);return;}
 
@@ -2114,11 +2159,41 @@ static void primLoadImage ( unsigned char * baseAddr )
     VRAMWrite.Width  = GETLEs16 ( &sgpuData[4] );
     VRAMWrite.Height = GETLEs16 ( &sgpuData[5] );
 
-#ifdef DISP_DEBUG
-//    sprintf ( txtbuffer, "primLoadImage %d %d %d %d\r\n", VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height );
-//    DEBUG_print ( txtbuffer, DBG_SPU1 );
-    //writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+    // clear movie garbage
+    if (PSXDisplay.RGB24)
+    {
+        #ifdef DISP_DEBUG
+        sprintf ( txtbuffer, "primLoadImage %d %d %d %d %d %d\r\n", VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height, PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560, PSXDisplay.Height );
+        DEBUG_print ( txtbuffer, DBG_SPU1 );
+        writeLogFile(txtbuffer);
+        #endif // DISP_DEBUG
+
+        if ((clearMovieGarbageFlg == 0 || clearMovieGarbageCnt == 1) && VRAMWrite.Height < PSXDisplay.Height)
+        {
+            clearMovieGarbageFlg = 1;
+            if (clearMovieGarbageCnt == 1) clearMovieGarbageCnt = 2;
+            clearMovieGarbageX0 = VRAMWrite.x;
+            clearMovieGarbageY0 = VRAMWrite.y;
+            clearMovieGarbageY1 = VRAMWrite.y + VRAMWrite.Height;
+        }
+        if (clearMovieGarbageFlg == 1)
+        {
+            clearMovieGarbageX1 = VRAMWrite.x + VRAMWrite.Width;
+        }
+    }
+    else
+    {
+        #ifdef DISP_DEBUG
+        if (clearMovieGarbageFlg == 1)
+        {
+            sprintf ( txtbuffer, "primLoadImage end\r\n");
+            DEBUG_print ( txtbuffer, DBG_SPU1 );
+            writeLogFile(txtbuffer);
+        }
+        #endif // DISP_DEBUG
+        clearMovieGarbageFlg = 0;
+        clearMovieGarbageCnt = 0;
+    }
 
     iDataWriteMode = DR_VRAMTRANSFER;
     VRAMWrite.ImagePtr = psxVuw + ( VRAMWrite.y << 10 ) + VRAMWrite.x;
