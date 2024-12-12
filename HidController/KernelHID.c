@@ -274,9 +274,8 @@ void HIDInit( u32 ios )
     HID_Timer = gettime();
     LWP_CreateThread(&HID_Thread, HIDRun, NULL, NULL, 0, 70);
 
-    memset((void*)HID_STATUS, 0, 0x20);
-    memset(HID_Packet, 0, 128);
-    memset(HID_CTRL, 0, sizeof(controller));
+    // clear all hid buffer
+    memset((void*)HID_BUF_LO, 0, HID_BUF_SIZE);
 
     usleep(100);
     #ifdef DISP_DEBUG
