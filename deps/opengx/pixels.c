@@ -245,13 +245,13 @@ void _ogx_scramble_4b_sub(unsigned char *src, void *dst,
                 for (blockWi = 0; blockWi < 4; blockWi++) {
                     if ((wi + blockWi) >= width)
                     {
-                        *(unsigned short*)p = *(unsigned short*)(p - 2);
-                        *(unsigned short*)(p + 32) = *(unsigned short*)(p + 32 - 2);
+                        *(unsigned short*)p = 0;
+                        *(unsigned short*)(p + 32) = 0;
                     }
                     else if ((he + blockHe) >= height)
                     {
-                        *(unsigned short*)p = *(unsigned short*)(p - 8);
-                        *(unsigned short*)(p + 32) = *(unsigned short*)(p + 32 - 8);
+                        *(unsigned short*)p = 0;
+                        *(unsigned short*)(p + 32) = 0;
                     }
                     else
                     {
@@ -284,13 +284,13 @@ void _ogx_scramble_4b(unsigned char *src, void *dst,
                 for (argb = 0; argb < 4; argb++) {
                     if ((i + argb) >= width)
                     {
-                        *(unsigned short*)p = *(unsigned short*)(p - 2);
-                        *(unsigned short*)(p + 32) = *(unsigned short*)(p + 32 - 2);
+                        *(unsigned short*)p = 0;
+                        *(unsigned short*)(p + 32) = 0;
                     }
                     else if ((block + c) >= height)
                     {
-                        *(unsigned short*)p = *(unsigned short*)(p - 8);
-                        *(unsigned short*)(p + 32) = *(unsigned short*)(p + 32 - 8);
+                        *(unsigned short*)p = 0;
+                        *(unsigned short*)(p + 32) = 0;
                     }
                     else
                     {
