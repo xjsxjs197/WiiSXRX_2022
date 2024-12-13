@@ -243,15 +243,10 @@ void _ogx_scramble_4b_sub(unsigned char *src, void *dst,
         for (wi = 0; wi < width; wi += 4) {
             for (blockHe = 0; blockHe < 4; blockHe++) {
                 for (blockWi = 0; blockWi < 4; blockWi++) {
-                    if ((wi + blockWi) >= width)
+                    if ((wi + blockWi) >= width || (he + blockHe) >= height)
                     {
-                        *(unsigned short*)p = 0;
-                        *(unsigned short*)(p + 32) = 0;
-                    }
-                    else if ((he + blockHe) >= height)
-                    {
-                        *(unsigned short*)p = 0;
-                        *(unsigned short*)(p + 32) = 0;
+                        //*(unsigned short*)p = 0;
+                        //*(unsigned short*)(p + 32) = 0;
                     }
                     else
                     {
