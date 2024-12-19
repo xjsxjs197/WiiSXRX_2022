@@ -2168,7 +2168,7 @@ static void primLoadImage ( unsigned char * baseAddr )
         writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
 
-        if ((clearMovieGarbageFlg == 0 || clearMovieGarbageCnt == 1) && VRAMWrite.Height < PSXDisplay.Height)
+        if ((clearMovieGarbageFlg == 0 || clearMovieGarbageCnt == 1) && (VRAMWrite.Height > 100 && VRAMWrite.Height < PSXDisplay.Height))
         {
             clearMovieGarbageFlg = 1;
             if (clearMovieGarbageCnt == 1) clearMovieGarbageCnt = 2;
