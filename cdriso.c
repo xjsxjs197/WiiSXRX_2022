@@ -46,7 +46,6 @@ unsigned int cdrIsoMultidiskCount;
 unsigned int cdrIsoMultidiskSelect;
 
 static FILE *cdHandle = NULL;
-static FILE *cddaHandle = NULL;
 static FILE *subHandle = NULL;
 
 static bool subChanMixed = FALSE;
@@ -154,6 +153,24 @@ static inline void tok2msf(char *time, char *msf) {
 	else {
 		msf[2] = 0;
 	}
+}
+
+// Some c libs like newlib default buffering to just 1k which is less than
+// cd sector size which is bad for performance.
+// Note that NULL setvbuf() is implemented differently by different libs
+// (newlib mallocs a buffer of given size and glibc ignores size and uses it's own).
+static void set_static_stdio_buffer(FILE *f)
+{
+#if !defined(fopen) // no stdio redirect
+	static char buf[16 * 1024];
+	if (f) {
+		int r;
+		errno = 0;
+		r = setvbuf(f, buf, _IOFBF, sizeof(buf));
+		if (r)
+			SysPrintf("cdriso: setvbuf %d %d\n", r, errno);
+	}
+#endif
 }
 
 // this function tries to get the .toc file of the given .bin
@@ -462,6 +479,7 @@ static int parsecue(const char *isofile) {
 				// user selected .cue/.cdX as image file, use it's data track instead
 				fclose(cdHandle);
 				cdHandle = fopen(filepath, "rb");
+				set_static_stdio_buffer(cdHandle);
 			}
 		}
 	}
@@ -935,13 +953,23 @@ fail_io:
 static int handlechd(const char *isofile) {
 	int frame_offset = 150;
 	int file_offset = 0;
+	int is_chd_ext = 0;
+	chd_error err;
 
+	if (strlen(isofile) >= 3) {
+		const char *ext = isofile + strlen(isofile) - 3;
+		is_chd_ext = !strcasecmp(ext, "chd");
+	}
 	chd_img = calloc(1, sizeof(*chd_img));
 	if (chd_img == NULL)
 		goto fail_io;
 
-	if(chd_open(isofile, CHD_OPEN_READ, NULL, &chd_img->chd) != CHDERR_NONE)
+	err = chd_open_file(cdHandle, CHD_OPEN_READ, NULL, &chd_img->chd);
+	if (err != CHDERR_NONE) {
+		if (is_chd_ext)
+			SysPrintf("chd_open: %d\n", err);
 		goto fail_io;
+	}
 
 	chd_img->header = chd_get_header(chd_img->chd);
 
@@ -1031,9 +1059,8 @@ static int opensubfile(const char *isoname) {
 	}
 
 	subHandle = fopen(subname, "rb");
-	if (subHandle == NULL) {
+	if (subHandle == NULL)
 		return -1;
-	}
 
 	return 0;
 }
@@ -1343,6 +1370,7 @@ static long CALLBACK ISOopen(void) {
 		return -1;
 	}
 
+	set_static_stdio_buffer(cdHandle);
 	sprintf(image_str, "Loaded CD Image: %s", GetIsoFile());
 
 	cddaBigEndian = TRUE;
@@ -1419,6 +1447,7 @@ static long CALLBACK ISOopen(void) {
 			bin_filename = alt_bin_filename;
 			fclose(cdHandle);
 			cdHandle = tmpf;
+			set_static_stdio_buffer(cdHandle);
 			fseeko(cdHandle, 0, SEEK_END);
 
 			isoFile.size = ftello(cdHandle);
@@ -1471,8 +1500,6 @@ static long CALLBACK ISOclose(void) {
 		fclose(subHandle);
 		subHandle = NULL;
 	}
-
-	cddaHandle = NULL;
 
 	if (compr_img != NULL) {
 		free(compr_img->index_table);
