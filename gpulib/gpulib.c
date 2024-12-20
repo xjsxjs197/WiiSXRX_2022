@@ -16,21 +16,13 @@
 #include "gpu.h"
 #include "gpu_timing.h"
 #include "../gpu.h" // meh
+#include "../compiler_features.h"
 #include "../SoftGPU/externals.h"
 #include "../Gamecube/wiiSXconfig.h"
 
 unsigned long  dwEmuFixes;
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-#ifdef __GNUC__
-#define unlikely(x) __builtin_expect((x), 0)
-#define preload __builtin_prefetch
-#define noinline __attribute__((noinline))
-#else
-#define unlikely(x)
-#define preload(...)
-#define noinline
-#endif
 
 //#define log_io gpu_log
 #define log_io(...)
