@@ -76,7 +76,7 @@ typedef struct {
 	void (*setframelimit)(unsigned long);
 } gpu_t;
 
-void gpu_state_change(int what);
+void gpu_state_change(int what, int cycles);
 
 extern gpu_t oldSoftGpu;
 extern gpu_t newSoftGpu;
