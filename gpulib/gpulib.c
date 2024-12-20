@@ -225,7 +225,7 @@ static noinline void get_gpu_info(uint32_t data)
 	// fills. (Will change this value if it ever gets large page support)
 	#define VRAM_ALIGN 8192
 #else
-	#define VRAM_ALIGN 16
+	#define VRAM_ALIGN 64
 #endif
 
 // vram ptr received from mmap/malloc/alloc (will deallocate using this)
@@ -233,7 +233,7 @@ static uint16_t *vram_ptr_orig = NULL;
 uint8_t globalVram[VRAM_SIZE + (VRAM_ALIGN - 1)];
 
 #ifndef GPULIB_USE_MMAP
-# ifdef __linux__
+# if defined(__linux__) || defined(_3DS) || defined(HAVE_LIBNX) || defined(VITA)
 #  define GPULIB_USE_MMAP 1
 # else
 #  define GPULIB_USE_MMAP 0
@@ -303,6 +303,7 @@ long LIB_GPUshutdown(void)
 void LIB_GPUwriteStatus(uint32_t data)
 {
   uint32_t cmd = data >> 24;
+  uint32_t fb_dirty = 1;
   int src_x, src_y;
 
   if (cmd < ARRAY_SIZE(gpu.regs)) {
@@ -311,8 +312,6 @@ void LIB_GPUwriteStatus(uint32_t data)
     gpu.regs[cmd] = data;
   }
 
-  gpu.state.fb_dirty = 1;
-
   switch (cmd) {
     case 0x00:
       do_reset();
@@ -320,6 +319,7 @@ void LIB_GPUwriteStatus(uint32_t data)
       break;
     case 0x01:
       do_cmd_reset();
+      fb_dirty = 0;
       break;
     // dis/enable display
     case 0x03:
@@ -335,6 +335,7 @@ void LIB_GPUwriteStatus(uint32_t data)
     case 0x04:
       gpu.status &= ~PSX_GPU_STATUS_DMA_MASK;
       gpu.status |= PSX_GPU_STATUS_DMA(data & 3);
+      fb_dirty = 0;
       break;
     // setting display position
     case 0x05:
@@ -374,8 +375,11 @@ void LIB_GPUwriteStatus(uint32_t data)
     default:
       if ((cmd & 0xf0) == 0x10)
         get_gpu_info(data);
+      fb_dirty = 0;
       break;
   }
+
+  gpu.state.fb_dirty |= fb_dirty;
 
 #ifdef GPUwriteStatus_ext
   GPUwriteStatus_ext(data);
@@ -518,7 +522,20 @@ static void finish_vram_transfer(int is_read)
   if (is_read)
     gpu.status &= ~PSX_GPU_STATUS_IMG;
   else {
-    gpu.state.fb_dirty = 1;
+    int32_t screen_r = gpu.screen.src_x + gpu.screen.hres;
+    int32_t screen_b = gpu.screen.src_y + gpu.screen.vres;
+    int32_t dma_r = gpu.dma_start.x + gpu.dma_start.w;
+    int32_t dma_b = gpu.dma_start.y + gpu.dma_start.h;
+    int32_t not_dirty;
+    not_dirty  = screen_r - gpu.dma_start.x - 1;
+    not_dirty |= screen_b - gpu.dma_start.y - 1;
+    not_dirty |= dma_r - gpu.screen.src_x - 1;
+    not_dirty |= dma_b - gpu.screen.src_y - 1;
+    not_dirty >>= 31;
+    log_io("dma %3d,%3d %dx%d scr %3d,%3d %3dx%3d -> dirty %d\n",
+      gpu.dma_start.x, gpu.dma_start.y, gpu.dma_start.w, gpu.dma_start.h,
+      gpu.screen.src_x, gpu.screen.src_y, gpu.screen.hres, gpu.screen.vres, !not_dirty);
+    gpu.state.fb_dirty |= !not_dirty;
     renderer_update_caches(gpu.dma_start.x, gpu.dma_start.y,
                            gpu.dma_start.w, gpu.dma_start.h, 0);
   }
@@ -648,7 +665,7 @@ static noinline int do_cmd_buffer(uint32_t *data, int count,
   for (pos = 0; pos < count; )
   {
     if (gpu.dma.h && !gpu.dma_start.is_read) { // XXX: need to verify
-      vram_dirty = 1;
+      // vram_dirty = 1; // handled in finish_vram_transfer()
       pos += do_vram_io(data + pos, count - pos, 0);
       if (pos == count)
         break;
@@ -679,8 +696,9 @@ static noinline int do_cmd_buffer(uint32_t *data, int count,
       pos += 4;
       continue;
     }
-    else if (cmd == 0x1f) {
-      log_anomaly(gpu, "irq1?\n");
+    else if (cmd < 0x20 && cmd != 2) {
+      if (cmd == 0x1f)
+        log_anomaly("irq1?\n");
       pos++;
       continue;
     }

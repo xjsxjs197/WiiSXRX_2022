@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../../include/compiler_features.h"
+#include "../compiler_features.h"
 #include "gpu.h"
 
 // retain neon's ability to sample textures pixel-perfectly
