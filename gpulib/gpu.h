@@ -15,8 +15,8 @@
 
 //#define RAW_FB_DISPLAY
 
-#define gpu_log(fmt, ...) \
-  printf("%d:%03d: " fmt, *gpu.state.frame_count, *gpu.state.hcnt, ##__VA_ARGS__)
+#define gpu_log(gpu, fmt, ...) \
+  printf("%d:%03d: " fmt, *(gpu)->state.frame_count, *(gpu)->state.hcnt, ##__VA_ARGS__)
 
 //#define log_anomaly gpu_log
 #define log_anomaly(...)
@@ -158,7 +158,7 @@ struct psx_gpu {
     (int *x, int *y, int *w, int *h, int *vram_h);
   void *(*mmap)(unsigned int size);
   void  (*munmap)(void *ptr, unsigned int size);
-  void  (*gpu_state_change)(int what); // psx_gpu_state
+  void  (*gpu_state_change)(int what, int cycles); // psx_gpu_state
 };
 
 extern struct psx_gpu gpu;
@@ -188,6 +188,8 @@ void vout_update(void);
 void vout_blank(void);
 void vout_set_config(const struct rearmed_cbs *config);
 
+int  prim_try_simplify_quad_t (void *simplified, const void *prim);
+int  prim_try_simplify_quad_gt(void *simplified, const void *prim);
 
 #ifdef __cplusplus
 }

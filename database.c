@@ -136,6 +136,8 @@ cycle_multiplier_overrides[] =
     { 200, { "SCPS10118", "SCPS91230", "SCPS91328" } },
     /* Brave Fencer Musashi - cd sectors arrive too fast */
     { 170, { "SLUS00726", "SLPS01490" } },
+    /* Eagle One: Harrier Attack - hangs (but not in standalone build?) */
+    { 153, { "SLUS00943" } },
     /* Vandal Hearts */
     { 125, { "SLUS00447", "SLES00204", "SCPS45183" } },
     { 125, { "SLPM86007", "SLPM86067", "SLPM87278" } },
@@ -156,11 +158,15 @@ cycle_multiplier_overrides[] =
     /* on 'new' PPC Dynarec this game works correctly but not on Lightrec nor Interpreter */
     /* Power Rangers: Lightspeed Rescue - jumping fails if FPS is over 30 */
     { 310, { "SLUS01114", "SLES03286" } },
+    /* Psychic Detective - some weird race condition in the game's cdrom code */
+    { 200, { "SLUS00165", "SLUS00166", "SLUS00167" } },
+    { 200, { "SLES00070", "SLES10070", "SLES20070" } },
+    /* Sol Divide - FMV timing */
+    { 200, { "SLUS01519", "SCPS45260", "SLPS01463" } },
     /* Syphon Filter - reportedly hangs under unknown conditions */
     { 169, { "SCUS94240" } },
-    /* Psychic Detective - some weird race condition in the game's cdrom code */
-    { 222, { "SLUS00165", "SLUS00166", "SLUS00167" } },
-    { 222, { "SLES00070", "SLES10070", "SLES20070" } },
+    /* Vib-Ribbon - cd timing issues (PAL+ari64drc only?) */
+    { 200, { "SCES02873" } },
     /* Zero Divide - sometimes too fast */
     { 200, { "SLUS00183", "SLES00159", "SLPS00083", "SLPM80008" } },
 };

@@ -34,10 +34,12 @@
  */
  
 /*
- * >= 10 for Galerians
+ * >= 14 for Sol Divide
  * <= 18 for "Disney's Treasure Planet"
+ * Psychic Detective may break on *any* change
  */
-#define MDEC_BIAS 10
+#define MDEC_BIAS 14
+#define MDEC_DELAY 1024
 
 #define DSIZE			8
 #define DSIZE2			(DSIZE * DSIZE)
@@ -323,11 +325,21 @@ static const unsigned short *rl2blk(int *blk, const unsigned short *mdec_rl) {
 #define	SCALE8(c)				SCALER(c, 20) 
 #define SCALE5(c)				SCALER(c, 23)
 
-#define CLAMP5(c)	( ((c) < -16) ? 0 : (((c) > (31 - 16)) ? 31 : ((c) + 16)) )
-#define CLAMP8(c)	( ((c) < -128) ? 0 : (((c) > (255 - 128)) ? 255 : ((c) + 128)) )
+static inline int clamp5(int v)
+{
+	v += 16;
+	v = v < 0 ? 0 : (v > 31 ? 31 : v);
+	return v;
+}
+static inline int clamp8(int v)
+{
+	v += 128;
+	v = v < 0 ? 0 : (v > 255 ? 255 : v);
+	return v;
+}
 
-#define CLAMP_SCALE8(a)   (CLAMP8(SCALE8(a)))
-#define CLAMP_SCALE5(a)   (CLAMP5(SCALE5(a)))
+#define CLAMP_SCALE8(a)   (clamp8(SCALE8(a)))
+#define CLAMP_SCALE5(a)   (clamp5(SCALE5(a)))
 
 static inline void putlinebw15(u16 *image, int *Yblk) {
 	int i;
@@ -336,7 +348,7 @@ static inline void putlinebw15(u16 *image, int *Yblk) {
 	for (i = 0; i < 8; i++, Yblk++) {
 		int Y = *Yblk;
 		// missing rounding
-		image[i] = SWAP16((CLAMP5(Y >> 3) * 0x421) | A);
+		image[i] = SWAP16((clamp5(Y >> 3) * 0x421) | A);
 	}
 }
 
@@ -385,7 +397,7 @@ static inline void putlinebw24(u8 * image, int *Yblk) {
 	int i;
 	unsigned char Y;
 	for (i = 0; i < 8 * 3; i += 3, Yblk++) {
-		Y = CLAMP8(*Yblk);
+		Y = clamp8(*Yblk);
 		image[i + 0] = Y;
 		image[i + 1] = Y;
 		image[i + 2] = Y;
@@ -643,9 +655,9 @@ void psxDma1(u32 adr, u32 bcr, u32 chcr) {
 		log_unhandled("mdec: bork\n");
 	
 	/* define the power of mdec */
-	set_event(PSXINT_MDECOUTDMA, words * MDEC_BIAS);
+	set_event(PSXINT_MDECOUTDMA, words * MDEC_BIAS + MDEC_DELAY);
 	/* some CPU stalling */
-	psxRegs.cycle += words;
+	psxRegs.cycle += words * MDEC_BIAS / 4;
 }
 
 void mdec1Interrupt() {
