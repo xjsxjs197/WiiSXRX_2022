@@ -157,6 +157,7 @@ typedef struct glparams_
 
     GLenum error;
     short globalTextABR;
+    short RGB24;
 } glparams_;
 
 extern glparams_ _ogx_state;

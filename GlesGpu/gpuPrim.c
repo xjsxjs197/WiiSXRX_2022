@@ -282,9 +282,9 @@ static __inline void PRIMdrawTexGouraudTriColor ( OGLVertex* vertex1, OGLVertex*
     v[0].xyz.z = fpoint ( vertex1->z );
     v[0].st.x = fpoint ( vertex1->sow );
     v[0].st.y = fpoint ( vertex1->tow );
-    v[0].rgba.r = vertex1->c.col.r;
+    v[0].rgba.r = vertex1->c.col.b;
     v[0].rgba.g = vertex1->c.col.g;
-    v[0].rgba.b = vertex1->c.col.b;
+    v[0].rgba.b = vertex1->c.col.r;
     v[0].rgba.a = vertex1->c.col.a;
 
     v[1].xyz.x = fpoint ( vertex2->x );
@@ -292,9 +292,9 @@ static __inline void PRIMdrawTexGouraudTriColor ( OGLVertex* vertex1, OGLVertex*
     v[1].xyz.z = fpoint ( vertex2->z );
     v[1].st.x = fpoint ( vertex2->sow );
     v[1].st.y = fpoint ( vertex2->tow );
-    v[1].rgba.r = vertex2->c.col.r;
+    v[1].rgba.r = vertex2->c.col.b;
     v[1].rgba.g = vertex2->c.col.g;
-    v[1].rgba.b = vertex2->c.col.b;
+    v[1].rgba.b = vertex2->c.col.r;
     v[1].rgba.a = vertex2->c.col.a;
 
     v[2].xyz.x = fpoint ( vertex3->x );
@@ -302,9 +302,9 @@ static __inline void PRIMdrawTexGouraudTriColor ( OGLVertex* vertex1, OGLVertex*
     v[2].xyz.z = fpoint ( vertex3->z );
     v[2].st.x = fpoint ( vertex3->sow );
     v[2].st.y = fpoint ( vertex3->tow );
-    v[2].rgba.r = vertex3->c.col.r;
+    v[2].rgba.r = vertex3->c.col.b;
     v[2].rgba.g = vertex3->c.col.g;
-    v[2].rgba.b = vertex3->c.col.b;
+    v[2].rgba.b = vertex3->c.col.r;
     v[2].rgba.a = vertex3->c.col.a;
 
     if ( CSTEXTURE == 0 ) glEnableClientState ( GL_TEXTURE_COORD_ARRAY );
@@ -345,9 +345,9 @@ static __inline void PRIMdrawTexGouraudTriColorQuad ( OGLVertex* vertex1, OGLVer
     v[0].xyz.z = fpoint ( vertex1->z );
     v[0].st.x = fpoint ( vertex1->sow );
     v[0].st.y = fpoint ( vertex1->tow );
-    v[0].rgba.r = vertex1->c.col.r;
+    v[0].rgba.r = vertex1->c.col.b;
     v[0].rgba.g = vertex1->c.col.g;
-    v[0].rgba.b = vertex1->c.col.b;
+    v[0].rgba.b = vertex1->c.col.r;
     v[0].rgba.a = vertex1->c.col.a;
 
     v[1].xyz.x = fpoint ( vertex2->x );
@@ -355,9 +355,9 @@ static __inline void PRIMdrawTexGouraudTriColorQuad ( OGLVertex* vertex1, OGLVer
     v[1].xyz.z = fpoint ( vertex2->z );
     v[1].st.x = fpoint ( vertex2->sow );
     v[1].st.y = fpoint ( vertex2->tow );
-    v[1].rgba.r = vertex2->c.col.r;
+    v[1].rgba.r = vertex2->c.col.b;
     v[1].rgba.g = vertex2->c.col.g;
-    v[1].rgba.b = vertex2->c.col.b;
+    v[1].rgba.b = vertex2->c.col.r;
     v[1].rgba.a = vertex2->c.col.a;
 
     v[2].xyz.x = fpoint ( vertex4->x );
@@ -365,9 +365,9 @@ static __inline void PRIMdrawTexGouraudTriColorQuad ( OGLVertex* vertex1, OGLVer
     v[2].xyz.z = fpoint ( vertex4->z );
     v[2].st.x = fpoint ( vertex4->sow );
     v[2].st.y = fpoint ( vertex4->tow );
-    v[2].rgba.r = vertex4->c.col.r;
+    v[2].rgba.r = vertex4->c.col.b;
     v[2].rgba.g = vertex4->c.col.g;
-    v[2].rgba.b = vertex4->c.col.b;
+    v[2].rgba.b = vertex4->c.col.r;
     v[2].rgba.a = vertex4->c.col.a;
 
     v[3].xyz.x = fpoint ( vertex3->x );
@@ -375,9 +375,9 @@ static __inline void PRIMdrawTexGouraudTriColorQuad ( OGLVertex* vertex1, OGLVer
     v[3].xyz.z = fpoint ( vertex3->z );
     v[3].st.x = fpoint ( vertex3->sow );
     v[3].st.y = fpoint ( vertex3->tow );
-    v[3].rgba.r = vertex3->c.col.r;
+    v[3].rgba.r = vertex3->c.col.b;
     v[3].rgba.g = vertex3->c.col.g;
-    v[3].rgba.b = vertex3->c.col.b;
+    v[3].rgba.b = vertex3->c.col.r;
     v[3].rgba.a = vertex3->c.col.a;
 
     if ( CSTEXTURE == 0 ) glEnableClientState ( GL_TEXTURE_COORD_ARRAY );
@@ -504,25 +504,25 @@ static __inline void PRIMdrawGouraudTriColor ( OGLVertex* vertex1, OGLVertex* ve
     v[0].xyz.x = fpoint ( vertex1->x );
     v[0].xyz.y = fpoint ( vertex1->y );
     v[0].xyz.z = fpoint ( vertex1->z );
-    v[0].rgba.r = vertex1->c.col.r;
+    v[0].rgba.r = vertex1->c.col.b;
     v[0].rgba.g = vertex1->c.col.g;
-    v[0].rgba.b = vertex1->c.col.b;
+    v[0].rgba.b = vertex1->c.col.r;
     v[0].rgba.a = vertex1->c.col.a;
 
     v[1].xyz.x = fpoint ( vertex2->x );
     v[1].xyz.y = fpoint ( vertex2->y );
     v[1].xyz.z = fpoint ( vertex2->z );
-    v[1].rgba.r = vertex2->c.col.r;
+    v[1].rgba.r = vertex2->c.col.b;
     v[1].rgba.g = vertex2->c.col.g;
-    v[1].rgba.b = vertex2->c.col.b;
+    v[1].rgba.b = vertex2->c.col.r;
     v[1].rgba.a = vertex2->c.col.a;
 
     v[2].xyz.x = fpoint ( vertex3->x );
     v[2].xyz.y = fpoint ( vertex3->y );
     v[2].xyz.z = fpoint ( vertex3->z );
-    v[2].rgba.r = vertex3->c.col.r;
+    v[2].rgba.r = vertex3->c.col.b;
     v[2].rgba.g = vertex3->c.col.g;
-    v[2].rgba.b = vertex3->c.col.b;
+    v[2].rgba.b = vertex3->c.col.r;
     v[2].rgba.a = vertex3->c.col.a;
 
     if ( CSVERTEX == 0 ) glEnableClientState ( GL_VERTEX_ARRAY );
@@ -561,33 +561,33 @@ static __inline void PRIMdrawGouraudTri2Color ( OGLVertex* vertex1, OGLVertex* v
     v[0].xyz.x = fpoint ( vertex1->x );
     v[0].xyz.y = fpoint ( vertex1->y );
     v[0].xyz.z = fpoint ( vertex1->z );
-    v[0].rgba.r = vertex1->c.col.r;
+    v[0].rgba.r = vertex1->c.col.b;
     v[0].rgba.g = vertex1->c.col.g;
-    v[0].rgba.b = vertex1->c.col.b;
+    v[0].rgba.b = vertex1->c.col.r;
     v[0].rgba.a = vertex1->c.col.a;
 
     v[1].xyz.x = fpoint ( vertex2->x );
     v[1].xyz.y = fpoint ( vertex2->y );
     v[1].xyz.z = fpoint ( vertex2->z );
-    v[1].rgba.r = vertex2->c.col.r;
+    v[1].rgba.r = vertex2->c.col.b;
     v[1].rgba.g = vertex2->c.col.g;
-    v[1].rgba.b = vertex2->c.col.b;
+    v[1].rgba.b = vertex2->c.col.r;
     v[1].rgba.a = vertex2->c.col.a;
 
     v[2].xyz.x = fpoint ( vertex3->x );
     v[2].xyz.y = fpoint ( vertex3->y );
     v[2].xyz.z = fpoint ( vertex3->z );
-    v[2].rgba.r = vertex3->c.col.r;
+    v[2].rgba.r = vertex3->c.col.b;
     v[2].rgba.g = vertex3->c.col.g;
-    v[2].rgba.b = vertex3->c.col.b;
+    v[2].rgba.b = vertex3->c.col.r;
     v[2].rgba.a = vertex3->c.col.a;
 
     v[3].xyz.x = fpoint ( vertex4->x );
     v[3].xyz.y = fpoint ( vertex4->y );
     v[3].xyz.z = fpoint ( vertex4->z );
-    v[3].rgba.r = vertex4->c.col.r;
+    v[3].rgba.r = vertex4->c.col.b;
     v[3].rgba.g = vertex4->c.col.g;
-    v[3].rgba.b = vertex4->c.col.b;
+    v[3].rgba.b = vertex4->c.col.r;
     v[3].rgba.a = vertex4->c.col.a;
 
     if ( CSTEXTURE == 1 ) glDisableClientState ( GL_TEXTURE_COORD_ARRAY );
@@ -624,33 +624,33 @@ static __inline void PRIMdrawFlatLine ( OGLVertex* vertex1, OGLVertex* vertex2, 
     v[0].xyz.x = fpoint ( vertex1->x );
     v[0].xyz.y = fpoint ( vertex1->y );
     v[0].xyz.z = fpoint ( vertex1->z );
-    v[0].rgba.r = vertex1->c.col.r;
+    v[0].rgba.r = vertex1->c.col.b;
     v[0].rgba.g = vertex1->c.col.g;
-    v[0].rgba.b = vertex1->c.col.b;
+    v[0].rgba.b = vertex1->c.col.r;
     v[0].rgba.a = vertex1->c.col.a;
 
     v[1].xyz.x = fpoint ( vertex2->x );
     v[1].xyz.y = fpoint ( vertex2->y );
     v[1].xyz.z = fpoint ( vertex2->z );
-    v[1].rgba.r = vertex1->c.col.r;
+    v[1].rgba.r = vertex1->c.col.b;
     v[1].rgba.g = vertex1->c.col.g;
-    v[1].rgba.b = vertex1->c.col.b;
+    v[1].rgba.b = vertex1->c.col.r;
     v[1].rgba.a = vertex1->c.col.a;
 
     v[2].xyz.x = fpoint ( vertex4->x );
     v[2].xyz.y = fpoint ( vertex4->y );
     v[2].xyz.z = fpoint ( vertex4->z );
-    v[2].rgba.r = vertex1->c.col.r;
+    v[2].rgba.r = vertex1->c.col.b;
     v[2].rgba.g = vertex1->c.col.g;
-    v[2].rgba.b = vertex1->c.col.b;
+    v[2].rgba.b = vertex1->c.col.r;
     v[2].rgba.a = vertex1->c.col.a;
 
     v[3].xyz.x = fpoint ( vertex3->x );
     v[3].xyz.y = fpoint ( vertex3->y );
     v[3].xyz.z = fpoint ( vertex3->z );
-    v[3].rgba.r = vertex1->c.col.r;
+    v[3].rgba.r = vertex1->c.col.b;
     v[3].rgba.g = vertex1->c.col.g;
-    v[3].rgba.b = vertex1->c.col.b;
+    v[3].rgba.b = vertex1->c.col.r;
     v[3].rgba.a = vertex1->c.col.a;
 
     if ( CSTEXTURE == 1 ) glDisableClientState ( GL_TEXTURE_COORD_ARRAY );
@@ -689,33 +689,33 @@ static __inline void PRIMdrawGouraudLine ( OGLVertex* vertex1, OGLVertex* vertex
     v[0].xyz.x = fpoint ( vertex1->x );
     v[0].xyz.y = fpoint ( vertex1->y );
     v[0].xyz.z = fpoint ( vertex1->z );
-    v[0].rgba.r = vertex1->c.col.r;
+    v[0].rgba.r = vertex1->c.col.b;
     v[0].rgba.g = vertex1->c.col.g;
-    v[0].rgba.b = vertex1->c.col.b;
+    v[0].rgba.b = vertex1->c.col.r;
     v[0].rgba.a = vertex1->c.col.a;
 
     v[1].xyz.x = fpoint ( vertex2->x );
     v[1].xyz.y = fpoint ( vertex2->y );
     v[1].xyz.z = fpoint ( vertex2->z );
-    v[1].rgba.r = vertex2->c.col.r;
+    v[1].rgba.r = vertex2->c.col.b;
     v[1].rgba.g = vertex2->c.col.g;
-    v[1].rgba.b = vertex2->c.col.b;
+    v[1].rgba.b = vertex2->c.col.r;
     v[1].rgba.a = vertex2->c.col.a;
 
     v[3].xyz.x = fpoint ( vertex3->x );
     v[3].xyz.y = fpoint ( vertex3->y );
     v[3].xyz.z = fpoint ( vertex3->z );
-    v[3].rgba.r = vertex3->c.col.r;
+    v[3].rgba.r = vertex3->c.col.b;
     v[3].rgba.g = vertex3->c.col.g;
-    v[3].rgba.b = vertex3->c.col.b;
+    v[3].rgba.b = vertex3->c.col.r;
     v[3].rgba.a = vertex3->c.col.a;
 
     v[2].xyz.x = fpoint ( vertex4->x );
     v[2].xyz.y = fpoint ( vertex4->y );
     v[2].xyz.z = fpoint ( vertex4->z );
-    v[2].rgba.r = vertex4->c.col.r;
+    v[2].rgba.r = vertex4->c.col.b;
     v[2].rgba.g = vertex4->c.col.g;
-    v[2].rgba.b = vertex4->c.col.b;
+    v[2].rgba.b = vertex4->c.col.r;
     v[2].rgba.a = vertex4->c.col.a;
 
     if ( CSTEXTURE == 1 ) glDisableClientState ( GL_TEXTURE_COORD_ARRAY );

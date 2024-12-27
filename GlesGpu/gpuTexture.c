@@ -220,11 +220,14 @@ unsigned short MAXSORTTEX    = MAXSORTTEX_MAX;
 // porting... and honestly: nowadays the speed gain would be pointless
 ////////////////////////////////////////////////////////////////////////
 
-// BGR => big endian(argb)
+// BGR => big endian(argb) (for movie PSXDisplay.RGB24 = false)
+// bgr555 => bgr5A3(In order to be consistent with [PSXDisplay.RGB24=true], 4 bytes were used)
 unsigned int XP8RGBA_0(unsigned int BGR)
 {
- if(!(BGR&0xffff)) return 0x50000000;
- return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
+    if (!(BGR & 0xffff)) return 0xffff0000;
+ //return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
+ //return (((BGR&0x1f)<<11)|((BGR&0x3E0)<<1)|((BGR&200)>>4)|((BGR&0x7C00)>>10))|0xffff0000;
+    return BGR | 0xffff8000;
 }
 
 // BGR => big endian(argb)
@@ -246,11 +249,14 @@ unsigned int XP8RGBA_1(unsigned int BGR)
  return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
 }
 
-// BGR => big endian(argb)
+// BGR => big endian(argb) (for other texture)
+// bgr555 => bgr5A3(2 bytes were used, Can save half of the memory)
 unsigned int P8RGBA(unsigned int BGR)
 {
- if(!(BGR&0xffff)) return 0;
- return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
+    if (!(BGR&0xffff)) return 0;
+ //return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
+ //return (((BGR&0x1f)<<11)|((BGR&0x3E0)<<1)|((BGR&200)>>4)|((BGR&0x7C00)>>10))|0xffff0000;
+    return BGR | 0x8000;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -676,13 +682,13 @@ void InvalidateTextureArea(int X,int Y,int W, int H)
 
 void DefineTextureWnd(void)
 {
+    glSetRGB24( 0 );
+
     if (gTexName==0)
     {
         glGenTextures(1, &gTexName);
         glError();
         glBindTextureBef(GL_TEXTURE_2D, gTexName);glError();
-
-        //glInitRGBATextures(TWin.Position.x1, TWin.Position.y1);
         glError();
     }
     else
@@ -690,10 +696,10 @@ void DefineTextureWnd(void)
         glBindTextureBef(GL_TEXTURE_2D, gTexName);glError();
     }
 
-    glTexImage2D(GL_TEXTURE_2D, 0,GL_RGBA,
+    glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB,
         TWin.Position.x1,
         TWin.Position.y1,
-        0, GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
+        0, GL_RGB, GL_UNSIGNED_BYTE, texturepart); glError();
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -1194,6 +1200,8 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
 
 void DefineTextureMovie(void)
 {
+    glSetRGB24( PSXDisplay.RGB24 );
+
  if(gTexMovieName==0)
   {
    glGenTextures(1, &gTexMovieName); glError();
@@ -1306,8 +1314,8 @@ GLuint LoadTextureMovie(void)
          pD=(unsigned char *)&psxVuw[startxy];
          for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
           {
-           //PUTLE32(ta++, *((unsigned int *)pD)|SWAP32_C(0xff000000));
-           *ta++ = (*((unsigned int *)pD) >> 8) | 0xff000000;
+           PUTLE32(ta++, *((unsigned int *)pD)|SWAP32_C(0xff000000));
+           //*ta++ = (*((unsigned int *)pD) >> 8) | 0xff000000;
            pD+=3;
           }
         }
@@ -2347,6 +2355,7 @@ void Super2xSaI_ex8(unsigned char *srcPtr, DWORD srcPitch,
 
 void DefineSubTextureSort(void)
 {
+    glSetRGB24( 0 );
 
  if(!gTexName)
   {

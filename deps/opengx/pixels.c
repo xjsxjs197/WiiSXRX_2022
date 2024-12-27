@@ -246,24 +246,22 @@ void _ogx_scramble_4b_sub(unsigned char *src, void *dst,
                     if ((wi + blockWi) >= width || (he + blockHe) >= height)
                     {
                         //*(unsigned short*)p = 0;
-                        //*(unsigned short*)(p + 32) = 0;
                     }
                     else
                     {
-                        *(unsigned short*)p = *(unsigned short*)(src + ((wi + blockWi) + ((he + blockHe) * width)) * 4);            // AR
-                        *(unsigned short*)(p + 32) = *(unsigned short*)(src + ((wi + blockWi) + ((he + blockHe) * width)) * 4 + 2); // GB
+                        // RGB5A3(Actually, it's the original BGR555 of PSX, Can be efficiently converted to Wii RGB5A3)
+                        *(unsigned short*)(p) = *(unsigned short*)(src + ((wi + blockWi) + ((he + blockHe) * width)) * 4 + 2);
                     }
                     p += 2;
                 }
             }
-            p += 32;
         }
-        p += (oldWidthBlock - newWidthBlock) * 64;
+        p += (oldWidthBlock - newWidthBlock) * 32;
     }
 }
 
-// 4b texel scrambling, opengx conversion: src(rgba) -> dst(ar...gb)
-// custom corrected: src(abgr) -> dst(ar...gb)
+// 4b texel scrambling, opengx conversion: src(argb) -> dst(ar...gb)
+// for movie
 void _ogx_scramble_4b(unsigned char *src, void *dst,
                       const unsigned int width, const unsigned int height)
 {
@@ -291,6 +289,35 @@ void _ogx_scramble_4b(unsigned char *src, void *dst,
                 }
             }
             p += 32;
+        }
+    }
+}
+
+// 4b texel scrambling, opengx conversion: src(4 bytes bgr555) -> dst(2 bytes bgr5a3)
+void _ogx_scramble_4b_5a3(unsigned char *src, void *dst,
+                      const unsigned int width, const unsigned int height)
+{
+    unsigned int block;
+    unsigned int i;
+    unsigned char c;
+    unsigned char argb;
+    unsigned char *p = (unsigned char *)dst;
+
+    for (block = 0; block < height; block += 4) {
+        for (i = 0; i < width; i += 4) {
+            for (c = 0; c < 4; c++) {
+                for (argb = 0; argb < 4; argb++) {
+                    if ((i + argb) >= width || (block + c) >= height)
+                    {
+                        *(unsigned short*)p = 0;
+                    }
+                    else
+                    {
+                        *(unsigned short*)(p) = *(unsigned short*)(src + ((i + argb) + ((block + c) * width)) * 4 + 2);
+                    }
+                    p += 2;
+                }
+            }
         }
     }
 }

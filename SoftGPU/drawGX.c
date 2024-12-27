@@ -136,7 +136,9 @@ void gc_vout_render(void)
 void gx_vout_render(void)
 {
 	// reset swap table from GUI/DEBUG
-	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_RED, GX_CH_GREEN, GX_CH_BLUE ,GX_CH_ALPHA);
+	// To improve efficiency, the original BGR pixel format of PS is directly used
+	// So the format of SwapModeTable is GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED, GX_CH_ALPHA
+	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED, GX_CH_ALPHA);
 	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
 
 	GX_DrawDone();

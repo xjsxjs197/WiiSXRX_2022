@@ -651,6 +651,11 @@ void glSetGlobalTextABR( short globalTextABR )
     glparamstate.globalTextABR = globalTextABR;
 }
 
+void glSetRGB24( short rgb24 )
+{
+    glparamstate.RGB24 = rgb24;
+}
+
 void glBindTextureBef(GLenum target, GLuint texture)
 {
     if (texture < 0 || texture >= _MAX_GL_TEX)
@@ -664,27 +669,6 @@ static short doubleColor = 0;
 void glSetDoubleCol( void )
 {
     doubleColor = 1;
-}
-
-void glGetTextureInfo(GLuint texture, int *width, int *height)
-{
-    if (texture < 0 || texture >= _MAX_GL_TEX)
-    {
-        *width = 0;
-        *height = 0;
-        return;
-    }
-    gltexture_ *currtex = &texture_list[texture];
-    //*width = currtex->w;
-    *height = currtex->h;
-
-    int i;
-    for (i = 1; i < _MAX_GL_TEX; i++) {
-        if (texture_list[i].used == 0) {
-            break;
-        }
-    }
-    *width = i;
 }
 
 void glDeleteTextures(GLsizei n, const GLuint *textures)
@@ -1404,10 +1388,7 @@ static int calc_original_size(int level, int s, GLint internalFormat)
     }
 
     // update by xjsxjs197
-    if (internalFormat == GL_RGBA)
-    {
-        s = (s + 3) & ~(unsigned int)3;
-    }
+    s = (s + 3) & ~(unsigned int)3;
 
     return s;
 }
@@ -1429,8 +1410,10 @@ static int calc_mipmap_offset(int level, int w, int h, int b)
     return size;
 }
 
+// Create a Blank Texture
 void glInitRGBATextures( GLsizei width, GLsizei height )
 {
+    GX_DrawDone();
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
     int wi = (width + 3) & ~(unsigned int)3;
@@ -1439,7 +1422,7 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
     if (currtex->data != 0)
         _mem2_free(currtex->data);
 
-    int required_size = wi * he * 4;
+    int required_size = wi * he * 2;
     int tex_size_rnd = ROUND_32B(required_size);
     currtex->data = _mem2_memalign(32, tex_size_rnd);
     memset(currtex->data, 0, tex_size_rnd);
@@ -1449,7 +1432,7 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
     currtex->h = he;
 
     GX_InitTexObj(&currtex->texobj, currtex->data,
-                  currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
+                  currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
     //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
 }
 
@@ -1467,14 +1450,20 @@ void glResetMovieTexPtr( void )
     movieTexPtr = (unsigned char *)GXtexture;
 }
 
+// Create a Movie Texture
 void glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
 {
+    GX_DrawDone();
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
     int wi = (width + 3) & ~(unsigned int)3;
     int he = (height + 3) & ~(unsigned int)3;
 
     int required_size = wi * he * 4;
+    if (!glparamstate.RGB24)
+    {
+        required_size = required_size >> 1;
+    }
     int tex_size_rnd = ROUND_32B(required_size);
     if ((movieUsedSize + tex_size_rnd) > MOVIE_BUF_SIZE)
     {
@@ -1488,14 +1477,22 @@ void glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
     currtex->w = wi;
     currtex->h = he;
 
-    _ogx_scramble_4b((unsigned char *)texData, currtex->data, width, height);
+    if (glparamstate.RGB24)
+    {
+        _ogx_scramble_4b((unsigned char *)texData, currtex->data, width, height);
+        GX_InitTexObj(&currtex->texobj, currtex->data,
+                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
+    }
+    else
+    {
+        _ogx_scramble_4b_5a3((unsigned char *)texData, currtex->data, width, height);
+        GX_InitTexObj(&currtex->texobj, currtex->data,
+                      currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
+    }
     DCFlushRange(currtex->data, tex_size_rnd);
-
-    GX_InitTexObj(&currtex->texobj, currtex->data,
-                  currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
-    //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
 }
 
+// Update a Texture
 void glTexSubImage2D(GLenum target, GLint level,
                    GLint xoffset, GLint yoffset,
                    GLsizei width, GLsizei height,
@@ -1503,22 +1500,19 @@ void glTexSubImage2D(GLenum target, GLint level,
                    const GLvoid *data )
 {
     GX_DrawDone();
-    //GX_InvVtxCache();
-    //GX_InvalidateTexAll();
 
-    // GL_TEXTURE_2D GL_RGBA fix
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
     if ((xoffset & 3) == 0 && (yoffset & 3) == 0)
     {
         // The position happens to be the integer position of the Block
-        GLint internalFormat = GL_RGBA;
-        int wi = calc_original_size(level, width, internalFormat);
-        int he = calc_original_size(level, height, internalFormat);
+        GLint internalFormat = GL_RGB;
+        int wi = (width + 3) & ~(unsigned int)3;
+        int he = (height + 3) & ~(unsigned int)3;
 
-        int startOffset = ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 64;
+        int startOffset = ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32;
         _ogx_scramble_4b_sub((unsigned char *)data, currtex->data + startOffset, width, height, currtex->w);
-        DCFlushRange(currtex->data , currtex->w * currtex->h * 4);
+        DCFlushRange(currtex->data , currtex->w * currtex->h * 2);
     }
     else
     {
@@ -1563,13 +1557,12 @@ void glTexSubImage2D(GLenum target, GLint level,
                 unsigned char blockHe;
                 unsigned char blockWi;
                 src = (unsigned char *)data + (y * width + x) * 4;
-                dstBlock = currtex->data + ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 64;
+                dstBlock = currtex->data + ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32;
                 for (he = 0, blockHe = (yoffset & 3); he < copyHe; he++, blockHe++)
                 {
                     for (wi = 0, blockWi = (xoffset & 3); wi < copyWi; wi++, blockWi++)
                     {
-                        *(unsigned short*)(dstBlock + (blockHe * 4 + blockWi) * 2)      = *(unsigned short*)(src + (he * width + wi) * 4); // AR
-                        *(unsigned short*)(dstBlock + (blockHe * 4 + blockWi) * 2 + 32) = *(unsigned short*)(src + (he * width + wi) * 4 + 2); // GB
+                        *(unsigned short*)(dstBlock + (blockHe * 4 + blockWi) * 2) = *(unsigned short*)(src + (he * width + wi) * 4 + 2); // RGB5A3
                     }
                 }
 
@@ -1582,13 +1575,11 @@ void glTexSubImage2D(GLenum target, GLint level,
             xoffset = oldXoffset;
         }
 
-        DCFlushRange(currtex->data , currtex->w * currtex->h * 4);
+        DCFlushRange(currtex->data , currtex->w * currtex->h * 2);
     }
-
-    // Slow but necessary! The new textures may be in the same region of some old cached textures
-    //GX_InvalidateTexAll();
 }
 
+// Create a Image Texture
 void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height,
                   GLint border, GLenum format, GLenum type, const GLvoid *data)
 {
@@ -1604,202 +1595,38 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
 
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
-    // Just simplify it a little ;)
-    if (internalFormat == GL_BGR)
-        internalFormat = GL_RGB;
-    else if (internalFormat == GL_BGRA)
-        internalFormat = GL_RGBA;
-    else if (internalFormat == GL_RGB4)
-        internalFormat = GL_RGB;
-    else if (internalFormat == GL_RGB5)
-        internalFormat = GL_RGB;
-    else if (internalFormat == GL_RGB8)
-        internalFormat = GL_RGB;
-    else if (internalFormat == 3)
-        internalFormat = GL_RGB;
-    else if (internalFormat == 4)
-        internalFormat = GL_RGBA;
-
-    // Simplify but keep in mind the swapping
-    int needswap = 0;
-    if (format == GL_BGR) {
-        format = GL_RGB;
-        needswap = 1;
-    }
-    if (format == GL_BGRA) {
-        format = GL_RGBA;
-        needswap = 1;
-    }
-
-    // Fallbacks for formats which we can't handle
-    if (internalFormat == GL_COMPRESSED_RGBA_ARB)
-        internalFormat = GL_RGBA; // Cannot compress RGBA!
-
-    // Simplify and avoid stupid conversions (which waste space for no gain)
-    if (format == GL_RGB && internalFormat == GL_RGBA)
-        internalFormat = GL_RGB;
-
-    if (format == GL_LUMINANCE_ALPHA && internalFormat == GL_RGBA)
-        internalFormat = GL_LUMINANCE_ALPHA;
-
-    // TODO: Implement GL_LUMINANCE/GL_INTENSITY? and fallback from GL_LUM_ALPHA to GL_LUM instead of RGB (2bytes to 1byte)
-    //	if (format == GL_LUMINANCE_ALPHA && internalFormat == GL_RGB) internalFormat = GL_LUMINANCE_ALPHA;
-
-    int bytesperpixelinternal = 4, bytesperpixelsrc = 4;
-
-    if (format == GL_RGB)
-        bytesperpixelsrc = 3;
-    else if (format == GL_RGBA)
-        bytesperpixelsrc = 4;
-    else if (format == GL_LUMINANCE_ALPHA)
-        bytesperpixelsrc = 2;
-
-    if (internalFormat == GL_RGB)
-        bytesperpixelinternal = 2;
-    else if (internalFormat == GL_RGBA)
-        bytesperpixelinternal = 4;
-    else if (internalFormat == GL_LUMINANCE_ALPHA)
-        bytesperpixelinternal = 2;
-
-    if (internalFormat == GL_COMPRESSED_RGB_ARB && format == GL_RGB) // Only compress on demand and non-alpha textures
-        bytesperpixelinternal = -2;                                  // 0.5 bytes per pixel
-
-    if (bytesperpixelinternal < 0 && (width < 8 || height < 8))
-        return; // Cannot take compressed textures under 8x8 (4 blocks of 4x4, 32B)
-
-    // We *may* need to delete and create a new texture, depending if the user wants to add some mipmap levels
-    // or wants to create a new texture from scratch
+    // RGB5A3 format fixed
     int wi = calc_original_size(level, width, internalFormat);
     int he = calc_original_size(level, height, internalFormat);
 
     // Check if the texture has changed its geometry and proceed to delete it
     // If the specified level is zero, create a onelevel texture to save memory
-    if (wi != currtex->w || he != currtex->h || bytesperpixelinternal != currtex->bytespp) {
+    if (wi != currtex->w || he != currtex->h) {
         if (currtex->data != 0)
         {
             _mem2_free(currtex->data);
         }
 
-        int required_size = calc_memory(wi, he, bytesperpixelinternal);
+        int required_size = wi * he * 2;
         int tex_size_rnd = ROUND_32B(required_size);
         currtex->data = _mem2_memalign(32, tex_size_rnd);
         memset(currtex->data, 0, tex_size_rnd);
-
-        if (level == 0) {
-            currtex->onelevel = 1;
-        } else {
-            currtex->onelevel = 0;
-        }
-        currtex->minlevel = level;
-        currtex->maxlevel = level;
     }
 
     currtex->w = wi;
     currtex->h = he;
-    currtex->bytespp = bytesperpixelinternal;
-    if (currtex->maxlevel < level)
-        currtex->maxlevel = level;
-    if (currtex->minlevel > level)
-        currtex->minlevel = level;
+    currtex->bytespp = 2;
 
-//    if (currtex->onelevel == 1 && level != 0) {
-//        // We allocated a onelevel texture (base level 0) but now
-//        // we are uploading a non-zero level, so we need to create a mipmap capable buffer
-//        // and copy the level zero texture
-//        unsigned int tsize = calc_memory(wi, he, bytesperpixelinternal);
-//        unsigned char *tempbuf = _mem2_malloc(tsize);
-//        memcpy(tempbuf, currtex->data, tsize);
-//        free(currtex->data);
-//
-//        int required_size = calc_tex_size(wi, he, bytesperpixelinternal);
-//        int tex_size_rnd = ROUND_32B(required_size);
-//        currtex->data = memalign(32, tex_size_rnd);
-//        currtex->onelevel = 0;
-//
-//        memcpy(currtex->data, tempbuf, tsize);
-//        _mem2_free(tempbuf);
-//    }
-
-    // Inconditionally convert to 565 all inputs without alpha channel
-    // Alpha inputs may be stripped if the user specifies an alpha-free internal format
-    if (bytesperpixelinternal > 0) {
-//        unsigned char *tempbuf = memalign(32, width * height * bytesperpixelinternal);
-//
-//        if (format == GL_RGB) {
-//            _ogx_conv_rgb_to_rgb565(data, type, tempbuf, width, height);
-//        } else if (format == GL_RGBA) {
-//            if (internalFormat == GL_RGB) {
-//                _ogx_conv_rgba_to_rgb565(data, type, tempbuf, width, height);
-//            } else if (internalFormat == GL_RGBA) {
-//                _ogx_conv_rgba_to_rgba32(data, type, tempbuf, width, height);
-//            } else if (internalFormat == GL_LUMINANCE_ALPHA) {
-//                _ogx_conv_rgba_to_luminance_alpha((unsigned char *)data, tempbuf, width, height);
-//            }
-//        } else if (format == GL_LUMINANCE_ALPHA) {
-//            if (internalFormat == GL_RGB) {
-//                // TODO
-//            } else if (internalFormat == GL_LUMINANCE_ALPHA) {
-//                _ogx_conv_luminance_alpha_to_ia8(data, type, tempbuf, width, height);
-//            }
-//        }
-//
-//        // Swap R<->B if necessary
-//        if (needswap && internalFormat != GL_LUMINANCE_ALPHA) {
-//            if (bytesperpixelinternal == 4)
-//                _ogx_swap_rgba(tempbuf, width * height);
-//            else
-//                _ogx_swap_rgb565((unsigned short *)tempbuf, width * height);
-//        }
-
-        // Calculate the offset and address of the mipmap
-        int offset = calc_mipmap_offset(level, currtex->w, currtex->h, currtex->bytespp);
-        unsigned char *dst_addr = ( unsigned char *)currtex->data;
-        dst_addr += offset;
-
-        // Finally write to the dest. buffer scrambling the data
-        if (bytesperpixelinternal == 4) {
-            _ogx_scramble_4b((unsigned char *)data, dst_addr, width, height);
-       } else {
-            _ogx_scramble_2b((unsigned short *)data, dst_addr, width, height);
-        }
-        //free(tempbuf);
-
-        DCFlushRange(dst_addr, currtex->w * currtex->h * bytesperpixelinternal);
-    }
-    else
-    {
-        // Compressed texture
-
-        // Calculate the offset and address of the mipmap
-        int offset = calc_mipmap_offset(level, currtex->w, currtex->h, currtex->bytespp);
-        unsigned char *dst_addr = currtex->data;
-        dst_addr += offset;
-
-        _ogx_convert_rgb_image_to_DXT1((unsigned char *)data, dst_addr,
-                                       width, height, needswap);
-
-        DCFlushRange(dst_addr, calc_memory(width, height, bytesperpixelinternal));
-    }
+    unsigned char *dst_addr = ( unsigned char *)currtex->data;
+    _ogx_scramble_4b_5a3((unsigned char *)data, dst_addr, width, height);
+    DCFlushRange(dst_addr, currtex->w * currtex->h * 2);
 
     // Slow but necessary! The new textures may be in the same region of some old cached textures
     //GX_InvalidateTexAll();
 
-    if (internalFormat == GL_RGBA) {
-        GX_InitTexObj(&currtex->texobj, currtex->data,
-                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
-    } else if (internalFormat == GL_RGB) {
-        GX_InitTexObj(&currtex->texobj, currtex->data,
-                      currtex->w, currtex->h, GX_TF_RGB565, currtex->wraps, currtex->wrapt, GX_FALSE);
-    } else if (internalFormat == GL_LUMINANCE_ALPHA) {
-        GX_InitTexObj(&currtex->texobj, currtex->data,
-                      currtex->w, currtex->h, GX_TF_IA8, currtex->wraps, currtex->wrapt, GX_FALSE);
-    } else {
-        GX_InitTexObj(&currtex->texobj, currtex->data,
-                      currtex->w, currtex->h, GX_TF_CMPR, currtex->wraps, currtex->wrapt, GX_FALSE);
-    }
+    GX_InitTexObj(&currtex->texobj, currtex->data,
+                currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
     //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
-    //GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
-    //writeLogFile("Image2D 9\r\n");
     //GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
 }
 

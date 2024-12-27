@@ -53,6 +53,8 @@ void _ogx_scramble_2b(unsigned short *src, void *dst,
                       const unsigned int width, const unsigned int height);
 void _ogx_scramble_4b(unsigned char *src, void *dst,
                       const unsigned int width, const unsigned int height);
+void _ogx_scramble_4b_5a3(unsigned char *src, void *dst,
+                      const unsigned int width, const unsigned int height);
 
 // The position happens to be the integer position of the Block
 void _ogx_scramble_4b_sub(unsigned char *src, void *dst,
