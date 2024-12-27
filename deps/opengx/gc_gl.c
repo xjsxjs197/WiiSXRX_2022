@@ -64,6 +64,10 @@ POSSIBILITY OF SUCH DAMAGE.
 #define ROUND_32B(x) (((x) + 31) & (~31))
 #define min(a,b)     (((a) < (b)) ? (a) : (b))
 
+//#define DISP_DEBUG
+
+#ifdef DISP_DEBUG
+
 static FILE* fdebugLog = NULL;
 static char *debugLogFile = "sd:/wiisxrx/debugLog.txt";
 static char txtbuffer[1024];
@@ -90,6 +94,8 @@ static void writeLogFile(char* string) {
 
     closeLogFile();
 }
+
+#endif // DISP_DEBUG
 
 glparams_ _ogx_state;
 
@@ -651,6 +657,13 @@ void glBindTextureBef(GLenum target, GLuint texture)
         return;
 
     glparamstate.glcurtex = texture;
+}
+
+static short doubleColor = 0;
+
+void glSetDoubleCol( void )
+{
+    doubleColor = 1;
 }
 
 void glGetTextureInfo(GLuint texture, int *width, int *height)
@@ -1437,6 +1450,7 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
 
     GX_InitTexObj(&currtex->texobj, currtex->data,
                   currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
+    //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
 }
 
 #define RESY_MAX 512	//Vmem height
@@ -1479,6 +1493,7 @@ void glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
 
     GX_InitTexObj(&currtex->texobj, currtex->data,
                   currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
+    //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
 }
 
 void glTexSubImage2D(GLenum target, GLint level,
@@ -1782,6 +1797,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
         GX_InitTexObj(&currtex->texobj, currtex->data,
                       currtex->w, currtex->h, GX_TF_CMPR, currtex->wraps, currtex->wrapt, GX_FALSE);
     }
+    //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
     //GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
     //writeLogFile("Image2D 9\r\n");
     //GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
@@ -2310,7 +2326,15 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
         GX_SetTevAlphaIn(stage, GX_CA_ZERO, raster_alpha, GX_CA_TEXA, GX_CA_ZERO);
         break;
     }
-    GX_SetTevColorOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+    if (doubleColor)
+    {
+        GX_SetTevColorOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV);
+        doubleColor = 0;
+    }
+    else
+    {
+        GX_SetTevColorOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+    }
     GX_SetTevAlphaOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
     GX_SetTevOrder(stage, GX_TEXCOORD0, GX_TEXMAP0, channel);
     // Set up the data for the TEXCOORD0 (use a identity matrix, TODO: allow user texture matrices)
@@ -2468,9 +2492,23 @@ void _ogx_apply_state()
     int texen = glparamstate.texcoord_enabled & glparamstate.texture_enabled;
     setup_render_stages(texen);
 
+    #ifdef DISP_DEBUG
+    sprintf ( txtbuffer, "DrawArrays %d %d %d\r\n", texen, glparamstate.blendenabled, glparamstate.globalTextABR);
+    writeLogFile ( txtbuffer );
+    #endif // DISP_DEBUG
+
     // Set up the OGL state to GX state
     if (glparamstate.dirty.bits.dirty_z)
         GX_SetZMode(glparamstate.ztest, glparamstate.zfunc, glparamstate.zwrite & glparamstate.ztest);
+
+    if (texen)
+    {
+        GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_GREATER, 0);
+    }
+    else
+    {
+        GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
+    }
 
     //if (glparamstate.dirty.bits.dirty_blend)
     {

@@ -127,20 +127,23 @@ static inline void UpdateGlobalTP ( unsigned short gdata )
 ////////////////////////////////////////////////////////////////////////
 
 
-static unsigned int DoubleBGR2RGB ( unsigned int BGR )
+static inline int DoubleBGR2RGB ( unsigned int BGR )
 {
-    unsigned int ebx, eax, edx;
+//    unsigned int ebx, eax, edx;
+//
+//    ebx = ( BGR & 0x000000ff ) << 1;
+//    if ( ebx & 0x00000100 ) ebx = 0x000000ff;
+//
+//    eax = ( BGR & 0x0000ff00 ) << 1;
+//    if ( eax & 0x00010000 ) eax = 0x0000ff00;
+//
+//    edx = ( BGR & 0x00ff0000 ) << 1;
+//    if ( edx & 0x01000000 ) edx = 0x00ff0000;
+//
+//    return ( ebx | eax | edx );
+    glSetDoubleCol();
 
-    ebx = ( BGR & 0x000000ff ) << 1;
-    if ( ebx & 0x00000100 ) ebx = 0x000000ff;
-
-    eax = ( BGR & 0x0000ff00 ) << 1;
-    if ( eax & 0x00010000 ) eax = 0x0000ff00;
-
-    edx = ( BGR & 0x00ff0000 ) << 1;
-    if ( edx & 0x01000000 ) edx = 0x00ff0000;
-
-    return ( ebx | eax | edx );
+    return BGR;
 }
 
 unsigned short BGR24to16 (unsigned int BGR)
@@ -799,7 +802,7 @@ typedef struct SEMITRANSTAG
 
 static SemiTransParams TransSets[4] =
 {
-    {GL_SRC_ALPHA, GL_ONE_MINUS_SRC_COLOR, 127},
+    {GL_SRC_ALPHA, GL_SRC_ALPHA, 127},
     {GL_ONE,      GL_ONE,                255},
     {GL_ZERO,     GL_ONE_MINUS_SRC_COLOR, 255},
     {GL_ONE_MINUS_SRC_ALPHA, GL_ONE,      192}
@@ -2211,29 +2214,15 @@ static void PrepareRGB24Upload ( void )
     VRAMWrite.Width = ( VRAMWrite.Width * 2 ) / 3;
 
     if ( !PSXDisplay.InterlacedTest && // NEW
-            FastCheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
+            CheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
-        xrUploadArea = xUploadArea;
         xrUploadArea.x0 -= PreviousPSXDisplay.DisplayPosition.x;
         xrUploadArea.x1 -= PreviousPSXDisplay.DisplayPosition.x;
         xrUploadArea.y0 -= PreviousPSXDisplay.DisplayPosition.y;
         xrUploadArea.y1 -= PreviousPSXDisplay.DisplayPosition.y;
-
-//        if (PreviousPSXDisplay.DisplayEnd.x - PreviousPSXDisplay.DisplayPosition.x == xrUploadArea.x1)
-//        {
-//            #ifdef DISP_DEBUG
-//            sprintf(txtbuffer, "PrepareRGB24Upload1 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
-//                               PreviousPSXDisplay.DisplayPosition.x, PreviousPSXDisplay.DisplayEnd.x, PreviousPSXDisplay.DisplayPosition.y, PreviousPSXDisplay.DisplayEnd.y);
-//            DEBUG_print(txtbuffer, DBG_CDR1);
-//            //writeLogFile(txtbuffer);
-//            #endif // DISP_DEBUG
-//            PrepareFullScreenUpload(-1);
-//            UploadScreen ( PSXDisplay.Interlaced );
-//        }
     }
-    else if ( FastCheckAgainstFrontScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
+    else if ( CheckAgainstFrontScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
-        xrUploadArea = xUploadArea;
         xrUploadArea.x0 -= PSXDisplay.DisplayPosition.x;
         xrUploadArea.x1 -= PSXDisplay.DisplayPosition.x;
         xrUploadArea.y0 -= PSXDisplay.DisplayPosition.y;
@@ -2281,10 +2270,8 @@ void CheckWriteUpdate()
     }
 
     if ( !PSXDisplay.InterlacedTest &&
-            FastCheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
+            CheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
-        xrUploadArea = xUploadArea;
-
         if ( dwActFixes & 0x800 ) return;
 
         if ( bRenderFrontBuffer )
@@ -2303,9 +2290,8 @@ void CheckWriteUpdate()
     }
     else if ( iOffscreenDrawing )
     {
-        if ( FastCheckAgainstFrontScreen  ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
+        if ( CheckAgainstFrontScreen  ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
         {
-            xrUploadArea = xUploadArea;
             if ( PSXDisplay.InterlacedTest )
             {
                 if ( PreviousPSXDisplay.InterlacedNew )
@@ -2710,9 +2696,8 @@ static void primMoveImage ( unsigned char * baseAddr )
     {
         InvalidateTextureArea ( imageX1, imageY1, imageSX - 1, imageSY - 1 );
 
-        if ( FastCheckAgainstScreen ( imageX1, imageY1, imageSX, imageSY ) )
+        if ( CheckAgainstScreen ( imageX1, imageY1, imageSX, imageSY ) )
         {
-            xrUploadArea = xUploadArea;
             if ( imageX1 >= PreviousPSXDisplay.DisplayPosition.x &&
                     imageX1 < PreviousPSXDisplay.DisplayEnd.x &&
                     imageY1 >= PreviousPSXDisplay.DisplayPosition.y &&
@@ -2753,9 +2738,8 @@ static void primMoveImage ( unsigned char * baseAddr )
             //DEBUG_print ( txtbuffer, DBG_SPU3 );
             //writeLogFile ( txtbuffer );
 #endif // DISP_DEBUG
-            if ( FastCheckAgainstFrontScreen ( imageX1, imageY1, imageSX, imageSY ) )
+            if ( CheckAgainstFrontScreen ( imageX1, imageY1, imageSX, imageSY ) )
             {
-                xrUploadArea = xUploadArea;
                 if ( !PSXDisplay.InterlacedTest &&
 //          !bFullVRam &&
                         ( (

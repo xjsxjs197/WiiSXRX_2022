@@ -1343,6 +1343,7 @@ GLAPI void GLAPIENTRY glDeleteTextures( GLsizei n, const GLuint *textures);
 
 GLAPI void GLAPIENTRY glBindTexture( GLenum target, GLuint texture );
 GLAPI void GLAPIENTRY glBindTextureBef( GLenum target, GLuint texture );
+GLAPI void GLAPIENTRY glSetDoubleCol( void );
 GLAPI void GLAPIENTRY glSetGlobalTextABR( short globalTextABR );
 
 GLAPI void GLAPIENTRY glGetTextureInfo(GLuint texture, int *width, int *height);

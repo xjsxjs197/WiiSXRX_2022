@@ -277,12 +277,7 @@ void _ogx_scramble_4b(unsigned char *src, void *dst,
         for (i = 0; i < width; i += 4) {
             for (c = 0; c < 4; c++) {
                 for (argb = 0; argb < 4; argb++) {
-                    if ((i + argb) >= width)
-                    {
-                        *(unsigned short*)p = 0;
-                        *(unsigned short*)(p + 32) = 0;
-                    }
-                    else if ((block + c) >= height)
+                    if ((i + argb) >= width || (block + c) >= height)
                     {
                         *(unsigned short*)p = 0;
                         *(unsigned short*)(p + 32) = 0;

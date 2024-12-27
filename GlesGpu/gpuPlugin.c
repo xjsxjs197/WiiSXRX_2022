@@ -399,7 +399,7 @@ if(PSXDisplay.Disabled)                               // display disabled?
 
   // moved here
   glDisable(GL_SCISSOR_TEST); glError();
-  glClearColor2(0,0,0,255); glError();                 // -> clear whole backbuffer
+  glClearColor2(0,0,0,128); glError();                 // -> clear whole backbuffer
   glClear(uiBufferBits); glError();
   glEnable(GL_SCISSOR_TEST); glError();
   gl_z=0.0f;
@@ -482,7 +482,7 @@ if(lClearOnSwap)                                      // clear buffer after swap
   b=((unsigned char)BLUE(lClearOnSwapColor));
   r=((unsigned char)RED(lClearOnSwapColor));
   glDisable(GL_SCISSOR_TEST); glError();
-  glClearColor2(r,g,b,255); glError();                 // -> clear
+  glClearColor2(r,g,b,128); glError();                 // -> clear
   glClear(uiBufferBits); glError();
   glEnable(GL_SCISSOR_TEST); glError();
   lClearOnSwap=0;                                     // -> done
