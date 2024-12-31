@@ -1894,7 +1894,7 @@ static inline void cmdSTP ( unsigned char * baseAddr )
     {
         if ( ! ( gdata & 1 ) ) iSetMask = 2;
         bCheckMask = TRUE;
-        if ( iDepthFunc == 0 ) return;
+        //if ( iDepthFunc == 0 ) return;
         iDepthFunc = 0;
         glDepthFunc ( GL_LESS );
         glError();
@@ -1902,7 +1902,7 @@ static inline void cmdSTP ( unsigned char * baseAddr )
     else
     {
         bCheckMask = FALSE;
-        if ( iDepthFunc == 1 ) return;
+        //if ( iDepthFunc == 1 ) return;
         glDepthFunc ( GL_ALWAYS );
         glError();
         iDepthFunc = 1;

@@ -108,7 +108,7 @@ RECT           rRatioRect;
 // psx mask related vars
 
 //BOOL           bCheckMask=FALSE;
-int            iUseMask=0;
+int            iUseMask=1;
 int            iSetMask=0;
 //unsigned short sSetMask=0;
 //unsigned int   lSetMask=0;
@@ -131,7 +131,7 @@ BOOL           bAdvancedBlend;
 // gfx card buffer infos
 
 int            iDepthFunc=0;
-int            iZBufferDepth=0;
+int            iZBufferDepth=1;
 GLbitfield     uiBufferBits=GL_COLOR_BUFFER_BIT;
 
 ////////////////////////////////////////////////////////////////////////

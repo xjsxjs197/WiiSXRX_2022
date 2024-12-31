@@ -2325,8 +2325,9 @@ void _ogx_apply_state()
     #endif // DISP_DEBUG
 
     // Set up the OGL state to GX state
-    if (glparamstate.dirty.bits.dirty_z)
-        GX_SetZMode(glparamstate.ztest, glparamstate.zfunc, glparamstate.zwrite & glparamstate.ztest);
+    GX_SetZCompLoc(GX_FALSE); // Do Z-compare after texturing.
+    //if (glparamstate.dirty.bits.dirty_z)
+        GX_SetZMode(GX_TRUE, glparamstate.zfunc, GX_TRUE);
 
     if (texen)
     {
