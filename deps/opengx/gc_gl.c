@@ -735,12 +735,27 @@ void glScissor(GLint x, GLint y, GLsizei width, GLsizei height)
     GX_SetScissor(x, y, width, height);
 }
 
+// To improve efficiency, reduce multiplication operations when the color value is 255,255,255,255
+static short needMulConstColor = 1;
+
 void glColor4ub(GLubyte r, GLubyte g, GLubyte b, GLubyte a)
 {
-    glparamstate.imm_mode.current_color[0] = r / 255.0f;
-    glparamstate.imm_mode.current_color[1] = g / 255.0f;
-    glparamstate.imm_mode.current_color[2] = b / 255.0f;
-    glparamstate.imm_mode.current_color[3] = a / 255.0f;
+    if (r == 255 && g == 255 && b == 255 && a == 255)
+    {
+        needMulConstColor = 0;
+        glparamstate.imm_mode.current_color[0] = 1.0f;
+        glparamstate.imm_mode.current_color[1] = 1.0f;
+        glparamstate.imm_mode.current_color[2] = 1.0f;
+        glparamstate.imm_mode.current_color[3] = 1.0f;
+    }
+    else
+    {
+        needMulConstColor = 1;
+        glparamstate.imm_mode.current_color[0] = r / 255.0f;
+        glparamstate.imm_mode.current_color[1] = g / 255.0f;
+        glparamstate.imm_mode.current_color[2] = b / 255.0f;
+        glparamstate.imm_mode.current_color[3] = a / 255.0f;
+    }
 }
 void glColor4ubv(const GLubyte *color)
 {
@@ -2154,7 +2169,15 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
         }
         else
         {
-            GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
+            if (needMulConstColor)
+            {
+                GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
+            }
+            else
+            {
+                GX_SetTevColorIn(stage, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_TEXC);
+            }
+
             if (glparamstate.blendenabled && glparamstate.globalTextABR == 3)
             {
                 GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO);
