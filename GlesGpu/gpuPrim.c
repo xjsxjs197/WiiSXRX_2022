@@ -802,7 +802,9 @@ typedef struct SEMITRANSTAG
 
 static SemiTransParams TransSets[4] =
 {
-    {GL_SRC_ALPHA, GL_SRC_ALPHA, 127},
+    // 0.5B + 0.5F, Due to the possibility of 0.5Alpha in the final result,
+    // it was implemented by executing GX_SetBlendMode twice in gc_gl.c
+    {GL_ONE, GL_ONE, 255},
     {GL_ONE,      GL_ONE,                255},
     {GL_ZERO,     GL_ONE_MINUS_SRC_COLOR, 255},
     {GL_ONE_MINUS_SRC_ALPHA, GL_ONE,      192}
@@ -1697,9 +1699,9 @@ void UploadScreen ( int Position )
     if (PSXDisplay.RGB24)
     {
         #ifdef DISP_DEBUG
-        sprintf ( txtbuffer, "UploadScreen %d %d %d %d %d %d %d\r\n", Position, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0 );
-        DEBUG_print ( txtbuffer, DBG_SPU2 );
-        writeLogFile ( txtbuffer );
+        //sprintf ( txtbuffer, "UploadScreen %d %d %d %d %d %d %d\r\n", Position, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0 );
+        //DEBUG_print ( txtbuffer, DBG_SPU2 );
+        //writeLogFile ( txtbuffer );
         #endif // DISP_DEBUG
 
         if (clearMovieGarbageFlg == 1 && clearMovieGarbageCnt++ < 3)
@@ -1710,9 +1712,9 @@ void UploadScreen ( int Position )
             // clear top area
             int startY = xrUploadArea.y0;
             #ifdef DISP_DEBUG
-            sprintf ( txtbuffer, "clear1 %d %d %d %d\r\n", clearMovieGarbageX0, clearMovieGarbageX1, startY, xrUploadArea.y0 + clearH);
-            DEBUG_print ( txtbuffer, DBG_SPU2 );
-            writeLogFile ( txtbuffer );
+            //sprintf ( txtbuffer, "clear1 %d %d %d %d\r\n", clearMovieGarbageX0, clearMovieGarbageX1, startY, xrUploadArea.y0 + clearH);
+            //DEBUG_print ( txtbuffer, DBG_SPU2 );
+            //writeLogFile ( txtbuffer );
             #endif // DISP_DEBUG
             for (; startY < xrUploadArea.y0 + clearH; startY++)
             {
@@ -1723,9 +1725,9 @@ void UploadScreen ( int Position )
             startY = xrUploadArea.y1 - clearH;
             int endY = xrUploadArea.y1;
             #ifdef DISP_DEBUG
-            sprintf ( txtbuffer, "clear2 %d %d %d %d\r\n", clearMovieGarbageX0, clearMovieGarbageX1, startY, endY);
-            DEBUG_print ( txtbuffer, DBG_SPU2 );
-            writeLogFile ( txtbuffer );
+            //sprintf ( txtbuffer, "clear2 %d %d %d %d\r\n", clearMovieGarbageX0, clearMovieGarbageX1, startY, endY);
+            //DEBUG_print ( txtbuffer, DBG_SPU2 );
+            //writeLogFile ( txtbuffer );
             #endif // DISP_DEBUG
             for (; startY < endY; startY++)
             {
@@ -2166,9 +2168,9 @@ static void primLoadImage ( unsigned char * baseAddr )
     if (PSXDisplay.RGB24)
     {
         #ifdef DISP_DEBUG
-        sprintf ( txtbuffer, "primLoadImage %d %d %d %d %d %d\r\n", VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height, PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560, PSXDisplay.Height );
-        DEBUG_print ( txtbuffer, DBG_SPU1 );
-        writeLogFile(txtbuffer);
+        //sprintf ( txtbuffer, "primLoadImage %d %d %d %d %d %d\r\n", VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height, PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560, PSXDisplay.Height );
+        //DEBUG_print ( txtbuffer, DBG_SPU1 );
+        //writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
 
         if ((clearMovieGarbageFlg == 0 || clearMovieGarbageCnt == 1) && (VRAMWrite.Height > 100 && VRAMWrite.Height < PSXDisplay.Height))
@@ -2187,12 +2189,12 @@ static void primLoadImage ( unsigned char * baseAddr )
     else
     {
         #ifdef DISP_DEBUG
-        if (clearMovieGarbageFlg == 1)
-        {
-            sprintf ( txtbuffer, "primLoadImage end\r\n");
-            DEBUG_print ( txtbuffer, DBG_SPU1 );
-            writeLogFile(txtbuffer);
-        }
+//        if (clearMovieGarbageFlg == 1)
+//        {
+//            sprintf ( txtbuffer, "primLoadImage end\r\n");
+//            DEBUG_print ( txtbuffer, DBG_SPU1 );
+//            writeLogFile(txtbuffer);
+//        }
         #endif // DISP_DEBUG
         clearMovieGarbageFlg = 0;
         clearMovieGarbageCnt = 0;

@@ -2077,6 +2077,9 @@ static void flipEGL(void)
     gx_vout_render();
 }
 
+#include "../Gamecube/wiiSXconfig.h"
+extern char screenMode;
+
 long GL_GPUopen()
 {
  int ret;
@@ -2087,6 +2090,10 @@ long GL_GPUopen()
 
  iResX = 640;
  iResY = 480;
+ if (screenMode == SCREENMODE_16x9_PILLARBOX)
+ {
+     iResX = 744;
+ }
  iOffscreenDrawing = 0;
  rRatioRect.left   = rRatioRect.top=0;
  rRatioRect.right  = iResX;

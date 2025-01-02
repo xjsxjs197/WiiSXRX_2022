@@ -85,15 +85,7 @@ static void closeLogFile() {
     }
 }
 
-static void writeLogFile(char* string) {
-    closeLogFile();
-
-    openLogFile();
-
-    fprintf(fdebugLog, string);
-
-    closeLogFile();
-}
+extern void writeLogFile(char* string);
 
 #endif // DISP_DEBUG
 
@@ -364,6 +356,9 @@ void ogx_initialize()
     // Mark all the hardware data as dirty, so it will be recalculated
     // and uploaded again to the hardware
     glparamstate.dirty.all = ~0;
+
+    GX_SetTevKColor(GX_KCOLOR1, (GXColor){0x7F, 0x7F, 0x7F, 0xFF}); // half color
+    GX_SetTevKColor(GX_KCOLOR2, (GXColor){0x3F, 0x3F, 0x3F, 0xFF}); // 1/4 color
 }
 
 void glEnable(GLenum cap)
@@ -2132,6 +2127,8 @@ static void setup_fog()
     GX_SetFog(mode, start, end, near, far, color);
 }
 
+static short glDrawArraysFlg = 0;
+
 static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
                                 u8 channel)
 {
@@ -2149,18 +2146,48 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
     case GL_MODULATE:
     default:
         // In data: c: Texture Color b: raster value, Operation: b*c
-        GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
-        GX_SetTevAlphaIn(stage, GX_CA_ZERO, raster_alpha, GX_CA_TEXA, GX_CA_ZERO);
+        if (glparamstate.blendenabled && glparamstate.globalTextABR == 1 && glDrawArraysFlg == 0)
+        {
+            // For 0.5B + 0.5F, In order to change the value of the back color to 0.5
+            GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_C1);
+            GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_A1, GX_CA_ZERO);
+        }
+        else
+        {
+            GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
+            if (glparamstate.blendenabled && glparamstate.globalTextABR == 3)
+            {
+                GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO);
+            }
+            else
+            {
+                GX_SetTevAlphaIn(stage, GX_CA_ZERO, raster_alpha, GX_CA_TEXA, GX_CA_ZERO);
+            }
+        }
         break;
     }
     if (doubleColor)
     {
-        GX_SetTevColorOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV);
+        if (glparamstate.blendenabled && glparamstate.globalTextABR == 1 && glDrawArraysFlg == 1)
+        {
+            GX_SetTevColorOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+        }
+        else
+        {
+            GX_SetTevColorOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV);
+        }
         doubleColor = 0;
     }
     else
     {
-        GX_SetTevColorOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+        if (glparamstate.blendenabled && glparamstate.globalTextABR == 1 && glDrawArraysFlg == 1)
+        {
+            GX_SetTevColorOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_DIVIDE_2, GX_TRUE, GX_TEVPREV);
+        }
+        else
+        {
+            GX_SetTevColorOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+        }
     }
     GX_SetTevAlphaOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
     GX_SetTevOrder(stage, GX_TEXCOORD0, GX_TEXMAP0, channel);
@@ -2300,8 +2327,25 @@ static void setup_render_stages(int texen)
                                 rasterized_color);
         } else {
             // In data: d: Raster Color
-            GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, vertex_color_register);
-            GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
+            if (glparamstate.blendenabled && glparamstate.globalTextABR == 1 && glDrawArraysFlg == 0)
+            {
+                // For 0.5B + 0.5F, In order to change the value of the back color to 0.5
+                GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_C1);
+                GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, vertex_alpha_register, GX_CA_A1, GX_CA_ZERO);
+            }
+            else
+            {
+                GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, vertex_color_register);
+                if (glparamstate.blendenabled && glparamstate.globalTextABR == 3)
+                {
+                    GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO);
+                }
+                else
+                {
+                    GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
+                }
+            }
+
             // Operation: Pass the color
             GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
             GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
@@ -2319,28 +2363,27 @@ void _ogx_apply_state()
     int texen = glparamstate.texcoord_enabled & glparamstate.texture_enabled;
     setup_render_stages(texen);
 
-    #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "DrawArrays %d %d %d\r\n", texen, glparamstate.blendenabled, glparamstate.globalTextABR);
-    writeLogFile ( txtbuffer );
-    #endif // DISP_DEBUG
-
     // Set up the OGL state to GX state
     GX_SetZCompLoc(GX_FALSE); // Do Z-compare after texturing.
-    //if (glparamstate.dirty.bits.dirty_z)
-        GX_SetZMode(GX_TRUE, glparamstate.zfunc, GX_TRUE);
+    GX_SetZMode(GX_TRUE, glparamstate.zfunc, GX_TRUE);
 
-    if (texen)
-    {
-        GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_GREATER, 0);
-    }
-    else
+    if (glparamstate.blendenabled && glparamstate.globalTextABR == 3)
     {
         GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
     }
-
-    //if (glparamstate.dirty.bits.dirty_blend)
+    else
     {
-        if (glparamstate.blendenabled)
+        GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_GREATER, 0);
+    }
+
+    if (glparamstate.blendenabled)
+    {
+        if (glparamstate.globalTextABR == 1 && glDrawArraysFlg == 0)
+        {
+            // For 0.5B + 0.5F, back color * 0.5
+            GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_SRCCLR, GX_LO_CLEAR);
+        }
+        else
         {
             if (glparamstate.globalTextABR == 3)
             {
@@ -2351,10 +2394,10 @@ void _ogx_apply_state()
                 GX_SetBlendMode(GX_BM_BLEND, glparamstate.srcblend, glparamstate.dstblend, GX_LO_CLEAR);
             }
         }
-        else
-        {
-            GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
-        }
+    }
+    else
+    {
+        GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
     }
 
     // Matrix stuff
@@ -2376,8 +2419,6 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
     unsigned char gxmode = draw_mode(mode);
     if (gxmode == 0xff)
         return;
-
-    _ogx_apply_state();
 
     int texen = glparamstate.texcoord_enabled & glparamstate.texture_enabled;
     int color_provide = 0;
@@ -2429,6 +2470,10 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
         GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
     }
 
+    glDrawArraysFlg = 0;
+
+    _ogx_apply_state();
+
     bool loop = (mode == GL_LINE_LOOP);
     GX_Begin(gxmode, GX_VTXFMT0, count + loop);
 
@@ -2443,6 +2488,30 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
                             count, glparamstate.normal_enabled, color_provide, texen, loop);
     }
     GX_End();
+
+    if (glparamstate.blendenabled && glparamstate.globalTextABR == 1)
+    {
+        // 0.5B + 0.5F, Due to the possibility of 0.5Alpha in the final result,
+        // it was implemented by executing GX_SetBlendMode twice
+        glDrawArraysFlg = 1;
+
+        _ogx_apply_state();
+
+        bool loop = (mode == GL_LINE_LOOP);
+        GX_Begin(gxmode, GX_VTXFMT0, count + loop);
+
+        if (glparamstate.normal_enabled && !glparamstate.color_enabled) {
+            if (texen) {
+                draw_arrays_pos_normal_texc(ptr_pos, ptr_texc, ptr_normal, count, loop);
+            } else {
+                draw_arrays_pos_normal(ptr_pos, ptr_normal, count, loop);
+            }
+        } else {
+            draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
+                                count, glparamstate.normal_enabled, color_provide, texen, loop);
+        }
+        GX_End();
+    }
 }
 
 void glDrawElements(GLenum mode, GLsizei count, GLenum type, const GLvoid *indices)
