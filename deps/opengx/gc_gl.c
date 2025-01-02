@@ -2164,7 +2164,7 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
         if (glparamstate.blendenabled && glparamstate.globalTextABR == 1 && glDrawArraysFlg == 0)
         {
             // For 0.5B + 0.5F, In order to change the value of the back color to 0.5
-            GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_C1);
+            GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_HALF);
             GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_A1, GX_CA_ZERO);
         }
         else
