@@ -1751,6 +1751,8 @@ void UploadScreen ( int Position )
      else          */vertex[0].c.lcol = 0xffffffff;
     SETCOL ( vertex[0] );
 
+    glNoNeedMulConstColor( 1 );
+
     SetOGLDisplaySettings ( 0 );
 
     YStep = 256;                                          // max texture size
@@ -1819,6 +1821,8 @@ void UploadScreen ( int Position )
 
     bUsingMovie = FALSE;                                  // done...
     bDisplayNotSet = TRUE;
+
+    glNoNeedMulConstColor( 0 );
 }
 
 ////////////////////////////////////////////////////////////////////////

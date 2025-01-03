@@ -1346,6 +1346,7 @@ GLAPI void GLAPIENTRY glBindTextureBef( GLenum target, GLuint texture );
 GLAPI void GLAPIENTRY glSetDoubleCol( void );
 GLAPI void GLAPIENTRY glSetGlobalTextABR( short globalTextABR );
 GLAPI void GLAPIENTRY glSetRGB24( short rgb24 );
+GLAPI void GLAPIENTRY glNoNeedMulConstColor( short noNeedMulConstColorFlg );
 
 GLAPI void GLAPIENTRY glPrioritizeTextures( GLsizei n,
                                             const GLuint *textures,
