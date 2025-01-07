@@ -145,10 +145,8 @@ void gx_vout_render(void)
 	GX_CopyDisp(xfb[FB_BACK], GX_TRUE);
 	GX_Flush();
 
-	GX_DrawDone();
-	GX_Flush();
-
 	gc_vout_copydone();
+	gc_vout_vsync(0);
 }
 
 void gx_vout_clear(void)
@@ -460,7 +458,7 @@ int gc_vout_open(void) {
 }
 
 int gx_vout_open(void) {
-	VIDEO_SetPreRetraceCallback(gc_vout_vsync);
+	//VIDEO_SetPreRetraceCallback(gc_vout_vsync);
 	return 0;
 }
 

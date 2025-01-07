@@ -74,7 +74,7 @@ extern  void ( APIENTRY * glPixelStorei )(GLenum pname, GLint param);
 
 #define CLUTUSED     0x80000000
 //glColor4ubv(x.c.col)
-#define SETCOL(x)  if(x.c.lcol!=ulOLDCOL) {ulOLDCOL=x.c.lcol;glColor4ub(x.c.col.r,x.c.col.g,x.c.col.b,x.c.col.a);}
+#define SETCOL(x)  if(x.c.lcol!=ulOLDCOL) {ulOLDCOL=x.c.lcol;glColor4Lcol(x.c.lcol);}
 //#define SETPCOL(x)  if(x->c.lcol!=ulOLDCOL) {ulOLDCOL=x->c.lcol;glColor4ub(x->c.col[0],x->c.col[1],x->c.col[2],x->c.col[3]);}
 
 #define INFO_TW        0

@@ -1043,6 +1043,8 @@ GLAPI void GLAPIENTRY glColor4ui( GLuint red, GLuint green,
 GLAPI void GLAPIENTRY glColor4us( GLushort red, GLushort green,
                                     GLushort blue, GLushort alpha );
 
+GLAPI void GLAPIENTRY glColor4Lcol( unsigned int  lcol );
+
 
 GLAPI void GLAPIENTRY glColor3bv( const GLbyte *v );
 GLAPI void GLAPIENTRY glColor3dv( const GLdouble *v );

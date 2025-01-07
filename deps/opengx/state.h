@@ -89,6 +89,11 @@ typedef struct glparams_
     struct imm_mode
     {
         float current_color[4];
+        union COLTAG
+        {
+            struct { unsigned char r, g, b, a; } col;
+            unsigned int  lcol;
+        } c;
         float current_texcoord[2];
         float current_normal[3];
         int current_numverts;
