@@ -1218,6 +1218,11 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         vertex[0].c.col.a = ubGloAlpha;                    // -> set color with
         SETCOL ( vertex[0] );                               //    texture alpha
     }
+    #ifdef DISP_DEBUG
+    sprintf ( txtbuffer, "SetRenderMode %d %d %d %d %d %d %d %08x %d\r\n", DrawSemiTrans, bDrawTextured, bUsingTWin, GlobalTextABR, bCheckMask, iSetMask, bSCol, vertex[0].c.lcol, bDrawNonShaded );
+    DEBUG_print ( txtbuffer,  DBG_CDR4 );
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     if ( bDrawSmoothShaded != bOldSmoothShaded )          // shading changed?
     {
@@ -1312,131 +1317,131 @@ static BOOL bOnePointInBack ( void )
     return TRUE;
 }
 
-static BOOL bDrawOffscreen4 ( void )
-{
-    BOOL bFront;
-    short sW, sH;
-
-    sxmax = max ( lx0, max ( lx1, max ( lx2, lx3 ) ) );
-    if ( sxmax < drawX ) return FALSE;
-    sxmin = min ( lx0, min ( lx1, min ( lx2, lx3 ) ) );
-    if ( sxmin > drawW ) return FALSE;
-    symax = max ( ly0, max ( ly1, max ( ly2, ly3 ) ) );
-    if ( symax < drawY ) return FALSE;
-    symin = min ( ly0, min ( ly1, min ( ly2, ly3 ) ) );
-    if ( symin > drawH ) return FALSE;
-
-    if ( PSXDisplay.Disabled ) return TRUE;               // disabled? ever
-
-    if (iOffscreenDrawing == 1) return bFullVRam;
-
-    if (dwActFixes & 1 && iOffscreenDrawing == 4)
-    {
-        if (PreviousPSXDisplay.DisplayPosition.x==PSXDisplay.DisplayPosition.x &&
-            PreviousPSXDisplay.DisplayPosition.y==PSXDisplay.DisplayPosition.y &&
-            PreviousPSXDisplay.DisplayEnd.x==PSXDisplay.DisplayEnd.x &&
-            PreviousPSXDisplay.DisplayEnd.y==PSXDisplay.DisplayEnd.y)
-        {
-            bRenderFrontBuffer=TRUE;
-            return FALSE;
-        }
-    }
-
-    sW = drawW - 1;
-    sH = drawH - 1;
-
-    sxmin = min ( sW, max ( sxmin, drawX ) );
-    sxmax = max ( drawX, min ( sxmax, sW ) );
-    symin = min ( sH, max ( symin, drawY ) );
-    symax = max ( drawY, min ( symax, sH ) );
-
-    if ( bOnePointInBack() ) return bFullVRam;
-
-    if (iOffscreenDrawing == 2)
-        bFront=bDrawOffscreenFront();
-    else
-        bFront = bOnePointInFront();
-
-    if ( bFront )
-    {
-        if ( PSXDisplay.InterlacedTest ) return bFullVRam;   // -> ok, no need for adjust
-
-        vertex[0].x = lx0 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
-        vertex[1].x = lx1 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
-        vertex[2].x = lx2 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
-        vertex[3].x = lx3 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
-        vertex[0].y = ly0 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
-        vertex[1].y = ly1 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
-        vertex[2].y = ly2 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
-        vertex[3].y = ly3 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
-
-        if (iOffscreenDrawing == 4 && !(dwActFixes & 1))         // -> frontbuffer wanted
-        {
-            bRenderFrontBuffer=TRUE;
-            //return TRUE;
-        }
-        return bFullVRam;                                   // -> but no od
-    }
-
-    return TRUE;
-}
+//static BOOL bDrawOffscreen4 ( void )
+//{
+//    BOOL bFront;
+//    short sW, sH;
+//
+//    sxmax = max ( lx0, max ( lx1, max ( lx2, lx3 ) ) );
+//    if ( sxmax < drawX ) return FALSE;
+//    sxmin = min ( lx0, min ( lx1, min ( lx2, lx3 ) ) );
+//    if ( sxmin > drawW ) return FALSE;
+//    symax = max ( ly0, max ( ly1, max ( ly2, ly3 ) ) );
+//    if ( symax < drawY ) return FALSE;
+//    symin = min ( ly0, min ( ly1, min ( ly2, ly3 ) ) );
+//    if ( symin > drawH ) return FALSE;
+//
+//    if ( PSXDisplay.Disabled ) return TRUE;               // disabled? ever
+//
+//    if (iOffscreenDrawing == 1) return bFullVRam;
+//
+//    if (dwActFixes & 1 && iOffscreenDrawing == 4)
+//    {
+//        if (PreviousPSXDisplay.DisplayPosition.x==PSXDisplay.DisplayPosition.x &&
+//            PreviousPSXDisplay.DisplayPosition.y==PSXDisplay.DisplayPosition.y &&
+//            PreviousPSXDisplay.DisplayEnd.x==PSXDisplay.DisplayEnd.x &&
+//            PreviousPSXDisplay.DisplayEnd.y==PSXDisplay.DisplayEnd.y)
+//        {
+//            bRenderFrontBuffer=TRUE;
+//            return FALSE;
+//        }
+//    }
+//
+//    sW = drawW - 1;
+//    sH = drawH - 1;
+//
+//    sxmin = min ( sW, max ( sxmin, drawX ) );
+//    sxmax = max ( drawX, min ( sxmax, sW ) );
+//    symin = min ( sH, max ( symin, drawY ) );
+//    symax = max ( drawY, min ( symax, sH ) );
+//
+//    if ( bOnePointInBack() ) return bFullVRam;
+//
+//    if (iOffscreenDrawing == 2)
+//        bFront=bDrawOffscreenFront();
+//    else
+//        bFront = bOnePointInFront();
+//
+//    if ( bFront )
+//    {
+//        if ( PSXDisplay.InterlacedTest ) return bFullVRam;   // -> ok, no need for adjust
+//
+//        vertex[0].x = lx0 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
+//        vertex[1].x = lx1 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
+//        vertex[2].x = lx2 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
+//        vertex[3].x = lx3 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
+//        vertex[0].y = ly0 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
+//        vertex[1].y = ly1 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
+//        vertex[2].y = ly2 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
+//        vertex[3].y = ly3 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
+//
+//        if (iOffscreenDrawing == 4 && !(dwActFixes & 1))         // -> frontbuffer wanted
+//        {
+//            bRenderFrontBuffer=TRUE;
+//            //return TRUE;
+//        }
+//        return bFullVRam;                                   // -> but no od
+//    }
+//
+//    return TRUE;
+//}
 
 ////////////////////////////////////////////////////////////////////////
 
-static BOOL bDrawOffscreen3 ( void )
-{
-    BOOL bFront;
-    short sW, sH;
-
-    sxmax = max ( lx0, max ( lx1, lx2 ) );
-    if ( sxmax < drawX ) return FALSE;
-    sxmin = min ( lx0, min ( lx1, lx2 ) );
-    if ( sxmin > drawW ) return FALSE;
-    symax = max ( ly0, max ( ly1, ly2 ) );
-    if ( symax < drawY ) return FALSE;
-    symin = min ( ly0, min ( ly1, ly2 ) );
-    if ( symin > drawH ) return FALSE;
-
-    if ( PSXDisplay.Disabled ) return TRUE;               // disabled? ever
-
-    if (iOffscreenDrawing == 1) return bFullVRam;
-
-    sW = drawW - 1;
-    sH = drawH - 1;
-    sxmin = min ( sW, max ( sxmin, drawX ) );
-    sxmax = max ( drawX, min ( sxmax, sW ) );
-    symin = min ( sH, max ( symin, drawY ) );
-    symax = max ( drawY, min ( symax, sH ) );
-
-    if ( bOnePointInBack() ) return bFullVRam;
-
-    if (iOffscreenDrawing == 2)
-        bFront=bDrawOffscreenFront();
-    else
-        bFront = bOnePointInFront();
-
-    if ( bFront )
-    {
-        if ( PSXDisplay.InterlacedTest ) return bFullVRam;  // -> ok, no need for adjust
-
-        vertex[0].x = lx0 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
-        vertex[1].x = lx1 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
-        vertex[2].x = lx2 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
-        vertex[0].y = ly0 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
-        vertex[1].y = ly1 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
-        vertex[2].y = ly2 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
-
-        if (iOffscreenDrawing == 4)                            // -> frontbuffer wanted
-        {
-            bRenderFrontBuffer=TRUE;
-            //  return TRUE;
-        }
-
-        return bFullVRam;                                   // -> but no od
-    }
-
-    return TRUE;
-}
+//static BOOL bDrawOffscreen3 ( void )
+//{
+//    BOOL bFront;
+//    short sW, sH;
+//
+//    sxmax = max ( lx0, max ( lx1, lx2 ) );
+//    if ( sxmax < drawX ) return FALSE;
+//    sxmin = min ( lx0, min ( lx1, lx2 ) );
+//    if ( sxmin > drawW ) return FALSE;
+//    symax = max ( ly0, max ( ly1, ly2 ) );
+//    if ( symax < drawY ) return FALSE;
+//    symin = min ( ly0, min ( ly1, ly2 ) );
+//    if ( symin > drawH ) return FALSE;
+//
+//    if ( PSXDisplay.Disabled ) return TRUE;               // disabled? ever
+//
+//    if (iOffscreenDrawing == 1) return bFullVRam;
+//
+//    sW = drawW - 1;
+//    sH = drawH - 1;
+//    sxmin = min ( sW, max ( sxmin, drawX ) );
+//    sxmax = max ( drawX, min ( sxmax, sW ) );
+//    symin = min ( sH, max ( symin, drawY ) );
+//    symax = max ( drawY, min ( symax, sH ) );
+//
+//    if ( bOnePointInBack() ) return bFullVRam;
+//
+//    if (iOffscreenDrawing == 2)
+//        bFront=bDrawOffscreenFront();
+//    else
+//        bFront = bOnePointInFront();
+//
+//    if ( bFront )
+//    {
+//        if ( PSXDisplay.InterlacedTest ) return bFullVRam;  // -> ok, no need for adjust
+//
+//        vertex[0].x = lx0 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
+//        vertex[1].x = lx1 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
+//        vertex[2].x = lx2 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
+//        vertex[0].y = ly0 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
+//        vertex[1].y = ly1 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
+//        vertex[2].y = ly2 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
+//
+//        if (iOffscreenDrawing == 4)                            // -> frontbuffer wanted
+//        {
+//            bRenderFrontBuffer=TRUE;
+//            //  return TRUE;
+//        }
+//
+//        return bFullVRam;                                   // -> but no od
+//    }
+//
+//    return TRUE;
+//}
 
 ////////////////////////////////////////////////////////////////////////
 static PSXRect_t xUploadArea;
@@ -1690,7 +1695,15 @@ void UploadScreen ( int Position )
     if ( xrUploadArea.x0 == xrUploadArea.x1 ) return;
     if ( xrUploadArea.y0 == xrUploadArea.y1 ) return;
 
-    if (PSXDisplay.Disabled && iOffscreenDrawing < 4) return;
+    if (PSXDisplay.Disabled && iOffscreenDrawing < 4)
+    {
+        #ifdef DISP_DEBUG
+        //sprintf ( txtbuffer, "UploadScreen Dis %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0);
+        //DEBUG_print ( txtbuffer, DBG_GPU2 );
+        //writeLogFile ( txtbuffer );
+        #endif // DISP_DEBUG
+        return;
+    }
 
     iDrawnSomething   = 2;
     iLastRGB24 = PSXDisplay.RGB24 + 1;
@@ -1699,12 +1712,6 @@ void UploadScreen ( int Position )
 
     if (PSXDisplay.RGB24)
     {
-        #ifdef DISP_DEBUG
-        //sprintf ( txtbuffer, "UploadScreen %d %d %d %d %d %d %d\r\n", Position, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0 );
-        //DEBUG_print ( txtbuffer, DBG_SPU2 );
-        //writeLogFile ( txtbuffer );
-        #endif // DISP_DEBUG
-
         if (clearMovieGarbageFlg == 1 && clearMovieGarbageCnt++ < 3)
         {
             int realMovieHeight = clearMovieGarbageY1 - clearMovieGarbageY0;
@@ -1712,11 +1719,6 @@ void UploadScreen ( int Position )
 
             // clear top area
             int startY = xrUploadArea.y0;
-            #ifdef DISP_DEBUG
-            //sprintf ( txtbuffer, "clear1 %d %d %d %d\r\n", clearMovieGarbageX0, clearMovieGarbageX1, startY, xrUploadArea.y0 + clearH);
-            //DEBUG_print ( txtbuffer, DBG_SPU2 );
-            //writeLogFile ( txtbuffer );
-            #endif // DISP_DEBUG
             for (; startY < xrUploadArea.y0 + clearH; startY++)
             {
                 memset(psxVuw + (startY << 10) + clearMovieGarbageX0, 0, (clearMovieGarbageX1 - clearMovieGarbageX0) * 2);
@@ -1725,11 +1727,6 @@ void UploadScreen ( int Position )
             // clear bottom area
             startY = xrUploadArea.y1 - clearH;
             int endY = xrUploadArea.y1;
-            #ifdef DISP_DEBUG
-            //sprintf ( txtbuffer, "clear2 %d %d %d %d\r\n", clearMovieGarbageX0, clearMovieGarbageX1, startY, endY);
-            //DEBUG_print ( txtbuffer, DBG_SPU2 );
-            //writeLogFile ( txtbuffer );
-            #endif // DISP_DEBUG
             for (; startY < endY; startY++)
             {
                 memset(psxVuw + (startY << 10) + clearMovieGarbageX0, 0, (clearMovieGarbageX1 - clearMovieGarbageX0) * 2);
@@ -1739,6 +1736,11 @@ void UploadScreen ( int Position )
     else
     {
         clearMovieGarbageCnt = 0;
+        #ifdef DISP_DEBUG
+        sprintf ( txtbuffer, "UploadScreen2 %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0);
+        DEBUG_print ( txtbuffer, DBG_GPU3 );
+        writeLogFile ( txtbuffer );
+        #endif // DISP_DEBUG
     }
 
 
@@ -1824,6 +1826,11 @@ void UploadScreen ( int Position )
     bDisplayNotSet = TRUE;
 
     glNoNeedMulConstColor( 0 );
+    #ifdef DISP_DEBUG
+    sprintf ( txtbuffer, "UploadScreen end\r\n");
+    DEBUG_print ( txtbuffer, DBG_GPU3 );
+    writeLogFile ( txtbuffer );
+    #endif // DISP_DEBUG
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1889,12 +1896,14 @@ static inline void cmdSTP ( unsigned char * baseAddr )
         sSetMask = 0x8000;
         lSetMask = 0x80008000;
         iSetMask = 1;
+        glSetTextureMask( 1 );
     }
     else
     {
         sSetMask = 0;
         lSetMask = 0;
         iSetMask = 0;
+        glSetTextureMask( 0 );
     }
 
     if ( gdata & 2 )
@@ -1903,6 +1912,7 @@ static inline void cmdSTP ( unsigned char * baseAddr )
         bCheckMask = TRUE;
         //if ( iDepthFunc == 0 ) return;
         iDepthFunc = 0;
+        glEnable(GL_DEPTH_TEST);
         glDepthFunc ( GL_LESS );
         glError();
     }
@@ -1910,6 +1920,7 @@ static inline void cmdSTP ( unsigned char * baseAddr )
     {
         bCheckMask = FALSE;
         //if ( iDepthFunc == 1 ) return;
+        glDisable(GL_DEPTH_TEST);
         glDepthFunc ( GL_ALWAYS );
         glError();
         iDepthFunc = 1;
@@ -2261,6 +2272,12 @@ static void PrepareRGB24Upload ( void )
 
 void CheckWriteUpdate()
 {
+    #ifdef DISP_DEBUG
+    //sprintf ( txtbuffer, "CheckWriteUpdate %d %d\r\n", bCheckMask, sSetMask);
+    //DEBUG_print ( txtbuffer, DBG_CDR1 );
+    //writeLogFile ( txtbuffer );
+    #endif // DISP_DEBUG
+
     int iX = 0, iY = 0;
 
     if ( VRAMWrite.Width )   iX = 1;
@@ -2419,128 +2436,137 @@ static void primBlkFill ( unsigned char * baseAddr )
     if ( sprtW >= 1023 )  sprtW = 1024;
 
     // x and y of end pos
-    sprtW += sprtX;
-    sprtH += sprtY;
+    //sprtW += sprtX;
+    //sprtH += sprtY;
 
-    FillSoftwareArea(sprtX, sprtY, sprtW, sprtH, BGR24to16(GETLE32(&gpuData[0])));
+    #ifdef DISP_DEBUG
+    //if ((sprtW & 3) > 0 || (sprtH & 3) > 0)
+    {
+        sprintf ( txtbuffer, "primBlkFill %d %d %d %d %08x %d %d\r\n", sprtX, sprtY, sprtW, sprtH, gpuData[0] ,DrawSemiTrans, GlobalTextABR);
+        DEBUG_print ( txtbuffer, DBG_SPU3 );
+        writeLogFile(txtbuffer);
+    }
+    #endif // DISP_DEBUG
 
-//// x and y of start
-//    ly0 = ly1 = sprtY;
-//    ly2 = ly3 = ( sprtY + sprtH );
-//    lx0 = lx3 = sprtX;
-//    lx1 = lx2 = ( sprtX + sprtW );
-//
-//    offsetBlk();
-//
-//    if ( ClipVertexListScreen() )
-//    {
-//        PSXDisplay_t * pd;
-//        if ( PSXDisplay.InterlacedTest ) pd = &PSXDisplay;
-//        else                          pd = &PreviousPSXDisplay;
-//
-//        if ( ( lx0 <= pd->DisplayPosition.x + 16 ) &&
-//                ( ly0 <= pd->DisplayPosition.y + 16 ) &&
-//                ( lx2 >= pd->DisplayEnd.x - 16 ) &&
-//                ( ly2 >= pd->DisplayEnd.y - 16 ) )
-//        {
-//            unsigned char g, b, r;
-//            //r=((unsigned char)RED(GETLE32(&gpuData[0])));
-//            //g=((unsigned char)GREEN(GETLE32(&gpuData[0])));
-//            //b=((unsigned char)BLUE(GETLE32(&gpuData[0])));
-//            r = baseAddr[0];
-//            g = baseAddr[1];
-//            b = baseAddr[2];
-//
-//            //glDisable(GL_SCISSOR_TEST); glError();
-//            glClearColor2 ( r, g, b, 255 );
-//            glError();
-//            glClear ( uiBufferBits );
-//            glError();
-//            gl_z = 0.0f;
-//
-//            if ( GETLE32 ( &gpuData[0] ) != 0x02000000 &&
-//                    ( ly0 > pd->DisplayPosition.y ||
-//                      ly2 < pd->DisplayEnd.y ) )
-//            {
-//                bDrawTextured     = FALSE;
-//                bDrawSmoothShaded = FALSE;
-//                SetRenderState ( ( unsigned int ) 0x01000000 );
-//                SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
-//                vertex[0].c.lcol = SWAP32_C ( 0xff000000 );
-//                SETCOL ( vertex[0] );
-//                if ( ly0 > pd->DisplayPosition.y )
-//                {
-//                    vertex[0].x = 0;
-//                    vertex[0].y = 0;
-//                    vertex[1].x = pd->DisplayEnd.x - pd->DisplayPosition.x;
-//                    vertex[1].y = 0;
-//                    vertex[2].x = vertex[1].x;
-//                    vertex[2].y = ly0 - pd->DisplayPosition.y;
-//                    vertex[3].x = 0;
-//                    vertex[3].y = vertex[2].y;
-//                    PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//#ifdef DISP_DEBUG
-////                    sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-////sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-////                    DEBUG_print ( txtbuffer, DBG_CORE2 );
-////writeLogFile(txtbuffer);
-//#endif // DISP_DEBUG
-//                }
-//                if ( ly2 < pd->DisplayEnd.y )
-//                {
-//                    vertex[0].x = 0;
-//                    vertex[0].y = ( pd->DisplayEnd.y - pd->DisplayPosition.y ) - ( pd->DisplayEnd.y - ly2 );
-//                    vertex[1].x = pd->DisplayEnd.x - pd->DisplayPosition.x;
-//                    vertex[1].y = vertex[0].y;
-//                    vertex[2].x = vertex[1].x;
-//                    vertex[2].y = pd->DisplayEnd.y;
-//                    vertex[3].x = 0;
-//                    vertex[3].y = vertex[2].y;
-//                    PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//#ifdef DISP_DEBUG
-////                    sprintf ( txtbuffer, "blkFill1_2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-////sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-////                    DEBUG_print ( txtbuffer, DBG_CORE2 );
-////writeLogFile(txtbuffer);
-//#endif // DISP_DEBUG
-//                }
-//            }
-//#ifdef DISP_DEBUG
-////            sprintf ( txtbuffer, "blkFill1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-////sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-////            DEBUG_print ( txtbuffer, DBG_CORE2 );
-////writeLogFile(txtbuffer);
-//#endif // DISP_DEBUG
-//
-//            //glEnable(GL_SCISSOR_TEST); glError();
-//        }
-//        else
-//        {
-//#ifdef DISP_DEBUG
-////            sprintf ( txtbuffer, "blkFil2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-////            DEBUG_print ( txtbuffer, DBG_CORE3 );
-////writeLogFile(txtbuffer);
-//#endif // DISP_DEBUG
-//            bDrawTextured     = FALSE;
-//            bDrawSmoothShaded = FALSE;
-//            SetRenderState ( ( unsigned int ) 0x01000000 );
-//            SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
-//            vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
-//            SETCOL ( vertex[0] );
-//            //glDisable(GL_SCISSOR_TEST); glError();
-//            PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//            //glEnable(GL_SCISSOR_TEST); glError();
-//        }
-//    }
-//
-////mmm... will clean all stuff, also if not all _should_ be cleaned...
-////if (IsInsideNextScreen(sprtX, sprtY, sprtW, sprtH))
-//// try this:
-//    if ( IsCompleteInsideNextScreen ( sprtX, sprtY, sprtW, sprtH ) )
-//    {
-//        lClearOnSwapColor = COLOR ( GETLE32 ( &gpuData[0] ) );
-//        lClearOnSwap = 1;
-//    }
+    FillSoftwareArea(sprtX, sprtY, sprtW + sprtX, sprtH + sprtY, BGR24to16(GETLE32(&gpuData[0])));
+
+// x and y of start
+    ly0 = ly1 = sprtY;
+    ly2 = ly3 = ( sprtY + sprtH );
+    lx0 = lx3 = sprtX;
+    lx1 = lx2 = ( sprtX + sprtW );
+
+    offsetBlk();
+
+    if ( ClipVertexListScreen() )
+    {
+        PSXDisplay_t * pd;
+        if ( PSXDisplay.InterlacedTest ) pd = &PSXDisplay;
+        else                          pd = &PreviousPSXDisplay;
+
+        if ( ( lx0 <= pd->DisplayPosition.x + 16 ) &&
+                ( ly0 <= pd->DisplayPosition.y + 16 ) &&
+                ( lx2 >= pd->DisplayEnd.x - 16 ) &&
+                ( ly2 >= pd->DisplayEnd.y - 16 ) )
+        {
+            unsigned char g, b, r;
+            //r=((unsigned char)RED(GETLE32(&gpuData[0])));
+            //g=((unsigned char)GREEN(GETLE32(&gpuData[0])));
+            //b=((unsigned char)BLUE(GETLE32(&gpuData[0])));
+            r = baseAddr[0];
+            g = baseAddr[1];
+            b = baseAddr[2];
+
+            //glDisable(GL_SCISSOR_TEST); glError();
+            glClearColor2 ( r, g, b, 255 );
+            glError();
+            glClear ( uiBufferBits );
+            glError();
+            gl_z = 0.0f;
+
+            if ( GETLE32 ( &gpuData[0] ) != 0x02000000 &&
+                    ( ly0 > pd->DisplayPosition.y ||
+                      ly2 < pd->DisplayEnd.y ) )
+            {
+                bDrawTextured     = FALSE;
+                bDrawSmoothShaded = FALSE;
+                SetRenderState ( ( unsigned int ) 0x01000000 );
+                SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
+                vertex[0].c.lcol = SWAP32_C ( 0xff000000 );
+                SETCOL ( vertex[0] );
+                if ( ly0 > pd->DisplayPosition.y )
+                {
+                    vertex[0].x = 0;
+                    vertex[0].y = 0;
+                    vertex[1].x = pd->DisplayEnd.x - pd->DisplayPosition.x;
+                    vertex[1].y = 0;
+                    vertex[2].x = vertex[1].x;
+                    vertex[2].y = ly0 - pd->DisplayPosition.y;
+                    vertex[3].x = 0;
+                    vertex[3].y = vertex[2].y;
+                    PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+#ifdef DISP_DEBUG
+//                    sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+//sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
+//                    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//writeLogFile(txtbuffer);
+#endif // DISP_DEBUG
+                }
+                if ( ly2 < pd->DisplayEnd.y )
+                {
+                    vertex[0].x = 0;
+                    vertex[0].y = ( pd->DisplayEnd.y - pd->DisplayPosition.y ) - ( pd->DisplayEnd.y - ly2 );
+                    vertex[1].x = pd->DisplayEnd.x - pd->DisplayPosition.x;
+                    vertex[1].y = vertex[0].y;
+                    vertex[2].x = vertex[1].x;
+                    vertex[2].y = pd->DisplayEnd.y;
+                    vertex[3].x = 0;
+                    vertex[3].y = vertex[2].y;
+                    PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+#ifdef DISP_DEBUG
+//                    sprintf ( txtbuffer, "blkFill1_2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+//sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
+//                    DEBUG_print ( txtbuffer, DBG_CORE2 );
+//writeLogFile(txtbuffer);
+#endif // DISP_DEBUG
+                }
+            }
+#ifdef DISP_DEBUG
+//            sprintf ( txtbuffer, "blkFill1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+//sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
+//            DEBUG_print ( txtbuffer, DBG_CORE2 );
+//writeLogFile(txtbuffer);
+#endif // DISP_DEBUG
+
+            //glEnable(GL_SCISSOR_TEST); glError();
+        }
+        else
+        {
+#ifdef DISP_DEBUG
+//            sprintf ( txtbuffer, "blkFil2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+//            DEBUG_print ( txtbuffer, DBG_CORE3 );
+//writeLogFile(txtbuffer);
+#endif // DISP_DEBUG
+            bDrawTextured     = FALSE;
+            bDrawSmoothShaded = FALSE;
+            SetRenderState ( ( unsigned int ) 0x01000000 );
+            SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
+            vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
+            SETCOL ( vertex[0] );
+            //glDisable(GL_SCISSOR_TEST); glError();
+            PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+            //glEnable(GL_SCISSOR_TEST); glError();
+        }
+    }
+
+//mmm... will clean all stuff, also if not all _should_ be cleaned...
+//if (IsInsideNextScreen(sprtX, sprtY, sprtW, sprtH))
+// try this:
+    if ( IsCompleteInsideNextScreen ( sprtX, sprtY, sprtW, sprtH ) )
+    {
+        lClearOnSwapColor = COLOR ( GETLE32 ( &gpuData[0] ) );
+        lClearOnSwap = 1;
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2629,6 +2655,12 @@ static void MoveImageWrapped ( short imageX0, short imageY0,
 
 static void primMoveImage ( unsigned char * baseAddr )
 {
+    #ifdef DISP_DEBUG
+    //sprintf ( txtbuffer, "primMoveImage %d %d\r\n", bCheckMask, sSetMask);
+    //DEBUG_print ( txtbuffer, DBG_CDR2 );
+    //writeLogFile ( txtbuffer );
+    #endif // DISP_DEBUG
+
     short *sgpuData = ( ( short * ) baseAddr );
     short imageY0, imageX0, imageY1, imageX1, imageSX, imageSY, i, j;
 
@@ -2806,11 +2838,6 @@ static void primTileS ( unsigned char * baseAddr )
     ly0 = sprtY;
 
     offsetST();
-#ifdef DISP_DEBUG
-//    sprintf ( txtbuffer, "TileS %d %d %d %d %d %d %d %d\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-//    DEBUG_print ( txtbuffer, DBG_CORE2 );
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
 
     if ( ( dwActFixes & 1 ) &&                            // FF7 special game gix (battle cursor)
             sprtX == 0 && sprtY == 0 && sprtW == 24 && sprtH == 16 )
@@ -2854,6 +2881,14 @@ static void primTileS ( unsigned char * baseAddr )
     vertex[0].c.lcol = gpuData[0];
     vertex[0].c.col.a = ubGloColAlpha;
     SETCOL ( vertex[0] );
+    #ifdef DISP_DEBUG
+    //if ((sprtW & 3) > 0 || (sprtH & 3) > 0)
+    {
+        sprintf ( txtbuffer, "primTileS %d %d %d %d %08x\r\n", sprtX, sprtY, sprtW, sprtH, vertex[0].c.lcol);
+        DEBUG_print ( txtbuffer, DBG_SPU3 );
+        writeLogFile(txtbuffer);
+    }
+    #endif // DISP_DEBUG
 
     PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
@@ -2866,11 +2901,6 @@ static void primTileS ( unsigned char * baseAddr )
 
 static void primTile1 ( unsigned char * baseAddr )
 {
-#ifdef DISP_DEBUG
-//    sprintf ( txtbuffer, "primTile1 0\r\n" );
-//    DEBUG_print ( txtbuffer, DBG_CORE2 );
-    //writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int* ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
 
@@ -2878,6 +2908,11 @@ static void primTile1 ( unsigned char * baseAddr )
     sprtY = GETLEs16 ( &sgpuData[3] );
     sprtW = 1;
     sprtH = 1;
+    #ifdef DISP_DEBUG
+    sprintf ( txtbuffer, "primTile1 %d %d 1 1\r\n", sprtX, sprtY);
+    DEBUG_print ( txtbuffer, DBG_SPU3 );
+    //writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     lx0 = sprtX;
     ly0 = sprtY;
@@ -3415,11 +3450,14 @@ static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
 
     ulClutID = GETLE16 ( &sgpuData[5] );
 
-#ifdef DISP_DEBUG
-//    sprintf ( txtbuffer, "primSprtSRest %d %d %d %d\r\n", sprtX, sprtY, sprtW, sprtH );
-//    DEBUG_print ( txtbuffer, DBG_CORE2 );
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+    #ifdef DISP_DEBUG
+    //if ((sprtW & 3) > 0 || (sprtH & 3) > 0)
+    {
+        sprintf ( txtbuffer, "primSprtSRest %d %d %d %d\r\n", sprtX, sprtY, sprtW, sprtH );
+        DEBUG_print ( txtbuffer, DBG_SPU1 );
+        writeLogFile(txtbuffer);
+    }
+    #endif // DISP_DEBUG
 
     bDrawTextured = TRUE;
     bDrawSmoothShaded = FALSE;
@@ -3555,11 +3593,14 @@ static void primSprtS ( unsigned char * baseAddr )
 
     ulClutID = GETLE16 ( &sgpuData[5] );
 
-#ifdef DISP_DEBUG
-//    sprintf ( txtbuffer, "primSprtS %d %d %d %d\r\n", sprtX, sprtY, sprtW, sprtH );
-//    DEBUG_print ( txtbuffer, DBG_CORE2 );
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+    #ifdef DISP_DEBUG
+    //if ((sprtW & 3) > 0 || (sprtH & 3) > 0)
+    {
+        sprintf ( txtbuffer, "primSprtS %d %d %d %d\r\n", sprtX, sprtY, sprtW, sprtH );
+        DEBUG_print ( txtbuffer, DBG_SPU1 );
+        writeLogFile(txtbuffer);
+    }
+    #endif // DISP_DEBUG
 
     bDrawTextured = TRUE;
     bDrawSmoothShaded = FALSE;
@@ -5153,29 +5194,29 @@ void ( *primTableJGx[256] ) ( unsigned char * ) =
     // 78
     primTile16, primTile16, primTile16, primTile16, primSprt16, primSprt16, primSprt16, primSprt16,
     // 80
-    primMoveImage, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage,
     // 88
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage,
     // 90
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage,
     // 98
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage,
     // a0
-    primLoadImage, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage,
     // a8
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage,
     // b0
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage,
     // b8
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage,
     // c0
-    primStoreImage, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage,
     // c8
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage,
     // d0
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage,
     // d8
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage,
     // e0
     primNI, cmdTexturePage, cmdTextureWindow, cmdDrawAreaStart, cmdDrawAreaEnd, cmdDrawOffset, cmdSTP, primNI,
     // e8
@@ -5225,29 +5266,29 @@ void ( *primTableSkipGx[256] ) ( unsigned char * ) =
     // 78
     primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
     // 80
-    primMoveImage, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage,
     // 88
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage,
     // 90
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage,
     // 98
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage, primMoveImage,
     // a0
-    primLoadImage, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage,
     // a8
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage,
     // b0
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage,
     // b8
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage, primLoadImage,
     // c0
-    primStoreImage, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage,
     // c8
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage,
     // d0
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage,
     // d8
-    primNI, primNI, primNI, primNI, primNI, primNI, primNI, primNI,
+    primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage, primStoreImage,
     // e0
     primNI, cmdTexturePage, cmdTextureWindow, cmdDrawAreaStart, cmdDrawAreaEnd, cmdDrawOffset, cmdSTP, primNI,
     // e8

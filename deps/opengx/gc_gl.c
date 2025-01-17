@@ -650,6 +650,12 @@ void glSetRGB24( short rgb24 )
     glparamstate.RGB24 = rgb24;
 }
 
+static short setTextureMask = 0;
+void glSetTextureMask( short mask )
+{
+    setTextureMask = mask;
+}
+
 void glBindTextureBef(GLenum target, GLuint texture)
 {
     if (texture < 0 || texture >= _MAX_GL_TEX)
@@ -2168,11 +2174,6 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
             GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_HALF);
             GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_A1, GX_CA_ZERO);
         }
-        else if (glparamstate.blendenabled && glparamstate.globalTextABR == 3 && glDrawArraysFlg == 1)
-        {
-            GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO);
-            GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_A1, GX_CA_ZERO);
-        }
         else
         {
             if (noNeedMulConstColor)
@@ -2369,11 +2370,6 @@ static void setup_render_stages(int texen)
                 GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_HALF);
                 GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, vertex_alpha_register, GX_CA_A1, GX_CA_ZERO);
             }
-            else if (glparamstate.blendenabled && glparamstate.globalTextABR == 3 && glDrawArraysFlg == 1)
-            {
-                GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO);
-                GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
-            }
             else if (glparamstate.blendenabled && glparamstate.globalTextABR == 4)
             {
                 // For 1.0 x B + 0.25 x F
@@ -2417,6 +2413,11 @@ void _ogx_apply_state()
 //        GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_GREATER, 0);
 //    }
 
+    #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "draw %d %d %d %d\r\n", glparamstate.blendenabled, texen, glparamstate.glcurtex, glparamstate.globalTextABR);
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
+
     if (glparamstate.blendenabled)
     {
         if (glparamstate.globalTextABR == 1 && glDrawArraysFlg == 0)
@@ -2424,18 +2425,15 @@ void _ogx_apply_state()
             // For 0.5B + 0.5F, back color * 0.5
             GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_SRCCLR, GX_LO_CLEAR);
         }
+        else if (setTextureMask && texen && glparamstate.globalTextABR == 2)
+        {
+            GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+        }
         else
         {
             if (glparamstate.globalTextABR == 3)
             {
-                if (glDrawArraysFlg == 0)
-                {
-                    GX_SetBlendMode(GX_BM_SUBTRACT, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
-                }
-                else
-                {
-                    GX_SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
-                }
+                GX_SetBlendMode(GX_BM_SUBTRACT, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
             }
             else
             {
@@ -2516,6 +2514,27 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
     {
         gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
         GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+
+        // tex debug start
+//        extern bool canWriteLog;
+//        static bool isWritedTex = false;
+//        if (canWriteLog && isWritedTex == false)
+//        {
+//            int i;
+//            for (i = 1; i < _MAX_GL_TEX; i++) {
+//                if (texture_list[i].used == 0) {
+//                    break;
+//                }
+//                char txtbuffer[1024];
+//                gltexture_ *curTex = &texture_list[i];
+//                sprintf(txtbuffer, "sd:/wiisxrx/txtDebug_%d_%d_%02d.bin", curTex->w, curTex->h, i);
+//                FILE* texDebugLog = fopen(txtbuffer, "wb");
+//                fwrite(curTex->data, 1, curTex->w * curTex->h * 2, texDebugLog);
+//                fclose(texDebugLog);
+//            }
+//            isWritedTex = true;
+//        }
+        // tex debug end
     }
 
     glDrawArraysFlg = 0;
@@ -2537,8 +2556,7 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
     }
     GX_End();
 
-    if ((glparamstate.blendenabled && glparamstate.globalTextABR == 1)
-        || (glparamstate.blendenabled && glparamstate.globalTextABR == 3))
+    if ((glparamstate.blendenabled && glparamstate.globalTextABR == 1))
     {
         // 0.5B + 0.5F, Due to the possibility of 0.5Alpha in the final result,
         // it was implemented by executing GX_SetBlendMode twice

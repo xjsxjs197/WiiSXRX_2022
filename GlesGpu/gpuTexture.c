@@ -229,6 +229,11 @@ unsigned int XP8RGBA_0(unsigned int BGR)
  //return (((BGR&0x1f)<<11)|((BGR&0x3E0)<<1)|((BGR&200)>>4)|((BGR&0x7C00)>>10))|0xffff0000;
     return BGR | 0xffff8000;
 }
+unsigned int XP8RGBA_1(unsigned int BGR)
+{
+    if (!(BGR & 0x7fff)) return 0xffff0000;
+    return BGR | 0xffff8000;
+}
 
 // BGR => big endian(argb)
 unsigned int CP8RGBA_0(unsigned int BGR)
@@ -241,17 +246,25 @@ unsigned int CP8RGBA_0(unsigned int BGR)
  return l;
 }
 
-// BGR => big endian(argb)
-unsigned int XP8RGBA_1(unsigned int BGR)
-{
- if(!(BGR&0xffff)) return 0x50000000;
- if(!(BGR&0x8000)) {ubOpaqueDraw=1;return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7));}
- return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
-}
+//// BGR => big endian(argb)
+//unsigned int XP8RGBA_1(unsigned int BGR)
+//{
+// if(!(BGR&0xffff)) return 0x50000000;
+// if(!(BGR&0x8000)) {ubOpaqueDraw=1;return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7));}
+// return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
+//}
 
 // BGR => big endian(argb) (for other texture)
 // bgr555 => bgr5A3(2 bytes were used, Can save half of the memory)
-unsigned int P8RGBA(unsigned int BGR)
+unsigned int P8RGBA_1(unsigned int BGR)
+{
+    if (!(BGR&0x7fff)) return 0;
+ //return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
+ //return (((BGR&0x1f)<<11)|((BGR&0x3E0)<<1)|((BGR&200)>>4)|((BGR&0x7C00)>>10))|0xffff0000;
+    return BGR | 0x8000;
+}
+
+unsigned int P8RGBA_0(unsigned int BGR)
 {
     if (!(BGR&0xffff)) return 0;
  //return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
@@ -1316,6 +1329,10 @@ GLuint LoadTextureMovie(void)
           {
            PUTLE32(ta++, *((unsigned int *)pD)|SWAP32_C(0xff000000));
            //*ta++ = (*((unsigned int *)pD) >> 8) | 0xff000000;
+           // clear movie garbage
+           pD[0] = 0;
+           pD[1] = 0;
+           pD[2] = 0;
            pD+=3;
           }
         }
@@ -1338,7 +1355,14 @@ GLuint LoadTextureMovie(void)
      unsigned int (*LTCOL)(unsigned int);
      unsigned int *ta;
 
-     LTCOL=XP8RGBA_0;//TCF[0];
+     if (DrawSemiTrans == 0)
+     {
+         LTCOL=XP8RGBA_0;//TCF[0];
+     }
+     else
+     {
+         LTCOL=XP8RGBA_1;
+     }
 
      ubOpaqueDraw=0;
      ta=(unsigned int *)texturepart;

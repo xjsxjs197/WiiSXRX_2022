@@ -2066,9 +2066,9 @@ void CALLBACK GL_GPUrearmedCallbacks(const struct rearmed_cbs *_cbs)
 static void flipEGL(void)
 {
     #ifdef DISP_DEBUG
-//    sprintf(txtbuffer, "flipEGL \r\n");
-//    DEBUG_print(txtbuffer, DBG_SPU3);
-    //writeLogFile(txtbuffer);
+    sprintf(txtbuffer, "flipEGL \r\n");
+    DEBUG_print(txtbuffer, DBG_SPU3);
+    writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
     //Write menu/debug text on screen

@@ -197,7 +197,8 @@ void SetExtGLFuncs(void)
   }
  else                                                  // no opaque mode?
   {
-   TCF[0]=TCF[1]=P8RGBA;
+   TCF[0]=P8RGBA_0;
+   TCF[1]=P8RGBA_1;
    //PalTexturedColourFn=P8RGBA;                         // -> init col func
    glAlphaFunc(GL_NOTEQUAL,0); glError();             // --> set alpha func
 
@@ -1304,9 +1305,9 @@ void SetOGLDisplaySettings(BOOL DisplaySet)
    if(bSetClip || !EqualRect(&rC,&rX))
     {
      #ifdef DISP_DEBUG
-     sprintf(txtbuffer, "SetDisplay %d %d %d %d %d %d %d %d\r\n", rC.left,rC.top,rC.right,rC.bottom, rX.left,rX.top,rX.right,rX.bottom);
-     DEBUG_print(txtbuffer, DBG_SPU3);
-     writeLogFile ( txtbuffer );
+     //sprintf(txtbuffer, "SetDisplay %d %d %d %d %d %d %d %d\r\n", rC.left,rC.top,rC.right,rC.bottom, rX.left,rX.top,rX.right,rX.bottom);
+     //DEBUG_print(txtbuffer, DBG_SPU3);
+     //writeLogFile ( txtbuffer );
      #endif // DISP_DEBUG
      rC=rX;
      glScissor(rC.left,rC.top,rC.right,rC.bottom); glError();
