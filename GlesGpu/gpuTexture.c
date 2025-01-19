@@ -1329,10 +1329,6 @@ GLuint LoadTextureMovie(void)
           {
            PUTLE32(ta++, *((unsigned int *)pD)|SWAP32_C(0xff000000));
            //*ta++ = (*((unsigned int *)pD) >> 8) | 0xff000000;
-           // clear movie garbage
-           pD[0] = 0;
-           pD[1] = 0;
-           pD[2] = 0;
            pD+=3;
           }
         }

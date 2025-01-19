@@ -2220,17 +2220,25 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
     GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
 }
 
+#define COL5TO8(a) (a | ((a >> 5) & 0x7))
+
 static inline GXColor gxImmCol(unsigned char *colAdr, int texen)
 {
-    if (texen && glparamstate.blendenabled && glparamstate.globalTextABR == 4)
+    if (texen)
     {
-        // 0.25 * F
-        return (GXColor){ colAdr[0] >> 2, colAdr[1] >> 2, colAdr[2] >> 2, 255};
+        if (glparamstate.blendenabled && glparamstate.globalTextABR == 4)
+        {
+            // 0.25 * F
+            return (GXColor){ (colAdr[0]) >> 2, (colAdr[1]) >> 2, (colAdr[2]) >> 2, 255};
+        }
+        else
+        {
+            return (GXColor){ (colAdr[0]), (colAdr[1]), (colAdr[2]), 255};
+        }
+
     }
-    else
-    {
-        return (GXColor){ colAdr[0], colAdr[1], colAdr[2], 255};
-    }
+
+    return (GXColor){ COL5TO8(colAdr[0]), COL5TO8(colAdr[1]), COL5TO8(colAdr[2]), 255};
 }
 
 static void setup_render_stages(int texen)
