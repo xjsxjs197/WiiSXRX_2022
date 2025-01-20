@@ -1350,6 +1350,7 @@ GLAPI void GLAPIENTRY glSetGlobalTextABR( short globalTextABR );
 GLAPI void GLAPIENTRY glSetRGB24( short rgb24 );
 GLAPI void GLAPIENTRY glSetTextureMask( short mask );
 GLAPI void GLAPIENTRY glNoNeedMulConstColor( short noNeedMulConstColorFlg );
+GLAPI void GLAPIENTRY glSetNormalBlend( void );
 
 GLAPI void GLAPIENTRY glPrioritizeTextures( GLsizei n,
                                             const GLuint *textures,

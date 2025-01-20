@@ -671,6 +671,12 @@ void glSetDoubleCol( void )
     doubleColor = 1;
 }
 
+static short normalBlend = 0;
+void glSetNormalBlend( void )
+{
+    normalBlend = 1;
+}
+
 void glDeleteTextures(GLsizei n, const GLuint *textures)
 {
     const GLuint *texlist = textures;
@@ -2412,17 +2418,9 @@ void _ogx_apply_state()
     GX_SetZMode(GX_TRUE, glparamstate.zfunc, GX_TRUE);
 
     GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_GREATER, 0);
-//    if (!glparamstate.blendenabled)
-//    {
-//        GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
-//    }
-//    else
-//    {
-//        GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_GREATER, 0);
-//    }
 
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "draw %d %d %d %d\r\n", glparamstate.blendenabled, texen, glparamstate.glcurtex, glparamstate.globalTextABR);
+    sprintf(txtbuffer, "draw %d %d %d %d\r\n", glparamstate.blendenabled, texen, glparamstate.color_enabled, glparamstate.globalTextABR);
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
@@ -2433,9 +2431,17 @@ void _ogx_apply_state()
             // For 0.5B + 0.5F, back color * 0.5
             GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_SRCCLR, GX_LO_CLEAR);
         }
-        else if (setTextureMask && texen && glparamstate.globalTextABR == 2)
+        else if (setTextureMask && glparamstate.globalTextABR == 2)
         {
-            GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+            if (normalBlend)
+            {
+                GX_SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+                normalBlend = 0;
+            }
+            else
+            {
+                GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+            }
         }
         else
         {

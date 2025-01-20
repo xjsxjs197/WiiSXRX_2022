@@ -3663,6 +3663,8 @@ static void primPolyF4 ( unsigned char *baseAddr )
 //    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
+    glSetNormalBlend();
+
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
 
@@ -4440,6 +4442,8 @@ static void primPolyFT4 ( unsigned char * baseAddr )
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
 
+    glSetNormalBlend();
+
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
 
@@ -4687,6 +4691,9 @@ static void primPolyGT4 ( unsigned char *baseAddr )
 //    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
+
+    glSetNormalBlend();
+
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
 
@@ -4812,6 +4819,8 @@ static void primPolyF3 ( unsigned char *baseAddr )
 //    DEBUG_print ( txtbuffer, DBG_CORE2 );
 //writeLogFile(txtbuffer);
 #endif // DISP_DEBUG
+
+    glSetNormalBlend();
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
