@@ -1721,7 +1721,7 @@ void UploadScreen ( int Position )
             int startY = xrUploadArea.y0;
             for (; startY < xrUploadArea.y0 + clearH; startY++)
             {
-                memset(psxVuw + (startY << 10) + clearMovieGarbageX0, 0, (clearMovieGarbageX1 - clearMovieGarbageX0) * 2);
+                memset(psxVuw + (startY << 10) + clearMovieGarbageX0, 0, (clearMovieGarbageX1 - clearMovieGarbageX0) * 3);
             }
 
             // clear bottom area
@@ -1729,7 +1729,7 @@ void UploadScreen ( int Position )
             int endY = xrUploadArea.y1;
             for (; startY < endY; startY++)
             {
-                memset(psxVuw + (startY << 10) + clearMovieGarbageX0, 0, (clearMovieGarbageX1 - clearMovieGarbageX0) * 2);
+                memset(psxVuw + (startY << 10) + clearMovieGarbageX0, 0, (clearMovieGarbageX1 - clearMovieGarbageX0) * 3);
             }
         }
     }
