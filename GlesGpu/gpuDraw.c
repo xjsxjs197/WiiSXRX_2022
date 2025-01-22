@@ -1032,14 +1032,14 @@ void assignTextureVRAMWrite(void)
  vertex[0].sow=0.0f; //0.5f/ ST_FACVRAMX;
  vertex[0].tow=0.0f; //0.5f/ ST_FACVRAM;
 
- vertex[1].sow=(float)(xrMovieArea.x1-xrMovieArea.x0)/ RGBA_GX_LEN_FIX(xrMovieArea.x1-xrMovieArea.x0);
+ vertex[1].sow=1.0f; //(float)(xrMovieArea.x1-xrMovieArea.x0)/ RGBA_GX_LEN_FIX(xrMovieArea.x1-xrMovieArea.x0);
  vertex[1].tow=0.0f; //0.5f/ ST_FACVRAM;
 
- vertex[2].sow=(float)(xrMovieArea.x1-xrMovieArea.x0)/ RGBA_GX_LEN_FIX(xrMovieArea.x1-xrMovieArea.x0);
- vertex[2].tow=(float)(xrMovieArea.y1-xrMovieArea.y0)/ RGBA_GX_LEN_FIX(xrMovieArea.y1-xrMovieArea.y0);
+ vertex[2].sow=1.0f; //(float)(xrMovieArea.x1-xrMovieArea.x0)/ RGBA_GX_LEN_FIX(xrMovieArea.x1-xrMovieArea.x0);
+ vertex[2].tow=1.0f; //(float)(xrMovieArea.y1-xrMovieArea.y0)/ RGBA_GX_LEN_FIX(xrMovieArea.y1-xrMovieArea.y0);
 
  vertex[3].sow=0.0f; //0.5f/ ST_FACVRAMX;
- vertex[3].tow=(float)(xrMovieArea.y1-xrMovieArea.y0)/ RGBA_GX_LEN_FIX(xrMovieArea.y1-xrMovieArea.y0);
+ vertex[3].tow=1.0f; //(float)(xrMovieArea.y1-xrMovieArea.y0)/ RGBA_GX_LEN_FIX(xrMovieArea.y1-xrMovieArea.y0);
 
 #else
 

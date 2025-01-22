@@ -1477,8 +1477,8 @@ void glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
     GX_Flush();
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
-    int wi = (width + 3) & ~(unsigned int)3;
-    int he = (height + 3) & ~(unsigned int)3;
+    int wi = width; //(width + 3) & ~(unsigned int)3;
+    int he = height; //(height + 3) & ~(unsigned int)3;
 
     int required_size = wi * he * 4;
     if (!glparamstate.RGB24)
@@ -2850,7 +2850,7 @@ void glTexParameteri(GLenum target, GLenum pname, GLint param)
         GX_InitTexObjWrapMode(&currtex->texobj, currtex->wraps, currtex->wrapt);
         break;
     case GL_TEXTURE_WRAP_T:
-        texture_list[glparamstate.glcurtex].wrapt = gcgl_texwrap_conv(param);
+        currtex->wrapt = gcgl_texwrap_conv(param);
         GX_InitTexObjWrapMode(&currtex->texobj, currtex->wraps, currtex->wrapt);
         break;
     };
