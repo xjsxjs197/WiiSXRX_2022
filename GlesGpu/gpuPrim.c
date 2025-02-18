@@ -41,9 +41,9 @@
 // defines
 ////////////////////////////////////////////////////////////////////////
 
-//#define CMD_LOG_3D
+#define CMD_LOG_3D
 #define CMD_LOG_2D
-//#define CMD_LOG_LINE
+#define CMD_LOG_LINE
 
 #define DEFOPAQUEON  glAlphaFunc(GL_EQUAL,0.0f);bBlendEnable=FALSE;glDisable(GL_BLEND);
 #define DEFOPAQUEOFF glAlphaFunc(GL_GREATER,0.49f);
@@ -1720,6 +1720,9 @@ void UploadScreen ( int Position )
 
     if ( bSkipNextFrame ) return;
 
+    isFrameOk = TRUE;
+
+    // Clear Movie garbage
     if (PSXDisplay.RGB24)
     {
         if (clearMovieGarbageFlg == 1 && clearMovieGarbageCnt++ < 3)
@@ -2703,10 +2706,10 @@ static void primMoveImage ( unsigned char * baseAddr )
     writeLogFile ( txtbuffer );
     #endif // DISP_DEBUG
 
-//    if (imageSX == 2 && imageSY == 1)
-//    {
-//        isFrameOk= TRUE;
-//    }
+    if (imageSX == 2 && imageSY == 1)
+    {
+        isFrameOk = TRUE;
+    }
 
     if ( ( imageX0 == imageX1 ) && ( imageY0 == imageY1 ) ) return;
     if ( imageSX <= 0 ) return;
@@ -3740,11 +3743,6 @@ static void primSprtS ( unsigned char * baseAddr )
 
 static void primPolyF4 ( unsigned char *baseAddr )
 {
-#if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
-    sprintf ( txtbuffer, "primPolyF4 \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
-writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
 
@@ -3779,6 +3777,11 @@ writeLogFile(txtbuffer);
     vertex[0].c.lcol = gpuData[0];
     vertex[0].c.col.a = ubGloColAlpha;
     SETCOL ( vertex[0] );
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
+    sprintf ( txtbuffer, "primPolyF4 %d %d %d %d %d %d %d %d %08x \r\n", lx0, ly0, lx1, ly1, lx2, ly2, lx3, ly3, vertex[0].c.lcol );
+    DEBUG_print ( txtbuffer, DBG_CORE2 );
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     PRIMdrawTri2 ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
@@ -5054,12 +5057,6 @@ writeLogFile(txtbuffer);
 
 static void primLineG2 ( unsigned char *baseAddr )
 {
-#if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
-    sprintf ( txtbuffer, "primLineG2 \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
-writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
-
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
 
@@ -5067,6 +5064,12 @@ writeLogFile(txtbuffer);
     ly0 = GETLEs16 ( &sgpuData[3] );
     lx1 = GETLEs16 ( &sgpuData[6] );
     ly1 = GETLEs16 ( &sgpuData[7] );
+
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
+    sprintf ( txtbuffer, "primLineG2 %d %d %d %d \r\n", lx0, ly0, lx1, ly1 );
+    DEBUG_print ( txtbuffer, DBG_CORE2 );
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     vertex[0].c.lcol = vertex[3].c.lcol = gpuData[0];
     vertex[1].c.lcol = vertex[2].c.lcol = gpuData[2];

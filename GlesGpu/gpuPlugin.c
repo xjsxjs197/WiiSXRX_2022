@@ -138,6 +138,7 @@ static unsigned short largeRangeY1 = 0;
 static unsigned short largeRangeY2 = 0;
 
 static BOOL    primSprtSFix = FALSE;                    // GX gpu fix(Dino Crisis2)
+static BOOL    isFrameOk = FALSE;
 
 #define INRANGE(x1, x2, y1, y2) ((y2 <= largeRangeY2) && (y1 >= largeRangeY1) && (x2 <= largeRangeX2) && (x1 >= largeRangeX1))
 
@@ -414,10 +415,10 @@ if(PSXDisplay.Disabled)                               // display disabled?
   gl_z=0.0f;
   bDisplayNotSet = TRUE;
   #ifdef DISP_DEBUG
-//sprintf(txtbuffer, "updateDisplayGl Disabled\r\n");
-//DEBUG_print(txtbuffer, DBG_CDR1);
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+  sprintf(txtbuffer, "updateDisplayGl Disabled\r\n");
+  //DEBUG_print(txtbuffer, DBG_CDR1);
+  writeLogFile(txtbuffer);
+  #endif // DISP_DEBUG
  }
 
 if(iSkipTwo)                                          // we are in skipping mood?
@@ -476,10 +477,10 @@ iDrawnSomething=0;
 if(lClearOnSwap)                                      // clear buffer after swap?
  {
      #ifdef DISP_DEBUG
-//sprintf(txtbuffer, "updateDisplayGl lClearOnSwap\r\n");
-//DEBUG_print(txtbuffer, DBG_CDR1);
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+     sprintf(txtbuffer, "updateDisplayGl lClearOnSwap\r\n");
+     //DEBUG_print(txtbuffer, DBG_CDR1);
+     writeLogFile(txtbuffer);
+     #endif // DISP_DEBUG
 
   unsigned char g,b,r;
 
@@ -502,9 +503,15 @@ else
 
   if(iZBufferDepth)                                   // clear zbuffer as well (if activated)
    {
-    glDisable(GL_SCISSOR_TEST); glError();
-    glClear(GL_DEPTH_BUFFER_BIT); glError();
-    glEnable(GL_SCISSOR_TEST); glError();
+       #ifdef DISP_DEBUG
+     sprintf(txtbuffer, "Not lClearOnSwap\r\n");
+     //DEBUG_print(txtbuffer, DBG_CDR1);
+     writeLogFile(txtbuffer);
+     #endif // DISP_DEBUG
+
+    //glDisable(GL_SCISSOR_TEST); glError();
+    //glClear(GL_DEPTH_BUFFER_BIT); glError();
+    //glEnable(GL_SCISSOR_TEST); glError();
    }
  }
 
@@ -517,10 +524,10 @@ if(bNeedUploadAfter)                                  // upload wanted?
  {
   bNeedUploadAfter=FALSE;
   bNeedUploadTest=FALSE;
-  #ifdef DISP_DEBUG
-      //sprintf(txtbuffer, "bNeedUploadAfter %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+      #ifdef DISP_DEBUG
+      sprintf(txtbuffer, "bNeedUploadAfter %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
       //DEBUG_print(txtbuffer, DBG_CDR2);
-      //writeLogFile(txtbuffer);
+      writeLogFile(txtbuffer);
       #endif // DISP_DEBUG
   UploadScreen(-1);                                   // -> upload
  }
@@ -536,10 +543,10 @@ if(bNeedUploadTest)
      PreviousPSXDisplay.DisplayEnd.y==PSXDisplay.DisplayEnd.y)
    {
        #ifdef DISP_DEBUG
-      //sprintf(txtbuffer, "bNeedUploadTest %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
-      //DEBUG_print(txtbuffer, DBG_CDR2);
-      //writeLogFile(txtbuffer);
-      #endif // DISP_DEBUG
+       sprintf(txtbuffer, "bNeedUploadTest %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+       //DEBUG_print(txtbuffer, DBG_CDR2);
+       writeLogFile(txtbuffer);
+       #endif // DISP_DEBUG
 
     PrepareFullScreenUpload(TRUE);
     UploadScreen(TRUE);
@@ -562,6 +569,10 @@ if(iRumbleTime)                                       // shake screen by modifyi
     i4=((rand()*iRumbleVal)/RAND_MAX)-(iRumbleVal/2);
    }
 
+  #ifdef DISP_DEBUG
+       sprintf(txtbuffer, "iRumbleTime\r\n");
+       writeLogFile(txtbuffer);
+       #endif // DISP_DEBUG
   glViewport(rRatioRect.left+i1,
              iResY-(rRatioRect.top+rRatioRect.bottom)+i2,
              rRatioRect.right+i3,
@@ -800,12 +811,12 @@ if(PSXDisplay.RGB24!=PSXDisplay.RGB24New)             // clean up textures, if r
   PreviousPSXDisplay.RGB24=0;                         // no full 24 frame uploaded yet
   ResetTextureArea(FALSE);
   bUp=TRUE;
-  #ifdef DISP_DEBUG
+ }
+ #ifdef DISP_DEBUG
   sprintf(txtbuffer, "updateDisplayIfChangedGl %d %d\r\n", PSXDisplay.RGB24, PSXDisplay.RGB24New);
   //DEBUG_print(txtbuffer, DBG_SPU3);
   writeLogFile(txtbuffer);
   #endif // DISP_DEBUG
- }
 
 PSXDisplay.RGB24         = PSXDisplay.RGB24New;       // get new infos
 PSXDisplay.DisplayMode.y = PSXDisplay.DisplayModeNew.y;
@@ -929,6 +940,7 @@ if(PSXDisplay.Interlaced)                             // interlaced mode?
     writeLogFile ( txtbuffer );
     #endif // DISP_DEBUG
 
+    isFrameOk = TRUE;
     updateDisplayGl();                                  // -> swap buffers (new frame)
    }
      #ifdef DISP_DEBUG
@@ -945,6 +957,7 @@ else if(bRenderFrontBuffer)                           // no interlace mode? and 
     sprintf ( txtbuffer, "GPUupdateLace2 %d\r\n", iDrawnSomething);
     writeLogFile ( txtbuffer );
     #endif // DISP_DEBUG
+    isFrameOk = TRUE;
   updateFrontDisplayGl();                               // -> update front buffer
  }
 else if(usFirstPos==1)                                // initial updates (after startup)
@@ -953,6 +966,7 @@ else if(usFirstPos==1)                                // initial updates (after 
     sprintf ( txtbuffer, "GPUupdateLace3\r\n");
     writeLogFile ( txtbuffer );
     #endif // DISP_DEBUG
+    isFrameOk = TRUE;
   updateDisplayGl();
  }
 // else if (iDrawnSomething)
@@ -1065,6 +1079,7 @@ switch(lCommand)
        //DEBUG_print(txtbuffer, DBG_CDR2);
        writeLogFile(txtbuffer);
        #endif // DISP_DEBUG
+       isFrameOk = TRUE;
        UploadScreen(TRUE);
        updateDisplayGl();
       }
@@ -1160,11 +1175,11 @@ switch(lCommand)
     if (!(PSXDisplay.Interlaced))
      {
          #ifdef DISP_DEBUG
-         sprintf(txtbuffer, "settingDispInfo %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y);
+         sprintf(txtbuffer, "settingDispInfo05 %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y);
          //DEBUG_print(txtbuffer, DBG_CDR2);
          writeLogFile(txtbuffer);
          #endif // DISP_DEBUG
-      updateDisplayGl();
+         updateDisplayGl();
      }
     else
     if(PSXDisplay.InterlacedTest &&
@@ -1203,6 +1218,11 @@ switch(lCommand)
     {
      PSXDisplay.DisplayModeNew.y=PSXDisplay.Height*PSXDisplay.Double;
      ChangeDispOffsetsYGl();
+
+     #ifdef DISP_DEBUG
+     sprintf(txtbuffer, "setting height \r\n");
+     writeLogFile(txtbuffer);
+     #endif // DISP_DEBUG
      updateDisplayIfChangedGl();
     }
    return;
@@ -1259,6 +1279,10 @@ switch(lCommand)
         STATUSREG|=GPUSTATUS_RGB24;
    else STATUSREG&=~GPUSTATUS_RGB24;
 
+     #ifdef DISP_DEBUG
+     sprintf(txtbuffer, "settingDispInfo07 \r\n");
+     writeLogFile(txtbuffer);
+     #endif // DISP_DEBUG
    updateDisplayIfChangedGl();
 
    return;
@@ -2122,18 +2146,22 @@ void CALLBACK GL_GPUrearmedCallbacks(const struct rearmed_cbs *_cbs)
 static void flipEGL(void)
 {
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "flipEGL \r\n");
+    sprintf(txtbuffer, "flipEGL %d \r\n", isFrameOk);
     DEBUG_print(txtbuffer, DBG_SPU3);
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
-    //Write menu/debug text on screen
-    showFpsAndDebugInfo();
+    if (isFrameOk)
+    {
+        // Write menu/debug text on screen
+        showFpsAndDebugInfo();
+    }
 
-    gx_vout_render();
+    gx_vout_render(isFrameOk);
 
     clearLargeRange = 0;
     primSprtSFix = FALSE;
+    isFrameOk = FALSE;
 }
 
 #include "../Gamecube/wiiSXconfig.h"
