@@ -50,8 +50,10 @@ typedef float VertexData[12];
 typedef struct gltexture_
 {
     void *data;
+    void *semiTransData; // Non transparent colors Data
     unsigned short w, h;
     GXTexObj texobj;
+    GXTexObj semiTransTexobj; // Non transparent colors Obj
     char used;
     int bytespp;
     char maxlevel, minlevel;

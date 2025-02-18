@@ -131,6 +131,15 @@ unsigned int    ulGPUInfoVals[16];
 int             iRumbleVal    = 0;
 int             iRumbleTime   = 0;
 
+static unsigned char clearLargeRange = 0;
+static unsigned short largeRangeX1 = 0;
+static unsigned short largeRangeX2 = 0;
+static unsigned short largeRangeY1 = 0;
+static unsigned short largeRangeY2 = 0;
+
+static BOOL    primSprtSFix = FALSE;                    // GX gpu fix(Dino Crisis2)
+
+#define INRANGE(x1, x2, y1, y2) ((y2 <= largeRangeY2) && (y1 >= largeRangeY1) && (x2 <= largeRangeX2) && (x1 >= largeRangeX1))
 
 #include "gpuDraw.c"
 #include "gpuTexture.c"
@@ -282,15 +291,15 @@ long CALLBACK GL_GPUshutdown()
 
 void PaintBlackBorders(void)
 {
- short s;
- glDisable(GL_SCISSOR_TEST); glError();
- if(bTexEnabled) {glDisable(GL_TEXTURE_2D);bTexEnabled=FALSE;} glError();
- if(bOldSmoothShaded) {glShadeModel(GL_FLAT);bOldSmoothShaded=FALSE;} glError();
- if(bBlendEnable)     {glDisable(GL_BLEND);bBlendEnable=FALSE;} glError();
- glDisable(GL_ALPHA_TEST); glError();
-
- glEnable(GL_ALPHA_TEST); glError();
- glEnable(GL_SCISSOR_TEST); glError();
+// short s;
+// glDisable(GL_SCISSOR_TEST); glError();
+// if(bTexEnabled) {glDisable(GL_TEXTURE_2D);bTexEnabled=FALSE;} glError();
+// if(bOldSmoothShaded) {glShadeModel(GL_FLAT);bOldSmoothShaded=FALSE;} glError();
+// if(bBlendEnable)     {glDisable(GL_BLEND);bBlendEnable=FALSE;} glError();
+// glDisable(GL_ALPHA_TEST); glError();
+//
+// glEnable(GL_ALPHA_TEST); glError();
+// glEnable(GL_SCISSOR_TEST); glError();
 
 }
 
@@ -776,10 +785,10 @@ else                                                  // some res change?
   glOrtho(0,PSXDisplay.DisplayModeNew.x,              // -> new psx resolution
             PSXDisplay.DisplayModeNew.y, 0, -1, 1); glError();
   #ifdef DISP_DEBUG
-//sprintf(txtbuffer, "glOrtho %d %d %d\r\n", PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y, xrUploadArea.y1 - xrUploadArea.y0);
-//DEBUG_print(txtbuffer, DBG_SPU3);
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+  sprintf(txtbuffer, "glOrtho %d %d\r\n", PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y);
+  //DEBUG_print(txtbuffer, DBG_SPU3);
+  writeLogFile(txtbuffer);
+  #endif // DISP_DEBUG
   if(bKeepRatio) SetAspectRatio();
  }
 
@@ -791,6 +800,11 @@ if(PSXDisplay.RGB24!=PSXDisplay.RGB24New)             // clean up textures, if r
   PreviousPSXDisplay.RGB24=0;                         // no full 24 frame uploaded yet
   ResetTextureArea(FALSE);
   bUp=TRUE;
+  #ifdef DISP_DEBUG
+  sprintf(txtbuffer, "updateDisplayIfChangedGl %d %d\r\n", PSXDisplay.RGB24, PSXDisplay.RGB24New);
+  //DEBUG_print(txtbuffer, DBG_SPU3);
+  writeLogFile(txtbuffer);
+  #endif // DISP_DEBUG
  }
 
 PSXDisplay.RGB24         = PSXDisplay.RGB24New;       // get new infos
@@ -910,17 +924,54 @@ if(PSXDisplay.Interlaced)                             // interlaced mode?
  {
   if(PSXDisplay.DisplayMode.x>0 && PSXDisplay.DisplayMode.y>0)
    {
+       #ifdef DISP_DEBUG
+    sprintf ( txtbuffer, "GPUupdateLace1 %d\r\n", iDrawnSomething);
+    writeLogFile ( txtbuffer );
+    #endif // DISP_DEBUG
+
     updateDisplayGl();                                  // -> swap buffers (new frame)
    }
+     #ifdef DISP_DEBUG
+     else
+     {
+        sprintf ( txtbuffer, "GPUupdateLace6 %d\r\n", iDrawnSomething);
+        writeLogFile ( txtbuffer );
+     }
+     #endif // DISP_DEBUG
  }
 else if(bRenderFrontBuffer)                           // no interlace mode? and some stuff in front has changed?
  {
+     #ifdef DISP_DEBUG
+    sprintf ( txtbuffer, "GPUupdateLace2 %d\r\n", iDrawnSomething);
+    writeLogFile ( txtbuffer );
+    #endif // DISP_DEBUG
   updateFrontDisplayGl();                               // -> update front buffer
  }
 else if(usFirstPos==1)                                // initial updates (after startup)
  {
+     #ifdef DISP_DEBUG
+    sprintf ( txtbuffer, "GPUupdateLace3\r\n");
+    writeLogFile ( txtbuffer );
+    #endif // DISP_DEBUG
   updateDisplayGl();
  }
+// else if (iDrawnSomething)
+// {
+//     isFrameOk = FALSE;
+//     #ifdef DISP_DEBUG
+//     sprintf ( txtbuffer, "GPUupdateLace7\r\n");
+//     writeLogFile ( txtbuffer );
+//     #endif // DISP_DEBUG
+//     flipEGL();
+//     iDrawnSomething = 0;
+// }
+ #ifdef DISP_DEBUG
+ else
+ {
+    sprintf ( txtbuffer, "GPUupdateLace5 %d\r\n", iDrawnSomething);
+    writeLogFile ( txtbuffer );
+ }
+ #endif // DISP_DEBUG
 
 }
 
@@ -1010,10 +1061,10 @@ switch(lCommand)
       {
        PrepareFullScreenUpload(TRUE);
        #ifdef DISP_DEBUG
-      //sprintf(txtbuffer, "dis/enable display %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
-      //DEBUG_print(txtbuffer, DBG_CDR2);
-      //writeLogFile(txtbuffer);
-      #endif // DISP_DEBUG
+       sprintf(txtbuffer, "dis/enable display %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+       //DEBUG_print(txtbuffer, DBG_CDR2);
+       writeLogFile(txtbuffer);
+       #endif // DISP_DEBUG
        UploadScreen(TRUE);
        updateDisplayGl();
       }
@@ -1108,6 +1159,11 @@ switch(lCommand)
 
     if (!(PSXDisplay.Interlaced))
      {
+         #ifdef DISP_DEBUG
+         sprintf(txtbuffer, "settingDispInfo %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y);
+         //DEBUG_print(txtbuffer, DBG_CDR2);
+         writeLogFile(txtbuffer);
+         #endif // DISP_DEBUG
       updateDisplayGl();
      }
     else
@@ -1444,9 +1500,9 @@ void CheckVRamReadEx(int x, int y, int dx, int dy)
 ////////////////////////////////////////////////////////////////////////
 
 // don't do GL vram read
-void CheckVRamRead(int x, int y, int dx, int dy, bool bFront)
-{
-}
+//void CheckVRamRead(int x, int y, int dx, int dy, bool bFront)
+//{
+//}
 
 //void CheckVRamRead(int x, int y, int dx, int dy, bool bFront)
 //{
@@ -1601,16 +1657,16 @@ while(VRAMRead.ImagePtr>=psxVuw_eom)
 while(VRAMRead.ImagePtr<psxVuw)
  VRAMRead.ImagePtr+=iGPUHeight*1024;
 
-if((iFrameReadType&1 && iSize>1) &&
-   !(iDrawnSomething==2 &&
-     VRAMRead.x      == VRAMWrite.x     &&
-     VRAMRead.y      == VRAMWrite.y     &&
-     VRAMRead.Width  == VRAMWrite.Width &&
-     VRAMRead.Height == VRAMWrite.Height))
- CheckVRamRead(VRAMRead.x,VRAMRead.y,
-               VRAMRead.x+VRAMRead.RowsRemaining,
-               VRAMRead.y+VRAMRead.ColsRemaining,
-               TRUE);
+//if((iFrameReadType&1 && iSize>1) &&
+//   !(iDrawnSomething==2 &&
+//     VRAMRead.x      == VRAMWrite.x     &&
+//     VRAMRead.y      == VRAMWrite.y     &&
+//     VRAMRead.Width  == VRAMWrite.Width &&
+//     VRAMRead.Height == VRAMWrite.Height))
+// CheckVRamRead(VRAMRead.x,VRAMRead.y,
+//               VRAMRead.x+VRAMRead.RowsRemaining,
+//               VRAMRead.y+VRAMRead.ColsRemaining,
+//               TRUE);
 
 for(i=0;i<iSize;i++)
  {
@@ -2075,6 +2131,9 @@ static void flipEGL(void)
     showFpsAndDebugInfo();
 
     gx_vout_render();
+
+    clearLargeRange = 0;
+    primSprtSFix = FALSE;
 }
 
 #include "../Gamecube/wiiSXconfig.h"

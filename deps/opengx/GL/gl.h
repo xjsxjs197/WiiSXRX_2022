@@ -1348,9 +1348,11 @@ GLAPI void GLAPIENTRY glBindTextureBef( GLenum target, GLuint texture );
 GLAPI void GLAPIENTRY glSetDoubleCol( void );
 GLAPI void GLAPIENTRY glSetGlobalTextABR( short globalTextABR );
 GLAPI void GLAPIENTRY glSetRGB24( short rgb24 );
+GLAPI void GLAPIENTRY glSetSemiTransFlg( short semiTransFlg );
 GLAPI void GLAPIENTRY glSetTextureMask( short mask );
 GLAPI void GLAPIENTRY glNoNeedMulConstColor( short noNeedMulConstColorFlg );
-GLAPI void GLAPIENTRY glSetNormalBlend( void );
+GLAPI void GLAPIENTRY glSetNormalBlend( short normalBlend );
+GLAPI void GLAPIENTRY glSetVramClearedFlg( void );
 
 GLAPI void GLAPIENTRY glPrioritizeTextures( GLsizei n,
                                             const GLuint *textures,

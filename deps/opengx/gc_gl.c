@@ -48,7 +48,6 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "debug.h"
 #include "image_DXT.h"
 #include "opengx.h"
-#include "pixels.h"
 #include "state.h"
 #include "utils.h"
 
@@ -650,10 +649,24 @@ void glSetRGB24( short rgb24 )
     glparamstate.RGB24 = rgb24;
 }
 
+static short semiTransFlg = 0;
+void glSetSemiTransFlg( short semiTrans_Flg )
+{
+    semiTransFlg = semiTrans_Flg;
+}
+
 static short setTextureMask = 0;
+static short tmpTextureMask = 0;
 void glSetTextureMask( short mask )
 {
-    setTextureMask = mask;
+    tmpTextureMask = mask;
+    setTextureMask = tmpTextureMask;
+}
+
+static short vramClearedFlg = 0;
+void glSetVramClearedFlg( void )
+{
+    vramClearedFlg = 1;
 }
 
 void glBindTextureBef(GLenum target, GLuint texture)
@@ -672,9 +685,10 @@ void glSetDoubleCol( void )
 }
 
 static short normalBlend = 0;
-void glSetNormalBlend( void )
+void glSetNormalBlend( short norBlend )
 {
-    normalBlend = 1;
+    normalBlend = norBlend;
+    //setTextureMask = tmpTextureMask;
 }
 
 void glDeleteTextures(GLsizei n, const GLuint *textures)
@@ -1444,14 +1458,19 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
 
     int required_size = wi * he * 2;
     int tex_size_rnd = ROUND_32B(required_size);
-    currtex->data = _mem2_memalign(32, tex_size_rnd);
-    memset(currtex->data, 0, tex_size_rnd);
-    DCFlushRange(currtex->data, tex_size_rnd);
+    currtex->data = _mem2_memalign(32, tex_size_rnd * 2);
+    memset(currtex->data, 0, tex_size_rnd * 2);
+    DCFlushRange(currtex->data, tex_size_rnd * 2);
+
+    currtex->semiTransData = currtex->data + tex_size_rnd;
 
     currtex->w = wi;
     currtex->h = he;
 
     GX_InitTexObj(&currtex->texobj, currtex->data,
+                  currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
+    // For Non transparent colors in transparent mode
+    GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
                   currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
     //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
 }
@@ -1459,10 +1478,144 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
 #define RESY_MAX 512	//Vmem height
 #define GXRESX_MAX 1366	//1024 * 1.33 for ARGB
 #define MOVIE_BUF_SIZE (GXRESX_MAX*RESY_MAX*2)
+#define W_BLOCK(w) (((w + 3) & ~(unsigned int)3) >> 2)
 
 extern unsigned char GXtexture[MOVIE_BUF_SIZE];
 static unsigned char *movieTexPtr;
 static int movieUsedSize = 0;
+
+// 4b texel scrambling, opengx conversion: src(argb) -> dst(ar...gb)
+// for movie
+static inline void _ogx_scramble_4b(unsigned char *src, void *dst,
+                      const unsigned int width, const unsigned int height)
+{
+    unsigned int block;
+    unsigned int i;
+    unsigned char c;
+    unsigned char argb;
+    unsigned char *p = (unsigned char *)dst;
+
+    for (block = 0; block < height; block += 4) {
+        for (i = 0; i < width; i += 4) {
+            for (c = 0; c < 4; c++) {
+                for (argb = 0; argb < 4; argb++) {
+                    if ((i + argb) >= width || (block + c) >= height)
+                    {
+                        *(unsigned short*)p = 0;
+                        *(unsigned short*)(p + 32) = 0;
+                    }
+                    else
+                    {
+                        *(unsigned short*)p = *(unsigned short*)(src + ((i + argb) + ((block + c) * width)) * 4);             // AR
+                        *(unsigned short*)(p + 32) = *(unsigned short*)(src + ((i + argb) + ((block + c) * width)) * 4 + 2);  // GB
+                    }
+                    p += 2;
+                }
+            }
+            p += 32;
+        }
+    }
+}
+
+// The position happens to be the integer position of the Block
+static inline void _ogx_scramble_4b_sub(unsigned char *src, void *dst, void *semiTransDst, unsigned short semiTransFlg,
+                      const unsigned int width, const unsigned int height, const unsigned int oldWidth, const unsigned short setTextureMask)
+{
+    unsigned int he;
+    unsigned int wi;
+    unsigned char blockHe;
+    unsigned char blockWi;
+    unsigned char *p = (unsigned char *)dst;
+    unsigned char *semiTransP = (unsigned char *)semiTransDst;
+    unsigned short tmpPixel;
+    int oldWidthBlock = W_BLOCK(oldWidth);
+    int newWidthBlock = W_BLOCK(width);
+
+    for (he = 0; he < height; he += 4) {
+        for (wi = 0; wi < width; wi += 4) {
+            for (blockHe = 0; blockHe < 4; blockHe++) {
+                for (blockWi = 0; blockWi < 4; blockWi++) {
+                    if ((wi + blockWi) >= width || (he + blockHe) >= height)
+                    {
+                        //*(unsigned short*)p = 0;
+                    }
+                    else
+                    {
+                        // RGB5A3(Actually, it's the original BGR555 of PSX, Can be efficiently converted to Wii RGB5A3)
+                        tmpPixel = *(unsigned short*)(src + ((wi + blockWi) + ((he + blockHe) * width)) * 4 + 2);
+                        if (tmpPixel == 0)
+                        {
+                            *(unsigned short*)(semiTransP) = 0;
+                            *(unsigned short*)(p) = 0;
+                        }
+                        else if (semiTransFlg && (tmpPixel & 0x8000) == 0)
+                        {
+                            *(unsigned short*)(semiTransP) = tmpPixel | 0x8000;
+                            *(unsigned short*)(p) = 0;
+                        }
+                        else
+                        {
+                            *(unsigned short*)(semiTransP) = 0;
+                            *(unsigned short*)(p) = tmpPixel | 0x8000;
+                        }
+                    }
+                    p += 2;
+                    semiTransP += 2;
+                }
+            }
+        }
+        p += (oldWidthBlock - newWidthBlock) * 32;
+        semiTransP += (oldWidthBlock - newWidthBlock) * 32;
+    }
+}
+
+// 4b texel scrambling, opengx conversion: src(4 bytes bgr555) -> dst(2 bytes bgr5a3)
+static inline void _ogx_scramble_4b_5a3(unsigned char *src, void *dst, void *semiTransDst, unsigned short semiTransFlg,
+                      const unsigned int width, const unsigned int height, const unsigned short setTextureMask)
+{
+    unsigned int block;
+    unsigned int i;
+    unsigned char c;
+    unsigned char argb;
+    unsigned char *p = (unsigned char *)dst;
+    unsigned char *semiTransP = (unsigned char *)semiTransDst;
+    unsigned short tmpPixel;
+
+    for (block = 0; block < height; block += 4) {
+        for (i = 0; i < width; i += 4) {
+            for (c = 0; c < 4; c++) {
+                for (argb = 0; argb < 4; argb++) {
+                    if ((i + argb) >= width || (block + c) >= height)
+                    {
+                        *(unsigned short*)p = 0;
+                        *(unsigned short*)semiTransP = 0;
+                    }
+                    else
+                    {
+                        tmpPixel = *(unsigned short*)(src + ((i + argb) + ((block + c) * width)) * 4 + 2);
+                        if (tmpPixel == 0)
+                        {
+                            *(unsigned short*)semiTransP = 0;
+                            *(unsigned short*)p = 0;
+                        }
+                        else if (semiTransFlg && (tmpPixel & 0x8000) == 0)
+                        {
+                            *(unsigned short*)(semiTransP) = tmpPixel | 0x8000;
+                            *(unsigned short*)p = 0;
+                        }
+                        else
+                        {
+                            *(unsigned short*)semiTransP = 0;
+                            *(unsigned short*)(p) = tmpPixel | 0x8000;
+                        }
+                    }
+                    p += 2;
+                    semiTransP += 2;
+                }
+            }
+        }
+    }
+}
 
 void glResetMovieTexPtr( void )
 {
@@ -1475,22 +1628,27 @@ void glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
 {
     GX_DrawDone();
     GX_Flush();
+    GX_InvalidateTexAll();
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
     int wi = width; //(width + 3) & ~(unsigned int)3;
     int he = height; //(height + 3) & ~(unsigned int)3;
 
     int required_size = wi * he * 4;
-    if (!glparamstate.RGB24)
-    {
-        required_size = required_size >> 1;
-    }
+//    if (!glparamstate.RGB24)
+//    {
+//        required_size = required_size >> 1;
+//    }
     int tex_size_rnd = ROUND_32B(required_size);
     if ((movieUsedSize + tex_size_rnd) > MOVIE_BUF_SIZE)
     {
         glResetMovieTexPtr();
     }
     currtex->data = (unsigned char *)movieTexPtr;
+    if (!glparamstate.RGB24)
+    {
+        currtex->semiTransData = currtex->data + (tex_size_rnd / 2);
+    }
     memset(currtex->data, 0, tex_size_rnd);
     movieTexPtr += tex_size_rnd;
     movieUsedSize += tex_size_rnd;
@@ -1506,8 +1664,11 @@ void glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
     }
     else
     {
-        _ogx_scramble_4b_5a3((unsigned char *)texData, currtex->data, width, height);
+        _ogx_scramble_4b_5a3((unsigned char *)texData, currtex->data, currtex->semiTransData, glparamstate.blendenabled, width, height, setTextureMask);
         GX_InitTexObj(&currtex->texobj, currtex->data,
+                      currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
+        // For Non transparent colors in transparent mode
+        GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
                       currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
     }
     DCFlushRange(currtex->data, tex_size_rnd);
@@ -1522,29 +1683,28 @@ void glTexSubImage2D(GLenum target, GLint level,
 {
     GX_DrawDone();
     GX_Flush();
+    GX_InvalidateTexAll();
 
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
     if ((xoffset & 3) == 0 && (yoffset & 3) == 0)
     {
         // The position happens to be the integer position of the Block
-        GLint internalFormat = GL_RGB;
-        int wi = (width + 3) & ~(unsigned int)3;
-        int he = (height + 3) & ~(unsigned int)3;
-
         int startOffset = ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32;
-        _ogx_scramble_4b_sub((unsigned char *)data, currtex->data + startOffset, width, height, currtex->w);
-        DCFlushRange(currtex->data , currtex->w * currtex->h * 2);
+        _ogx_scramble_4b_sub((unsigned char *)data, currtex->data + startOffset, currtex->semiTransData + startOffset, glparamstate.blendenabled, width, height, currtex->w, setTextureMask);
+        DCFlushRange(currtex->data , currtex->w * currtex->h * 4);
     }
     else
     {
         // It is not the position of the integer Block, so we need to write data to different blocks
         unsigned char * dstBlock = currtex->data;
+        unsigned char * semiTransDstBlock = currtex->semiTransData;
         unsigned char * src = (unsigned char *)data;
         int totalWi = min(xoffset + width, currtex->w);
         int totalHe = min(yoffset + height, currtex->h);
         int oldXoffset = xoffset;
         int oldYoffset = yoffset;
+        unsigned short tmpPixel;
 
         int y, x;
         unsigned char copyHe;
@@ -1580,11 +1740,27 @@ void glTexSubImage2D(GLenum target, GLint level,
                 unsigned char blockWi;
                 src = (unsigned char *)data + (y * width + x) * 4;
                 dstBlock = currtex->data + ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32;
+                semiTransDstBlock = currtex->semiTransData + ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32;
                 for (he = 0, blockHe = (yoffset & 3); he < copyHe; he++, blockHe++)
                 {
                     for (wi = 0, blockWi = (xoffset & 3); wi < copyWi; wi++, blockWi++)
                     {
-                        *(unsigned short*)(dstBlock + (blockHe * 4 + blockWi) * 2) = *(unsigned short*)(src + (he * width + wi) * 4 + 2); // RGB5A3
+                        tmpPixel = *(unsigned short*)(src + (he * width + wi) * 4 + 2); // RGB5A3
+                        if (tmpPixel == 0)
+                        {
+                            *(unsigned short*)(semiTransDstBlock + (blockHe * 4 + blockWi) * 2) = 0;
+                            *(unsigned short*)(dstBlock + (blockHe * 4 + blockWi) * 2) = 0;
+                        }
+                        else if (glparamstate.blendenabled && (tmpPixel & 0x8000) == 0)
+                        {
+                            *(unsigned short*)(semiTransDstBlock + (blockHe * 4 + blockWi) * 2) = tmpPixel | 0x8000;
+                            *(unsigned short*)(dstBlock + (blockHe * 4 + blockWi) * 2) = 0;
+                        }
+                        else
+                        {
+                            *(unsigned short*)(semiTransDstBlock + (blockHe * 4 + blockWi) * 2) = 0;
+                            *(unsigned short*)(dstBlock + (blockHe * 4 + blockWi) * 2) = tmpPixel | 0x8000;
+                        }
                     }
                 }
 
@@ -1597,7 +1773,7 @@ void glTexSubImage2D(GLenum target, GLint level,
             xoffset = oldXoffset;
         }
 
-        DCFlushRange(currtex->data , currtex->w * currtex->h * 2);
+        DCFlushRange(currtex->data , currtex->w * currtex->h * 4);
     }
 }
 
@@ -1615,6 +1791,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
     GX_DrawDone(); // Very ugly, we should have a list of used textures and only wait if we are using the curr tex.
                    // This way we are sure that we are not modifying a texture which is being drawn
     GX_Flush();
+    GX_InvalidateTexAll();
 
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
@@ -1632,22 +1809,26 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
 
         int required_size = wi * he * 2;
         int tex_size_rnd = ROUND_32B(required_size);
-        currtex->data = _mem2_memalign(32, tex_size_rnd);
-        memset(currtex->data, 0, tex_size_rnd);
+        currtex->data = _mem2_memalign(32, tex_size_rnd * 2);
+        memset(currtex->data, 0, tex_size_rnd * 2);
+
+        currtex->semiTransData = currtex->data + tex_size_rnd;
     }
 
     currtex->w = wi;
     currtex->h = he;
     currtex->bytespp = 2;
 
-    unsigned char *dst_addr = ( unsigned char *)currtex->data;
-    _ogx_scramble_4b_5a3((unsigned char *)data, dst_addr, width, height);
-    DCFlushRange(dst_addr, currtex->w * currtex->h * 2);
+    _ogx_scramble_4b_5a3((unsigned char *)data, currtex->data, currtex->semiTransData, glparamstate.blendenabled, width, height, setTextureMask);
+    DCFlushRange(currtex->data, currtex->w * currtex->h * 2);
 
     // Slow but necessary! The new textures may be in the same region of some old cached textures
     //GX_InvalidateTexAll();
 
     GX_InitTexObj(&currtex->texobj, currtex->data,
+                currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
+    // For Non transparent colors in transparent mode
+    GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
                 currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
     //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
     //GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
@@ -2174,11 +2355,17 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
     case GL_MODULATE:
     default:
         // In data: c: Texture Color b: raster value, Operation: b*c
-        if (glparamstate.blendenabled && glparamstate.globalTextABR == 1 && glDrawArraysFlg == 0)
+        if (glparamstate.blendenabled && glparamstate.globalTextABR == 1 && glDrawArraysFlg == 1)
         {
             // For 0.5B + 0.5F, In order to change the value of the back color to 0.5
             GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_HALF);
-            GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_A1, GX_CA_ZERO);
+            GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_A2, GX_CA_ZERO);
+        }
+        else if (glparamstate.blendenabled && glparamstate.globalTextABR == 3 && glDrawArraysFlg == 2)
+        {
+            // For 1.0 dest alpha
+            GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO);
+            GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_A2, GX_CA_ZERO);
         }
         else
         {
@@ -2196,7 +2383,7 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
     }
     if (doubleColor)
     {
-        if (glparamstate.blendenabled && glparamstate.globalTextABR == 1 && glDrawArraysFlg == 1)
+        if (glparamstate.blendenabled && glparamstate.globalTextABR == 1 && glDrawArraysFlg == 2)
         {
             // 0.5F
             GX_SetTevColorOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
@@ -2209,7 +2396,7 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
     }
     else
     {
-        if (glparamstate.blendenabled && glparamstate.globalTextABR == 1 && glDrawArraysFlg == 1)
+        if (glparamstate.blendenabled && glparamstate.globalTextABR == 1 && glDrawArraysFlg == 2)
         {
             // 0.5F
             GX_SetTevColorOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_DIVIDE_2, GX_TRUE, GX_TEVPREV);
@@ -2232,7 +2419,7 @@ static inline GXColor gxImmCol(unsigned char *colAdr, int texen)
 {
     if (texen)
     {
-        if (glparamstate.blendenabled && glparamstate.globalTextABR == 4)
+        if (glparamstate.blendenabled && glparamstate.globalTextABR == 4 && glDrawArraysFlg == 1)
         {
             // 0.25 * F
             return (GXColor){ (colAdr[0]) >> 2, (colAdr[1]) >> 2, (colAdr[2]) >> 2, 255};
@@ -2378,13 +2565,35 @@ static void setup_render_stages(int texen)
                                 rasterized_color);
         } else {
             // In data: d: Raster Color
-            if (glparamstate.blendenabled && glparamstate.globalTextABR == 1 && glDrawArraysFlg == 0)
+            if (glparamstate.blendenabled && glparamstate.globalTextABR == 1)
             {
-                // For 0.5B + 0.5F, In order to change the value of the back color to 0.5
-                GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_HALF);
-                GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, vertex_alpha_register, GX_CA_A1, GX_CA_ZERO);
+                if (glDrawArraysFlg == 0)
+                {
+                    // For 0.5B + 0.5F, In order to change the value of the back color to 0.5
+                    GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_HALF);
+                    GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
+                }
+                else
+                {
+                    GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, vertex_color_register, GX_CC_HALF, GX_CC_ZERO);
+                    GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
+                }
             }
-            else if (glparamstate.blendenabled && glparamstate.globalTextABR == 4)
+            else if (glparamstate.blendenabled && glparamstate.globalTextABR == 3)
+            {
+                if (glDrawArraysFlg == 0)
+                {
+                    GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, vertex_color_register);
+                    GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
+                }
+                else
+                {
+                    // For set dest alpha
+                    GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO);
+                    GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
+                }
+            }
+            else if (glparamstate.blendenabled && glparamstate.globalTextABR == 4 && glDrawArraysFlg == 1)
             {
                 // For 1.0 x B + 0.25 x F
                 GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, vertex_color_register, GX_CC_C2, GX_CC_ZERO);
@@ -2411,53 +2620,171 @@ static void setup_render_stages(int texen)
 void _ogx_apply_state()
 {
     int texen = glparamstate.texcoord_enabled & glparamstate.texture_enabled;
+    gltexture_ *currtex;
+    if (texen)
+    {
+        currtex = &texture_list[glparamstate.glcurtex];
+    }
+
     setup_render_stages(texen);
 
     // Set up the OGL state to GX state
     GX_SetZCompLoc(GX_FALSE); // Do Z-compare after texturing.
     GX_SetZMode(GX_TRUE, glparamstate.zfunc, GX_TRUE);
 
-    GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_GREATER, 0);
+    //GX_SetAlphaUpdate(GX_ENABLE);
+    //GX_SetDstAlpha(GX_ENABLE, 0xFF);
 
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "draw %d %d %d %d\r\n", glparamstate.blendenabled, texen, glparamstate.color_enabled, glparamstate.globalTextABR);
+    sprintf(txtbuffer, "draw %d %d %d %d %d %d\r\n", glparamstate.blendenabled, texen, glparamstate.color_enabled, glparamstate.globalTextABR, glparamstate.glcurtex, normalBlend);
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
+    GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_GREATER, 0);
     if (glparamstate.blendenabled)
     {
-        if (glparamstate.globalTextABR == 1 && glDrawArraysFlg == 0)
+        if (glparamstate.globalTextABR == 1)
         {
-            // For 0.5B + 0.5F, back color * 0.5
-            GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_SRCCLR, GX_LO_CLEAR);
-        }
-        else if (setTextureMask && glparamstate.globalTextABR == 2)
-        {
-            if (normalBlend)
+            if (texen)
             {
+                if (glDrawArraysFlg == 0)
+                {
+                    //GX_SetAlphaCompare(GX_EQUAL, 0xF0, GX_AOP_OR, GX_EQUAL, 0xEF);
+                    // Non transparent colors in transparent mode
+                    GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
+                    GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+                    //GX_SetBlendMode(GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_COPY);
+                }
+                else
+                // transparent colors in transparent mode(0.5B or other SemiTrans mode)
+                if (glDrawArraysFlg == 1)
+                {
+                    //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_NEQUAL, 0xF0);
+                    GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+                    // For 0.5B + 0.5F, back color * 0.5
+                    GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_SRCCLR, GX_LO_CLEAR);
+                }
+                else
+                {
+//                    if (vramClearedFlg)
+//                    {
+//                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+//                        vramClearedFlg = 0;
+//                    }
+//                    else
+                    {
+                        //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_NEQUAL, 0xF0);
+                        GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+                        // transparent colors in transparent mode(0.5F + 0.5B)
+                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+                    }
+                }
+            }
+            else
+            {
+                // transparent colors in transparent mode(0.5B or other SemiTrans mode)
+                if (glDrawArraysFlg == 0)
+                {
+                    //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_GREATER, 0);
+                    // For 0.5B + 0.5F, back color * 0.5
+                    GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_SRCCLR, GX_LO_CLEAR);
+                }
+                else
+                {
+                    //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_GREATER, 0);
+                    // transparent colors in transparent mode(0.5F + 0.5B)
+                    GX_SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+                }
+            }
+        }
+        else if (glparamstate.globalTextABR == 2 || glparamstate.globalTextABR == 4)
+        {
+            if (texen)
+            {
+                if (vramClearedFlg)
+                {
+                    GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                    vramClearedFlg = 0;
+                }
+                else
+                {
+                    if (glDrawArraysFlg == 0)
+                    {
+                        //GX_SetAlphaCompare(GX_EQUAL, 0xF0, GX_AOP_OR, GX_EQUAL, 0xEF);
+                        GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
+                        // Non transparent colors in transparent mode
+                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+                    }
+                    else
+                    {
+                        //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_NEQUAL, 0xF0);
+                        GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+                        // transparent colors in transparent mode(F + B)
+                        // transparent colors in transparent mode(0.25F + B)
+                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+                    }
+                }
+            }
+            else
+            {
+                //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_GREATER, 0);
+                // transparent colors in transparent mode(F + B)
+                // transparent colors in transparent mode(0.25F + B)
                 GX_SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
-                normalBlend = 0;
-            }
-            else
-            {
-                GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
             }
         }
-        else
+        else if (glparamstate.globalTextABR == 3)
         {
-            if (glparamstate.globalTextABR == 3)
+            if (texen)
             {
-                GX_SetBlendMode(GX_BM_SUBTRACT, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+                if (glDrawArraysFlg == 0)
+                {
+                    //GX_SetAlphaCompare(GX_EQUAL, 0xF0, GX_AOP_OR, GX_EQUAL, 0xEF);
+                    GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
+                    // Non transparent colors in transparent mode
+                    GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+                    //GX_SetBlendMode(GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_COPY);
+                }
+                else if (glDrawArraysFlg == 1)
+                {
+                    //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_NEQUAL, 0xF0);
+                    GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+                    // transparent colors in transparent mode(B - F)
+                    GX_SetBlendMode(GX_BM_SUBTRACT, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+                }
+                else
+                {
+                    GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+                    // For set dest alpha
+                    GX_SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+                }
             }
             else
             {
-                GX_SetBlendMode(GX_BM_BLEND, glparamstate.srcblend, glparamstate.dstblend, GX_LO_CLEAR);
+                if (glDrawArraysFlg == 0)
+                {
+                    //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_GREATER, 0);
+                    // transparent colors in transparent mode(B - F)
+                    GX_SetBlendMode(GX_BM_SUBTRACT, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+                }
+                else
+                {
+                    // For set dest alpha
+                    GX_SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+                }
             }
         }
     }
     else
     {
+        if (texen)
+        {
+            GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+
+        }
+        //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_GREATER, 0);
         GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+        //GX_SetBlendMode(GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_COPY);
     }
 
     // Matrix stuff
@@ -2523,54 +2850,55 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 
     // Invalidate vertex data as may have been modified by the user
     GX_InvVtxCache();
-    GX_InvalidateTexAll();
+    //GX_InvalidateTexAll();
+    #ifdef DISP_DEBUG
     if (texen)
     {
-        gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
-        GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
-
         // tex debug start
-//        extern bool canWriteLog;
-//        static bool isWritedTex = false;
-//        if (canWriteLog && isWritedTex == false)
-//        {
-//            int i;
-//            for (i = 1; i < _MAX_GL_TEX; i++) {
-//                if (texture_list[i].used == 0) {
-//                    break;
-//                }
-//                char txtbuffer[1024];
-//                gltexture_ *curTex = &texture_list[i];
-//                sprintf(txtbuffer, "sd:/wiisxrx/txtDebug_%d_%d_%02d.bin", curTex->w, curTex->h, i);
-//                FILE* texDebugLog = fopen(txtbuffer, "wb");
-//                fwrite(curTex->data, 1, curTex->w * curTex->h * 2, texDebugLog);
-//                fclose(texDebugLog);
-//            }
-//            isWritedTex = true;
-//        }
+        extern bool canWriteLog;
+        static bool isWritedTex = false;
+        if (canWriteLog && isWritedTex == false)
+        {
+            int i;
+            for (i = 1; i < _MAX_GL_TEX; i++) {
+                if (texture_list[i].used == 0) {
+                    break;
+                }
+                char txtbuffer[1024];
+                gltexture_ *curTex = &texture_list[i];
+                sprintf(txtbuffer, "sd:/wiisxrx/txtDebug_%d_%d_%02d.bin", curTex->w, curTex->h, i);
+                FILE* texDebugLog = fopen(txtbuffer, "wb");
+                fwrite(curTex->data, 1, curTex->w * curTex->h * 2, texDebugLog);
+                fclose(texDebugLog);
+
+                sprintf(txtbuffer, "sd:/wiisxrx/txtDebugS_%d_%d_%02d.bin", curTex->w, curTex->h, i);
+                texDebugLog = fopen(txtbuffer, "wb");
+                fwrite(curTex->semiTransData, 1, curTex->w * curTex->h * 2, texDebugLog);
+                fclose(texDebugLog);
+            }
+            isWritedTex = true;
+        }
         // tex debug end
     }
+    #endif // DISP_DEBUG
 
+    // blendenabled=false, Execute GX_SetBlendMode once
+    //   1st GX_SetBlendMode: Non transparent colors
+    // blendenabled=true, Possible execution of GX_SetBlendMode three times
+    //   1st GX_SetBlendMode: Non transparent colors in transparent mode
+    //   2nd GX_SetBlendMode: transparent colors in transparent mode(0.5B or other SemiTrans mode)
+    //   3rd GX_SetBlendMode: transparent colors in transparent mode(0.5F + 0.5B)
     glDrawArraysFlg = 0;
 
     _ogx_apply_state();
 
     bool loop = (mode == GL_LINE_LOOP);
     GX_Begin(gxmode, GX_VTXFMT0, count + loop);
-
-    if (glparamstate.normal_enabled && !glparamstate.color_enabled) {
-        if (texen) {
-            draw_arrays_pos_normal_texc(ptr_pos, ptr_texc, ptr_normal, count, loop);
-        } else {
-            draw_arrays_pos_normal(ptr_pos, ptr_normal, count, loop);
-        }
-    } else {
-        draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
-                            count, glparamstate.normal_enabled, color_provide, texen, loop);
-    }
+    draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
+                        count, glparamstate.normal_enabled, color_provide, texen, loop);
     GX_End();
 
-    if ((glparamstate.blendenabled && glparamstate.globalTextABR == 1))
+    if (glparamstate.blendenabled && (texen || (!texen && (glparamstate.globalTextABR == 1 || glparamstate.globalTextABR == 3))))
     {
         // 0.5B + 0.5F, Due to the possibility of 0.5Alpha in the final result,
         // it was implemented by executing GX_SetBlendMode twice
@@ -2580,18 +2908,22 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 
         bool loop = (mode == GL_LINE_LOOP);
         GX_Begin(gxmode, GX_VTXFMT0, count + loop);
+        draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
+                            count, glparamstate.normal_enabled, color_provide, texen, loop);
+        GX_End();
 
-        if (glparamstate.normal_enabled && !glparamstate.color_enabled) {
-            if (texen) {
-                draw_arrays_pos_normal_texc(ptr_pos, ptr_texc, ptr_normal, count, loop);
-            } else {
-                draw_arrays_pos_normal(ptr_pos, ptr_normal, count, loop);
-            }
-        } else {
+        if (texen && (glparamstate.globalTextABR == 1 || glparamstate.globalTextABR == 3))
+        {
+            glDrawArraysFlg = 2;
+
+            _ogx_apply_state();
+
+            bool loop = (mode == GL_LINE_LOOP);
+            GX_Begin(gxmode, GX_VTXFMT0, count + loop);
             draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
                                 count, glparamstate.normal_enabled, color_provide, texen, loop);
+            GX_End();
         }
-        GX_End();
     }
 }
 

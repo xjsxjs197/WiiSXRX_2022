@@ -222,17 +222,32 @@ unsigned short MAXSORTTEX    = MAXSORTTEX_MAX;
 
 // BGR => big endian(argb) (for movie PSXDisplay.RGB24 = false)
 // bgr555 => bgr5A3(In order to be consistent with [PSXDisplay.RGB24=true], 4 bytes were used)
+// Non-Transparent
 unsigned int XP8RGBA_0(unsigned int BGR)
 {
-    if (!(BGR & 0xffff)) return 0xffff0000;
- //return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
- //return (((BGR&0x1f)<<11)|((BGR&0x3E0)<<1)|((BGR&200)>>4)|((BGR&0x7C00)>>10))|0xffff0000;
-    return BGR | 0xffff8000;
+    if (!(BGR & 0x7fff)) return 0xffff0000;
+    //return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
+    return BGR | 0xffff0000;
 }
+// Semi-Transparent
 unsigned int XP8RGBA_1(unsigned int BGR)
 {
-    if (!(BGR & 0x7fff)) return 0xffff0000;
-    return BGR | 0xffff8000;
+    if (!(BGR & 0xffff))
+    {
+        return 0xffff0000;
+    }
+
+//    if (sSetMask)
+//    {
+//        //return BGR | 0xffff8000;
+//        return (0x6 << 12) | 0xffff0000 | ((BGR & 0x1f) >> 1) | ((BGR & 0x3C0) >> 2) | ((BGR & 0x7800) >> 3);
+//    }
+//
+//    if (!(BGR & 0x8000))
+//    {
+//        return (0x6 << 12) | 0xffff0000 | ((BGR & 0x1f) >> 1) | ((BGR & 0x3C0) >> 2) | ((BGR & 0x7800) >> 3);
+//    }
+    return BGR | 0xffff0000;
 }
 
 // BGR => big endian(argb)
@@ -256,20 +271,35 @@ unsigned int CP8RGBA_0(unsigned int BGR)
 
 // BGR => big endian(argb) (for other texture)
 // bgr555 => bgr5A3(2 bytes were used, Can save half of the memory)
+// Semi-Transparent
 unsigned int P8RGBA_1(unsigned int BGR)
 {
-    if (!(BGR&0x7fff)) return 0;
- //return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
- //return (((BGR&0x1f)<<11)|((BGR&0x3E0)<<1)|((BGR&200)>>4)|((BGR&0x7C00)>>10))|0xffff0000;
-    return BGR | 0x8000;
+    if (!(BGR & 0x7fff))
+    {
+        return 0;
+    }
+
+//    if (sSetMask)
+//    {
+//        return BGR & 0x7fff;
+//        //return (0x6 << 12) | ((BGR & 0x1f) >> 1) | ((BGR & 0x3C0) >> 2) | ((BGR & 0x7800) >> 3);
+//    }
+
+//    if (!(BGR & 0x8000))
+//    {
+//        //return (0x6 << 12) | ((BGR & 0x1f) >> 1) | ((BGR & 0x3C0) >> 2) | ((BGR & 0x7800) >> 3);
+//        return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xf0000000;
+//    }
+//    return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
+    return BGR;
 }
 
+// Non-Transparent (BGR => ARGB)
 unsigned int P8RGBA_0(unsigned int BGR)
 {
     if (!(BGR&0xffff)) return 0;
- //return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
- //return (((BGR&0x1f)<<11)|((BGR&0x3E0)<<1)|((BGR&200)>>4)|((BGR&0x7C00)>>10))|0xffff0000;
-    return BGR | 0x8000;
+    //return (((BGR&0x1f)<<19)|((BGR&0x3E0)<<6)|((BGR&0x7C00)>>7))|0xff000000;
+    return BGR;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -713,6 +743,10 @@ void DefineTextureWnd(void)
         TWin.Position.x1,
         TWin.Position.y1,
         0, GL_RGB, GL_UNSIGNED_BYTE, texturepart); glError();
+    #ifdef DISP_DEBUG
+    sprintf ( txtbuffer, "DefineTextureWnd %d %d\r\n", TWin.Position.x1, TWin.Position.y1);
+    writeLogFile ( txtbuffer );
+    #endif // DISP_DEBUG
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -1353,11 +1387,11 @@ GLuint LoadTextureMovie(void)
 
      if (DrawSemiTrans == 0)
      {
-         LTCOL=XP8RGBA_0;//TCF[0];
+         LTCOL=P8RGBA_0;//TCF[0];
      }
      else
      {
-         LTCOL=XP8RGBA_1;
+         LTCOL=P8RGBA_1;
      }
 
      ubOpaqueDraw=0;
@@ -1932,83 +1966,83 @@ void LoadSubTexturePageSort(int pageid, int mode, short cx, short cy)
  if((iFilterType==4 || iFilterType==6) && ly0==ly1 && ly2==ly3 && lx0==lx3 && lx1==lx2)
   {DefineSubTextureSort();return;}
 
- ta=(unsigned int *)texturepart;
- x1=dx-1;
- y1=dy-1;
-
- if(bOpaquePass)
-  {
-{
-     for(column=0;column<dy;column++)
-      {
-       for(row=0;row<dx;row++)
-        {
-         if(*ta==0x50000000)
-          {
-           cnt=0;
-
-           if(           column     && *(ta-dx)  !=0x50000000 && *(ta-dx)>>24!=1) scol[cnt++]=*(ta-dx);
-           if(row                   && *(ta-1)   !=0x50000000 && *(ta-1)>>24!=1) scol[cnt++]=*(ta-1);
-           if(row!=x1               && *(ta+1)   !=0x50000000 && *(ta+1)>>24!=1) scol[cnt++]=*(ta+1);
-           if(           column!=y1 && *(ta+dx)  !=0x50000000 && *(ta+dx)>>24!=1) scol[cnt++]=*(ta+dx);
-
-           if(row     && column     && *(ta-dx-1)!=0x50000000 && *(ta-dx-1)>>24!=1) scol[cnt++]=*(ta-dx-1);
-           if(row!=x1 && column     && *(ta-dx+1)!=0x50000000 && *(ta-dx+1)>>24!=1) scol[cnt++]=*(ta-dx+1);
-           if(row     && column!=y1 && *(ta+dx-1)!=0x50000000 && *(ta+dx-1)>>24!=1) scol[cnt++]=*(ta+dx-1);
-           if(row!=x1 && column!=y1 && *(ta+dx+1)!=0x50000000 && *(ta+dx+1)>>24!=1) scol[cnt++]=*(ta+dx+1);
-
-           if(cnt)
-            {
-             r=g=b=a=0;
-             for(h=0;h<cnt;h++)
-              {
-               a+=(scol[h]>>24);
-               r+=(scol[h]>>16)&0xff;
-               g+=(scol[h]>>8)&0xff;
-               b+=scol[h]&0xff;
-              }
-             r/=cnt;b/=cnt;g/=cnt;
-
-             *ta=(r<<16)|(g<<8)|b;
-             if(a) *ta|=0x50000000;
-             else  *ta|=0x01000000;
-            }
-          }
-         ta++;
-        }
-      }
-    }
-  }
- else
- for(column=0;column<dy;column++)
-  {
-   for(row=0;row<dx;row++)
-    {
-     if(*ta==0x00000000)
-      {
-       cnt=0;
-
-       if(row!=x1               && *(ta+1)   !=0x00000000) scol[cnt++]=*(ta+1);
-       if(           column!=y1 && *(ta+dx)  !=0x00000000) scol[cnt++]=*(ta+dx);
-
-       if(cnt)
-        {
-         r=g=b=0;
-         for(h=0;h<cnt;h++)
-          {
-           r+=(scol[h]>>16)&0xff;
-           g+=(scol[h]>>8)&0xff;
-           b+=scol[h]&0xff;
-          }
-         r/=cnt;b/=cnt;g/=cnt;
-         *ta=(r<<16)|(g<<8)|b;
-        }
-      }
-     ta++;
-    }
-  }
-
- DefineSubTextureSort();
+// ta=(unsigned int *)texturepart;
+// x1=dx-1;
+// y1=dy-1;
+//
+// if(bOpaquePass)
+//  {
+//{
+//     for(column=0;column<dy;column++)
+//      {
+//       for(row=0;row<dx;row++)
+//        {
+//         if(*ta==0x50000000)
+//          {
+//           cnt=0;
+//
+//           if(           column     && *(ta-dx)  !=0x50000000 && *(ta-dx)>>24!=1) scol[cnt++]=*(ta-dx);
+//           if(row                   && *(ta-1)   !=0x50000000 && *(ta-1)>>24!=1) scol[cnt++]=*(ta-1);
+//           if(row!=x1               && *(ta+1)   !=0x50000000 && *(ta+1)>>24!=1) scol[cnt++]=*(ta+1);
+//           if(           column!=y1 && *(ta+dx)  !=0x50000000 && *(ta+dx)>>24!=1) scol[cnt++]=*(ta+dx);
+//
+//           if(row     && column     && *(ta-dx-1)!=0x50000000 && *(ta-dx-1)>>24!=1) scol[cnt++]=*(ta-dx-1);
+//           if(row!=x1 && column     && *(ta-dx+1)!=0x50000000 && *(ta-dx+1)>>24!=1) scol[cnt++]=*(ta-dx+1);
+//           if(row     && column!=y1 && *(ta+dx-1)!=0x50000000 && *(ta+dx-1)>>24!=1) scol[cnt++]=*(ta+dx-1);
+//           if(row!=x1 && column!=y1 && *(ta+dx+1)!=0x50000000 && *(ta+dx+1)>>24!=1) scol[cnt++]=*(ta+dx+1);
+//
+//           if(cnt)
+//            {
+//             r=g=b=a=0;
+//             for(h=0;h<cnt;h++)
+//              {
+//               a+=(scol[h]>>24);
+//               r+=(scol[h]>>16)&0xff;
+//               g+=(scol[h]>>8)&0xff;
+//               b+=scol[h]&0xff;
+//              }
+//             r/=cnt;b/=cnt;g/=cnt;
+//
+//             *ta=(r<<16)|(g<<8)|b;
+//             if(a) *ta|=0x50000000;
+//             else  *ta|=0x01000000;
+//            }
+//          }
+//         ta++;
+//        }
+//      }
+//    }
+//  }
+// else
+// for(column=0;column<dy;column++)
+//  {
+//   for(row=0;row<dx;row++)
+//    {
+//     if(*ta==0x00000000)
+//      {
+//       cnt=0;
+//
+//       if(row!=x1               && *(ta+1)   !=0x00000000) scol[cnt++]=*(ta+1);
+//       if(           column!=y1 && *(ta+dx)  !=0x00000000) scol[cnt++]=*(ta+dx);
+//
+//       if(cnt)
+//        {
+//         r=g=b=0;
+//         for(h=0;h<cnt;h++)
+//          {
+//           r+=(scol[h]>>16)&0xff;
+//           g+=(scol[h]>>8)&0xff;
+//           b+=scol[h]&0xff;
+//          }
+//         r/=cnt;b/=cnt;g/=cnt;
+//         *ta=(r<<16)|(g<<8)|b;
+//        }
+//      }
+//     ta++;
+//    }
+//  }
+//
+// DefineSubTextureSort();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2407,9 +2441,9 @@ void DefineSubTextureSort(void)
   //int oldWidth, oldHeight;
   //glGetTextureInfo(gTexName, &oldWidth, &oldHeight);
   //sprintf(txtbuffer, "DefineSubTextureSort %d %d %d %d %d %d\r\n", oldWidth, oldHeight, XTexS, YTexS, DXTexS, DYTexS);
-//  sprintf(txtbuffer, "DefineSubTextureSort %d %d %d %d\r\n", XTexS, YTexS, DXTexS, DYTexS);
-//  DEBUG_print(txtbuffer, DBG_CDR2);
-  //writeLogFile(txtbuffer);
+  sprintf(txtbuffer, "DefineSubTextureSort %d %d %d %d\r\n", XTexS, YTexS, DXTexS, DYTexS);
+  DEBUG_print(txtbuffer, DBG_CDR2);
+  writeLogFile(txtbuffer);
   #endif // DISP_DEBUG
 
   glTexSubImage2D(GL_TEXTURE_2D, 0, XTexS, YTexS,

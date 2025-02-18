@@ -96,6 +96,12 @@ static const char * const special_game_hack_db[] =
     "SLUS00297", "SLPS00685", "SLES00585", "SLES00640", "SLES00646",
 };
 
+static const char * const special_game_hack_db2[] =
+{
+    /* Dino Crisis2 For GX gpu fix */
+    "SLUS01279", "SLPM86627", "SLES03221", "SLES03222", "SLES03223", "SLES03224", "SLES03225",
+};
+
 #define HACK_ENTRY(var, list) \
     { #var, &Config.hacks.var, list, ARRAY_SIZE(list) }
 
@@ -261,7 +267,14 @@ void Apply_Hacks_Cdrom()
     for (i = 0; i < ARRAY_SIZE(special_game_hack_db); i++) {
         if (strcmp(CdromId, special_game_hack_db[i]) == 0)
         {
-            Config.hacks.dwActFixes = 0x100;
+            Config.hacks.dwActFixes |= 0x100;
+            break;
+        }
+    }
+    for (i = 0; i < ARRAY_SIZE(special_game_hack_db2); i++) {
+        if (strcmp(CdromId, special_game_hack_db2[i]) == 0)
+        {
+            Config.hacks.dwActFixes |= 0x400;
             break;
         }
     }
