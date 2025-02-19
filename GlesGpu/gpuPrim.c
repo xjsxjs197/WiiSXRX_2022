@@ -41,9 +41,9 @@
 // defines
 ////////////////////////////////////////////////////////////////////////
 
-#define CMD_LOG_3D
+//#define CMD_LOG_3D
 #define CMD_LOG_2D
-#define CMD_LOG_LINE
+//#define CMD_LOG_LINE
 
 #define DEFOPAQUEON  glAlphaFunc(GL_EQUAL,0.0f);bBlendEnable=FALSE;glDisable(GL_BLEND);
 #define DEFOPAQUEOFF glAlphaFunc(GL_GREATER,0.49f);
@@ -131,25 +131,25 @@ static inline void UpdateGlobalTP ( unsigned short gdata )
 // Some ASM color convertion... Lewpy's special...
 ////////////////////////////////////////////////////////////////////////
 
-
-static inline int DoubleBGR2RGB ( unsigned int BGR )
-{
-//    unsigned int ebx, eax, edx;
+#define DoubleBGR2RGB(a) (a)
+//static inline int DoubleBGR2RGB ( unsigned int BGR )
+//{
+////    unsigned int ebx, eax, edx;
+////
+////    ebx = ( BGR & 0x000000ff ) << 1;
+////    if ( ebx & 0x00000100 ) ebx = 0x000000ff;
+////
+////    eax = ( BGR & 0x0000ff00 ) << 1;
+////    if ( eax & 0x00010000 ) eax = 0x0000ff00;
+////
+////    edx = ( BGR & 0x00ff0000 ) << 1;
+////    if ( edx & 0x01000000 ) edx = 0x00ff0000;
+////
+////    return ( ebx | eax | edx );
+//    glSetDoubleCol();
 //
-//    ebx = ( BGR & 0x000000ff ) << 1;
-//    if ( ebx & 0x00000100 ) ebx = 0x000000ff;
-//
-//    eax = ( BGR & 0x0000ff00 ) << 1;
-//    if ( eax & 0x00010000 ) eax = 0x0000ff00;
-//
-//    edx = ( BGR & 0x00ff0000 ) << 1;
-//    if ( edx & 0x01000000 ) edx = 0x00ff0000;
-//
-//    return ( ebx | eax | edx );
-    glSetDoubleCol();
-
-    return BGR;
-}
+//    return BGR;
+//}
 
 unsigned short BGR24to16 (unsigned int BGR)
 {
@@ -1223,6 +1223,7 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         {
 //     if(!bUseMultiPass && !bGLBlend)                   // --> given color...
             PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( DrawAttributes ) );
+            glSetDoubleCol();
 //     else vertex[0].c.lcol=DrawAttributes;
         }
         vertex[0].c.col.a = ubGloAlpha;                    // -> set color with
@@ -1252,6 +1253,7 @@ static void SetOpaqueColor ( unsigned int DrawAttributes )
     if ( bDrawNonShaded ) return;                         // no shading? bye
 
     DrawAttributes = DoubleBGR2RGB ( DrawAttributes );    // multipass is just half color, so double it on opaque pass
+    glSetDoubleCol();
 //vertex[0].c.lcol=DrawAttributes|0xff000000;
     PUTLE32 ( &vertex[0].c.lcol, DrawAttributes | 0xff000000 );
     SETCOL ( vertex[0] );                                 // set color
@@ -1283,49 +1285,49 @@ NEXTSCRTEST:
 
 ////////////////////////////////////////////////////////////////////////
 
-static BOOL bDrawOffscreenFront ( void )
-{
-    if ( sxmin < PSXDisplay.DisplayPosition.x ) return FALSE; // must be complete in front
-    if ( symin < PSXDisplay.DisplayPosition.y ) return FALSE;
-    if ( sxmax > PSXDisplay.DisplayEnd.x )      return FALSE;
-    if ( symax > PSXDisplay.DisplayEnd.y )      return FALSE;
-    return TRUE;
-}
+//static BOOL bDrawOffscreenFront ( void )
+//{
+//    if ( sxmin < PSXDisplay.DisplayPosition.x ) return FALSE; // must be complete in front
+//    if ( symin < PSXDisplay.DisplayPosition.y ) return FALSE;
+//    if ( sxmax > PSXDisplay.DisplayEnd.x )      return FALSE;
+//    if ( symax > PSXDisplay.DisplayEnd.y )      return FALSE;
+//    return TRUE;
+//}
 
-static BOOL bOnePointInFront ( void )
-{
-    if ( sxmax < PSXDisplay.DisplayPosition.x )
-        return FALSE;
+//static BOOL bOnePointInFront ( void )
+//{
+//    if ( sxmax < PSXDisplay.DisplayPosition.x )
+//        return FALSE;
+//
+//    if ( symax < PSXDisplay.DisplayPosition.y )
+//        return FALSE;
+//
+//    if ( sxmin >= PSXDisplay.DisplayEnd.x )
+//        return FALSE;
+//
+//    if ( symin >= PSXDisplay.DisplayEnd.y )
+//        return FALSE;
+//
+//    return TRUE;
+//}
 
-    if ( symax < PSXDisplay.DisplayPosition.y )
-        return FALSE;
 
-    if ( sxmin >= PSXDisplay.DisplayEnd.x )
-        return FALSE;
-
-    if ( symin >= PSXDisplay.DisplayEnd.y )
-        return FALSE;
-
-    return TRUE;
-}
-
-
-static BOOL bOnePointInBack ( void )
-{
-    if ( sxmax < PreviousPSXDisplay.DisplayPosition.x )
-        return FALSE;
-
-    if ( symax < PreviousPSXDisplay.DisplayPosition.y )
-        return FALSE;
-
-    if ( sxmin >= PreviousPSXDisplay.DisplayEnd.x )
-        return FALSE;
-
-    if ( symin >= PreviousPSXDisplay.DisplayEnd.y )
-        return FALSE;
-
-    return TRUE;
-}
+//static BOOL bOnePointInBack ( void )
+//{
+//    if ( sxmax < PreviousPSXDisplay.DisplayPosition.x )
+//        return FALSE;
+//
+//    if ( symax < PreviousPSXDisplay.DisplayPosition.y )
+//        return FALSE;
+//
+//    if ( sxmin >= PreviousPSXDisplay.DisplayEnd.x )
+//        return FALSE;
+//
+//    if ( symin >= PreviousPSXDisplay.DisplayEnd.y )
+//        return FALSE;
+//
+//    return TRUE;
+//}
 
 //static BOOL bDrawOffscreen4 ( void )
 //{
@@ -1774,6 +1776,7 @@ void UploadScreen ( int Position )
     SETCOL ( vertex[0] );
 
     glNoNeedMulConstColor( 1 );
+    glSetRGB24( PSXDisplay.RGB24 );
 
     SetOGLDisplaySettings ( 0 );
 
@@ -2375,9 +2378,9 @@ void CheckWriteUpdate()
                     xrUploadAreaIL.y1 = max ( xrUploadAreaIL.y1, xrUploadArea.y1 );
                 }
                 #if defined(DISP_DEBUG)
-                //sprintf ( txtbuffer, "CheckWriteUpdate3 %d %d %d %d\r\n", xrUploadAreaIL.x0, xrUploadAreaIL.x1, xrUploadAreaIL.y0, xrUploadAreaIL.y1 );
+                sprintf ( txtbuffer, "CheckWriteUpdate3 %d %d %d %d\r\n", xrUploadAreaIL.x0, xrUploadAreaIL.x1, xrUploadAreaIL.y0, xrUploadAreaIL.y1 );
                 //DEBUG_print ( txtbuffer, DBG_SPU3 );
-                //writeLogFile ( txtbuffer );
+                writeLogFile ( txtbuffer );
                 #endif // DISP_DEBUG
                 return;
             }
@@ -2398,10 +2401,10 @@ void CheckWriteUpdate()
                 xrUploadArea.y1 = max ( xrUploadArea.y1, VRAMWrite.y + VRAMWrite.Height );
             }
             #if defined(DISP_DEBUG)
-            //sprintf(txtbuffer, "CheckWriteUpdate4 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
-            //               VRAMWrite.x, VRAMWrite.Width, VRAMWrite.y, VRAMWrite.Height);
+            sprintf(txtbuffer, "CheckWriteUpdate4 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
+                           VRAMWrite.x, VRAMWrite.Width, VRAMWrite.y, VRAMWrite.Height);
             //DEBUG_print ( txtbuffer, DBG_SPU3 );
-            //writeLogFile ( txtbuffer );
+            writeLogFile ( txtbuffer );
             #endif // DISP_DEBUG
 
 //            if ( dwActFixes & 0x8000 )
@@ -2510,10 +2513,10 @@ static void primBlkFill ( unsigned char * baseAddr )
             b = baseAddr[2];
 
             //glDisable(GL_SCISSOR_TEST); glError();
-            glClearColor2 ( r, g, b, 255 );
-            glError();
-            glClear ( uiBufferBits );
-            glError();
+//            glClearColor2 ( r, g, b, 255 );
+//            glError();
+//            glClear ( uiBufferBits );
+//            glError();
             gl_z = 0.0f;
 
             if ( GETLE32 ( &gpuData[0] ) != 0x02000000 &&
@@ -2537,12 +2540,12 @@ static void primBlkFill ( unsigned char * baseAddr )
                     vertex[3].x = 0;
                     vertex[3].y = vertex[2].y;
                     PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-#if defined(DISP_DEBUG)
-//                    sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-//sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-//                    DEBUG_print ( txtbuffer, DBG_CORE2 );
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+                    #if defined(DISP_DEBUG)
+                    //sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+                    sprintf(txtbuffer, "blkFill11 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
+                    //DEBUG_print ( txtbuffer, DBG_CORE2 );
+                    writeLogFile(txtbuffer);
+                    #endif // DISP_DEBUG
                 }
                 if ( ly2 < pd->DisplayEnd.y )
                 {
@@ -2555,30 +2558,30 @@ static void primBlkFill ( unsigned char * baseAddr )
                     vertex[3].x = 0;
                     vertex[3].y = vertex[2].y;
                     PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-#if defined(DISP_DEBUG)
-//                    sprintf ( txtbuffer, "blkFill1_2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-//sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-//                    DEBUG_print ( txtbuffer, DBG_CORE2 );
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+                    #if defined(DISP_DEBUG)
+                    //sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+                    sprintf(txtbuffer, "blkFill12 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
+                    //DEBUG_print ( txtbuffer, DBG_CORE2 );
+                    writeLogFile(txtbuffer);
+                    #endif // DISP_DEBUG
                 }
             }
-#if defined(DISP_DEBUG)
-//            sprintf ( txtbuffer, "blkFill1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-//sprintf(txtbuffer, "blkFill1 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-//            DEBUG_print ( txtbuffer, DBG_CORE2 );
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+            #if defined(DISP_DEBUG)
+            sprintf(txtbuffer, "blkFill13\r\n");
+            //DEBUG_print ( txtbuffer, DBG_CORE2 );
+            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
 
             //glEnable(GL_SCISSOR_TEST); glError();
         }
         else
         {
-#if defined(DISP_DEBUG)
-//            sprintf ( txtbuffer, "blkFil2 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-//            DEBUG_print ( txtbuffer, DBG_CORE3 );
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+            #if defined(DISP_DEBUG)
+            //sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+            sprintf(txtbuffer, "blkFill14 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
+            //DEBUG_print ( txtbuffer, DBG_CORE2 );
+            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
             bDrawTextured     = FALSE;
             bDrawSmoothShaded = FALSE;
             SetRenderState ( ( unsigned int ) 0x01000000 );
@@ -4682,6 +4685,7 @@ writeLogFile(txtbuffer);
       */ PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[0] ) ) );
     PUTLE32 ( &vertex[1].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[3] ) ) );
     PUTLE32 ( &vertex[2].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[6] ) ) );
+    glSetDoubleCol();
     /*}
     else
     {
@@ -4707,6 +4711,7 @@ writeLogFile(txtbuffer);
             PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[0] ) ) );
             PUTLE32 ( &vertex[1].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[3] ) ) );
             PUTLE32 ( &vertex[2].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[6] ) ) );
+            glSetDoubleCol();
             vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = ubGloAlpha;
         }
         DEFOPAQUEON
@@ -4856,6 +4861,7 @@ writeLogFile(txtbuffer);
         PUTLE32 ( &vertex[1].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[3] ) ) );
         PUTLE32 ( &vertex[2].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[6] ) ) );
         PUTLE32 ( &vertex[3].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[9] ) ) );
+        glSetDoubleCol();
     }
     /*else
      {
@@ -4884,6 +4890,7 @@ writeLogFile(txtbuffer);
             PUTLE32 ( &vertex[1].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[3] ) ) );
             PUTLE32 ( &vertex[2].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[6] ) ) );
             PUTLE32 ( &vertex[3].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[9] ) ) );
+            glSetDoubleCol();
             vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = vertex[3].c.col.a = ubGloAlpha;
         }
         ubGloAlpha = ubGloColAlpha = 0xff;

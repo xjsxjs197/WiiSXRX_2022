@@ -1245,10 +1245,8 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
 
 ////////////////////////////////////////////////////////////////////////
 
-void DefineTextureMovie(void)
+static inline void DefineTextureMovie(void)
 {
-    glSetRGB24( PSXDisplay.RGB24 );
-
  if(gTexMovieName==0)
   {
    glGenTextures(1, &gTexMovieName); glError();

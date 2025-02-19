@@ -940,7 +940,7 @@ if(PSXDisplay.Interlaced)                             // interlaced mode?
     writeLogFile ( txtbuffer );
     #endif // DISP_DEBUG
 
-    isFrameOk = TRUE;
+    isFrameOk = iDrawnSomething ? TRUE : FALSE;
     updateDisplayGl();                                  // -> swap buffers (new frame)
    }
      #ifdef DISP_DEBUG
