@@ -1323,7 +1323,7 @@ GLAPI void GLAPIENTRY glTexImage1D( GLenum target, GLint level,
                                     GLenum format, GLenum type,
                                     const GLvoid *pixels );
 
-GLAPI void GLAPIENTRY glTexImage2D( GLenum target, GLint level,
+GLAPI int GLAPIENTRY glTexImage2D( GLenum target, GLint level,
                                     GLint internalFormat,
                                     GLsizei width, GLsizei height,
                                     GLint border, GLenum format, GLenum type,
@@ -1339,7 +1339,7 @@ GLAPI void GLAPIENTRY glGetTexImage( GLenum target, GLint level,
 GLAPI void GLAPIENTRY glGenTextures( GLsizei n, GLuint *textures );
 GLAPI void GLAPIENTRY glInitRGBATextures( GLsizei width, GLsizei height );
 GLAPI void GLAPIENTRY glResetMovieTexPtr( void );
-GLAPI void GLAPIENTRY glInitMovieTextures( GLsizei width, GLsizei height, void * texData);
+GLAPI int GLAPIENTRY glInitMovieTextures( GLsizei width, GLsizei height, void * texData);
 
 GLAPI void GLAPIENTRY glDeleteTextures( GLsizei n, const GLuint *textures);
 
@@ -1353,6 +1353,7 @@ GLAPI void GLAPIENTRY glSetTextureMask( short mask );
 GLAPI void GLAPIENTRY glNoNeedMulConstColor( short noNeedMulConstColorFlg );
 GLAPI void GLAPIENTRY glSetNormalBlend( short normalBlend );
 GLAPI void GLAPIENTRY glSetVramClearedFlg( void );
+GLAPI void GLAPIENTRY glSetTextureType( short textureType );
 
 GLAPI void GLAPIENTRY glPrioritizeTextures( GLsizei n,
                                             const GLuint *textures,
@@ -1371,7 +1372,7 @@ GLAPI void GLAPIENTRY glTexSubImage1D( GLenum target, GLint level,
                                        GLenum type, const GLvoid *pixels );
 
 
-GLAPI void GLAPIENTRY glTexSubImage2D( GLenum target, GLint level,
+GLAPI int GLAPIENTRY glTexSubImage2D( GLenum target, GLint level,
                                        GLint xoffset, GLint yoffset,
                                        GLsizei width, GLsizei height,
                                        GLenum format, GLenum type,

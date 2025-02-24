@@ -188,7 +188,7 @@ extern BOOL           bAdvancedBlend;
 //extern PFNGLBLENDEQU      glBlendEquationEXTEx;
 //extern PFNGLCOLORTABLEEXT glColorTableEXTEx;
 
-extern unsigned char  gl_ux[8];
+extern unsigned char  gl_ux[9];
 extern unsigned char  gl_vy[8];
 extern OGLVertex      vertex[4];
 extern short          sprtY,sprtX,sprtH,sprtW;

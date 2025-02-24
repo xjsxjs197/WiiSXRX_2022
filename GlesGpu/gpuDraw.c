@@ -116,7 +116,7 @@ int            iSetMask=0;
 // drawing/coord vars
 
 OGLVertex      vertex[4];
-GLubyte        gl_ux[8];
+GLubyte        gl_ux[9];
 GLubyte        gl_vy[8];
 short          sprtY,sprtX,sprtH,sprtW;
 

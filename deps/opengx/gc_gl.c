@@ -669,6 +669,12 @@ void glSetVramClearedFlg( void )
     vramClearedFlg = 1;
 }
 
+static short texturyType = 0;
+void glSetTextureType( short texType )
+{
+    texturyType = texType;
+}
+
 void glBindTextureBef(GLenum target, GLuint texture)
 {
     if (texture < 0 || texture >= _MAX_GL_TEX)
@@ -1480,6 +1486,9 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
 #define MOVIE_BUF_SIZE (GXRESX_MAX*RESY_MAX*2)
 #define W_BLOCK(w) (((w + 3) & ~(unsigned int)3) >> 2)
 
+#define TXT_TYPE_1  0x1
+#define TXT_TYPE_2  0x2
+
 extern unsigned char GXtexture[MOVIE_BUF_SIZE];
 static unsigned char *movieTexPtr;
 static int movieUsedSize = 0;
@@ -1518,7 +1527,7 @@ static inline void _ogx_scramble_4b(unsigned char *src, void *dst,
 }
 
 // The position happens to be the integer position of the Block
-static inline void _ogx_scramble_4b_sub(unsigned char *src, void *dst, void *semiTransDst, unsigned short semiTransFlg,
+static inline int _ogx_scramble_4b_sub(unsigned char *src, void *dst, void *semiTransDst, unsigned short semiTransFlg,
                       const unsigned int width, const unsigned int height, const unsigned int oldWidth, const unsigned short setTextureMask)
 {
     unsigned int he;
@@ -1530,6 +1539,7 @@ static inline void _ogx_scramble_4b_sub(unsigned char *src, void *dst, void *sem
     unsigned short tmpPixel;
     int oldWidthBlock = W_BLOCK(oldWidth);
     int newWidthBlock = W_BLOCK(width);
+    int textureType = 0;
 
     for (he = 0; he < height; he += 4) {
         for (wi = 0; wi < width; wi += 4) {
@@ -1552,11 +1562,13 @@ static inline void _ogx_scramble_4b_sub(unsigned char *src, void *dst, void *sem
                         {
                             *(unsigned short*)(semiTransP) = tmpPixel | 0x8000;
                             *(unsigned short*)(p) = 0;
+                            textureType |= TXT_TYPE_1;
                         }
                         else
                         {
                             *(unsigned short*)(semiTransP) = 0;
                             *(unsigned short*)(p) = tmpPixel | 0x8000;
+                            textureType |= TXT_TYPE_2;
                         }
                     }
                     p += 2;
@@ -1567,10 +1579,12 @@ static inline void _ogx_scramble_4b_sub(unsigned char *src, void *dst, void *sem
         p += (oldWidthBlock - newWidthBlock) * 32;
         semiTransP += (oldWidthBlock - newWidthBlock) * 32;
     }
+
+    return textureType;
 }
 
 // 4b texel scrambling, opengx conversion: src(4 bytes bgr555) -> dst(2 bytes bgr5a3)
-static inline void _ogx_scramble_4b_5a3(unsigned char *src, void *dst, void *semiTransDst, unsigned short semiTransFlg,
+static inline int _ogx_scramble_4b_5a3(unsigned char *src, void *dst, void *semiTransDst, unsigned short semiTransFlg,
                       const unsigned int width, const unsigned int height, const unsigned short setTextureMask)
 {
     unsigned int block;
@@ -1580,6 +1594,7 @@ static inline void _ogx_scramble_4b_5a3(unsigned char *src, void *dst, void *sem
     unsigned char *p = (unsigned char *)dst;
     unsigned char *semiTransP = (unsigned char *)semiTransDst;
     unsigned short tmpPixel;
+    int textureType = 0;
 
     for (block = 0; block < height; block += 4) {
         for (i = 0; i < width; i += 4) {
@@ -1602,11 +1617,13 @@ static inline void _ogx_scramble_4b_5a3(unsigned char *src, void *dst, void *sem
                         {
                             *(unsigned short*)(semiTransP) = tmpPixel | 0x8000;
                             *(unsigned short*)p = 0;
+                            textureType |= TXT_TYPE_1;
                         }
                         else
                         {
                             *(unsigned short*)semiTransP = 0;
                             *(unsigned short*)(p) = tmpPixel | 0x8000;
+                            textureType |= TXT_TYPE_2;
                         }
                     }
                     p += 2;
@@ -1615,6 +1632,7 @@ static inline void _ogx_scramble_4b_5a3(unsigned char *src, void *dst, void *sem
             }
         }
     }
+    return textureType;
 }
 
 void glResetMovieTexPtr( void )
@@ -1624,8 +1642,9 @@ void glResetMovieTexPtr( void )
 }
 
 // Create a Movie Texture
-void glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
+int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
 {
+    int textureType = 0;
     GX_DrawDone();
     GX_Flush();
     GX_InvalidateTexAll();
@@ -1658,13 +1677,14 @@ void glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
 
     if (glparamstate.RGB24)
     {
+        textureType |= TXT_TYPE_1;
         _ogx_scramble_4b((unsigned char *)texData, currtex->data, width, height);
         GX_InitTexObj(&currtex->texobj, currtex->data,
                       currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
     }
     else
     {
-        _ogx_scramble_4b_5a3((unsigned char *)texData, currtex->data, currtex->semiTransData, glparamstate.blendenabled, width, height, setTextureMask);
+        textureType = _ogx_scramble_4b_5a3((unsigned char *)texData, currtex->data, currtex->semiTransData, glparamstate.blendenabled, width, height, setTextureMask);
         GX_InitTexObj(&currtex->texobj, currtex->data,
                       currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
         // For Non transparent colors in transparent mode
@@ -1672,15 +1692,18 @@ void glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
                       currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
     }
     DCFlushRange(currtex->data, tex_size_rnd);
+
+    return textureType;
 }
 
 // Update a Texture
-void glTexSubImage2D(GLenum target, GLint level,
+int glTexSubImage2D(GLenum target, GLint level,
                    GLint xoffset, GLint yoffset,
                    GLsizei width, GLsizei height,
                    GLenum format, GLenum type,
                    const GLvoid *data )
 {
+    int textureType = 0;
     GX_DrawDone();
     GX_Flush();
     GX_InvalidateTexAll();
@@ -1691,7 +1714,7 @@ void glTexSubImage2D(GLenum target, GLint level,
     {
         // The position happens to be the integer position of the Block
         int startOffset = ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32;
-        _ogx_scramble_4b_sub((unsigned char *)data, currtex->data + startOffset, currtex->semiTransData + startOffset, glparamstate.blendenabled, width, height, currtex->w, setTextureMask);
+        textureType = _ogx_scramble_4b_sub((unsigned char *)data, currtex->data + startOffset, currtex->semiTransData + startOffset, glparamstate.blendenabled, width, height, currtex->w, setTextureMask);
         DCFlushRange(currtex->data , currtex->w * currtex->h * 4);
     }
     else
@@ -1755,11 +1778,13 @@ void glTexSubImage2D(GLenum target, GLint level,
                         {
                             *(unsigned short*)(semiTransDstBlock + (blockHe * 4 + blockWi) * 2) = tmpPixel | 0x8000;
                             *(unsigned short*)(dstBlock + (blockHe * 4 + blockWi) * 2) = 0;
+                            textureType |= TXT_TYPE_1;
                         }
                         else
                         {
                             *(unsigned short*)(semiTransDstBlock + (blockHe * 4 + blockWi) * 2) = 0;
                             *(unsigned short*)(dstBlock + (blockHe * 4 + blockWi) * 2) = tmpPixel | 0x8000;
+                            textureType |= TXT_TYPE_2;
                         }
                     }
                 }
@@ -1775,19 +1800,21 @@ void glTexSubImage2D(GLenum target, GLint level,
 
         DCFlushRange(currtex->data , currtex->w * currtex->h * 4);
     }
+    return textureType;
 }
 
 // Create a Image Texture
-void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height,
+int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height,
                   GLint border, GLenum format, GLenum type, const GLvoid *data)
 {
 
     // Initial checks
     if (texture_list[glparamstate.glcurtex].used == 0)
-        return;
+        return 0;
     if (target != GL_TEXTURE_2D)
-        return; // FIXME Implement non 2D textures
+        return 0; // FIXME Implement non 2D textures
 
+    int textureType = 0;
     GX_DrawDone(); // Very ugly, we should have a list of used textures and only wait if we are using the curr tex.
                    // This way we are sure that we are not modifying a texture which is being drawn
     GX_Flush();
@@ -1819,7 +1846,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
     currtex->h = he;
     currtex->bytespp = 2;
 
-    _ogx_scramble_4b_5a3((unsigned char *)data, currtex->data, currtex->semiTransData, glparamstate.blendenabled, width, height, setTextureMask);
+    textureType = _ogx_scramble_4b_5a3((unsigned char *)data, currtex->data, currtex->semiTransData, glparamstate.blendenabled, width, height, setTextureMask);
     DCFlushRange(currtex->data, currtex->w * currtex->h * 2);
 
     // Slow but necessary! The new textures may be in the same region of some old cached textures
@@ -1832,6 +1859,8 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
                 currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
     //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
     //GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
+
+    return textureType;
 }
 
 void glColorMask(GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha)
@@ -2649,34 +2678,47 @@ void _ogx_apply_state()
             {
                 if (glDrawArraysFlg == 0)
                 {
-                    //GX_SetAlphaCompare(GX_EQUAL, 0xF0, GX_AOP_OR, GX_EQUAL, 0xEF);
-                    // Non transparent colors in transparent mode
-                    GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
-                    GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
-                    //GX_SetBlendMode(GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_COPY);
+                    if ((texturyType & TXT_TYPE_1))
+                    {
+                        //GX_SetAlphaCompare(GX_EQUAL, 0xF0, GX_AOP_OR, GX_EQUAL, 0xEF);
+                        // Non transparent colors in transparent mode
+                        GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
+                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+                        //GX_SetBlendMode(GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_COPY);
+                    }
+                    else
+                    {
+                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                    }
                 }
                 else
                 // transparent colors in transparent mode(0.5B or other SemiTrans mode)
                 if (glDrawArraysFlg == 1)
                 {
-                    //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_NEQUAL, 0xF0);
-                    GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
-                    // For 0.5B + 0.5F, back color * 0.5
-                    GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_SRCCLR, GX_LO_CLEAR);
+                    if ((texturyType & TXT_TYPE_2))
+                    {
+                        //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_NEQUAL, 0xF0);
+                        GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+                        // For 0.5B + 0.5F, back color * 0.5
+                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_SRCCLR, GX_LO_CLEAR);
+                    }
+                    else
+                    {
+                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                    }
                 }
-                else
+                else if (glDrawArraysFlg == 2 && (texturyType & TXT_TYPE_2))
                 {
-//                    if (vramClearedFlg)
-//                    {
-//                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
-//                        vramClearedFlg = 0;
-//                    }
-//                    else
+                    if ((texturyType & TXT_TYPE_2))
                     {
                         //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_NEQUAL, 0xF0);
                         GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
                         // transparent colors in transparent mode(0.5F + 0.5B)
                         GX_SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+                    }
+                    else
+                    {
+                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
                     }
                 }
             }
@@ -2710,18 +2752,32 @@ void _ogx_apply_state()
                 {
                     if (glDrawArraysFlg == 0)
                     {
-                        //GX_SetAlphaCompare(GX_EQUAL, 0xF0, GX_AOP_OR, GX_EQUAL, 0xEF);
-                        GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
-                        // Non transparent colors in transparent mode
-                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+                        if (texturyType & TXT_TYPE_1)
+                        {
+                            //GX_SetAlphaCompare(GX_EQUAL, 0xF0, GX_AOP_OR, GX_EQUAL, 0xEF);
+                            GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
+                            // Non transparent colors in transparent mode
+                            GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+                        }
+                        else
+                        {
+                            GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                        }
                     }
-                    else
+                    else if (glDrawArraysFlg == 1)
                     {
-                        //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_NEQUAL, 0xF0);
-                        GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
-                        // transparent colors in transparent mode(F + B)
-                        // transparent colors in transparent mode(0.25F + B)
-                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+                        if (texturyType & TXT_TYPE_2)
+                        {
+                            //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_NEQUAL, 0xF0);
+                            GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+                            // transparent colors in transparent mode(F + B)
+                            // transparent colors in transparent mode(0.25F + B)
+                            GX_SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+                        }
+                        else
+                        {
+                            GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                        }
                     }
                 }
             }
@@ -2739,24 +2795,45 @@ void _ogx_apply_state()
             {
                 if (glDrawArraysFlg == 0)
                 {
-                    //GX_SetAlphaCompare(GX_EQUAL, 0xF0, GX_AOP_OR, GX_EQUAL, 0xEF);
-                    GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
-                    // Non transparent colors in transparent mode
-                    GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
-                    //GX_SetBlendMode(GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_COPY);
+                    if (texturyType & TXT_TYPE_1)
+                    {
+                        //GX_SetAlphaCompare(GX_EQUAL, 0xF0, GX_AOP_OR, GX_EQUAL, 0xEF);
+                        GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
+                        // Non transparent colors in transparent mode
+                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+                        //GX_SetBlendMode(GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_COPY);
+                    }
+                    else
+                    {
+                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                    }
                 }
                 else if (glDrawArraysFlg == 1)
                 {
-                    //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_NEQUAL, 0xF0);
-                    GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
-                    // transparent colors in transparent mode(B - F)
-                    GX_SetBlendMode(GX_BM_SUBTRACT, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+                    if (texturyType & TXT_TYPE_2)
+                    {
+                        //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_NEQUAL, 0xF0);
+                        GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+                        // transparent colors in transparent mode(B - F)
+                        GX_SetBlendMode(GX_BM_SUBTRACT, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+                    }
+                    else
+                    {
+                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                    }
                 }
-                else
+                else if (glDrawArraysFlg == 2)
                 {
-                    GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
-                    // For set dest alpha
-                    GX_SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+                    if (texturyType & TXT_TYPE_2)
+                    {
+                        GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+                        // For set dest alpha
+                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+                    }
+                    else
+                    {
+                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                    }
                 }
             }
             else

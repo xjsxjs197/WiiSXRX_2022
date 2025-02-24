@@ -1146,6 +1146,7 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         if ( bUsingTWin )       currTex = LoadTextureWnd ( GlobalTexturePage, GlobalTextTP, ulClutID );
         else if ( bUsingMovie ) currTex = LoadTextureMovie();
         else                 currTex = SelectSubTextureS ( GlobalTextTP, ulClutID );
+        glSetTextureType(gl_ux[8]);
 
         if ( gTexName != currTex )
         {
@@ -1218,19 +1219,21 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         {
             /*     if(bGLBlend)  vertex[0].c.lcol=0x7f7f7f;          // --> solid color...
                  else          */vertex[0].c.lcol = SWAP32_C ( 0xffffff );
+            glNoNeedMulConstColor( 1 );
         }
         else                                                // -> shaded?
         {
 //     if(!bUseMultiPass && !bGLBlend)                   // --> given color...
             PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( DrawAttributes ) );
             glSetDoubleCol();
+            glNoNeedMulConstColor( 0 );
 //     else vertex[0].c.lcol=DrawAttributes;
         }
         vertex[0].c.col.a = ubGloAlpha;                    // -> set color with
         SETCOL ( vertex[0] );                               //    texture alpha
     }
     #if defined(DISP_DEBUG)
-    sprintf ( txtbuffer, "SetRenderMode %d %d %d %d %d %d %d %08x %d\r\n", DrawSemiTrans, bDrawTextured, bUsingTWin, GlobalTextABR, bCheckMask, iSetMask, bSCol, vertex[0].c.lcol, bDrawNonShaded );
+    sprintf ( txtbuffer, "SetRenderMode %d %d %d %d %d %d %d %08x %d\r\n", DrawSemiTrans, bDrawTextured, bUsingTWin, GlobalTextABR, bCheckMask, iSetMask, bSCol, vertex[0].c.lcol, gl_ux[8] );
     DEBUG_print ( txtbuffer,  DBG_CDR4 );
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
@@ -1775,7 +1778,6 @@ void UploadScreen ( int Position )
      else          */vertex[0].c.lcol = 0xffffffff;
     SETCOL ( vertex[0] );
 
-    glNoNeedMulConstColor( 1 );
     glSetRGB24( PSXDisplay.RGB24 );
 
     SetOGLDisplaySettings ( 0 );
@@ -1847,7 +1849,6 @@ void UploadScreen ( int Position )
     bUsingMovie = FALSE;                                  // done...
     bDisplayNotSet = TRUE;
 
-    glNoNeedMulConstColor( 0 );
     #if defined(DISP_DEBUG)
     sprintf ( txtbuffer, "UploadScreen end\r\n");
     DEBUG_print ( txtbuffer, DBG_GPU3 );
@@ -2307,18 +2308,20 @@ static void PrepareRGB24Upload ( void )
 
 void CheckWriteUpdate()
 {
-    #if defined(DISP_DEBUG)
-    //sprintf ( txtbuffer, "CheckWriteUpdate %d %d\r\n", bCheckMask, sSetMask);
-    //DEBUG_print ( txtbuffer, DBG_CDR1 );
-    //writeLogFile ( txtbuffer );
-    #endif // DISP_DEBUG
-
     int iX = 0, iY = 0;
 
     if ( VRAMWrite.Width )   iX = 1;
     if ( VRAMWrite.Height )  iY = 1;
 
     InvalidateTextureArea ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width - iX, VRAMWrite.Height - iY );
+
+    #if defined(DISP_DEBUG)
+    sprintf ( txtbuffer, "CheckWriteUpdate %d %d %d %d %d %d %d\r\n", PreviousPSXDisplay.DisplayPosition.x, PreviousPSXDisplay.DisplayEnd.x,
+             PreviousPSXDisplay.DisplayPosition.y, PreviousPSXDisplay.DisplayEnd.y,
+             PSXDisplay.InterlacedTest, bCheckMask, sSetMask);
+    //DEBUG_print ( txtbuffer, DBG_CDR1 );
+    writeLogFile ( txtbuffer );
+    #endif // DISP_DEBUG
 
     if (PSXDisplay.Interlaced && !iOffscreenDrawing) return;
 
@@ -2349,6 +2352,13 @@ void CheckWriteUpdate()
     }
     else if ( iOffscreenDrawing )
     {
+        #if defined(DISP_DEBUG)
+        sprintf ( txtbuffer, "CheckWriteUpdate2 %d %d %d %d %d %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayEnd.x,
+                 PSXDisplay.DisplayPosition.y, PSXDisplay.DisplayEnd.y,
+                 PSXDisplay.InterlacedTest, bCheckMask, sSetMask);
+        //DEBUG_print ( txtbuffer, DBG_CDR1 );
+        writeLogFile ( txtbuffer );
+        #endif // DISP_DEBUG
         if ( CheckAgainstFrontScreen  ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
         {
             if ( PSXDisplay.InterlacedTest )
@@ -4661,6 +4671,7 @@ writeLogFile(txtbuffer);
 
     if ( bDrawNonShaded )
     {
+        glNoNeedMulConstColor( 1 );
         //if(!bUseMultiPass) vertex[0].lcol=DoubleBGR2RGB(gpuData[0]); else vertex[0].lcol=gpuData[0];
         // eat this...
         /*   if(bGLBlend) vertex[0].c.lcol=0x7f7f7f;
@@ -4677,6 +4688,7 @@ writeLogFile(txtbuffer);
             PRIMdrawTexturedTri ( &vertex[0], &vertex[1], &vertex[2] );
             DEFOPAQUEOFF
         }
+        glNoNeedMulConstColor( 0 );
         return;
     }
 
@@ -4836,6 +4848,7 @@ writeLogFile(txtbuffer);
 
     if ( bDrawNonShaded )
     {
+        glNoNeedMulConstColor( 1 );
         //if(!bUseMultiPass) vertex[0].lcol=DoubleBGR2RGB(gpuData[0]); else vertex[0].lcol=gpuData[0];
         /*   if(bGLBlend) vertex[0].c.lcol=0x7f7f7f;
            else          */vertex[0].c.lcol = SWAP32_C ( 0xffffff );
@@ -4852,6 +4865,7 @@ writeLogFile(txtbuffer);
             PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
             DEFOPAQUEOFF
         }
+        glNoNeedMulConstColor( 0 );
         return;
     }
 

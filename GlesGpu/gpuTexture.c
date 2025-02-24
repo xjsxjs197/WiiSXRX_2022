@@ -171,6 +171,7 @@ typedef struct textureWndCacheEntryTag
  short          used;
  EXLong         pos;
  GLuint         texname;
+ unsigned char   textureType;
 } textureWndCacheEntry;
 
 // "standard texture" cache entry (12 byte per entry, as small as possible... we need lots of them)
@@ -183,6 +184,7 @@ typedef struct textureSubCacheEntryTagS
  unsigned char   posTY;
  unsigned char   cTexID;
  unsigned char   Opaque;
+ unsigned char   textureType;
 } textureSubCacheEntryS;
 
 
@@ -214,6 +216,8 @@ unsigned short MAXTPAGES     = MAXTPAGES_MAX / 2;
 unsigned short CLUTMASK      = 0x7fff;
 unsigned short CLUTYMASK     = 0x1ff;
 unsigned short MAXSORTTEX    = MAXSORTTEX_MAX;
+
+static textureSubCacheEntryS *curTsx;
 
 ////////////////////////////////////////////////////////////////////////
 // Texture color conversions... all my ASM funcs are removed for easier
@@ -739,12 +743,14 @@ void DefineTextureWnd(void)
         glBindTextureBef(GL_TEXTURE_2D, gTexName);glError();
     }
 
-    glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB,
+    int textureType;
+    textureType = glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB,
         TWin.Position.x1,
         TWin.Position.y1,
         0, GL_RGB, GL_UNSIGNED_BYTE, texturepart); glError();
+    gl_ux[8] = textureType;
     #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "DefineTextureWnd %d %d\r\n", TWin.Position.x1, TWin.Position.y1);
+    sprintf ( txtbuffer, "DefineTextureWnd %d %d %d\r\n", TWin.Position.x1, TWin.Position.y1, textureType);
     writeLogFile ( txtbuffer );
     #endif // DISP_DEBUG
 
@@ -1190,6 +1196,7 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
        if(ts->ClutID==GivenClutId)
         {
          ubOpaqueDraw=ts->Opaque;
+         gl_ux[8] = ts->textureType;
          return ts->texname;
         }
       }
@@ -1231,6 +1238,7 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
  tsx->textureMode=TextureMode;
  tsx->texname=gTexName;
  tsx->used=1;
+ tsx->textureType = gl_ux[8];
 
  return gTexName;
 }
@@ -1254,7 +1262,7 @@ static inline void DefineTextureMovie(void)
    glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
 
     glResetMovieTexPtr();
-    glInitMovieTextures((xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0), texturepart);
+    gl_ux[8] = glInitMovieTextures((xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0), texturepart);
 
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, iClampType); glError();
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, iClampType); glError();
@@ -1275,7 +1283,7 @@ static inline void DefineTextureMovie(void)
  else
   {
    gTexName=gTexMovieName;glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
-   glInitMovieTextures((xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0), texturepart);
+   gl_ux[8] = glInitMovieTextures((xrMovieArea.x1-xrMovieArea.x0), (xrMovieArea.y1-xrMovieArea.y0), texturepart);
   }
 
 //  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
@@ -2444,10 +2452,12 @@ void DefineSubTextureSort(void)
   writeLogFile(txtbuffer);
   #endif // DISP_DEBUG
 
-  glTexSubImage2D(GL_TEXTURE_2D, 0, XTexS, YTexS,
+  int textureType;
+  textureType = glTexSubImage2D(GL_TEXTURE_2D, 0, XTexS, YTexS,
                  DXTexS, DYTexS,
                  GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
-                                        //LOGE("DefineSubTextureSort x:%d y:%d w:%d h:%d",XTexS,YTexS,DXTexS,DYTexS);
+    gl_ux[8] = (GLubyte)(textureType);
+    curTsx->textureType = textureType;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2549,6 +2559,8 @@ unsigned char * CheckTextureInSubSCache(int TextureMode,unsigned int GivenClutId
          gl_vy[1]-=cy;
          gl_vy[2]-=cy;
          gl_vy[3]-=cy;
+
+         gl_ux[8] = tsb->textureType;
 
          ubOpaqueDraw=tsb->Opaque;
          *pCache=tsb->cTexID;
@@ -2787,6 +2799,7 @@ ENDLOOP:
  tsx->ClutID   = GivenClutId;
  tsx->posTX    = rfree.c.x1;
  tsx->posTY    = rfree.c.y1;
+ curTsx = tsx;
 
  cx=gl_ux[7]-rfree.c.x1;
  cy=gl_ux[5]-rfree.c.y1;
