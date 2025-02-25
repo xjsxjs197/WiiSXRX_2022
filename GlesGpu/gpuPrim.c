@@ -2245,11 +2245,6 @@ static void primLoadImage ( unsigned char * baseAddr )
         #endif // DISP_DEBUG
         clearMovieGarbageFlg = 0;
         clearMovieGarbageCnt = 0;
-
-        if ((dwActFixes & 0x400) && VRAMWrite.Width == 320 && VRAMWrite.Height == 240)
-        {
-            primSprtSFix = TRUE;
-        }
     }
 
     iDataWriteMode = DR_VRAMTRANSFER;
@@ -2891,6 +2886,11 @@ static void primTileS ( unsigned char * baseAddr )
     ly0 = sprtY;
 
     offsetST();
+
+    if ((dwActFixes & 0x400) && sprtW == 320 && sprtH == 28)
+    {
+        dinoCrisis2Fix = TRUE;
+    }
 
     if ( ( dwActFixes & 1 ) &&                            // FF7 special game gix (battle cursor)
             sprtX == 0 && sprtY == 0 && sprtW == 24 && sprtH == 16 )
@@ -3604,7 +3604,7 @@ static void primSprtS ( unsigned char * baseAddr )
     if ( !sprtW ) return;
 
     // Dino Crisis2 For GX gpu fix
-    if (primSprtSFix == TRUE && sprtW == 64 && sprtH == 48)
+    if (dinoCrisis2Fix == TRUE && sprtW == 64 && sprtH == 48)
     {
         return;
     }

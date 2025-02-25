@@ -137,7 +137,7 @@ static unsigned short largeRangeX2 = 0;
 static unsigned short largeRangeY1 = 0;
 static unsigned short largeRangeY2 = 0;
 
-static BOOL    primSprtSFix = FALSE;                    // GX gpu fix(Dino Crisis2)
+static BOOL    dinoCrisis2Fix = FALSE;                    // GX gpu fix(Dino Crisis2)
 static BOOL    isFrameOk = FALSE;
 
 #define INRANGE(x1, x2, y1, y2) ((y2 <= largeRangeY2) && (y1 >= largeRangeY1) && (x2 <= largeRangeX2) && (x1 >= largeRangeX1))
@@ -2160,7 +2160,7 @@ static void flipEGL(void)
     gx_vout_render(isFrameOk);
 
     clearLargeRange = 0;
-    primSprtSFix = FALSE;
+    dinoCrisis2Fix = FALSE;
     isFrameOk = FALSE;
 }
 
