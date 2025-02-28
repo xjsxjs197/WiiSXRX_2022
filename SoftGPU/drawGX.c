@@ -146,22 +146,8 @@ void gx_vout_render(short isFrameOk)
 	GX_Flush();
 
 	gc_vout_copydone();
-	gc_vout_vsync(0);
-}
-
-void gx_vout_clear(void)
-{
-	GX_DrawDone();
-	GX_SetCopyClear((GXColor){0, 0, 0, 0xFF}, GX_MAX_Z24);
-	GX_CopyDisp(xfb[FB_BACK], GX_TRUE);
-	GX_Flush();
-
-	GX_DrawDone();
-	GX_Flush();
-
+	//gc_vout_vsync(0);
 	new_frame = 1;
-	gc_vout_copydone();
-	gc_vout_vsync(0);
 }
 
 void showFpsAndDebugInfo(void)
@@ -458,7 +444,7 @@ int gc_vout_open(void) {
 }
 
 int gx_vout_open(void) {
-	//VIDEO_SetPreRetraceCallback(gc_vout_vsync);
+	VIDEO_SetPreRetraceCallback(gc_vout_vsync);
 	return 0;
 }
 

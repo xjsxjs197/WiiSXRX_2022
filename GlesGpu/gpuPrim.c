@@ -36,6 +36,7 @@
 #include "gpuPrim.h"
 #include "../gpulib/gpu.h"
 #include "../Gamecube/DEBUG.h"
+#include "../database.h"
 
 ////////////////////////////////////////////////////////////////////////
 // defines
@@ -1004,15 +1005,17 @@ static void SetSemiTransMulti ( int Pass )
 // Set several rendering stuff including blending
 ////////////////////////////////////////////////////////////////////////
 
-static void SetZMask3O ( void )
-{
-    if ( iUseMask && DrawSemiTrans && !iSetMask )
-    {
-        vertex[0].z = vertex[1].z = vertex[2].z = gl_z;
-        gl_z += 0.00004f;
-    }
-}
+// For ubOpaqueDraw
+//static void SetZMask3O ( void )
+//{
+//    if ( iUseMask && DrawSemiTrans && !iSetMask )
+//    {
+//        vertex[0].z = vertex[1].z = vertex[2].z = gl_z;
+//        gl_z += 0.00004f;
+//    }
+//}
 
+// For PolyFT3 PolyGT3
 static void SetZMask3 ( void )
 {
     if ( iUseMask )
@@ -1029,6 +1032,7 @@ static void SetZMask3 ( void )
     }
 }
 
+// For PolyF3 PolyG3
 static void SetZMask3NT ( void )
 {
     if ( iUseMask )
@@ -1047,15 +1051,17 @@ static void SetZMask3NT ( void )
 
 ////////////////////////////////////////////////////////////////////////
 
-static void SetZMask4O ( void )
-{
-    if ( iUseMask && DrawSemiTrans && !iSetMask )
-    {
-        vertex[0].z = vertex[1].z = vertex[2].z = vertex[3].z = gl_z;
-        gl_z += 0.00004f;
-    }
-}
+// For ubOpaqueDraw
+//static void SetZMask4O ( void )
+//{
+//    if ( iUseMask && DrawSemiTrans && !iSetMask )
+//    {
+//        vertex[0].z = vertex[1].z = vertex[2].z = vertex[3].z = gl_z;
+//        gl_z += 0.00004f;
+//    }
+//}
 
+// For PolyFT4 PolyGT4
 static void SetZMask4 ( void )
 {
     if ( iUseMask )
@@ -1072,6 +1078,7 @@ static void SetZMask4 ( void )
     }
 }
 
+// For PolyF4 PolyG4 TileS Tile1 Tile8 Tile16 LineGEx LineG2 LineFEx LineF2
 static void SetZMask4NT ( void )
 {
     if ( iUseMask )
@@ -1088,6 +1095,7 @@ static void SetZMask4NT ( void )
     }
 }
 
+// For Sprt8 Sprt16 SprtSRest SprtS
 static void SetZMask4SP ( void )
 {
     if ( iUseMask )
@@ -1212,8 +1220,8 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
 
     if ( bSCol )                                          // also set color ?
     {
-        if ( ( dwActFixes & 4 ) && ( ( DrawAttributes & 0x00ffffff ) == 0 ) )
-            DrawAttributes |= 0x007f7f7f;
+//        if ( ( dwActFixes & 4 ) && ( ( DrawAttributes & 0x00ffffff ) == 0 ) )
+//            DrawAttributes |= 0x007f7f7f;
 
         if ( bDrawNonShaded )                               // -> non shaded?
         {
@@ -2329,7 +2337,7 @@ void CheckWriteUpdate()
     if ( !PSXDisplay.InterlacedTest &&
             CheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
-        if ( dwActFixes & 0x800 ) return;
+        //if ( dwActFixes & 0x800 ) return;
 
         if ( bRenderFrontBuffer )
         {
@@ -2887,11 +2895,6 @@ static void primTileS ( unsigned char * baseAddr )
 
     offsetST();
 
-    if ((dwActFixes & 0x400) && sprtW == 320 && sprtH == 28)
-    {
-        dinoCrisis2Fix = TRUE;
-    }
-
     if ( ( dwActFixes & 1 ) &&                            // FF7 special game gix (battle cursor)
             sprtX == 0 && sprtY == 0 && sprtW == 24 && sprtH == 16 )
         return;
@@ -3258,21 +3261,21 @@ writeLogFile(txtbuffer);
     else
         PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-    if ( bDrawMultiPass )
-    {
-        SetSemiTransMulti ( 1 );
-        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-    }
-
-    if ( ubOpaqueDraw )
-    {
-        SetZMask4O();
-        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
-        DEFOPAQUEON
-
-        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-        DEFOPAQUEOFF
-    }
+//    if ( bDrawMultiPass )
+//    {
+//        SetSemiTransMulti ( 1 );
+//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//    }
+//
+//    if ( ubOpaqueDraw )
+//    {
+//        SetZMask4O();
+//        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
+//        DEFOPAQUEON
+//
+//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//        DEFOPAQUEOFF
+//    }
 
     iSpriteTex = 0;
     iDrawnSomething = 1;
@@ -3380,21 +3383,21 @@ writeLogFile(txtbuffer);
     else
         PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-    if ( bDrawMultiPass )
-    {
-        SetSemiTransMulti ( 1 );
-        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-    }
-
-    if ( ubOpaqueDraw )
-    {
-        SetZMask4O();
-        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
-        DEFOPAQUEON
-
-        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-        DEFOPAQUEOFF
-    }
+//    if ( bDrawMultiPass )
+//    {
+//        SetSemiTransMulti ( 1 );
+//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//    }
+//
+//    if ( ubOpaqueDraw )
+//    {
+//        SetZMask4O();
+//        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
+//        DEFOPAQUEON
+//
+//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//        DEFOPAQUEOFF
+//    }
 
     iSpriteTex = 0;
     iDrawnSomething = 1;
@@ -3563,21 +3566,21 @@ static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
     else
         PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-    if ( bDrawMultiPass )
-    {
-        SetSemiTransMulti ( 1 );
-        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-    }
-
-    if ( ubOpaqueDraw )
-    {
-        SetZMask4O();
-        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
-        DEFOPAQUEON
-
-        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-        DEFOPAQUEOFF
-    }
+//    if ( bDrawMultiPass )
+//    {
+//        SetSemiTransMulti ( 1 );
+//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//    }
+//
+//    if ( ubOpaqueDraw )
+//    {
+//        SetZMask4O();
+//        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
+//        DEFOPAQUEON
+//
+//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//        DEFOPAQUEOFF
+//    }
 
     if ( sTypeRest && type < 4 )
     {
@@ -3604,7 +3607,7 @@ static void primSprtS ( unsigned char * baseAddr )
     if ( !sprtW ) return;
 
     // Dino Crisis2 For GX gpu fix
-    if (dinoCrisis2Fix == TRUE && sprtW == 64 && sprtH == 48)
+    if ((dwActFixes & AUTO_FIX_DINO_CRISIS2) && sprtW == 64 && sprtH == 48)
     {
         return;
     }
@@ -3680,11 +3683,11 @@ static void primSprtS ( unsigned char * baseAddr )
     SetRenderMode ( GETLE32 ( &gpuData[0] ), TRUE );
     SetZMask4SP();
 
-    if ( ( dwActFixes & 1 ) && gTexFrameName && gTexName == gTexFrameName )
-    {
-        iSpriteTex = 0;
-        return;
-    }
+//    if ( ( dwActFixes & 1 ) && gTexFrameName && gTexName == gTexFrameName )
+//    {
+//        iSpriteTex = 0;
+//        return;
+//    }
 
     sSprite_ux2 = gl_ux[0] + sprtW;
     sSprite_vy2 = gl_vy[0] + sprtH;
@@ -3704,10 +3707,11 @@ static void primSprtS ( unsigned char * baseAddr )
 //        DEBUG_print ( txtbuffer, DBG_CDR3 );
 //        writeLogFile(txtbuffer);
 
-//        sprintf ( txtbuffer, "primSprtS %d %d %d %d (%f %f) (%f %f) (%f %f) (%f %f)\r\n", sprtX, sprtY, sprtW, sprtH,
+//        sprintf ( txtbuffer, "primSprtS (%f %f) (%f %f) (%f %f) (%f %f)\r\n",
 //                 vertex[0].sow, vertex[0].tow, vertex[1].sow, vertex[1].tow, vertex[2].sow, vertex[2].tow, vertex[3].sow, vertex[3].tow );
-        sprintf ( txtbuffer, "primSprtS %d %d %d %d %d %d\r\n", sprtX, sprtY, sprtW, sprtH,
-                 ((ulClutID << 4) & 0x3F0), ((ulClutID >> 6) & CLUTYMASK) );
+//        writeLogFile(txtbuffer);
+        sprintf ( txtbuffer, "primSprtS %d %d %d %d %04x %d %d\r\n", sprtX, sprtY, sprtW, sprtH,
+                 ulClutID, ((ulClutID << 4) & 0x3F0), ((ulClutID >> 6) & CLUTYMASK) );
         DEBUG_print ( txtbuffer, DBG_SPU1 );
         writeLogFile(txtbuffer);
 
@@ -3723,21 +3727,21 @@ static void primSprtS ( unsigned char * baseAddr )
     else
         PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-    if ( bDrawMultiPass )
-    {
-        SetSemiTransMulti ( 1 );
-        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-    }
-
-    if ( ubOpaqueDraw )
-    {
-        SetZMask4O();
-        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
-        DEFOPAQUEON
-
-        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-        DEFOPAQUEOFF
-    }
+//    if ( bDrawMultiPass )
+//    {
+//        SetSemiTransMulti ( 1 );
+//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//    }
+//
+//    if ( ubOpaqueDraw )
+//    {
+//        SetZMask4O();
+//        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
+//        DEFOPAQUEON
+//
+//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//        DEFOPAQUEOFF
+//    }
 
     if ( sTypeRest )
     {
@@ -4071,20 +4075,20 @@ static BOOL DoLineCheck ( unsigned int * gpuData )
 
     PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
 
-    if ( bDrawMultiPass )
-    {
-        SetSemiTransMulti ( 1 );
-        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
-    }
-
-    if ( ubOpaqueDraw )
-    {
-        SetZMask4O();
-        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
-        DEFOPAQUEON
-        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
-        DEFOPAQUEOFF
-    }
+//    if ( bDrawMultiPass )
+//    {
+//        SetSemiTransMulti ( 1 );
+//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
+//    }
+//
+//    if ( ubOpaqueDraw )
+//    {
+//        SetZMask4O();
+//        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
+//        DEFOPAQUEON
+//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
+//        DEFOPAQUEOFF
+//    }
 
     iDrawnSomething = 1;
 
@@ -4152,20 +4156,20 @@ writeLogFile(txtbuffer);
 
     PRIMdrawTexturedTri ( &vertex[0], &vertex[1], &vertex[2] );
 
-    if ( bDrawMultiPass )
-    {
-        SetSemiTransMulti ( 1 );
-        PRIMdrawTexturedTri ( &vertex[0], &vertex[1], &vertex[2] );
-    }
-
-    if ( ubOpaqueDraw )
-    {
-        SetZMask3O();
-        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
-        DEFOPAQUEON
-        PRIMdrawTexturedTri ( &vertex[0], &vertex[1], &vertex[2] );
-        DEFOPAQUEOFF
-    }
+//    if ( bDrawMultiPass )
+//    {
+//        SetSemiTransMulti ( 1 );
+//        PRIMdrawTexturedTri ( &vertex[0], &vertex[1], &vertex[2] );
+//    }
+//
+//    if ( ubOpaqueDraw )
+//    {
+//        SetZMask3O();
+//        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
+//        DEFOPAQUEON
+//        PRIMdrawTexturedTri ( &vertex[0], &vertex[1], &vertex[2] );
+//        DEFOPAQUEOFF
+//    }
 
     iDrawnSomething = 1;
 }
@@ -4595,21 +4599,21 @@ static void primPolyFT4 ( unsigned char * baseAddr )
 
     PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
 
-    if ( bDrawMultiPass )
-    {
-        SetSemiTransMulti ( 1 );
-        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
-    }
-
-    if ( ubOpaqueDraw )
-    {
-        SetZMask4O();
-        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
-        DEFOPAQUEON
-
-        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
-        DEFOPAQUEOFF
-    }
+//    if ( bDrawMultiPass )
+//    {
+//        SetSemiTransMulti ( 1 );
+//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
+//    }
+//
+//    if ( ubOpaqueDraw )
+//    {
+//        SetZMask4O();
+//        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
+//        DEFOPAQUEON
+//
+//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
+//        DEFOPAQUEOFF
+//    }
 
     iDrawnSomething = 1;
 }
@@ -4681,13 +4685,13 @@ writeLogFile(txtbuffer);
 
         PRIMdrawTexturedTri ( &vertex[0], &vertex[1], &vertex[2] );
 
-        if ( ubOpaqueDraw )
-        {
-            SetZMask3O();
-            DEFOPAQUEON
-            PRIMdrawTexturedTri ( &vertex[0], &vertex[1], &vertex[2] );
-            DEFOPAQUEOFF
-        }
+//        if ( ubOpaqueDraw )
+//        {
+//            SetZMask3O();
+//            DEFOPAQUEON
+//            PRIMdrawTexturedTri ( &vertex[0], &vertex[1], &vertex[2] );
+//            DEFOPAQUEOFF
+//        }
         glNoNeedMulConstColor( 0 );
         return;
     }
@@ -4709,27 +4713,27 @@ writeLogFile(txtbuffer);
 
     PRIMdrawTexGouraudTriColor ( &vertex[0], &vertex[1], &vertex[2] );
 
-    if ( bDrawMultiPass )
-    {
-        SetSemiTransMulti ( 1 );
-        PRIMdrawTexGouraudTriColor ( &vertex[0], &vertex[1], &vertex[2] );
-    }
-
-    if ( ubOpaqueDraw )
-    {
-        SetZMask3O();
-        if ( bUseMultiPass )
-        {
-            PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[0] ) ) );
-            PUTLE32 ( &vertex[1].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[3] ) ) );
-            PUTLE32 ( &vertex[2].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[6] ) ) );
-            glSetDoubleCol();
-            vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = ubGloAlpha;
-        }
-        DEFOPAQUEON
-        PRIMdrawTexGouraudTriColor ( &vertex[0], &vertex[1], &vertex[2] );
-        DEFOPAQUEOFF
-    }
+//    if ( bDrawMultiPass )
+//    {
+//        SetSemiTransMulti ( 1 );
+//        PRIMdrawTexGouraudTriColor ( &vertex[0], &vertex[1], &vertex[2] );
+//    }
+//
+//    if ( ubOpaqueDraw )
+//    {
+//        SetZMask3O();
+//        if ( bUseMultiPass )
+//        {
+//            PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[0] ) ) );
+//            PUTLE32 ( &vertex[1].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[3] ) ) );
+//            PUTLE32 ( &vertex[2].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[6] ) ) );
+//            glSetDoubleCol();
+//            vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = ubGloAlpha;
+//        }
+//        DEFOPAQUEON
+//        PRIMdrawTexGouraudTriColor ( &vertex[0], &vertex[1], &vertex[2] );
+//        DEFOPAQUEOFF
+//    }
 
     iDrawnSomething = 1;
 }
@@ -4857,14 +4861,14 @@ writeLogFile(txtbuffer);
 
         PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
 
-        if ( ubOpaqueDraw )
-        {
-            SetZMask4O();
-            ubGloAlpha = ubGloColAlpha = 0xff;
-            DEFOPAQUEON
-            PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
-            DEFOPAQUEOFF
-        }
+//        if ( ubOpaqueDraw )
+//        {
+//            SetZMask4O();
+//            ubGloAlpha = ubGloColAlpha = 0xff;
+//            DEFOPAQUEON
+//            PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
+//            DEFOPAQUEOFF
+//        }
         glNoNeedMulConstColor( 0 );
         return;
     }
@@ -4889,29 +4893,29 @@ writeLogFile(txtbuffer);
 
     PRIMdrawTexGouraudTriColorQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
 
-    if ( bDrawMultiPass )
-    {
-        SetSemiTransMulti ( 1 );
-        PRIMdrawTexGouraudTriColorQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
-    }
-
-    if ( ubOpaqueDraw )
-    {
-        SetZMask4O();
-        if ( bUseMultiPass )
-        {
-            PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[0] ) ) );
-            PUTLE32 ( &vertex[1].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[3] ) ) );
-            PUTLE32 ( &vertex[2].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[6] ) ) );
-            PUTLE32 ( &vertex[3].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[9] ) ) );
-            glSetDoubleCol();
-            vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = vertex[3].c.col.a = ubGloAlpha;
-        }
-        ubGloAlpha = ubGloColAlpha = 0xff;
-        DEFOPAQUEON
-        PRIMdrawTexGouraudTriColorQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
-        DEFOPAQUEOFF
-    }
+//    if ( bDrawMultiPass )
+//    {
+//        SetSemiTransMulti ( 1 );
+//        PRIMdrawTexGouraudTriColorQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
+//    }
+//
+//    if ( ubOpaqueDraw )
+//    {
+//        SetZMask4O();
+//        if ( bUseMultiPass )
+//        {
+//            PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[0] ) ) );
+//            PUTLE32 ( &vertex[1].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[3] ) ) );
+//            PUTLE32 ( &vertex[2].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[6] ) ) );
+//            PUTLE32 ( &vertex[3].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[9] ) ) );
+//            glSetDoubleCol();
+//            vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = vertex[3].c.col.a = ubGloAlpha;
+//        }
+//        ubGloAlpha = ubGloColAlpha = 0xff;
+//        DEFOPAQUEON
+//        PRIMdrawTexGouraudTriColorQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
+//        DEFOPAQUEOFF
+//    }
 
     iDrawnSomething = 1;
 }

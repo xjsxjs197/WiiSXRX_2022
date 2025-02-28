@@ -17,6 +17,8 @@
 
 #ifdef _IN_GPU
 
+#include "../database.h"
+
 // switches for painting textured quads as 2 triangles (small glitches, but better shading!)
 // can be toggled by game fix 0x200 in version 1.17 anyway, so let the defines enabled!
 #define POLYQUAD3
@@ -6386,7 +6388,7 @@ static inline BOOL IsNoRect(void)
 // real rect test
 static inline BOOL IsNoRect(void)
 {
- if(!(dwActFixes&0x200)) return FALSE;
+ if(!(dwActFixes&AUTO_FIX_QUADS_AS_2TRIANGLES)) return FALSE;
 
  if(ly0==ly1)
   {
@@ -6417,7 +6419,7 @@ static void drawPoly3FT(unsigned char * baseAddr)
 {
  uint32_t *gpuData = ((uint32_t *) baseAddr);
 
- if(!bUsingTWin && !(dwActFixes&0x100))
+ if(!bUsingTWin && !(dwActFixes&AUTO_FIX_GPU_BUSY))
   {
    switch(GlobalTextTP)   // depending on texture mode
     {

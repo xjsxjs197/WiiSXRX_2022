@@ -137,7 +137,6 @@ static unsigned short largeRangeX2 = 0;
 static unsigned short largeRangeY1 = 0;
 static unsigned short largeRangeY2 = 0;
 
-static BOOL    dinoCrisis2Fix = FALSE;                    // GX gpu fix(Dino Crisis2)
 static BOOL    isFrameOk = FALSE;
 
 #define INRANGE(x1, x2, y1, y2) ((y2 <= largeRangeY2) && (y1 >= largeRangeY1) && (x2 <= largeRangeX2) && (x1 >= largeRangeX1))
@@ -397,7 +396,7 @@ if(bNeedInterlaceUpdate)                              // smaller upload?
   UploadScreen(TRUE);
  }
 
-if(dwActFixes&512) bCheckFF9G4(NULL);                 // special game fix for FF9
+if (dwActFixes & AUTO_FIX_FF9) bCheckFF9G4(NULL);                 // special game fix for FF9
 
 if(PreviousPSXDisplay.Range.x0||                      // paint black borders around display area, if needed
    PreviousPSXDisplay.Range.y0)
@@ -1945,7 +1944,7 @@ if(iDataWriteMode==DR_NORMAL)
       gpuDataC=gpuDataP=0;
       primFunc[gpuCommand]((unsigned char *)gpuDataM);
 
-       if(dwEmuFixes&0x0001 || dwActFixes&0x0400)      // hack for emulating "gpu busy" in some games
+       if (dwActFixes & AUTO_FIX_GPU_BUSY)      // hack for emulating "gpu busy" in some games
        iFakePrimBusy=4;
      }
    }
@@ -2160,7 +2159,6 @@ static void flipEGL(void)
     gx_vout_render(isFrameOk);
 
     clearLargeRange = 0;
-    dinoCrisis2Fix = FALSE;
     isFrameOk = FALSE;
 }
 

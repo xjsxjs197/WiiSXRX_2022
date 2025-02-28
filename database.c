@@ -2,6 +2,7 @@
 #include "sio.h"
 #include "ppf.h"
 #include "Gamecube/wiiSXconfig.h"
+#include "database.h"
 
 /* It's duplicated from emu_if.c */
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
@@ -267,14 +268,14 @@ void Apply_Hacks_Cdrom()
     for (i = 0; i < ARRAY_SIZE(special_game_hack_db); i++) {
         if (strcmp(CdromId, special_game_hack_db[i]) == 0)
         {
-            Config.hacks.dwActFixes |= 0x100;
+            Config.hacks.dwActFixes |= AUTO_FIX_GPU_BUSY;
             break;
         }
     }
     for (i = 0; i < ARRAY_SIZE(special_game_hack_db2); i++) {
         if (strcmp(CdromId, special_game_hack_db2[i]) == 0)
         {
-            Config.hacks.dwActFixes |= 0x400;
+            Config.hacks.dwActFixes |= AUTO_FIX_DINO_CRISIS2;
             break;
         }
     }

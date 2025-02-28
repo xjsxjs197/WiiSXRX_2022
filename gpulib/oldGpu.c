@@ -123,6 +123,7 @@
 #include "../SoftGPU/oldGpuFps.h"
 #include "gpu.h"
 #include "../gpu.h"
+#include "../database.h"
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -1123,7 +1124,7 @@ ENDVRAM:
        gpuDataC=gpuDataP=0;
        primFunc[gpuCommand]((unsigned char *)gpuDataM);
 
-       if(dwEmuFixes&0x0001 || dwActFixes&0x0400)      // hack for emulating "gpu busy" in some games
+       if (dwActFixes & AUTO_FIX_GPU_BUSY)      // hack for emulating "gpu busy" in some games
         iFakePrimBusy=4;
       }
     }
