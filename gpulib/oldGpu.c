@@ -177,7 +177,7 @@ long              lSelectedSlot=0;
 BOOL              bDoLazyUpdate=FALSE;
 extern unsigned int      lGPUInfoVals[16];
 
-#define VRAM_SIZE ((1024 * 512 * 2 * 2) + 4096)
+#define VRAM_SIZE ((1024 * 512 * 2) + 4096)
 #define VRAM_ALIGN 16
 #define _IN_GPU
 

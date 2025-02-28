@@ -163,7 +163,7 @@ static void flipEGL(void);
 // GPU INIT... here starts it all (first func called by emu)
 ////////////////////////////////////////////////////////////////////////
 
-#define VRAM_SIZE ((1024 * 512 * 2 * 2) + 4096)
+#define VRAM_SIZE ((1024 * 512 * 2) + 4096)
 #define VRAM_ALIGN 16
 static uint16_t *vram_ptr_orig = NULL;
 extern uint8_t globalVram[VRAM_SIZE + (VRAM_ALIGN - 1)];
@@ -192,7 +192,7 @@ bKeepRatio = TRUE;
      vram_ptr_orig = (uint16_t *)&globalVram[0];
  }
 
-psxVub = (unsigned char *)vram_ptr_orig + 512*1024;                     // security offset into double sized psx vram!
+psxVub = (unsigned char *)vram_ptr_orig;
 //psxVsb=(signed char *)psxVub;
 //psxVsw=(signed short *)psxVub;
 //psxVsl=(signed long *)psxVub;

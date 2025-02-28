@@ -224,7 +224,7 @@ static noinline void get_gpu_info(uint32_t data)
 }
 
 // double, for overdraw guard
-#define VRAM_SIZE ((1024 * 512 * 2 * 2) + 4096)
+#define VRAM_SIZE ((1024 * 512 * 2) + 4096)
 
 //  Minimum 16-byte VRAM alignment needed by gpu_unai's pixel-skipping
 //  renderer/downscaler it uses in high res modes:
