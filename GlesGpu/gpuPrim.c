@@ -2487,6 +2487,10 @@ static void primBlkFill ( unsigned char * baseAddr )
     //sprtW += sprtX;
     //sprtH += sprtY;
 
+    if (sprtW == screenWidth && sprtH == screenHeight)
+    {
+        isFrameOk = TRUE;
+    }
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     //if ((sprtW & 3) > 0 || (sprtH & 3) > 0)
     {
@@ -2526,10 +2530,10 @@ static void primBlkFill ( unsigned char * baseAddr )
             b = baseAddr[2];
 
             //glDisable(GL_SCISSOR_TEST); glError();
-//            glClearColor2 ( r, g, b, 255 );
-//            glError();
-//            glClear ( uiBufferBits );
-//            glError();
+            glClearColor2 ( r, g, b, 255 );
+            glError();
+            glClear ( uiBufferBits );
+            glError();
             gl_z = 0.0f;
 
             if ( GETLE32 ( &gpuData[0] ) != 0x02000000 &&
@@ -4562,14 +4566,6 @@ static void primPolyFT4 ( unsigned char * baseAddr )
     gl_ux[2] = baseAddr[24]; //(gpuData[6]&0xff);
     gl_ux[3] = baseAddr[32]; //(gpuData[8]&0xff);
 
-    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
-    sprintf ( txtbuffer, "primPolyFT4 (%d %d) (%d %d) (%d %d) (%d %d)\r\n", gl_ux[0], gl_vy[0], gl_ux[1], gl_vy[1], gl_ux[2], gl_vy[2], gl_ux[3], gl_vy[3] );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
-    writeLogFile(txtbuffer);
-    sprintf ( txtbuffer, "PosInfo (%d %d) (%d %d) (%d %d) (%d %d)\r\n", lx0, ly0, lx1, ly1, lx2, ly2, lx3, ly3 );
-    writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
-
     UpdateGlobalTP ( ( unsigned short ) ( GETLE32 ( &gpuData[4] ) >> 16 ) );
     ulClutID = GETLE16 ( &sgpuData[5] );
 
@@ -4594,6 +4590,14 @@ static void primPolyFT4 ( unsigned char * baseAddr )
     SetZMask4();
 
     assignTexture4();
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    //sprintf ( txtbuffer, "primPolyFT4 (%d %d) (%d %d) (%d %d) (%d %d)\r\n", gl_ux[0], gl_vy[0], gl_ux[1], gl_vy[1], gl_ux[2], gl_vy[2], gl_ux[3], gl_vy[3] );
+    sprintf ( txtbuffer, "primPolyFT4 (%d %d) (%d %d) (%d %d) (%d %d)\r\n", lx0, ly0, lx1, ly1, lx2, ly2, lx3, ly3 );
+    DEBUG_print ( txtbuffer, DBG_CORE2 );
+    writeLogFile(txtbuffer);
+    sprintf ( txtbuffer, "TexPos (%f %f) (%f %f) (%f %f) (%f %f)\r\n", vertex[0].sow, vertex[0].tow, vertex[1].sow, vertex[1].tow, vertex[2].sow, vertex[2].tow, vertex[3].sow, vertex[3].tow );
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     RectTexAlign();
 

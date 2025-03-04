@@ -137,7 +137,14 @@ static unsigned short largeRangeX2 = 0;
 static unsigned short largeRangeY1 = 0;
 static unsigned short largeRangeY2 = 0;
 
+static unsigned short screenWidth = 0;
+static unsigned short screenHeight = 0;
 static BOOL    isFrameOk = FALSE;
+
+#define CHECK_SCREEN_INFO() { \
+    screenWidth = PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560; \
+    screenHeight = PSXDisplay.Height; \
+}
 
 #define INRANGE(x1, x2, y1, y2) ((y2 <= largeRangeY2) && (y1 >= largeRangeY1) && (x2 <= largeRangeX2) && (x1 >= largeRangeX1))
 
@@ -1174,7 +1181,7 @@ switch(lCommand)
     if (!(PSXDisplay.Interlaced))
      {
          #ifdef DISP_DEBUG
-         sprintf(txtbuffer, "settingDispInfo05 %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y);
+         sprintf(txtbuffer, "settingDispInfo05 %d %d %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y, PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560, PSXDisplay.Height);
          //DEBUG_print(txtbuffer, DBG_CDR2);
          writeLogFile(txtbuffer);
          #endif // DISP_DEBUG
@@ -1197,6 +1204,11 @@ switch(lCommand)
 
    PSXDisplay.Range.x1-=PSXDisplay.Range.x0;
 
+   CHECK_SCREEN_INFO();
+   #ifdef DISP_DEBUG
+     sprintf(txtbuffer, "setting width %d %d\r\n", screenWidth, screenHeight);
+     writeLogFile(txtbuffer);
+     #endif // DISP_DEBUG
    ChangeDispOffsetsXGl();
 
    return;
@@ -1224,6 +1236,11 @@ switch(lCommand)
      #endif // DISP_DEBUG
      updateDisplayIfChangedGl();
     }
+    CHECK_SCREEN_INFO();
+    #ifdef DISP_DEBUG
+     sprintf(txtbuffer, "setting height %d %d\r\n", screenWidth, screenHeight);
+     writeLogFile(txtbuffer);
+     #endif // DISP_DEBUG
    return;
 
   // setting display infos
@@ -1278,8 +1295,9 @@ switch(lCommand)
         STATUSREG|=GPUSTATUS_RGB24;
    else STATUSREG&=~GPUSTATUS_RGB24;
 
+     CHECK_SCREEN_INFO();
      #ifdef DISP_DEBUG
-     sprintf(txtbuffer, "settingDispInfo07 \r\n");
+     sprintf(txtbuffer, "settingDispInfo07 %d %d %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y, screenWidth, screenHeight);
      writeLogFile(txtbuffer);
      #endif // DISP_DEBUG
    updateDisplayIfChangedGl();
@@ -1851,6 +1869,11 @@ STARTVRAM_GL:
 
 if(iDataWriteMode==DR_VRAMTRANSFER)
  {
+    #if defined(DISP_DEBUG)
+    sprintf ( txtbuffer, "GPUwriteDataMem DR_VRAMTRANSFER %d \r\n", iSize );
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
+
   // make sure we are in vram
   while(VRAMWrite.ImagePtr>=psxVuw_eom)
    VRAMWrite.ImagePtr-=iGPUHeight*1024;
@@ -1901,6 +1924,11 @@ ENDVRAM_GL:
 
 if(iDataWriteMode==DR_NORMAL)
  {
+    #if defined(DISP_DEBUG)
+    sprintf ( txtbuffer, "GPUwriteDataMem DR_NORMAL %d \r\n", iSize );
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
+
   void (* *primFunc)(unsigned char *);
   if(bSkipNextFrame) primFunc=primTableSkipGx;
   else               primFunc=primTableJGx;
