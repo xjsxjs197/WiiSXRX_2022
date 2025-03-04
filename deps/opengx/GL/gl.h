@@ -895,10 +895,6 @@ GLAPI void GLAPIENTRY glOrtho( GLdouble left, GLdouble right,
                                  GLdouble bottom, GLdouble top,
                                  GLdouble near_val, GLdouble far_val );
 
-GLAPI void GLAPIENTRY glOrtho2( GLdouble left, GLdouble right,
-                                 GLdouble bottom, GLdouble top,
-                                 GLdouble near_val, GLdouble far_val );
-
 GLAPI void GLAPIENTRY glFrustum( GLdouble left, GLdouble right,
                                    GLdouble bottom, GLdouble top,
                                    GLdouble near_val, GLdouble far_val );

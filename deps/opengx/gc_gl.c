@@ -1528,7 +1528,7 @@ static inline void _ogx_scramble_4b(unsigned char *src, void *dst,
 
 // The position happens to be the integer position of the Block
 static inline int _ogx_scramble_4b_sub(unsigned char *src, void *dst, void *semiTransDst, unsigned short semiTransFlg,
-                      const unsigned int width, const unsigned int height, const unsigned int oldWidth, const unsigned short setTextureMask)
+                      const unsigned int width, const unsigned int height, const unsigned int oldWidth)
 {
     unsigned int he;
     unsigned int wi;
@@ -1585,7 +1585,7 @@ static inline int _ogx_scramble_4b_sub(unsigned char *src, void *dst, void *semi
 
 // 4b texel scrambling, opengx conversion: src(4 bytes bgr555) -> dst(2 bytes bgr5a3)
 static inline int _ogx_scramble_4b_5a3(unsigned char *src, void *dst, void *semiTransDst, unsigned short semiTransFlg,
-                      const unsigned int width, const unsigned int height, const unsigned short setTextureMask)
+                      const unsigned int width, const unsigned int height)
 {
     unsigned int block;
     unsigned int i;
@@ -1654,16 +1654,13 @@ int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
     int he = height; //(height + 3) & ~(unsigned int)3;
 
     int required_size = wi * he * 4;
-//    if (!glparamstate.RGB24)
-//    {
-//        required_size = required_size >> 1;
-//    }
     int tex_size_rnd = ROUND_32B(required_size);
     if ((movieUsedSize + tex_size_rnd) > MOVIE_BUF_SIZE)
     {
         glResetMovieTexPtr();
     }
     currtex->data = (unsigned char *)movieTexPtr;
+    currtex->semiTransData = currtex->data;
     if (!glparamstate.RGB24)
     {
         currtex->semiTransData = currtex->data + (tex_size_rnd / 2);
@@ -1677,14 +1674,16 @@ int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
 
     if (glparamstate.RGB24)
     {
-        textureType |= TXT_TYPE_1;
+        textureType = TXT_TYPE_2;
         _ogx_scramble_4b((unsigned char *)texData, currtex->data, width, height);
         GX_InitTexObj(&currtex->texobj, currtex->data,
+                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
+        GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
                       currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
     }
     else
     {
-        textureType = _ogx_scramble_4b_5a3((unsigned char *)texData, currtex->data, currtex->semiTransData, glparamstate.blendenabled, width, height, setTextureMask);
+        textureType = _ogx_scramble_4b_5a3((unsigned char *)texData, currtex->data, currtex->semiTransData, glparamstate.blendenabled, width, height);
         GX_InitTexObj(&currtex->texobj, currtex->data,
                       currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
         // For Non transparent colors in transparent mode
@@ -1714,7 +1713,7 @@ int glTexSubImage2D(GLenum target, GLint level,
     {
         // The position happens to be the integer position of the Block
         int startOffset = ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32;
-        textureType = _ogx_scramble_4b_sub((unsigned char *)data, currtex->data + startOffset, currtex->semiTransData + startOffset, glparamstate.blendenabled, width, height, currtex->w, setTextureMask);
+        textureType = _ogx_scramble_4b_sub((unsigned char *)data, currtex->data + startOffset, currtex->semiTransData + startOffset, glparamstate.blendenabled, width, height, currtex->w);
         DCFlushRange(currtex->data , currtex->w * currtex->h * 4);
     }
     else
@@ -1837,16 +1836,15 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
         int required_size = wi * he * 2;
         int tex_size_rnd = ROUND_32B(required_size);
         currtex->data = _mem2_memalign(32, tex_size_rnd * 2);
-        memset(currtex->data, 0, tex_size_rnd * 2);
-
         currtex->semiTransData = currtex->data + tex_size_rnd;
+        memset(currtex->data, 0, tex_size_rnd * 2);
     }
 
     currtex->w = wi;
     currtex->h = he;
     currtex->bytespp = 2;
 
-    textureType = _ogx_scramble_4b_5a3((unsigned char *)data, currtex->data, currtex->semiTransData, glparamstate.blendenabled, width, height, setTextureMask);
+    textureType = _ogx_scramble_4b_5a3((unsigned char *)data, currtex->data, currtex->semiTransData, glparamstate.blendenabled, width, height);
     DCFlushRange(currtex->data, currtex->w * currtex->h * 2);
 
     // Slow but necessary! The new textures may be in the same region of some old cached textures
@@ -2310,106 +2308,37 @@ static unsigned char draw_mode(GLenum mode)
     return gxmode;
 }
 
-static void setup_fog()
-{
-    u8 mode, proj_type;
-    GXColor color;
-    float start, end, near, far;
-
-    /* GX_SetFog() works differently from OpenGL:
-     * 1. It requires the caller to pass the near and far coordinates
-     * 2. It applies the "start" and "end" parameters to all curve types
-     *    (OpenGL only uses them for linear fogging)
-     * 3. It does not support the "density" parameter
-     */
-
-    if (glparamstate.fog.enabled) {
-        get_projection_info(&proj_type, &near, &far);
-
-        color = gxcol_new_fv(glparamstate.fog.color);
-        switch (glparamstate.fog.mode) {
-        case GL_EXP: mode = GX_FOG_EXP; break;
-        case GL_EXP2: mode = GX_FOG_EXP2; break;
-        case GL_LINEAR: mode = GX_FOG_LIN; break;
-        }
-        if (proj_type == GX_ORTHOGRAPHIC)
-            mode += (GX_FOG_ORTHO_LIN - GX_FOG_PERSP_LIN);
-
-        if (glparamstate.fog.mode == GL_LINEAR) {
-            start = glparamstate.fog.start;
-            end = glparamstate.fog.end;
-        } else {
-            /* Tricky part: GX spreads the exponent function so that it affects
-             * the range from "start" to "end" (though it's unclear how it
-             * does, since the 0 value is never actually reached), whereas
-             * openGL expects it to affect the whole world, but with a "speed"
-             * dictated by the "density" parameter.
-             * So, we emulate the density by playing with the "end" parameter.
-             * The factors used in the computations of "end" below have been
-             * found empirically, comparing the result with a desktop OpenGL
-             * implementation.
-             */
-            start = near;
-            if (glparamstate.fog.density <= 0.0) {
-                end = far;
-            } else if (glparamstate.fog.mode == GL_EXP2) {
-                end = 2.0f / glparamstate.fog.density;
-            } else { /* GL_EXP */
-                end = 5.0f / glparamstate.fog.density;
-            }
-        }
-    } else {
-        start = end = near = far = 0.0f;
-        mode = GX_FOG_NONE;
-    }
-    GX_SetFog(mode, start, end, near, far, color);
-}
-
 static short glDrawArraysFlg = 0;
 
 static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
                                 u8 channel)
 {
-    switch (glparamstate.texture_env_mode) {
-    case GL_REPLACE:
-        // In data: a: Texture Color
-        GX_SetTevColorIn(stage, GX_CC_TEXC, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO);
-        GX_SetTevAlphaIn(stage, GX_CA_TEXA, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO);
-        break;
-    case GL_ADD:
-        // In data: d: Texture Color a: raster value, Operation: a+d
-        GX_SetTevColorIn(stage, raster_color, GX_CC_ZERO, GX_CC_ZERO, GX_CC_TEXC);
-        GX_SetTevAlphaIn(stage, raster_alpha, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
-        break;
-    case GL_MODULATE:
-    default:
-        // In data: c: Texture Color b: raster value, Operation: b*c
-        if (glparamstate.blendenabled && glparamstate.globalTextABR == 1 && glDrawArraysFlg == 1)
+    // In data: c: Texture Color b: raster value, Operation: b*c
+    if (glparamstate.blendenabled && glparamstate.globalTextABR == 1 && glDrawArraysFlg == 1)
+    {
+        // For 0.5B + 0.5F, In order to change the value of the back color to 0.5
+        GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_HALF);
+        GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_A2, GX_CA_ZERO);
+    }
+    else if (glparamstate.blendenabled && glparamstate.globalTextABR == 3 && glDrawArraysFlg == 2)
+    {
+        // For 1.0 dest alpha
+        GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO);
+        GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_A2, GX_CA_ZERO);
+    }
+    else
+    {
+        if (noNeedMulConstColor)
         {
-            // For 0.5B + 0.5F, In order to change the value of the back color to 0.5
-            GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_HALF);
-            GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_A2, GX_CA_ZERO);
-        }
-        else if (glparamstate.blendenabled && glparamstate.globalTextABR == 3 && glDrawArraysFlg == 2)
-        {
-            // For 1.0 dest alpha
-            GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO);
-            GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_A2, GX_CA_ZERO);
+            GX_SetTevColorIn(stage, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_TEXC);
         }
         else
         {
-            if (noNeedMulConstColor)
-            {
-                GX_SetTevColorIn(stage, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_TEXC);
-            }
-            else
-            {
-                GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
-            }
-            GX_SetTevAlphaIn(stage, GX_CA_ZERO, raster_alpha, GX_CA_TEXA, GX_CA_ZERO);
+            GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
         }
-        break;
+        GX_SetTevAlphaIn(stage, GX_CA_ZERO, raster_alpha, GX_CA_TEXA, GX_CA_ZERO);
     }
+
     if (doubleColor)
     {
         if (glparamstate.blendenabled && glparamstate.globalTextABR == 1 && glDrawArraysFlg == 2)
@@ -2465,185 +2394,92 @@ static inline GXColor gxImmCol(unsigned char *colAdr, int texen)
 
 static void setup_render_stages(int texen)
 {
-    if (glparamstate.lighting.enabled) {
-        LightMasks light_mask = prepare_lighting();
+    // Unlit scene
+    // TEV STAGE 0: Modulate the vertex color with the texture 0. Outputs to GX_TEVPREV
+    // Optimization: If color_enabled is false (constant vertex color) use the constant color register
+    // instead of using the rasterizer and emitting a color for each vertex
 
-        GXColor color_zero = { 0, 0, 0, 0 };
-        GXColor color_gamb = gxcol_new_fv(glparamstate.lighting.globalambient);
+    // By default use rasterized data and put it a COLOR0A0
+    unsigned char vertex_color_register = GX_CC_RASC;
+    unsigned char vertex_alpha_register = GX_CA_RASA;
+    unsigned char rasterized_color = GX_COLOR0A0;
+    if (!glparamstate.color_enabled) { // No need for vertex color raster, it's constant
+        // Use constant color
+        vertex_color_register = GX_CC_KONST;
+        vertex_alpha_register = GX_CA_KONST;
+        // Select register 0 for color/alpha
+        GX_SetTevKColorSel(GX_TEVSTAGE0, GX_TEV_KCSEL_K0);
+        GX_SetTevKAlphaSel(GX_TEVSTAGE0, GX_TEV_KASEL_K0_A);
+        // Load the color (current GL color)
+        GXColor ccol = gxImmCol(&glparamstate.imm_mode.c.col, texen);
+        GX_SetTevKColor(GX_KCOLOR0, ccol);
 
-        GX_SetNumChans(2);
-        GX_SetNumTevStages(2);
-        GX_SetNumTexGens(0);
+        rasterized_color = GX_COLORNULL; // Disable vertex color rasterizer
+    }
 
-        unsigned char vert_color_src = GX_SRC_VTX;
-        if (!glparamstate.color_enabled || !glparamstate.lighting.color_material_enabled) {
-            vert_color_src = GX_SRC_REG;
-            GXColor acol, dcol;
-            bool ambient_set = false, diffuse_set = false;
+    GX_SetNumChans(1);
+    GX_SetNumTevStages(1);
 
-            if (glparamstate.lighting.color_material_enabled) {
-                GXColor ccol = gxcol_new_fv(glparamstate.imm_mode.current_color);
+    // Disable lighting and output vertex color to the rasterized color
+    GX_SetChanCtrl(GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX, 0, 0, 0);
+    GX_SetChanCtrl(GX_COLOR1A1, GX_DISABLE, GX_SRC_REG, GX_SRC_REG, 0, 0, 0);
 
-                if (glparamstate.lighting.color_material_mode == GL_AMBIENT ||
-                    glparamstate.lighting.color_material_mode == GL_AMBIENT_AND_DIFFUSE) {
-                    acol = gxcol_cpy_mulfv(ccol, glparamstate.lighting.globalambient);
-                    ambient_set = true;
-                }
-
-                if (glparamstate.lighting.color_material_mode == GL_DIFFUSE ||
-                    glparamstate.lighting.color_material_mode == GL_AMBIENT_AND_DIFFUSE) {
-                    dcol = ccol;
-                    diffuse_set = true;
-                }
-            }
-            if (!ambient_set) {
-                acol = gxcol_new_fv(glparamstate.lighting.matambient);
-            }
-            if (!diffuse_set) {
-                dcol = gxcol_new_fv(glparamstate.lighting.matdiffuse);
-            }
-
-            /* We would like to find a way to put matspecular into
-             * GX_SetChanMatColor(GX_COLOR0A0), since that's the color that GX
-             * combines with the specular light. But we also need this register
-             * for the ambient color, which is arguably more important. */
-            GX_SetChanMatColor(GX_COLOR0A0, acol);
-            GX_SetChanMatColor(GX_COLOR1A1, dcol);
-        }
-
-        GXColor ecol;
-        if (glparamstate.lighting.color_material_enabled &&
-            glparamstate.lighting.color_material_mode == GL_EMISSION) {
-            ecol = gxcol_new_fv(glparamstate.imm_mode.current_color);
-        } else {
-            ecol = gxcol_new_fv(glparamstate.lighting.matemission);
-        };
-
-        // Color0 channel: Multiplies the light raster result with the vertex color. Ambient is set to register (which is global ambient)
-        GX_SetChanCtrl(GX_COLOR0A0, GX_TRUE, GX_SRC_REG, vert_color_src,
-                       light_mask.ambient_mask | light_mask.specular_mask , GX_DF_NONE, GX_AF_SPEC);
-        GX_SetChanAmbColor(GX_COLOR0A0, color_gamb);
-
-        // Color1 channel: Multiplies the light raster result with the vertex color. Ambient is set to register (which is zero)
-        GX_SetChanCtrl(GX_COLOR1A1, GX_TRUE, GX_SRC_REG, vert_color_src, light_mask.diffuse_mask, GX_DF_CLAMP, GX_AF_SPOT);
-        GX_SetChanAmbColor(GX_COLOR1A1, color_zero);
-
-        // STAGE 0: ambient*vert_color -> cprev
-        // In data: d: Raster Color, a: emission color
-        GX_SetTevColor(GX_TEVREG0, ecol);
-        GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_C0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_RASC);
-        GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_RASA);
-        // Operation: Pass d
-        GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
-        GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
-        // Select COLOR0A0 for the rasterizer, disable all textures
-        GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_DISABLE, GX_COLOR0A0);
-
-        // STAGE 1: diffuse*vert_color + cprev -> cprev
-        // In data: d: Raster Color a: CPREV
-        GX_SetTevColorIn(GX_TEVSTAGE1, GX_CC_CPREV, GX_CC_ZERO, GX_CC_ZERO, GX_CC_RASC);
-        GX_SetTevAlphaIn(GX_TEVSTAGE1, GX_CA_APREV, GX_CA_ZERO, GX_CA_ZERO, GX_CA_RASA);
-        // Operation: Sum a + d
-        GX_SetTevColorOp(GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
-        GX_SetTevAlphaOp(GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
-        // Select COLOR1A1 for the rasterizer, disable all textures
-        GX_SetTevOrder(GX_TEVSTAGE1, GX_TEXCOORDNULL, GX_TEXMAP_DISABLE, GX_COLOR1A1);
-
-        if (texen) {
-            // Do not select any raster value, Texture 0 for texture rasterizer and TEXCOORD0 slot for tex coordinates
-            setup_texture_stage(GX_TEVSTAGE2, GX_CC_CPREV, GX_CA_APREV, GX_COLORNULL);
-            GX_SetNumTevStages(3);
-        }
+    if (texen) {
+        // Select COLOR0A0 for the rasterizer, Texture 0 for texture rasterizer and TEXCOORD0 slot for tex coordinates
+        setup_texture_stage(GX_TEVSTAGE0,
+                            vertex_color_register, vertex_alpha_register,
+                            rasterized_color);
     }
     else
     {
-        // Unlit scene
-        // TEV STAGE 0: Modulate the vertex color with the texture 0. Outputs to GX_TEVPREV
-        // Optimization: If color_enabled is false (constant vertex color) use the constant color register
-        // instead of using the rasterizer and emitting a color for each vertex
-
-        // By default use rasterized data and put it a COLOR0A0
-        unsigned char vertex_color_register = GX_CC_RASC;
-        unsigned char vertex_alpha_register = GX_CA_RASA;
-        unsigned char rasterized_color = GX_COLOR0A0;
-        if (!glparamstate.color_enabled) { // No need for vertex color raster, it's constant
-            // Use constant color
-            vertex_color_register = GX_CC_KONST;
-            vertex_alpha_register = GX_CA_KONST;
-            // Select register 0 for color/alpha
-            GX_SetTevKColorSel(GX_TEVSTAGE0, GX_TEV_KCSEL_K0);
-            GX_SetTevKAlphaSel(GX_TEVSTAGE0, GX_TEV_KASEL_K0_A);
-            // Load the color (current GL color)
-            GXColor ccol = gxImmCol(&glparamstate.imm_mode.c.col, texen);
-            GX_SetTevKColor(GX_KCOLOR0, ccol);
-
-            rasterized_color = GX_COLORNULL; // Disable vertex color rasterizer
-        }
-
-        GX_SetNumChans(1);
-        GX_SetNumTevStages(1);
-
-        // Disable lighting and output vertex color to the rasterized color
-        GX_SetChanCtrl(GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX, 0, 0, 0);
-        GX_SetChanCtrl(GX_COLOR1A1, GX_DISABLE, GX_SRC_REG, GX_SRC_REG, 0, 0, 0);
-
-        if (texen) {
-            // Select COLOR0A0 for the rasterizer, Texture 0 for texture rasterizer and TEXCOORD0 slot for tex coordinates
-            setup_texture_stage(GX_TEVSTAGE0,
-                                vertex_color_register, vertex_alpha_register,
-                                rasterized_color);
-        } else {
-            // In data: d: Raster Color
-            if (glparamstate.blendenabled && glparamstate.globalTextABR == 1)
+        // In data: d: Raster Color
+        if (glparamstate.blendenabled && glparamstate.globalTextABR == 1)
+        {
+            if (glDrawArraysFlg == 0)
             {
-                if (glDrawArraysFlg == 0)
-                {
-                    // For 0.5B + 0.5F, In order to change the value of the back color to 0.5
-                    GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_HALF);
-                    GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
-                }
-                else
-                {
-                    GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, vertex_color_register, GX_CC_HALF, GX_CC_ZERO);
-                    GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
-                }
-            }
-            else if (glparamstate.blendenabled && glparamstate.globalTextABR == 3)
-            {
-                if (glDrawArraysFlg == 0)
-                {
-                    GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, vertex_color_register);
-                    GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
-                }
-                else
-                {
-                    // For set dest alpha
-                    GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO);
-                    GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
-                }
-            }
-            else if (glparamstate.blendenabled && glparamstate.globalTextABR == 4 && glDrawArraysFlg == 1)
-            {
-                // For 1.0 x B + 0.25 x F
-                GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, vertex_color_register, GX_CC_C2, GX_CC_ZERO);
+                // For 0.5B + 0.5F, In order to change the value of the back color to 0.5
+                GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_HALF);
                 GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
             }
             else
             {
+                GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, vertex_color_register, GX_CC_HALF, GX_CC_ZERO);
+                GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
+            }
+        }
+        else if (glparamstate.blendenabled && glparamstate.globalTextABR == 3)
+        {
+            if (glDrawArraysFlg == 0)
+            {
                 GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, vertex_color_register);
                 GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
             }
-
-            // Operation: Pass the color
-            GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
-            GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
-            // Select COLOR0A0 for the rasterizer, Texture 0 for texture rasterizer and TEXCOORD0 slot for tex coordinates
-            GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_DISABLE, rasterized_color);
-            GX_SetNumTexGens(0);
+            else
+            {
+                // For set dest alpha
+                GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO);
+                GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
+            }
         }
-    }
+        else if (glparamstate.blendenabled && glparamstate.globalTextABR == 4 && glDrawArraysFlg == 1)
+        {
+            // For 1.0 x B + 0.25 x F
+            GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, vertex_color_register, GX_CC_C2, GX_CC_ZERO);
+            GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
+        }
+        else
+        {
+            GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, vertex_color_register);
+            GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
+        }
 
-    setup_fog();
+        // Operation: Pass the color
+        GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+        GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+        // Select COLOR0A0 for the rasterizer, Texture 0 for texture rasterizer and TEXCOORD0 slot for tex coordinates
+        GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_DISABLE, rasterized_color);
+        GX_SetNumTexGens(0);
+    }
 }
 
 void _ogx_apply_state()
@@ -2707,7 +2543,7 @@ void _ogx_apply_state()
                         GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
                     }
                 }
-                else if (glDrawArraysFlg == 2 && (texturyType & TXT_TYPE_2))
+                else if (glDrawArraysFlg == 2)
                 {
                     if ((texturyType & TXT_TYPE_2))
                     {
@@ -2859,9 +2695,7 @@ void _ogx_apply_state()
             GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
 
         }
-        //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_GREATER, 0);
         GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
-        //GX_SetBlendMode(GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_COPY);
     }
 
     // Matrix stuff
@@ -3209,13 +3043,6 @@ void glOrtho(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLdou
     newmat[3][3] = 1.0f;
 
     glMultMatrixf((float *)newmat);
-}
-
-void glOrtho2(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLdouble near_val, GLdouble far_val)
-{
-    Mtx44 GXprojection2D;
-    guOrtho(GXprojection2D, 0, bottom, 0, right, -1, 1);
-    GX_LoadProjectionMtx(GXprojection2D, GX_ORTHOGRAPHIC);
 }
 
 // NOT GOING TO IMPLEMENT
