@@ -39,7 +39,7 @@ extern "C" {
 //extern EGLDisplay display;
 #endif
 
-void UploadScreen (int Position);
+int UploadScreen (int Position);
 void PrepareFullScreenUpload (int Position);
 BOOL CheckAgainstScreen(short imageX0,short imageY0,short imageX1,short imageY1);
 BOOL CheckAgainstFrontScreen(short imageX0,short imageY0,short imageX1,short imageY1);

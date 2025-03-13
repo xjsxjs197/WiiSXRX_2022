@@ -106,6 +106,8 @@ static void draw_arrays_pos_normal(float *ptr_pos, float *ptr_normal, int count,
 static void draw_arrays_general(float *ptr_pos, float *ptr_normal, float *ptr_texc, unsigned char *ptr_color,
                                 int count, int ne, int color_provide, int texen, bool loop);
 
+static Mtx44 GXprojection2D;
+
 #define MODELVIEW_UPDATE                                           \
     {                                                              \
         float trans[3][4];                                         \
@@ -2702,11 +2704,12 @@ void _ogx_apply_state()
     //if (glparamstate.dirty.bits.dirty_matrices)
     {
         MODELVIEW_UPDATE
-        PROJECTION_UPDATE
+        //PROJECTION_UPDATE
+        GX_LoadProjectionMtx(GXprojection2D, GX_ORTHOGRAPHIC);
     }
-    if (glparamstate.dirty.bits.dirty_matrices | glparamstate.dirty.bits.dirty_lighting) {
-        NORMAL_UPDATE
-    }
+//    if (glparamstate.dirty.bits.dirty_matrices | glparamstate.dirty.bits.dirty_lighting) {
+//        NORMAL_UPDATE
+//    }
 
     // All the state has been transferred, no need to update it again next time
     glparamstate.dirty.all = 0;
@@ -3018,31 +3021,32 @@ void glFrustum(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top,
     glMultMatrixf((float *)mt);
 }
 
-void glOrtho(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLdouble near_val, GLdouble far_val)
+void glOrtho(int left, int right, int bottom, int top, int near_val, int far_val)
 {
-    Mtx44 newmat;
-    // Same as GX's guOrtho, but transposed
-    float x = (left + right) / (left - right);
-    float y = (bottom + top) / (bottom - top);
-    float z = (near_val + far_val) / (near_val - far_val);
-    newmat[0][0] = 2.0f / (right - left);
-    newmat[0][1] = 0.0f;
-    newmat[0][2] = 0.0f;
-    newmat[0][3] = x;
-    newmat[1][0] = 0.0f;
-    newmat[1][1] = 2.0f / (top - bottom);
-    newmat[1][2] = 0.0f;
-    newmat[1][3] = y;
-    newmat[2][0] = 0.0f;
-    newmat[2][1] = 0.0f;
-    newmat[2][2] = 2.0f / (near_val - far_val);
-    newmat[2][3] = z;
-    newmat[3][0] = 0.0f;
-    newmat[3][1] = 0.0f;
-    newmat[3][2] = 0.0f;
-    newmat[3][3] = 1.0f;
-
-    glMultMatrixf((float *)newmat);
+    guOrtho(GXprojection2D, top, bottom, left, right, near_val, far_val);
+//    Mtx44 newmat;
+//    // Same as GX's guOrtho, but transposed
+//    float x = (left + right) / (left - right);
+//    float y = (bottom + top) / (bottom - top);
+//    float z = (near_val + far_val) / (near_val - far_val);
+//    newmat[0][0] = 2.0f / (right - left);
+//    newmat[0][1] = 0.0f;
+//    newmat[0][2] = 0.0f;
+//    newmat[0][3] = x;
+//    newmat[1][0] = 0.0f;
+//    newmat[1][1] = 2.0f / (top - bottom);
+//    newmat[1][2] = 0.0f;
+//    newmat[1][3] = y;
+//    newmat[2][0] = 0.0f;
+//    newmat[2][1] = 0.0f;
+//    newmat[2][2] = 2.0f / (near_val - far_val);
+//    newmat[2][3] = z;
+//    newmat[3][0] = 0.0f;
+//    newmat[3][1] = 0.0f;
+//    newmat[3][2] = 0.0f;
+//    newmat[3][3] = 1.0f;
+//
+//    glMultMatrixf((float *)newmat);
 }
 
 // NOT GOING TO IMPLEMENT

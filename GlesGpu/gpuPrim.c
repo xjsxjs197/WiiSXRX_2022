@@ -116,16 +116,14 @@ static inline void UpdateGlobalTP ( unsigned short gdata )
     GlobalTextAddrX = ( gdata << 6 ) & 0x3c0;
     GlobalTextAddrY = ( gdata << 4 ) & 0x100;        // "normal" psx gpu
 
-    usMirror = gdata & 0x3000;
-
     GlobalTextTP = ( gdata >> 7 ) & 0x3;                  // tex mode (4,8,15)
     if ( GlobalTextTP == 3 ) GlobalTextTP = 2;            // seen in Wild9 :(
     GlobalTextABR = ( gdata >> 5 ) & 0x3;                 // blend mode
 
     GlobalTexturePage = ( GlobalTextAddrX >> 6 ) + ( GlobalTextAddrY >> 4 );
 
-    STATUSREG &= ~0x07ff;                                 // Clear the necessary bits
-    STATUSREG |= ( gdata & 0x07ff );                      // set the necessary bits
+    STATUSREG &= ~0x01ff;                                 // Clear the necessary bits
+    STATUSREG |= ( gdata & 0x01ff );                      // set the necessary bits
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1622,6 +1620,41 @@ BOOL CheckAgainstFrontScreen ( short imageX0, short imageY0, short imageX1, shor
 }
 
 ////////////////////////////////////////////////////////////////////////
+int CheckFullScreenUpload ( void )
+{
+    if (PSXDisplay.Disabled || PSXDisplay.RGB24)
+    {
+        return 0;
+    }
+
+    if ((screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
+        && screenWidth == (PreviousPSXDisplay.DisplayEnd.x - PreviousPSXDisplay.DisplayPosition.x)
+         && screenHeight == (PreviousPSXDisplay.DisplayEnd.y - PreviousPSXDisplay.DisplayPosition.y))
+            || (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
+                && screenWidth == (PSXDisplay.DisplayEnd.x - PSXDisplay.DisplayPosition.x)
+                && screenHeight == (PSXDisplay.DisplayEnd.y - PSXDisplay.DisplayPosition.y)))
+    {
+        if (needUploadScreen == TRUE && uploadedScreen == FALSE)
+        {
+            #if defined(DISP_DEBUG)
+            sprintf(txtbuffer, "Upload Full Screen\r\n");
+            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
+
+            uploadedScreen = TRUE;
+
+            xrUploadArea.x0 = screenX;
+            xrUploadArea.x1 = screenX + screenWidth;
+            xrUploadArea.y0 = screenY;
+            xrUploadArea.y1 = screenY + screenHeight;
+            UploadScreen(PSXDisplay.Interlaced);              // -> upload whole screen from psx vram
+
+            return 1;
+        }
+    }
+
+    return 0;
+}
 
 void PrepareFullScreenUpload ( int Position )
 {
@@ -1705,7 +1738,7 @@ static short clearMovieGarbageX1 = 0;
 static short clearMovieGarbageY0 = 0;
 static short clearMovieGarbageY1 = 0;
 
-void UploadScreen ( int Position )
+int UploadScreen ( int Position )
 {
     short x, y, YStep, XStep, U, s, UStep, ux[4], vy[4];
     short xa, xb, ya, yb;
@@ -1715,8 +1748,8 @@ void UploadScreen ( int Position )
     if ( xrUploadArea.y0 > iGPUHeightMask )  xrUploadArea.y0 = iGPUHeightMask;
     if ( xrUploadArea.y1 > iGPUHeight )      xrUploadArea.y1 = iGPUHeight;
 
-    if ( xrUploadArea.x0 == xrUploadArea.x1 ) return;
-    if ( xrUploadArea.y0 == xrUploadArea.y1 ) return;
+    if ( xrUploadArea.x0 == xrUploadArea.x1 ) return 0;
+    if ( xrUploadArea.y0 == xrUploadArea.y1 ) return 0;
 
     if (PSXDisplay.Disabled && iOffscreenDrawing < 4)
     {
@@ -1725,13 +1758,13 @@ void UploadScreen ( int Position )
         DEBUG_print ( txtbuffer, DBG_GPU2 );
         writeLogFile ( txtbuffer );
         #endif // DISP_DEBUG
-        return;
+        return 0;
     }
 
     iDrawnSomething   = 2;
     iLastRGB24 = PSXDisplay.RGB24 + 1;
 
-    if ( bSkipNextFrame ) return;
+    if ( bSkipNextFrame ) return 0;
 
     isFrameOk = TRUE;
 
@@ -1760,7 +1793,7 @@ void UploadScreen ( int Position )
         }
 
         #if defined(DISP_DEBUG)
-        sprintf ( txtbuffer, "UploadScreen24 %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0);
+        sprintf ( txtbuffer, "UploadScreen24 %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0, bUsingTWin);
         DEBUG_print ( txtbuffer, DBG_GPU3 );
         writeLogFile ( txtbuffer );
         #endif // DISP_DEBUG
@@ -1769,7 +1802,7 @@ void UploadScreen ( int Position )
     {
         clearMovieGarbageCnt = 0;
         #if defined(DISP_DEBUG)
-        sprintf ( txtbuffer, "UploadScreen16 %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0);
+        sprintf ( txtbuffer, "UploadScreen16 %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0, bUsingTWin);
         DEBUG_print ( txtbuffer, DBG_GPU3 );
         writeLogFile ( txtbuffer );
         #endif // DISP_DEBUG
@@ -1862,6 +1895,8 @@ void UploadScreen ( int Position )
     DEBUG_print ( txtbuffer, DBG_GPU3 );
     writeLogFile ( txtbuffer );
     #endif // DISP_DEBUG
+
+    return 1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1915,6 +1950,10 @@ static BOOL IsInsideNextScreen ( short x, short y, short xoff, short yoff )
 
 static inline void cmdSTP ( unsigned char * baseAddr )
 {
+    #if defined(DISP_DEBUG)
+    sprintf ( txtbuffer, "cmdSTP\r\n");
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
     uint32_t gdata = GETLE32 ( ( uint32_t* ) baseAddr );
 
     STATUSREG &= ~0x1800;                                 // clear the necessary bits
@@ -1962,7 +2001,16 @@ static inline void cmdSTP ( unsigned char * baseAddr )
 
 static void cmdTexturePage ( unsigned char * baseAddr )
 {
+    #if defined(DISP_DEBUG)
+    sprintf ( txtbuffer, "cmdTexturePage \r\n");
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
     uint32_t gdata = GETLE32 ( ( uint32_t* ) baseAddr );
+
+    usMirror = gdata & 0x3000;
+    STATUSREG &= ~0x07ff;                                 // Clear the necessary bits
+    STATUSREG |= ( gdata & 0x07ff );                      // set the necessary bits
+
     UpdateGlobalTP ( ( unsigned short ) gdata );
 //GlobalTextREST = (gdata&0x00ffffff)>>9;
 }
@@ -1973,6 +2021,10 @@ static void cmdTexturePage ( unsigned char * baseAddr )
 
 static void cmdTextureWindow ( unsigned char *baseAddr )
 {
+    #if defined(DISP_DEBUG)
+    sprintf ( txtbuffer, "cmdTextureWindow \r\n");
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
     uint32_t gdata = GETLE32 ( ( uint32_t* ) baseAddr );
     uint32_t YAlign, XAlign;
 
@@ -2129,6 +2181,11 @@ static void cmdDrawAreaStart ( unsigned char * baseAddr )
 
     PSXDisplay.DrawArea.y0 = ( short ) drawY;             // for OGL drawing
     PSXDisplay.DrawArea.x0 = ( short ) drawX;
+
+    #if defined(DISP_DEBUG)
+    sprintf ( txtbuffer, "cmdDrawAreaStart %d %d\r\n", drawX, drawY);
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2158,6 +2215,25 @@ static void cmdDrawAreaEnd ( unsigned char * baseAddr )
     PSXDisplay.DrawArea.y1 = ( short ) drawH;             // for OGL drawing
     PSXDisplay.DrawArea.x1 = ( short ) drawW;
 
+    #if defined(DISP_DEBUG)
+    sprintf ( txtbuffer, "cmdDrawAreaEnd %d %d\r\n", drawW, drawH);
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
+
+    if ((PSXDisplay.DrawArea.x1 == 1023 && PSXDisplay.DrawArea.y1 == 511)
+        || (PSXDisplay.DrawArea.x1 == 0 && PSXDisplay.DrawArea.y1 == 0))
+    {
+        needUploadScreen = FALSE;
+    }
+    else
+    {
+        screenX = PSXDisplay.DrawArea.x0;
+        screenY = PSXDisplay.DrawArea.y0;
+        screenWidth = PSXDisplay.DrawArea.x1 + 1 - screenX;
+        screenHeight = PSXDisplay.DrawArea.y1 + 1 - screenY;
+        needUploadScreen = FALSE;
+    }
+
     ClampToPSXScreen ( &PSXDisplay.DrawArea.x0,           // clamp
                        &PSXDisplay.DrawArea.y0,
                        &PSXDisplay.DrawArea.x1,
@@ -2172,6 +2248,11 @@ static void cmdDrawAreaEnd ( unsigned char * baseAddr )
 
 static void cmdDrawOffset ( unsigned char * baseAddr )
 {
+    #if defined(DISP_DEBUG)
+    sprintf ( txtbuffer, "cmdDrawOffset \r\n");
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
+
     uint32_t gdata = GETLE32 ( ( uint32_t* ) baseAddr );
 
     PreviousPSXDisplay.DrawOffset.x =
@@ -2285,26 +2366,6 @@ static void PrepareRGB24Upload ( void )
         xrUploadArea.y0 -= PSXDisplay.DisplayPosition.y;
         xrUploadArea.y1 -= PSXDisplay.DisplayPosition.y;
     }
-    //else return;
-
-//    if ( bRenderFrontBuffer )
-//    {
-//        updateFrontDisplayGl();
-//    }
-//
-//    if ( bNeedRGB24Update == FALSE )
-//    {
-//        xrUploadAreaRGB24 = xrUploadArea;
-//        bNeedRGB24Update = TRUE;
-//    }
-//    else
-//    {
-//        bNeedRGB24Update = TRUE;
-//        xrUploadAreaRGB24.x0 = min ( xrUploadAreaRGB24.x0, xrUploadArea.x0 );
-//        xrUploadAreaRGB24.x1 = max ( xrUploadAreaRGB24.x1, xrUploadArea.x1 );
-//        xrUploadAreaRGB24.y0 = min ( xrUploadAreaRGB24.y0, xrUploadArea.y0 );
-//        xrUploadAreaRGB24.y1 = max ( xrUploadAreaRGB24.y1, xrUploadArea.y1 );
-//    }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2319,14 +2380,17 @@ void CheckWriteUpdate()
     InvalidateTextureArea ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width - iX, VRAMWrite.Height - iY );
 
     #if defined(DISP_DEBUG)
-    sprintf ( txtbuffer, "CheckWriteUpdate %d %d %d %d %d %d %d\r\n", PreviousPSXDisplay.DisplayPosition.x, PreviousPSXDisplay.DisplayEnd.x,
-             PreviousPSXDisplay.DisplayPosition.y, PreviousPSXDisplay.DisplayEnd.y,
+    sprintf ( txtbuffer, "CheckWriteUpdate %d %d %d %d %d %d %d %d %d %d %d\r\n",
+             PreviousPSXDisplay.DisplayPosition.x, PreviousPSXDisplay.DisplayPosition.y, PreviousPSXDisplay.DisplayEnd.x, PreviousPSXDisplay.DisplayEnd.y,
+             PSXDisplay.DisplayPosition.x,         PSXDisplay.DisplayPosition.y,         PSXDisplay.DisplayEnd.x,         PSXDisplay.DisplayEnd.y,
              PSXDisplay.InterlacedTest, bCheckMask, sSetMask);
-    //DEBUG_print ( txtbuffer, DBG_CDR1 );
+    writeLogFile ( txtbuffer );
+    sprintf ( txtbuffer, "screenInfo %d %d %d %d\r\n",
+             screenX, screenY, screenWidth, screenHeight);
     writeLogFile ( txtbuffer );
     #endif // DISP_DEBUG
 
-    if (PSXDisplay.Interlaced && !iOffscreenDrawing) return;
+    //if (PSXDisplay.Interlaced && !iOffscreenDrawing) return;
 
     if ( PSXDisplay.RGB24 )
     {
@@ -2334,103 +2398,128 @@ void CheckWriteUpdate()
         return;
     }
 
+    int uploaded = 0;
     if ( !PSXDisplay.InterlacedTest &&
             CheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
-        //if ( dwActFixes & 0x800 ) return;
-
-        if ( bRenderFrontBuffer )
+        if ((screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
+             && screenWidth == (PreviousPSXDisplay.DisplayEnd.x - PreviousPSXDisplay.DisplayPosition.x)
+             && screenHeight == (PreviousPSXDisplay.DisplayEnd.y - PreviousPSXDisplay.DisplayPosition.y))
+            || (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
+                && screenWidth == (PSXDisplay.DisplayEnd.x - PSXDisplay.DisplayPosition.x)
+                && screenHeight == (PSXDisplay.DisplayEnd.y - PSXDisplay.DisplayPosition.y)))
         {
-            updateFrontDisplayGl();
+            //if ( dwActFixes & 0x800 ) return;
+
+            if ( bRenderFrontBuffer )
+            {
+                updateFrontDisplayGl();
+            }
+
+            #if defined(DISP_DEBUG)
+            //sprintf ( txtbuffer, "CheckWriteUpdate2 %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1, PSXDisplay.InterlacedTest );
+            //DEBUG_print ( txtbuffer, DBG_SPU3 );
+            //writeLogFile ( txtbuffer );
+            #endif // DISP_DEBUG
+            isFrameOk = TRUE;
+            uploaded = UploadScreen ( FALSE );
+
+            bNeedUploadTest = TRUE;
         }
-
-        #if defined(DISP_DEBUG)
-        //sprintf ( txtbuffer, "CheckWriteUpdate2 %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1, PSXDisplay.InterlacedTest );
-        //DEBUG_print ( txtbuffer, DBG_SPU3 );
-        //writeLogFile ( txtbuffer );
-        #endif // DISP_DEBUG
-        UploadScreen ( FALSE );
-
-        bNeedUploadTest = TRUE;
     }
-    else if ( iOffscreenDrawing )
+
+    if (uploaded == 0 &&
+        ((VRAMWrite.y + VRAMWrite.Height) <= (screenY + screenHeight))
+        && (VRAMWrite.y >= screenY)
+        && ((VRAMWrite.x + VRAMWrite.Width) <= (screenX + screenWidth))
+        && (VRAMWrite.x >= screenX))
     {
+        // need upload screen ?
+        needUploadScreen = TRUE;
+        uploadedScreen = FALSE;
         #if defined(DISP_DEBUG)
-        sprintf ( txtbuffer, "CheckWriteUpdate2 %d %d %d %d %d %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayEnd.x,
-                 PSXDisplay.DisplayPosition.y, PSXDisplay.DisplayEnd.y,
-                 PSXDisplay.InterlacedTest, bCheckMask, sSetMask);
-        //DEBUG_print ( txtbuffer, DBG_CDR1 );
+        sprintf ( txtbuffer, "needUploadScreen\r\n" );
         writeLogFile ( txtbuffer );
         #endif // DISP_DEBUG
-        if ( CheckAgainstFrontScreen  ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
-        {
-            if ( PSXDisplay.InterlacedTest )
-            {
-                if ( PreviousPSXDisplay.InterlacedNew )
-                {
-                    PreviousPSXDisplay.InterlacedNew = FALSE;
-                    bNeedInterlaceUpdate = TRUE;
-                    xrUploadAreaIL.x0 = PSXDisplay.DisplayPosition.x;
-                    xrUploadAreaIL.y0 = PSXDisplay.DisplayPosition.y;
-                    xrUploadAreaIL.x1 = PSXDisplay.DisplayPosition.x + PSXDisplay.DisplayModeNew.x;
-                    xrUploadAreaIL.y1 = PSXDisplay.DisplayPosition.y + PSXDisplay.DisplayModeNew.y;
-                    if ( xrUploadAreaIL.x1 > 1023 ) xrUploadAreaIL.x1 = 1023;
-                    if ( xrUploadAreaIL.y1 > 511 )  xrUploadAreaIL.y1 = 511;
-                }
-
-                if ( bNeedInterlaceUpdate == FALSE )
-                {
-                    xrUploadAreaIL = xrUploadArea;
-                    bNeedInterlaceUpdate = TRUE;
-                }
-                else
-                {
-                    xrUploadAreaIL.x0 = min ( xrUploadAreaIL.x0, xrUploadArea.x0 );
-                    xrUploadAreaIL.x1 = max ( xrUploadAreaIL.x1, xrUploadArea.x1 );
-                    xrUploadAreaIL.y0 = min ( xrUploadAreaIL.y0, xrUploadArea.y0 );
-                    xrUploadAreaIL.y1 = max ( xrUploadAreaIL.y1, xrUploadArea.y1 );
-                }
-                #if defined(DISP_DEBUG)
-                sprintf ( txtbuffer, "CheckWriteUpdate3 %d %d %d %d\r\n", xrUploadAreaIL.x0, xrUploadAreaIL.x1, xrUploadAreaIL.y0, xrUploadAreaIL.y1 );
-                //DEBUG_print ( txtbuffer, DBG_SPU3 );
-                writeLogFile ( txtbuffer );
-                #endif // DISP_DEBUG
-                return;
-            }
-
-            if ( !bNeedUploadAfter )
-            {
-                bNeedUploadAfter = TRUE;
-                xrUploadArea.x0 = VRAMWrite.x;
-                xrUploadArea.x1 = VRAMWrite.x + VRAMWrite.Width;
-                xrUploadArea.y0 = VRAMWrite.y;
-                xrUploadArea.y1 = VRAMWrite.y + VRAMWrite.Height;
-            }
-            else
-            {
-                xrUploadArea.x0 = min ( xrUploadArea.x0, VRAMWrite.x );
-                xrUploadArea.x1 = max ( xrUploadArea.x1, VRAMWrite.x + VRAMWrite.Width );
-                xrUploadArea.y0 = min ( xrUploadArea.y0, VRAMWrite.y );
-                xrUploadArea.y1 = max ( xrUploadArea.y1, VRAMWrite.y + VRAMWrite.Height );
-            }
-            #if defined(DISP_DEBUG)
-            sprintf(txtbuffer, "CheckWriteUpdate4 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
-                           VRAMWrite.x, VRAMWrite.Width, VRAMWrite.y, VRAMWrite.Height);
-            //DEBUG_print ( txtbuffer, DBG_SPU3 );
-            writeLogFile ( txtbuffer );
-            #endif // DISP_DEBUG
-
-//            if ( dwActFixes & 0x8000 )
-//            {
-//                if ( ( xrUploadArea.x1 - xrUploadArea.x0 ) >= ( PSXDisplay.DisplayMode.x - 32 ) &&
-//                        ( xrUploadArea.y1 - xrUploadArea.y0 ) >= ( PSXDisplay.DisplayMode.y - 32 ) )
-//                {
-//                    UploadScreen ( -1 );
-//                    updateFrontDisplayGl();
-//                }
-//            }
-        }
     }
+//    else if ( iOffscreenDrawing )
+//    {
+//        #if defined(DISP_DEBUG)
+//        sprintf ( txtbuffer, "CheckWriteUpdate2 %d %d %d %d %d %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayEnd.x,
+//                 PSXDisplay.DisplayPosition.y, PSXDisplay.DisplayEnd.y,
+//                 PSXDisplay.InterlacedTest, bCheckMask, sSetMask);
+//        //DEBUG_print ( txtbuffer, DBG_CDR1 );
+//        writeLogFile ( txtbuffer );
+//        #endif // DISP_DEBUG
+//        if ( CheckAgainstFrontScreen  ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
+//        {
+//            if ( PSXDisplay.InterlacedTest )
+//            {
+//                if ( PreviousPSXDisplay.InterlacedNew )
+//                {
+//                    PreviousPSXDisplay.InterlacedNew = FALSE;
+//                    bNeedInterlaceUpdate = TRUE;
+//                    xrUploadAreaIL.x0 = PSXDisplay.DisplayPosition.x;
+//                    xrUploadAreaIL.y0 = PSXDisplay.DisplayPosition.y;
+//                    xrUploadAreaIL.x1 = PSXDisplay.DisplayPosition.x + PSXDisplay.DisplayModeNew.x;
+//                    xrUploadAreaIL.y1 = PSXDisplay.DisplayPosition.y + PSXDisplay.DisplayModeNew.y;
+//                    if ( xrUploadAreaIL.x1 > 1023 ) xrUploadAreaIL.x1 = 1023;
+//                    if ( xrUploadAreaIL.y1 > 511 )  xrUploadAreaIL.y1 = 511;
+//                }
+//
+//                if ( bNeedInterlaceUpdate == FALSE )
+//                {
+//                    xrUploadAreaIL = xrUploadArea;
+//                    bNeedInterlaceUpdate = TRUE;
+//                }
+//                else
+//                {
+//                    xrUploadAreaIL.x0 = min ( xrUploadAreaIL.x0, xrUploadArea.x0 );
+//                    xrUploadAreaIL.x1 = max ( xrUploadAreaIL.x1, xrUploadArea.x1 );
+//                    xrUploadAreaIL.y0 = min ( xrUploadAreaIL.y0, xrUploadArea.y0 );
+//                    xrUploadAreaIL.y1 = max ( xrUploadAreaIL.y1, xrUploadArea.y1 );
+//                }
+//                #if defined(DISP_DEBUG)
+//                sprintf ( txtbuffer, "CheckWriteUpdate3 %d %d %d %d\r\n", xrUploadAreaIL.x0, xrUploadAreaIL.x1, xrUploadAreaIL.y0, xrUploadAreaIL.y1 );
+//                //DEBUG_print ( txtbuffer, DBG_SPU3 );
+//                writeLogFile ( txtbuffer );
+//                #endif // DISP_DEBUG
+//                return;
+//            }
+//
+//            if ( !bNeedUploadAfter )
+//            {
+//                bNeedUploadAfter = TRUE;
+//                xrUploadArea.x0 = VRAMWrite.x;
+//                xrUploadArea.x1 = VRAMWrite.x + VRAMWrite.Width;
+//                xrUploadArea.y0 = VRAMWrite.y;
+//                xrUploadArea.y1 = VRAMWrite.y + VRAMWrite.Height;
+//            }
+//            else
+//            {
+//                xrUploadArea.x0 = min ( xrUploadArea.x0, VRAMWrite.x );
+//                xrUploadArea.x1 = max ( xrUploadArea.x1, VRAMWrite.x + VRAMWrite.Width );
+//                xrUploadArea.y0 = min ( xrUploadArea.y0, VRAMWrite.y );
+//                xrUploadArea.y1 = max ( xrUploadArea.y1, VRAMWrite.y + VRAMWrite.Height );
+//            }
+//            #if defined(DISP_DEBUG)
+//            sprintf(txtbuffer, "CheckWriteUpdate4 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
+//                           VRAMWrite.x, VRAMWrite.Width, VRAMWrite.y, VRAMWrite.Height);
+//            //DEBUG_print ( txtbuffer, DBG_SPU3 );
+//            writeLogFile ( txtbuffer );
+//            #endif // DISP_DEBUG
+//
+////            if ( dwActFixes & 0x8000 )
+////            {
+////                if ( ( xrUploadArea.x1 - xrUploadArea.x0 ) >= ( PSXDisplay.DisplayMode.x - 32 ) &&
+////                        ( xrUploadArea.y1 - xrUploadArea.y0 ) >= ( PSXDisplay.DisplayMode.y - 32 ) )
+////                {
+////                    UploadScreen ( -1 );
+////                    updateFrontDisplayGl();
+////                }
+////            }
+//        }
+//    }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2510,106 +2599,139 @@ static void primBlkFill ( unsigned char * baseAddr )
 
     offsetBlk();
 
-    if ( ClipVertexListScreen() )
+    if (CLEAR_SCREEN(sprtX, sprtY, sprtX + sprtW, sprtY + sprtH))
     {
-        PSXDisplay_t * pd;
-        if ( PSXDisplay.InterlacedTest ) pd = &PSXDisplay;
-        else                          pd = &PreviousPSXDisplay;
+        needUploadScreen = FALSE;
+        uploadedScreen = FALSE;
+        #if defined(DISP_DEBUG)
+        sprintf(txtbuffer, "CLEAR_SCREEN\r\n");
+        writeLogFile(txtbuffer);
+        #endif // DISP_DEBUG
 
-        if ( ( lx0 <= pd->DisplayPosition.x + 16 ) &&
-                ( ly0 <= pd->DisplayPosition.y + 16 ) &&
-                ( lx2 >= pd->DisplayEnd.x - 16 ) &&
-                ( ly2 >= pd->DisplayEnd.y - 16 ) )
-        {
-            unsigned char g, b, r;
-            //r=((unsigned char)RED(GETLE32(&gpuData[0])));
-            //g=((unsigned char)GREEN(GETLE32(&gpuData[0])));
-            //b=((unsigned char)BLUE(GETLE32(&gpuData[0])));
-            r = baseAddr[0];
-            g = baseAddr[1];
-            b = baseAddr[2];
+        // Clear all Screen
+        unsigned char g, b, r;
+        r = baseAddr[0];
+        g = baseAddr[1];
+        b = baseAddr[2];
 
-            //glDisable(GL_SCISSOR_TEST); glError();
-            glClearColor2 ( r, g, b, 255 );
-            glError();
-            glClear ( uiBufferBits );
-            glError();
-            gl_z = 0.0f;
-
-            if ( GETLE32 ( &gpuData[0] ) != 0x02000000 &&
-                    ( ly0 > pd->DisplayPosition.y ||
-                      ly2 < pd->DisplayEnd.y ) )
-            {
-                bDrawTextured     = FALSE;
-                bDrawSmoothShaded = FALSE;
-                SetRenderState ( ( unsigned int ) 0x01000000 );
-                SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
-                vertex[0].c.lcol = SWAP32_C ( 0xff000000 );
-                SETCOL ( vertex[0] );
-                if ( ly0 > pd->DisplayPosition.y )
-                {
-                    vertex[0].x = 0;
-                    vertex[0].y = 0;
-                    vertex[1].x = pd->DisplayEnd.x - pd->DisplayPosition.x;
-                    vertex[1].y = 0;
-                    vertex[2].x = vertex[1].x;
-                    vertex[2].y = ly0 - pd->DisplayPosition.y;
-                    vertex[3].x = 0;
-                    vertex[3].y = vertex[2].y;
-                    PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-                    #if defined(DISP_DEBUG)
-                    //sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-                    sprintf(txtbuffer, "blkFill11 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-                    //DEBUG_print ( txtbuffer, DBG_CORE2 );
-                    writeLogFile(txtbuffer);
-                    #endif // DISP_DEBUG
-                }
-                if ( ly2 < pd->DisplayEnd.y )
-                {
-                    vertex[0].x = 0;
-                    vertex[0].y = ( pd->DisplayEnd.y - pd->DisplayPosition.y ) - ( pd->DisplayEnd.y - ly2 );
-                    vertex[1].x = pd->DisplayEnd.x - pd->DisplayPosition.x;
-                    vertex[1].y = vertex[0].y;
-                    vertex[2].x = vertex[1].x;
-                    vertex[2].y = pd->DisplayEnd.y;
-                    vertex[3].x = 0;
-                    vertex[3].y = vertex[2].y;
-                    PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-                    #if defined(DISP_DEBUG)
-                    //sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-                    sprintf(txtbuffer, "blkFill12 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-                    //DEBUG_print ( txtbuffer, DBG_CORE2 );
-                    writeLogFile(txtbuffer);
-                    #endif // DISP_DEBUG
-                }
-            }
-            #if defined(DISP_DEBUG)
-            sprintf(txtbuffer, "blkFill13\r\n");
-            //DEBUG_print ( txtbuffer, DBG_CORE2 );
-            writeLogFile(txtbuffer);
-            #endif // DISP_DEBUG
-
-            //glEnable(GL_SCISSOR_TEST); glError();
-        }
-        else
-        {
-            #if defined(DISP_DEBUG)
-            //sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-            sprintf(txtbuffer, "blkFill14 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-            //DEBUG_print ( txtbuffer, DBG_CORE2 );
-            writeLogFile(txtbuffer);
-            #endif // DISP_DEBUG
-            bDrawTextured     = FALSE;
-            bDrawSmoothShaded = FALSE;
-            SetRenderState ( ( unsigned int ) 0x01000000 );
-            SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
-            vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
-            SETCOL ( vertex[0] );
-            //glDisable(GL_SCISSOR_TEST); glError();
-            PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-            //glEnable(GL_SCISSOR_TEST); glError();
-        }
+        glClearColor2 ( r, g, b, 255 );
+        glClear ( uiBufferBits );
+        gl_z = 0.0f;
     }
+    else
+    {
+        CheckFullScreenUpload();
+
+        // Clear part of screen
+        bDrawTextured     = FALSE;
+        bDrawSmoothShaded = FALSE;
+        SetRenderState ( ( unsigned int ) 0x01000000 );
+        SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
+        vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
+        SETCOL ( vertex[0] );
+        PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+    }
+
+//    if ( ClipVertexListScreen() )
+//    {
+//        PSXDisplay_t * pd;
+//        if ( PSXDisplay.InterlacedTest ) pd = &PSXDisplay;
+//        else                          pd = &PreviousPSXDisplay;
+//
+//        if ( ( lx0 <= pd->DisplayPosition.x + 16 ) &&
+//                ( ly0 <= pd->DisplayPosition.y + 16 ) &&
+//                ( lx2 >= pd->DisplayEnd.x - 16 ) &&
+//                ( ly2 >= pd->DisplayEnd.y - 16 ) )
+//        {
+//            unsigned char g, b, r;
+//            //r=((unsigned char)RED(GETLE32(&gpuData[0])));
+//            //g=((unsigned char)GREEN(GETLE32(&gpuData[0])));
+//            //b=((unsigned char)BLUE(GETLE32(&gpuData[0])));
+//            r = baseAddr[0];
+//            g = baseAddr[1];
+//            b = baseAddr[2];
+//
+//            //glDisable(GL_SCISSOR_TEST); glError();
+//            glClearColor2 ( r, g, b, 255 );
+//            glError();
+//            glClear ( uiBufferBits );
+//            glError();
+//            gl_z = 0.0f;
+//
+//            if ( GETLE32 ( &gpuData[0] ) != 0x02000000 &&
+//                    ( ly0 > pd->DisplayPosition.y ||
+//                      ly2 < pd->DisplayEnd.y ) )
+//            {
+//                bDrawTextured     = FALSE;
+//                bDrawSmoothShaded = FALSE;
+//                SetRenderState ( ( unsigned int ) 0x01000000 );
+//                SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
+//                vertex[0].c.lcol = SWAP32_C ( 0xff000000 );
+//                SETCOL ( vertex[0] );
+//                if ( ly0 > pd->DisplayPosition.y )
+//                {
+//                    vertex[0].x = 0;
+//                    vertex[0].y = 0;
+//                    vertex[1].x = pd->DisplayEnd.x - pd->DisplayPosition.x;
+//                    vertex[1].y = 0;
+//                    vertex[2].x = vertex[1].x;
+//                    vertex[2].y = ly0 - pd->DisplayPosition.y;
+//                    vertex[3].x = 0;
+//                    vertex[3].y = vertex[2].y;
+//                    PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//                    #if defined(DISP_DEBUG)
+//                    //sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+//                    sprintf(txtbuffer, "blkFill11 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
+//                    //DEBUG_print ( txtbuffer, DBG_CORE2 );
+//                    writeLogFile(txtbuffer);
+//                    #endif // DISP_DEBUG
+//                }
+//                if ( ly2 < pd->DisplayEnd.y )
+//                {
+//                    vertex[0].x = 0;
+//                    vertex[0].y = ( pd->DisplayEnd.y - pd->DisplayPosition.y ) - ( pd->DisplayEnd.y - ly2 );
+//                    vertex[1].x = pd->DisplayEnd.x - pd->DisplayPosition.x;
+//                    vertex[1].y = vertex[0].y;
+//                    vertex[2].x = vertex[1].x;
+//                    vertex[2].y = pd->DisplayEnd.y;
+//                    vertex[3].x = 0;
+//                    vertex[3].y = vertex[2].y;
+//                    PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//                    #if defined(DISP_DEBUG)
+//                    //sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+//                    sprintf(txtbuffer, "blkFill12 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
+//                    //DEBUG_print ( txtbuffer, DBG_CORE2 );
+//                    writeLogFile(txtbuffer);
+//                    #endif // DISP_DEBUG
+//                }
+//            }
+//            #if defined(DISP_DEBUG)
+//            sprintf(txtbuffer, "blkFill13\r\n");
+//            //DEBUG_print ( txtbuffer, DBG_CORE2 );
+//            writeLogFile(txtbuffer);
+//            #endif // DISP_DEBUG
+//
+//            //glEnable(GL_SCISSOR_TEST); glError();
+//        }
+//        else
+//        {
+//            #if defined(DISP_DEBUG)
+//            //sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+//            sprintf(txtbuffer, "blkFill14 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
+//            //DEBUG_print ( txtbuffer, DBG_CORE2 );
+//            writeLogFile(txtbuffer);
+//            #endif // DISP_DEBUG
+//            bDrawTextured     = FALSE;
+//            bDrawSmoothShaded = FALSE;
+//            SetRenderState ( ( unsigned int ) 0x01000000 );
+//            SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
+//            vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
+//            SETCOL ( vertex[0] );
+//            //glDisable(GL_SCISSOR_TEST); glError();
+//            PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+//            //glEnable(GL_SCISSOR_TEST); glError();
+//        }
+//    }
 
 //mmm... will clean all stuff, also if not all _should_ be cleaned...
 //if (IsInsideNextScreen(sprtX, sprtY, sprtW, sprtH))
@@ -2899,6 +3021,16 @@ static void primTileS ( unsigned char * baseAddr )
 
     offsetST();
 
+    if (CLEAR_SCREEN(sprtX, sprtY, sprtX + sprtW, sprtY + sprtH))
+    {
+        needUploadScreen = FALSE;
+        uploadedScreen = FALSE;
+    }
+    else
+    {
+        CheckFullScreenUpload();
+    }
+
     if ( ( dwActFixes & 1 ) &&                            // FF7 special game gix (battle cursor)
             sprtX == 0 && sprtY == 0 && sprtW == 24 && sprtH == 16 )
         return;
@@ -2977,6 +3109,8 @@ static void primTileS ( unsigned char * baseAddr )
 
 static void primTile1 ( unsigned char * baseAddr )
 {
+    CheckFullScreenUpload();
+
     unsigned int *gpuData = ( ( unsigned int* ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
 
@@ -3030,6 +3164,8 @@ static void primTile1 ( unsigned char * baseAddr )
 
 static void primTile8 ( unsigned char * baseAddr )
 {
+    CheckFullScreenUpload();
+
 #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     sprintf ( txtbuffer, "primTile8 0\r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
@@ -3082,6 +3218,8 @@ static void primTile8 ( unsigned char * baseAddr )
 
 static void primTile16 ( unsigned char * baseAddr )
 {
+    CheckFullScreenUpload();
+
 #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     sprintf ( txtbuffer, "primTile16 0\r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
@@ -3169,6 +3307,8 @@ void DrawMultiFilterSprite ( void )
 
 static void primSprt8 ( unsigned char * baseAddr )
 {
+    CheckFullScreenUpload();
+
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
     short s;
@@ -3291,6 +3431,8 @@ writeLogFile(txtbuffer);
 
 static void primSprt16 ( unsigned char * baseAddr )
 {
+    CheckFullScreenUpload();
+
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
     short s;
@@ -3413,6 +3555,8 @@ writeLogFile(txtbuffer);
 
 static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
 {
+    CheckFullScreenUpload();
+
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
     short s;
@@ -3596,6 +3740,8 @@ static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
 
 static void primSprtS ( unsigned char * baseAddr )
 {
+    CheckFullScreenUpload();
+
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
 
@@ -3715,7 +3861,7 @@ static void primSprtS ( unsigned char * baseAddr )
 //                 vertex[0].sow, vertex[0].tow, vertex[1].sow, vertex[1].tow, vertex[2].sow, vertex[2].tow, vertex[3].sow, vertex[3].tow );
 //        writeLogFile(txtbuffer);
         sprintf ( txtbuffer, "primSprtS %d %d %d %d %04x %d %d\r\n", sprtX, sprtY, sprtW, sprtH,
-                 ulClutID, ((ulClutID << 4) & 0x3F0), ((ulClutID >> 6) & CLUTYMASK) );
+                 usMirror, ((ulClutID << 4) & 0x3F0), ((ulClutID >> 6) & CLUTYMASK) );
         DEBUG_print ( txtbuffer, DBG_SPU1 );
         writeLogFile(txtbuffer);
 
@@ -3725,6 +3871,7 @@ static void primSprtS ( unsigned char * baseAddr )
 //        writeLogFile(txtbuffer);
     }
     #endif // DISP_DEBUG
+
 
     if ( iFilterType > 4 )
         DrawMultiFilterSprite();
@@ -3764,6 +3911,8 @@ static void primSprtS ( unsigned char * baseAddr )
 
 static void primPolyF4 ( unsigned char *baseAddr )
 {
+    CheckFullScreenUpload();
+
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
 
@@ -3879,11 +4028,8 @@ BOOL bCheckFF9G4 ( unsigned char * baseAddr )
 
 static void primPolyG4 ( unsigned char * baseAddr )
 {
-#if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
-    sprintf ( txtbuffer, "primPolyG4 \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
-writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+    CheckFullScreenUpload();
+
     unsigned int *gpuData = ( unsigned int * ) baseAddr;
     short *sgpuData = ( ( short * ) baseAddr );
 
@@ -3917,6 +4063,13 @@ writeLogFile(txtbuffer);
     */
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
+
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
+    sprintf ( txtbuffer, "primPolyG4 (%f %f) (%f %f) (%f %f) (%f %f)\r\n",
+             vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+    DEBUG_print ( txtbuffer, DBG_CORE2 );
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     vertex[0].c.lcol = gpuData[0];
     vertex[1].c.lcol = gpuData[2];
@@ -4103,6 +4256,8 @@ static BOOL DoLineCheck ( unsigned int * gpuData )
 
 static void primPolyFT3 ( unsigned char * baseAddr )
 {
+    CheckFullScreenUpload();
+
 #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
     sprintf ( txtbuffer, "primPolyFT3 \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
@@ -4542,6 +4697,8 @@ static void RectTexAlign ( void )
 
 static void primPolyFT4 ( unsigned char * baseAddr )
 {
+    CheckFullScreenUpload();
+
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
 
@@ -4628,6 +4785,8 @@ static void primPolyFT4 ( unsigned char * baseAddr )
 
 static void primPolyGT3 ( unsigned char *baseAddr )
 {
+    CheckFullScreenUpload();
+
 #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
     sprintf ( txtbuffer, "primPolyGT3 \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
@@ -4748,6 +4907,8 @@ writeLogFile(txtbuffer);
 
 static void primPolyG3 ( unsigned char *baseAddr )
 {
+    CheckFullScreenUpload();
+
 #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
 //    sprintf ( txtbuffer, "primPolyG3 \r\n" );
 //    DEBUG_print ( txtbuffer, DBG_CORE2 );
@@ -4799,6 +4960,8 @@ static void primPolyG3 ( unsigned char *baseAddr )
 
 static void primPolyGT4 ( unsigned char *baseAddr )
 {
+    CheckFullScreenUpload();
+
 #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     sprintf ( txtbuffer, "primPolyGT4 \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
@@ -4930,6 +5093,8 @@ writeLogFile(txtbuffer);
 
 static void primPolyF3 ( unsigned char *baseAddr )
 {
+    CheckFullScreenUpload();
+
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
 
@@ -4981,6 +5146,8 @@ static void primPolyF3 ( unsigned char *baseAddr )
 
 static void primLineGSkip ( unsigned char *baseAddr )
 {
+    CheckFullScreenUpload();
+
 #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
     sprintf ( txtbuffer, "primLineGSkip \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
@@ -5012,6 +5179,8 @@ writeLogFile(txtbuffer);
 
 static void primLineGEx ( unsigned char *baseAddr )
 {
+    CheckFullScreenUpload();
+
 #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
     sprintf ( txtbuffer, "primLineGEx \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
@@ -5086,6 +5255,8 @@ writeLogFile(txtbuffer);
 
 static void primLineG2 ( unsigned char *baseAddr )
 {
+    CheckFullScreenUpload();
+
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
 
@@ -5137,6 +5308,8 @@ static void primLineG2 ( unsigned char *baseAddr )
 
 static void primLineFSkip ( unsigned char *baseAddr )
 {
+    CheckFullScreenUpload();
+
 #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
     sprintf ( txtbuffer, "primLineFSkip \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
@@ -5163,6 +5336,8 @@ writeLogFile(txtbuffer);
 
 static void primLineFEx ( unsigned char *baseAddr )
 {
+    CheckFullScreenUpload();
+
 #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
     sprintf ( txtbuffer, "primLineFEx \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
@@ -5230,6 +5405,8 @@ writeLogFile(txtbuffer);
 
 static void primLineF2 ( unsigned char *baseAddr )
 {
+    CheckFullScreenUpload();
+
 #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
     sprintf ( txtbuffer, "primLineF2 \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );

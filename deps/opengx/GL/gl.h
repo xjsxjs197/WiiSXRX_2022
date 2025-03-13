@@ -891,9 +891,9 @@ GLAPI void GLAPIENTRY glAccum( GLenum op, GLfloat value );
 
 GLAPI void GLAPIENTRY glMatrixMode( GLenum mode );
 
-GLAPI void GLAPIENTRY glOrtho( GLdouble left, GLdouble right,
-                                 GLdouble bottom, GLdouble top,
-                                 GLdouble near_val, GLdouble far_val );
+GLAPI void GLAPIENTRY glOrtho( int left, int right,
+                                 int bottom, int top,
+                                 int near_val, int far_val );
 
 GLAPI void GLAPIENTRY glFrustum( GLdouble left, GLdouble right,
                                    GLdouble bottom, GLdouble top,

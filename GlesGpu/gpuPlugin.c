@@ -137,14 +137,23 @@ static unsigned short largeRangeX2 = 0;
 static unsigned short largeRangeY1 = 0;
 static unsigned short largeRangeY2 = 0;
 
-static unsigned short screenWidth = 0;
-static unsigned short screenHeight = 0;
+static unsigned short screenX = 0;
+static unsigned short screenY = 0;
+static unsigned short screenWidth = 320;
+static unsigned short screenHeight = 240;
 static BOOL    isFrameOk = FALSE;
 
+static BOOL    needUploadScreen = FALSE;
+static BOOL    uploadedScreen = FALSE;
+
 #define CHECK_SCREEN_INFO() { \
-    screenWidth = PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560; \
-    screenHeight = PSXDisplay.Height; \
+    screenX = PSXDisplay.DisplayPosition.x; \
+    screenY = PSXDisplay.DisplayPosition.y; \
+    screenWidth = PSXDisplay.DisplayModeNew.x; \
+    screenHeight = PSXDisplay.DisplayModeNew.y; \
 }
+
+#define CLEAR_SCREEN(x0, y0, x1, y1)  (((screenY + screenHeight - 1) <= y1) && (screenY >= y0) && ((screenX + screenWidth - 1) <= x1) && (screenX >= x0))
 
 #define INRANGE(x1, x2, y1, y2) ((y2 <= largeRangeY2) && (y1 >= largeRangeY1) && (x2 <= largeRangeX2) && (x1 >= largeRangeX1))
 
@@ -803,7 +812,10 @@ else                                                  // some res change?
             PSXDisplay.DisplayModeNew.y, 0, -1, 1); glError();
   #ifdef DISP_DEBUG
   sprintf(txtbuffer, "glOrtho %d %d\r\n", PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y);
-  //DEBUG_print(txtbuffer, DBG_SPU3);
+  writeLogFile(txtbuffer);
+  sprintf(txtbuffer, "GX_SetScissor %d %d %d %d\r\n", rRatioRect.left,
+           iResY-(rRatioRect.top+rRatioRect.bottom),
+           rRatioRect.right,rRatioRect.bottom);
   writeLogFile(txtbuffer);
   #endif // DISP_DEBUG
   if(bKeepRatio) SetAspectRatio();
@@ -975,24 +987,22 @@ else if(usFirstPos==1)                                // initial updates (after 
     isFrameOk = TRUE;
   updateDisplayGl();
  }
-// else if (iDrawnSomething)
-// {
-//     isFrameOk = FALSE;
-//     #ifdef DISP_DEBUG
-//     sprintf ( txtbuffer, "GPUupdateLace7\r\n");
-//     writeLogFile ( txtbuffer );
-//     #endif // DISP_DEBUG
-//     flipEGL();
-//     iDrawnSomething = 0;
-// }
- #ifdef DISP_DEBUG
  else
  {
-    sprintf ( txtbuffer, "GPUupdateLace5 %d\r\n", iDrawnSomething);
-    writeLogFile ( txtbuffer );
+     #ifdef DISP_DEBUG
+     sprintf ( txtbuffer, "GPUupdateLace5 %d %d %d %d\r\n", iDrawnSomething, PSXDisplay.Interlaced, PSXDisplay.Disabled, PSXDisplay.InterlacedTest);
+     writeLogFile ( txtbuffer );
+     #endif // DISP_DEBUG
+     if (CheckFullScreenUpload())
+     {
+         flipEGL();
+     }
+     else if (iDrawnSomething && !PSXDisplay.RGB24)
+     {
+         isFrameOk = FALSE;
+         updateDisplayGl();
+     }
  }
- #endif // DISP_DEBUG
-
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1185,7 +1195,14 @@ switch(lCommand)
          //DEBUG_print(txtbuffer, DBG_CDR2);
          writeLogFile(txtbuffer);
          #endif // DISP_DEBUG
-         updateDisplayGl();
+         //updateDisplayGl();
+         if (PSXDisplay.RGB24)
+         {
+             isFrameOk = TRUE;
+             updateDisplayGl();
+         }
+
+         CHECK_SCREEN_INFO();
      }
     else
     if(PSXDisplay.InterlacedTest &&
@@ -1295,12 +1312,13 @@ switch(lCommand)
         STATUSREG|=GPUSTATUS_RGB24;
    else STATUSREG&=~GPUSTATUS_RGB24;
 
+   updateDisplayIfChangedGl();
+
      CHECK_SCREEN_INFO();
      #ifdef DISP_DEBUG
      sprintf(txtbuffer, "settingDispInfo07 %d %d %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y, screenWidth, screenHeight);
      writeLogFile(txtbuffer);
      #endif // DISP_DEBUG
-   updateDisplayIfChangedGl();
 
    return;
 
@@ -2188,6 +2206,7 @@ static void flipEGL(void)
 
     clearLargeRange = 0;
     isFrameOk = FALSE;
+    uploadedScreen = FALSE;
 }
 
 #include "../Gamecube/wiiSXconfig.h"
