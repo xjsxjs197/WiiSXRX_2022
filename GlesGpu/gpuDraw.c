@@ -172,8 +172,6 @@ void SetExtGLFuncs(void)
  //----------------------------------------------------//
 
   {
-   if(bAdvancedBlend) bUseMultiPass=TRUE;              // -> pseudo-advanced with 2 passes
-   else               bUseMultiPass=FALSE;             // -> or simple 'bright color' mode
 //   bGLBlend=FALSE;                                     // -> no ext blending!
    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); glError();
   }
@@ -511,7 +509,6 @@ int GLinitialize(void *ext_gles_display, void *ext_gles_surface)
  ubGloColAlpha=127;
  TWin.UScaleFactor = 1;
  TWin.VScaleFactor = 1;
- bDrawMultiPass=FALSE;
  bTexEnabled=FALSE;
  bUsingTWin=FALSE;
 

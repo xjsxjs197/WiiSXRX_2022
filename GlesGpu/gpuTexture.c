@@ -1575,8 +1575,6 @@ GLuint Fake15BitTexture(void)
   }
  else return 0;
 
- bDrawMultiPass = FALSE;
-
  if(!gTexFrameName)
   {
    char * p;

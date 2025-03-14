@@ -58,7 +58,6 @@ BOOL           bDrawTextured;                          // current active drawing
 BOOL           bDrawSmoothShaded;
 BOOL           bOldSmoothShaded;
 BOOL           bDrawNonShaded;
-BOOL           bDrawMultiPass;
 int            iOffscreenDrawing = 0;
 int            iDrawnSomething=0;
 
@@ -69,7 +68,6 @@ GLubyte        ubGloColAlpha;                          // color alpha
 int            iFilterType;                            // type of filter
 BOOL           bFullVRam = FALSE;                      // sign for tex win
 BOOL           bDrawDither;                            // sign for dither
-BOOL           bUseMultiPass;                          // sign for multi pass
 GLuint         gTexName;                               // binded texture
 BOOL           bTexEnabled;                            // texture enable flag
 BOOL           bBlendEnable;                           // blend enable flag
@@ -93,6 +91,8 @@ BOOL          bUseFixes;
 
 short         sxmin, sxmax, symin, symax;
 unsigned int CSVERTEX = 0, CSCOLOR = 0, CSTEXTURE = 0;
+
+static unsigned short noNeedMulConstColor = 0;
 
 
 void offsetPSX4 ( void )
@@ -1131,16 +1131,7 @@ static inline void SetRenderState ( unsigned int DrawAttributes )
 
 static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
 {
-    if ( ( bUseMultiPass ) && ( bDrawTextured ) && ! ( bDrawNonShaded ) )
-    {
-        bDrawMultiPass = TRUE;
-        SetSemiTransMulti ( 0 );
-    }
-    else
-    {
-        bDrawMultiPass = FALSE;
-        SetSemiTrans();
-    }
+    SetSemiTrans();
 
     glSetSemiTransFlg(DrawSemiTrans);
     glSetTextureMask( sSetMask ? 1 : 0 );
@@ -1156,30 +1147,9 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
 
         if ( gTexName != currTex )
         {
-#if defined(DISP_DEBUG)
-//            if ( bUsingTWin )
-//            {
-//                sprintf ( txtbuffer, "SetRenderMode bUsingTWin1 %d %d %d %d %d\r\n", gTexName, currTex, bUsingTWin, bUsingMovie, ubOpaqueDraw );
-//                DEBUG_print ( txtbuffer,  DBG_SPU2 );
-//            }
-//            else if ( !bUsingTWin && !bUsingMovie )
-//            {
-//                sprintf ( txtbuffer, "SetRenderMode bUsingTWin2 %d %d %d %d %d\r\n", gTexName, currTex, bUsingTWin, bUsingMovie, ubOpaqueDraw );
-//                DEBUG_print ( txtbuffer,  DBG_SPU2 );
-//            }
-            //sprintf(txtbuffer, "SetRenderMode1 %d %d %d %d %d\r\n", gTexMovieName, gTexName, currTex, bUsingTWin, bUsingMovie, ubOpaqueDraw);
-            //DEBUG_print(txtbuffer,  DBG_SPU2);
-#endif // DISP_DEBUG
             gTexName = currTex;
             glBindTextureBef ( GL_TEXTURE_2D, currTex );
             glError();
-        }
-        else
-        {
-#if defined(DISP_DEBUG)
-//            sprintf ( txtbuffer, "SetRenderMode2 %d %d %d %d %d\r\n", bBlendEnable, gTexName, bUsingTWin, bUsingMovie, ubOpaqueDraw );
-//            DEBUG_print ( txtbuffer,  DBG_SPU3 );
-#endif // DISP_DEBUG
         }
 
         if ( !bTexEnabled )                                 // -> turn texturing on
@@ -1197,46 +1167,27 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
             glDisable ( GL_TEXTURE_2D );
             glError();
         }
-
-#if defined(DISP_DEBUG)
-//        sprintf ( txtbuffer, "SetRenderMode3 \r\n" );
-//        DEBUG_print ( txtbuffer, DBG_CORE3 );
-#endif // DISP_DEBUG
     }
-#if defined(DISP_DEBUG)
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
-
-
-#if defined(DISP_DEBUG)
-//    if ( ubOpaqueDraw )
-//    {
-//        sprintf ( txtbuffer, "ubOpaqueDraw %d \r\n", gTexName );
-//        DEBUG_print ( txtbuffer,  DBG_SPU3 );
-//    }
-#endif // DISP_DEBUG
 
     if ( bSCol )                                          // also set color ?
     {
-//        if ( ( dwActFixes & 4 ) && ( ( DrawAttributes & 0x00ffffff ) == 0 ) )
-//            DrawAttributes |= 0x007f7f7f;
-
         if ( bDrawNonShaded )                               // -> non shaded?
         {
-            /*     if(bGLBlend)  vertex[0].c.lcol=0x7f7f7f;          // --> solid color...
-                 else          */vertex[0].c.lcol = SWAP32_C ( 0xffffff );
-            glNoNeedMulConstColor( 1 );
+            vertex[0].c.lcol = SWAP32_C ( 0xffffff );
+            glNoNeedMulConstColor( noNeedMulConstColor | 0x1 );
         }
         else                                                // -> shaded?
         {
-//     if(!bUseMultiPass && !bGLBlend)                   // --> given color...
             PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( DrawAttributes ) );
             glSetDoubleCol();
-            glNoNeedMulConstColor( 0 );
-//     else vertex[0].c.lcol=DrawAttributes;
+            glNoNeedMulConstColor( noNeedMulConstColor & 0xFFFE );
         }
         vertex[0].c.col.a = ubGloAlpha;                    // -> set color with
         SETCOL ( vertex[0] );                               //    texture alpha
+    }
+    else
+    {
+        glNoNeedMulConstColor( noNeedMulConstColor & 0xFFFE );
     }
     #if defined(DISP_DEBUG)
     sprintf ( txtbuffer, "SetRenderMode %d %d %d %d %d %d %d %08x %d\r\n", DrawSemiTrans, bDrawTextured, bUsingTWin, GlobalTextABR, bCheckMask, iSetMask, bSCol, vertex[0].c.lcol, gl_ux[8] );
@@ -1755,7 +1706,6 @@ int UploadScreen ( int Position )
     {
         #if defined(DISP_DEBUG)
         sprintf ( txtbuffer, "UploadScreen Dis %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0);
-        DEBUG_print ( txtbuffer, DBG_GPU2 );
         writeLogFile ( txtbuffer );
         #endif // DISP_DEBUG
         return 0;
@@ -1794,7 +1744,6 @@ int UploadScreen ( int Position )
 
         #if defined(DISP_DEBUG)
         sprintf ( txtbuffer, "UploadScreen24 %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0, bUsingTWin);
-        DEBUG_print ( txtbuffer, DBG_GPU3 );
         writeLogFile ( txtbuffer );
         #endif // DISP_DEBUG
     }
@@ -1815,11 +1764,11 @@ int UploadScreen ( int Position )
     bDrawTextured     = TRUE;                             // just doing textures
     bDrawSmoothShaded = FALSE;
 
-    /* if(bGLBlend) vertex[0].c.lcol=0xff7f7f7f;             // set solid col
-     else          */vertex[0].c.lcol = 0xffffffff;
+    vertex[0].c.lcol = 0xffffffff;
     SETCOL ( vertex[0] );
 
     glSetRGB24( PSXDisplay.RGB24 );
+    glNoNeedMulConstColor( noNeedMulConstColor | 0x2 );
 
     SetOGLDisplaySettings ( 0 );
 
@@ -1889,6 +1838,7 @@ int UploadScreen ( int Position )
 
     bUsingMovie = FALSE;                                  // done...
     bDisplayNotSet = TRUE;
+    glNoNeedMulConstColor( noNeedMulConstColor & ~0x2 );
 
     #if defined(DISP_DEBUG)
     sprintf ( txtbuffer, "UploadScreen end\r\n");
@@ -2416,11 +2366,6 @@ void CheckWriteUpdate()
                 updateFrontDisplayGl();
             }
 
-            #if defined(DISP_DEBUG)
-            //sprintf ( txtbuffer, "CheckWriteUpdate2 %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1, PSXDisplay.InterlacedTest );
-            //DEBUG_print ( txtbuffer, DBG_SPU3 );
-            //writeLogFile ( txtbuffer );
-            #endif // DISP_DEBUG
             isFrameOk = TRUE;
             uploaded = UploadScreen ( FALSE );
 
@@ -2568,7 +2513,7 @@ static void primBlkFill ( unsigned char * baseAddr )
 
     sprtW = ( sprtW + 15 ) & ~15;
 
-// Increase H & W if they are one short of full values, because they never can be full values
+    // Increase H & W if they are one short of full values, because they never can be full values
     if ( sprtH >= 1023 )  sprtH = 1023;
     if ( sprtW >= 1023 )  sprtW = 1024;
 
@@ -2591,7 +2536,7 @@ static void primBlkFill ( unsigned char * baseAddr )
 
     FillSoftwareArea(sprtX, sprtY, sprtW + sprtX, sprtH + sprtY, BGR24to16(GETLE32(&gpuData[0])));
 
-// x and y of start
+    // x and y of start
     ly0 = ly1 = sprtY;
     ly2 = ly3 = ( sprtY + sprtH );
     lx0 = lx3 = sprtX;
@@ -3405,22 +3350,6 @@ writeLogFile(txtbuffer);
     else
         PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-//    if ( bDrawMultiPass )
-//    {
-//        SetSemiTransMulti ( 1 );
-//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//    }
-//
-//    if ( ubOpaqueDraw )
-//    {
-//        SetZMask4O();
-//        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
-//        DEFOPAQUEON
-//
-//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//        DEFOPAQUEOFF
-//    }
-
     iSpriteTex = 0;
     iDrawnSomething = 1;
 }
@@ -3528,22 +3457,6 @@ writeLogFile(txtbuffer);
         DrawMultiFilterSprite();
     else
         PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-
-//    if ( bDrawMultiPass )
-//    {
-//        SetSemiTransMulti ( 1 );
-//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//    }
-//
-//    if ( ubOpaqueDraw )
-//    {
-//        SetZMask4O();
-//        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
-//        DEFOPAQUEON
-//
-//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//        DEFOPAQUEOFF
-//    }
 
     iSpriteTex = 0;
     iDrawnSomething = 1;
@@ -3714,22 +3627,6 @@ static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
     else
         PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-//    if ( bDrawMultiPass )
-//    {
-//        SetSemiTransMulti ( 1 );
-//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//    }
-//
-//    if ( ubOpaqueDraw )
-//    {
-//        SetZMask4O();
-//        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
-//        DEFOPAQUEON
-//
-//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//        DEFOPAQUEOFF
-//    }
-
     if ( sTypeRest && type < 4 )
     {
         if ( sTypeRest & 1  && type == 1 ) primSprtSRest ( baseAddr, 4 );
@@ -3877,22 +3774,6 @@ static void primSprtS ( unsigned char * baseAddr )
         DrawMultiFilterSprite();
     else
         PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-
-//    if ( bDrawMultiPass )
-//    {
-//        SetSemiTransMulti ( 1 );
-//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//    }
-//
-//    if ( ubOpaqueDraw )
-//    {
-//        SetZMask4O();
-//        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
-//        DEFOPAQUEON
-//
-//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//        DEFOPAQUEOFF
-//    }
 
     if ( sTypeRest )
     {
@@ -4232,21 +4113,6 @@ static BOOL DoLineCheck ( unsigned int * gpuData )
 
     PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
 
-//    if ( bDrawMultiPass )
-//    {
-//        SetSemiTransMulti ( 1 );
-//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
-//    }
-//
-//    if ( ubOpaqueDraw )
-//    {
-//        SetZMask4O();
-//        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
-//        DEFOPAQUEON
-//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
-//        DEFOPAQUEOFF
-//    }
-
     iDrawnSomething = 1;
 
     return TRUE;
@@ -4258,11 +4124,11 @@ static void primPolyFT3 ( unsigned char * baseAddr )
 {
     CheckFullScreenUpload();
 
-#if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
     sprintf ( txtbuffer, "primPolyFT3 \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
-writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
@@ -4314,21 +4180,6 @@ writeLogFile(txtbuffer);
     }
 
     PRIMdrawTexturedTri ( &vertex[0], &vertex[1], &vertex[2] );
-
-//    if ( bDrawMultiPass )
-//    {
-//        SetSemiTransMulti ( 1 );
-//        PRIMdrawTexturedTri ( &vertex[0], &vertex[1], &vertex[2] );
-//    }
-//
-//    if ( ubOpaqueDraw )
-//    {
-//        SetZMask3O();
-//        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
-//        DEFOPAQUEON
-//        PRIMdrawTexturedTri ( &vertex[0], &vertex[1], &vertex[2] );
-//        DEFOPAQUEOFF
-//    }
 
     iDrawnSomething = 1;
 }
@@ -4750,31 +4601,15 @@ static void primPolyFT4 ( unsigned char * baseAddr )
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     //sprintf ( txtbuffer, "primPolyFT4 (%d %d) (%d %d) (%d %d) (%d %d)\r\n", gl_ux[0], gl_vy[0], gl_ux[1], gl_vy[1], gl_ux[2], gl_vy[2], gl_ux[3], gl_vy[3] );
     sprintf ( txtbuffer, "primPolyFT4 (%d %d) (%d %d) (%d %d) (%d %d)\r\n", lx0, ly0, lx1, ly1, lx2, ly2, lx3, ly3 );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
+    //DEBUG_print ( txtbuffer, DBG_CORE2 );
     writeLogFile(txtbuffer);
-    sprintf ( txtbuffer, "TexPos (%f %f) (%f %f) (%f %f) (%f %f)\r\n", vertex[0].sow, vertex[0].tow, vertex[1].sow, vertex[1].tow, vertex[2].sow, vertex[2].tow, vertex[3].sow, vertex[3].tow );
-    writeLogFile(txtbuffer);
+    //sprintf ( txtbuffer, "TexPos (%f %f) (%f %f) (%f %f) (%f %f)\r\n", vertex[0].sow, vertex[0].tow, vertex[1].sow, vertex[1].tow, vertex[2].sow, vertex[2].tow, vertex[3].sow, vertex[3].tow );
+    //writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
     RectTexAlign();
 
     PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
-
-//    if ( bDrawMultiPass )
-//    {
-//        SetSemiTransMulti ( 1 );
-//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
-//    }
-//
-//    if ( ubOpaqueDraw )
-//    {
-//        SetZMask4O();
-//        if ( bUseMultiPass ) SetOpaqueColor ( GETLE32 ( &gpuData[0] ) );
-//        DEFOPAQUEON
-//
-//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
-//        DEFOPAQUEOFF
-//    }
 
     iDrawnSomething = 1;
 }
@@ -4787,11 +4622,11 @@ static void primPolyGT3 ( unsigned char *baseAddr )
 {
     CheckFullScreenUpload();
 
-#if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
     sprintf ( txtbuffer, "primPolyGT3 \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
-writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
@@ -4838,11 +4673,8 @@ writeLogFile(txtbuffer);
 
     if ( bDrawNonShaded )
     {
-        glNoNeedMulConstColor( 1 );
-        //if(!bUseMultiPass) vertex[0].lcol=DoubleBGR2RGB(gpuData[0]); else vertex[0].lcol=gpuData[0];
-        // eat this...
-        /*   if(bGLBlend) vertex[0].c.lcol=0x7f7f7f;
-           else         */vertex[0].c.lcol = SWAP32_C ( 0xffffff );
+        glNoNeedMulConstColor( noNeedMulConstColor | 0x1 );
+        vertex[0].c.lcol = SWAP32_C ( 0xffffff );
         vertex[0].c.col.a = ubGloAlpha;
         SETCOL ( vertex[0] );
 
@@ -4855,48 +4687,17 @@ writeLogFile(txtbuffer);
 //            PRIMdrawTexturedTri ( &vertex[0], &vertex[1], &vertex[2] );
 //            DEFOPAQUEOFF
 //        }
-        glNoNeedMulConstColor( 0 );
+        glNoNeedMulConstColor( noNeedMulConstColor & 0xFFFE );
         return;
     }
 
-    /* if(!bUseMultiPass  && !bGLBlend)
-      {
-      */ PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[0] ) ) );
+    PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[0] ) ) );
     PUTLE32 ( &vertex[1].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[3] ) ) );
     PUTLE32 ( &vertex[2].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[6] ) ) );
     glSetDoubleCol();
-    /*}
-    else
-    {
-     vertex[0].c.lcol=gpuData[0];
-     vertex[1].c.lcol=gpuData[3];
-     vertex[2].c.lcol=gpuData[6];
-    }*/
     vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = ubGloAlpha;
 
     PRIMdrawTexGouraudTriColor ( &vertex[0], &vertex[1], &vertex[2] );
-
-//    if ( bDrawMultiPass )
-//    {
-//        SetSemiTransMulti ( 1 );
-//        PRIMdrawTexGouraudTriColor ( &vertex[0], &vertex[1], &vertex[2] );
-//    }
-//
-//    if ( ubOpaqueDraw )
-//    {
-//        SetZMask3O();
-//        if ( bUseMultiPass )
-//        {
-//            PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[0] ) ) );
-//            PUTLE32 ( &vertex[1].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[3] ) ) );
-//            PUTLE32 ( &vertex[2].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[6] ) ) );
-//            glSetDoubleCol();
-//            vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = ubGloAlpha;
-//        }
-//        DEFOPAQUEON
-//        PRIMdrawTexGouraudTriColor ( &vertex[0], &vertex[1], &vertex[2] );
-//        DEFOPAQUEOFF
-//    }
 
     iDrawnSomething = 1;
 }
@@ -4909,11 +4710,11 @@ static void primPolyG3 ( unsigned char *baseAddr )
 {
     CheckFullScreenUpload();
 
-#if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
-//    sprintf ( txtbuffer, "primPolyG3 \r\n" );
-//    DEBUG_print ( txtbuffer, DBG_CORE2 );
-//writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
+    sprintf ( txtbuffer, "primPolyG3 \r\n" );
+    DEBUG_print ( txtbuffer, DBG_CORE2 );
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
@@ -4962,11 +4763,11 @@ static void primPolyGT4 ( unsigned char *baseAddr )
 {
     CheckFullScreenUpload();
 
-#if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     sprintf ( txtbuffer, "primPolyGT4 \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
-writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
@@ -5019,10 +4820,8 @@ writeLogFile(txtbuffer);
 
     if ( bDrawNonShaded )
     {
-        glNoNeedMulConstColor( 1 );
-        //if(!bUseMultiPass) vertex[0].lcol=DoubleBGR2RGB(gpuData[0]); else vertex[0].lcol=gpuData[0];
-        /*   if(bGLBlend) vertex[0].c.lcol=0x7f7f7f;
-           else          */vertex[0].c.lcol = SWAP32_C ( 0xffffff );
+        glNoNeedMulConstColor( noNeedMulConstColor | 0x1 );
+        vertex[0].c.lcol = SWAP32_C ( 0xffffff );
         vertex[0].c.col.a = ubGloAlpha;
         SETCOL ( vertex[0] );
 
@@ -5036,53 +4835,20 @@ writeLogFile(txtbuffer);
 //            PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
 //            DEFOPAQUEOFF
 //        }
-        glNoNeedMulConstColor( 0 );
+        glNoNeedMulConstColor( noNeedMulConstColor & 0xFFFE );
         return;
     }
 
-// if(!bUseMultiPass  && !bGLBlend)
-    {
-        PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[0] ) ) );
-        PUTLE32 ( &vertex[1].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[3] ) ) );
-        PUTLE32 ( &vertex[2].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[6] ) ) );
-        PUTLE32 ( &vertex[3].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[9] ) ) );
-        glSetDoubleCol();
-    }
-    /*else
-     {
-      vertex[0].c.lcol=gpuData[0];
-      vertex[1].c.lcol=gpuData[3];
-      vertex[2].c.lcol=gpuData[6];
-      vertex[3].c.lcol=gpuData[9];
-     }*/
+
+    PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[0] ) ) );
+    PUTLE32 ( &vertex[1].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[3] ) ) );
+    PUTLE32 ( &vertex[2].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[6] ) ) );
+    PUTLE32 ( &vertex[3].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[9] ) ) );
+    glSetDoubleCol();
 
     vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = vertex[3].c.col.a = ubGloAlpha;
 
     PRIMdrawTexGouraudTriColorQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
-
-//    if ( bDrawMultiPass )
-//    {
-//        SetSemiTransMulti ( 1 );
-//        PRIMdrawTexGouraudTriColorQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
-//    }
-//
-//    if ( ubOpaqueDraw )
-//    {
-//        SetZMask4O();
-//        if ( bUseMultiPass )
-//        {
-//            PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[0] ) ) );
-//            PUTLE32 ( &vertex[1].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[3] ) ) );
-//            PUTLE32 ( &vertex[2].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[6] ) ) );
-//            PUTLE32 ( &vertex[3].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[9] ) ) );
-//            glSetDoubleCol();
-//            vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = vertex[3].c.col.a = ubGloAlpha;
-//        }
-//        ubGloAlpha = ubGloColAlpha = 0xff;
-//        DEFOPAQUEON
-//        PRIMdrawTexGouraudTriColorQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
-//        DEFOPAQUEOFF
-//    }
 
     iDrawnSomething = 1;
 }
@@ -5148,11 +4914,11 @@ static void primLineGSkip ( unsigned char *baseAddr )
 {
     CheckFullScreenUpload();
 
-#if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
     sprintf ( txtbuffer, "primLineGSkip \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
-writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
     int iMax = 255;
@@ -5181,11 +4947,11 @@ static void primLineGEx ( unsigned char *baseAddr )
 {
     CheckFullScreenUpload();
 
-#if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
     sprintf ( txtbuffer, "primLineGEx \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
-writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     int iMax = 255;
@@ -5206,9 +4972,7 @@ writeLogFile(txtbuffer);
 
     i = 2;
 
-//while((gpuData[i]>>24)!=0x55)
-//while((gpuData[i]&0x50000000)!=0x50000000)
-// currently best way to check for poly line end:
+    // currently best way to check for poly line end:
     while ( ! ( ( ( GETLE32 ( &gpuData[i] ) & 0xF000F000 ) == 0x50005000 ) && i >= 4 ) )
     {
         ly0 = ly1;
@@ -5310,11 +5074,11 @@ static void primLineFSkip ( unsigned char *baseAddr )
 {
     CheckFullScreenUpload();
 
-#if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
     sprintf ( txtbuffer, "primLineFSkip \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
-writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     int i = 2, iMax = 255;
 
@@ -5338,11 +5102,11 @@ static void primLineFEx ( unsigned char *baseAddr )
 {
     CheckFullScreenUpload();
 
-#if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
     sprintf ( txtbuffer, "primLineFEx \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
-writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     int iMax;
@@ -5365,10 +5129,7 @@ writeLogFile(txtbuffer);
 
     i = 2;
 
-// while(!(gpuData[i]&0x40000000))
-// while((gpuData[i]>>24)!=0x55)
-// while((gpuData[i]&0x50000000)!=0x50000000)
-// currently best way to check for poly line end:
+    // currently best way to check for poly line end:
     while ( ! ( ( ( GETLE32 ( &gpuData[i] ) & 0xF000F000 ) == 0x50005000 ) && i >= 3 ) )
     {
         ly0 = ly1;
@@ -5407,11 +5168,11 @@ static void primLineF2 ( unsigned char *baseAddr )
 {
     CheckFullScreenUpload();
 
-#if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
     sprintf ( txtbuffer, "primLineF2 \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
-writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
