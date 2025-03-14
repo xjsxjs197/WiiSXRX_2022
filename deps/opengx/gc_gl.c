@@ -1458,19 +1458,22 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
     GX_Flush();
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
-    int wi = (width + 3) & ~(unsigned int)3;
-    int he = (height + 3) & ~(unsigned int)3;
+    int wi = width; //(width + 3) & ~(unsigned int)3;
+    int he = height; //(height + 3) & ~(unsigned int)3;
 
     if (currtex->data != 0)
         _mem2_free(currtex->data);
+    if (currtex->semiTransData != 0)
+    {
+        _mem2_free(currtex->semiTransData);
+        currtex->semiTransData = 0;
+    }
 
     int required_size = wi * he * 2;
     int tex_size_rnd = ROUND_32B(required_size);
-    currtex->data = _mem2_memalign(32, tex_size_rnd * 2);
-    memset(currtex->data, 0, tex_size_rnd * 2);
-    DCFlushRange(currtex->data, tex_size_rnd * 2);
-
-    currtex->semiTransData = currtex->data + tex_size_rnd;
+    currtex->data = _mem2_memalign(32, tex_size_rnd);
+    memset(currtex->data, 0, tex_size_rnd);
+    DCFlushRange(currtex->data, tex_size_rnd);
 
     currtex->w = wi;
     currtex->h = he;
@@ -1478,8 +1481,8 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
     GX_InitTexObj(&currtex->texobj, currtex->data,
                   currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
     // For Non transparent colors in transparent mode
-    GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
-                  currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
+//    GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
+//                  currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
     //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
 }
 
@@ -1494,6 +1497,7 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
 extern unsigned char GXtexture[MOVIE_BUF_SIZE];
 static unsigned char *movieTexPtr;
 static int movieUsedSize = 0;
+static unsigned char semiTransBuf[256 * 256 * 2];
 
 // 4b texel scrambling, opengx conversion: src(argb) -> dst(ar...gb)
 // for movie
@@ -1586,7 +1590,7 @@ static inline int _ogx_scramble_4b_sub(unsigned char *src, void *dst, void *semi
 }
 
 // 4b texel scrambling, opengx conversion: src(4 bytes bgr555) -> dst(2 bytes bgr5a3)
-static inline int _ogx_scramble_4b_5a3(unsigned char *src, void *dst, void *semiTransDst, unsigned short semiTransFlg,
+static inline int _ogx_scramble_4b_5a3(unsigned char *src, void *dst, unsigned short semiTransFlg,
                       const unsigned int width, const unsigned int height)
 {
     unsigned int block;
@@ -1594,7 +1598,7 @@ static inline int _ogx_scramble_4b_5a3(unsigned char *src, void *dst, void *semi
     unsigned char c;
     unsigned char argb;
     unsigned char *p = (unsigned char *)dst;
-    unsigned char *semiTransP = (unsigned char *)semiTransDst;
+    unsigned char *semiTransP = semiTransBuf;
     unsigned short tmpPixel;
     int textureType = 0;
 
@@ -1634,6 +1638,7 @@ static inline int _ogx_scramble_4b_5a3(unsigned char *src, void *dst, void *semi
             }
         }
     }
+
     return textureType;
 }
 
@@ -1685,12 +1690,16 @@ int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
     }
     else
     {
-        textureType = _ogx_scramble_4b_5a3((unsigned char *)texData, currtex->data, currtex->semiTransData, glparamstate.blendenabled, width, height);
+        textureType = _ogx_scramble_4b_5a3((unsigned char *)texData, currtex->data, glparamstate.blendenabled, width, height);
         GX_InitTexObj(&currtex->texobj, currtex->data,
                       currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
         // For Non transparent colors in transparent mode
-        GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
-                      currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
+        if (textureType & TXT_TYPE_1)
+        {
+            memcpy(currtex->semiTransData, semiTransBuf, currtex->w * currtex->h * 2);
+            GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
+                          currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
+        }
     }
     DCFlushRange(currtex->data, tex_size_rnd);
 
@@ -1715,14 +1724,14 @@ int glTexSubImage2D(GLenum target, GLint level,
     {
         // The position happens to be the integer position of the Block
         int startOffset = ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32;
-        textureType = _ogx_scramble_4b_sub((unsigned char *)data, currtex->data + startOffset, currtex->semiTransData + startOffset, glparamstate.blendenabled, width, height, currtex->w);
+        textureType = _ogx_scramble_4b_sub((unsigned char *)data, currtex->data + startOffset, semiTransBuf + startOffset, glparamstate.blendenabled, width, height, currtex->w);
         DCFlushRange(currtex->data , currtex->w * currtex->h * 4);
     }
     else
     {
         // It is not the position of the integer Block, so we need to write data to different blocks
         unsigned char * dstBlock = currtex->data;
-        unsigned char * semiTransDstBlock = currtex->semiTransData;
+        unsigned char * semiTransDstBlock = semiTransBuf;
         unsigned char * src = (unsigned char *)data;
         int totalWi = min(xoffset + width, currtex->w);
         int totalHe = min(yoffset + height, currtex->h);
@@ -1764,7 +1773,7 @@ int glTexSubImage2D(GLenum target, GLint level,
                 unsigned char blockWi;
                 src = (unsigned char *)data + (y * width + x) * 4;
                 dstBlock = currtex->data + ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32;
-                semiTransDstBlock = currtex->semiTransData + ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32;
+                semiTransDstBlock = semiTransBuf + ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32;
                 for (he = 0, blockHe = (yoffset & 3); he < copyHe; he++, blockHe++)
                 {
                     for (wi = 0, blockWi = (xoffset & 3); wi < copyWi; wi++, blockWi++)
@@ -1799,8 +1808,20 @@ int glTexSubImage2D(GLenum target, GLint level,
             xoffset = oldXoffset;
         }
 
-        DCFlushRange(currtex->data , currtex->w * currtex->h * 4);
+        DCFlushRange(currtex->data , currtex->w * currtex->h * 2);
     }
+
+    if (textureType & TXT_TYPE_1)
+    {
+        if (currtex->semiTransData == 0)
+        {
+            currtex->semiTransData = _mem2_memalign(32, currtex->w * currtex->h * 2);
+            GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
+                        currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
+        }
+        memcpy(currtex->semiTransData, semiTransBuf, currtex->w * currtex->h * 2);
+    }
+
     return textureType;
 }
 
@@ -1824,8 +1845,8 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
     // RGB5A3 format fixed
-    int wi = calc_original_size(level, width, internalFormat);
-    int he = calc_original_size(level, height, internalFormat);
+    int wi = width; //calc_original_size(level, width, internalFormat);
+    int he = height; //calc_original_size(level, height, internalFormat);
 
     // Check if the texture has changed its geometry and proceed to delete it
     // If the specified level is zero, create a onelevel texture to save memory
@@ -1834,19 +1855,23 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
         {
             _mem2_free(currtex->data);
         }
+        if (currtex->semiTransData != 0)
+        {
+            _mem2_free(currtex->semiTransData);
+            currtex->semiTransData = 0;
+        }
 
         int required_size = wi * he * 2;
         int tex_size_rnd = ROUND_32B(required_size);
-        currtex->data = _mem2_memalign(32, tex_size_rnd * 2);
-        currtex->semiTransData = currtex->data + tex_size_rnd;
-        memset(currtex->data, 0, tex_size_rnd * 2);
+        currtex->data = _mem2_memalign(32, tex_size_rnd);
+        memset(currtex->data, 0, tex_size_rnd);
     }
 
     currtex->w = wi;
     currtex->h = he;
     currtex->bytespp = 2;
 
-    textureType = _ogx_scramble_4b_5a3((unsigned char *)data, currtex->data, currtex->semiTransData, glparamstate.blendenabled, width, height);
+    textureType = _ogx_scramble_4b_5a3((unsigned char *)data, currtex->data, glparamstate.blendenabled, width, height);
     DCFlushRange(currtex->data, currtex->w * currtex->h * 2);
 
     // Slow but necessary! The new textures may be in the same region of some old cached textures
@@ -1855,8 +1880,17 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
     GX_InitTexObj(&currtex->texobj, currtex->data,
                 currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
     // For Non transparent colors in transparent mode
-    GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
-                currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
+    if (textureType & TXT_TYPE_1)
+    {
+        if (currtex->semiTransData == 0)
+        {
+            currtex->semiTransData = _mem2_memalign(32, currtex->w * currtex->h * 2);
+        }
+        memcpy(currtex->semiTransData, semiTransBuf, currtex->w * currtex->h * 2);
+
+        GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
+                    currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
+    }
     //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
     //GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
 
@@ -2785,10 +2819,13 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
                 fwrite(curTex->data, 1, curTex->w * curTex->h * 2, texDebugLog);
                 fclose(texDebugLog);
 
-                sprintf(txtbuffer, "sd:/wiisxrx/txtDebugS_%d_%d_%02d.bin", curTex->w, curTex->h, i);
-                texDebugLog = fopen(txtbuffer, "wb");
-                fwrite(curTex->semiTransData, 1, curTex->w * curTex->h * 2, texDebugLog);
-                fclose(texDebugLog);
+                if (curTex->semiTransData)
+                {
+                    sprintf(txtbuffer, "sd:/wiisxrx/txtDebugS_%d_%d_%02d.bin", curTex->w, curTex->h, i);
+                    texDebugLog = fopen(txtbuffer, "wb");
+                    fwrite(curTex->semiTransData, 1, curTex->w * curTex->h * 2, texDebugLog);
+                    fclose(texDebugLog);
+                }
             }
             isWritedTex = true;
         }
