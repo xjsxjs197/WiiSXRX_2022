@@ -1579,11 +1579,11 @@ int CheckFullScreenUpload ( void )
     }
 
     if ((screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
-        && screenWidth == (PreviousPSXDisplay.DisplayEnd.x - PreviousPSXDisplay.DisplayPosition.x)
-         && screenHeight == (PreviousPSXDisplay.DisplayEnd.y - PreviousPSXDisplay.DisplayPosition.y))
+        && screenX1 == PreviousPSXDisplay.DisplayEnd.x
+         && screenY1 == PreviousPSXDisplay.DisplayEnd.y)
             || (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
-                && screenWidth == (PSXDisplay.DisplayEnd.x - PSXDisplay.DisplayPosition.x)
-                && screenHeight == (PSXDisplay.DisplayEnd.y - PSXDisplay.DisplayPosition.y)))
+                && screenX1 == PSXDisplay.DisplayEnd.x
+                && screenY1 == PSXDisplay.DisplayEnd.y))
     {
         if (needUploadScreen == TRUE && uploadedScreen == FALSE)
         {
@@ -1595,9 +1595,9 @@ int CheckFullScreenUpload ( void )
             uploadedScreen = TRUE;
 
             xrUploadArea.x0 = screenX;
-            xrUploadArea.x1 = screenX + screenWidth;
+            xrUploadArea.x1 = screenX1;
             xrUploadArea.y0 = screenY;
-            xrUploadArea.y1 = screenY + screenHeight;
+            xrUploadArea.y1 = screenY1;
             UploadScreen(PSXDisplay.Interlaced);              // -> upload whole screen from psx vram
 
             return 1;
@@ -1730,7 +1730,7 @@ int UploadScreen ( int Position )
             int startY = xrUploadArea.y0;
             for (; startY < xrUploadArea.y0 + clearH; startY++)
             {
-                memset(psxVuw + (startY << 10) + clearMovieGarbageX0, 0, (clearMovieGarbageX1 - clearMovieGarbageX0) * 3);
+                memset(psxVuw + (startY << 10) + clearMovieGarbageX0, 0, (clearMovieGarbageX1 - clearMovieGarbageX0) * 2);
             }
 
             // clear bottom area
@@ -1738,7 +1738,7 @@ int UploadScreen ( int Position )
             int endY = xrUploadArea.y1;
             for (; startY < endY; startY++)
             {
-                memset(psxVuw + (startY << 10) + clearMovieGarbageX0, 0, (clearMovieGarbageX1 - clearMovieGarbageX0) * 3);
+                memset(psxVuw + (startY << 10) + clearMovieGarbageX0, 0, (clearMovieGarbageX1 - clearMovieGarbageX0) * 2);
             }
         }
 
@@ -2179,8 +2179,10 @@ static void cmdDrawAreaEnd ( unsigned char * baseAddr )
     {
         screenX = PSXDisplay.DrawArea.x0;
         screenY = PSXDisplay.DrawArea.y0;
-        screenWidth = PSXDisplay.DrawArea.x1 + 1 - screenX;
-        screenHeight = PSXDisplay.DrawArea.y1 + 1 - screenY;
+        screenX1 = PSXDisplay.DrawArea.x1 + 1;
+        screenY1 = PSXDisplay.DrawArea.y1 + 1;
+        screenWidth = screenX1 - screenX;
+        screenHeight = screenY1 - screenY;
         needUploadScreen = FALSE;
     }
 
@@ -2353,11 +2355,9 @@ void CheckWriteUpdate()
             CheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
         if ((screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
-             && screenWidth == (PreviousPSXDisplay.DisplayEnd.x - PreviousPSXDisplay.DisplayPosition.x)
-             && screenHeight == (PreviousPSXDisplay.DisplayEnd.y - PreviousPSXDisplay.DisplayPosition.y))
+             && screenX1 == PreviousPSXDisplay.DisplayEnd.x && screenY1 == PreviousPSXDisplay.DisplayEnd.y)
             || (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
-                && screenWidth == (PSXDisplay.DisplayEnd.x - PSXDisplay.DisplayPosition.x)
-                && screenHeight == (PSXDisplay.DisplayEnd.y - PSXDisplay.DisplayPosition.y)))
+                && screenX1 == PSXDisplay.DisplayEnd.x && screenY1 == PSXDisplay.DisplayEnd.y))
         {
             //if ( dwActFixes & 0x800 ) return;
 
@@ -2369,14 +2369,19 @@ void CheckWriteUpdate()
             isFrameOk = TRUE;
             uploaded = UploadScreen ( FALSE );
 
-            bNeedUploadTest = TRUE;
+            //bNeedUploadTest = TRUE;
+            if (uploaded)
+            {
+                needUploadScreen = FALSE;
+                uploadedScreen = FALSE;
+            }
         }
     }
 
     if (uploaded == 0 &&
-        ((VRAMWrite.y + VRAMWrite.Height) <= (screenY + screenHeight))
+        ((VRAMWrite.y + VRAMWrite.Height) <= screenY1)
         && (VRAMWrite.y >= screenY)
-        && ((VRAMWrite.x + VRAMWrite.Width) <= (screenX + screenWidth))
+        && ((VRAMWrite.x + VRAMWrite.Width) <= screenX1)
         && (VRAMWrite.x >= screenX))
     {
         // need upload screen ?
@@ -2516,6 +2521,15 @@ static void primBlkFill ( unsigned char * baseAddr )
     // Increase H & W if they are one short of full values, because they never can be full values
     if ( sprtH >= 1023 )  sprtH = 1023;
     if ( sprtW >= 1023 )  sprtW = 1024;
+
+    if (sprtW == 0)
+    {
+        sprtW = screenWidth;
+    }
+    if (sprtH == 0)
+    {
+        screenHeight = screenWidth;
+    }
 
     // x and y of end pos
     //sprtW += sprtX;
@@ -2698,76 +2712,41 @@ static void MoveImageWrapped ( short imageX0, short imageY0,
 {
     int i, j, imageXE, imageYE;
 
-    if ( iFrameReadType & 2 )
-    {
-        imageXE = imageX0 + imageSX;
-        imageYE = imageY0 + imageSY;
-
-        if ( imageYE > iGPUHeight && imageXE > 1024 )
-        {
-            CheckVRamRead ( 0, 0,
-                            ( imageXE & 0x3ff ),
-                            ( imageY0 & iGPUHeightMask ),
-                            FALSE );
-        }
-
-        if ( imageXE > 1024 )
-        {
-            CheckVRamRead ( 0, imageY0,
-                            ( imageXE & 0x3ff ),
-                            ( imageYE > iGPUHeight ) ? iGPUHeight : imageYE,
-                            FALSE );
-        }
-
-        if ( imageYE > iGPUHeight )
-        {
-            CheckVRamRead ( imageX0, 0,
-                            ( imageXE > 1024 ) ? 1024 : imageXE,
-                            imageYE & iGPUHeightMask,
-                            FALSE );
-        }
-
-        CheckVRamRead ( imageX0, imageY0,
-                        ( imageXE > 1024 ) ? 1024 : imageXE,
-                        ( imageYE > iGPUHeight ) ? iGPUHeight : imageYE,
-                        FALSE );
-    }
-
     for ( j = 0; j < imageSY; j++ )
         for ( i = 0; i < imageSX; i++ )
             psxVuw [ ( 1024 * ( ( imageY1 + j ) &iGPUHeightMask ) ) + ( ( imageX1 + i ) & 0x3ff )] =
                 psxVuw[ ( 1024 * ( ( imageY0 + j ) &iGPUHeightMask ) ) + ( ( imageX0 + i ) & 0x3ff )];
 
-    if ( !PSXDisplay.RGB24 )
-    {
-        imageXE = imageX1 + imageSX;
-        imageYE = imageY1 + imageSY;
-
-        if ( imageYE > iGPUHeight && imageXE > 1024 )
-        {
-            InvalidateTextureArea ( 0, 0,
-                                    ( imageXE & 0x3ff ) - 1,
-                                    ( imageYE & iGPUHeightMask ) - 1 );
-        }
-
-        if ( imageXE > 1024 )
-        {
-            InvalidateTextureArea ( 0, imageY1,
-                                    ( imageXE & 0x3ff ) - 1,
-                                    ( ( imageYE > iGPUHeight ) ? iGPUHeight : imageYE ) - imageY1 - 1 );
-        }
-
-        if ( imageYE > iGPUHeight )
-        {
-            InvalidateTextureArea ( imageX1, 0,
-                                    ( ( imageXE > 1024 ) ? 1024 : imageXE ) - imageX1 - 1,
-                                    ( imageYE & iGPUHeightMask ) - 1 );
-        }
-
-        InvalidateTextureArea ( imageX1, imageY1,
-                                ( ( imageXE > 1024 ) ? 1024 : imageXE ) - imageX1 - 1,
-                                ( ( imageYE > iGPUHeight ) ? iGPUHeight : imageYE ) - imageY1 - 1 );
-    }
+//    if ( !PSXDisplay.RGB24 )
+//    {
+//        imageXE = imageX1 + imageSX;
+//        imageYE = imageY1 + imageSY;
+//
+//        if ( imageYE > iGPUHeight && imageXE > 1024 )
+//        {
+//            InvalidateTextureArea ( 0, 0,
+//                                    ( imageXE & 0x3ff ) - 1,
+//                                    ( imageYE & iGPUHeightMask ) - 1 );
+//        }
+//
+//        if ( imageXE > 1024 )
+//        {
+//            InvalidateTextureArea ( 0, imageY1,
+//                                    ( imageXE & 0x3ff ) - 1,
+//                                    ( ( imageYE > iGPUHeight ) ? iGPUHeight : imageYE ) - imageY1 - 1 );
+//        }
+//
+//        if ( imageYE > iGPUHeight )
+//        {
+//            InvalidateTextureArea ( imageX1, 0,
+//                                    ( ( imageXE > 1024 ) ? 1024 : imageXE ) - imageX1 - 1,
+//                                    ( imageYE & iGPUHeightMask ) - 1 );
+//        }
+//
+//        InvalidateTextureArea ( imageX1, imageY1,
+//                                ( ( imageXE > 1024 ) ? 1024 : imageXE ) - imageX1 - 1,
+//                                ( ( imageYE > iGPUHeight ) ? iGPUHeight : imageYE ) - imageY1 - 1 );
+//    }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2789,7 +2768,12 @@ static void primMoveImage ( unsigned char * baseAddr )
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     sprintf ( txtbuffer, "primMoveImage %d %d %d %d %d %d %d %d\r\n", bCheckMask, sSetMask, imageX0, imageY0, imageX1, imageY1, imageSX, imageSY);
-    DEBUG_print ( txtbuffer, DBG_CDR1 );
+    writeLogFile ( txtbuffer );
+    sprintf ( txtbuffer, "DisplayInfo %d %d %d %d %d %d %d %d\r\n",
+             PreviousPSXDisplay.DisplayPosition.x, PreviousPSXDisplay.DisplayPosition.y, PreviousPSXDisplay.DisplayEnd.x, PreviousPSXDisplay.DisplayEnd.y,
+             PSXDisplay.DisplayPosition.x,         PSXDisplay.DisplayPosition.y,         PSXDisplay.DisplayEnd.x,         PSXDisplay.DisplayEnd.y);
+    writeLogFile ( txtbuffer );
+    sprintf ( txtbuffer, "screenInfo %d %d %d %d\r\n", screenX, screenY, screenWidth, screenHeight);
     writeLogFile ( txtbuffer );
     #endif // DISP_DEBUG
 
@@ -2802,8 +2786,6 @@ static void primMoveImage ( unsigned char * baseAddr )
     if ( imageSX <= 0 ) return;
     if ( imageSY <= 0 ) return;
 
-//if(iGPUHeight==1024 && sgpuData[7]>1024) return;
-
     if ( ( imageY0 + imageSY ) > iGPUHeight ||
             ( imageX0 + imageSX ) > 1024       ||
             ( imageY1 + imageSY ) > iGPUHeight ||
@@ -2815,13 +2797,6 @@ static void primMoveImage ( unsigned char * baseAddr )
         if ( ( imageY1 + imageSY ) > iGPUHeight ) imageSY = iGPUHeight - imageY1;
         if ( ( imageX1 + imageSX ) > 1024 )       imageSX = 1024 - imageX1;
     }
-
-//    if ( iFrameReadType & 2 )
-//        CheckVRamRead ( imageX0, imageY0,
-//                        imageX0 + imageSX,
-//                        imageY0 + imageSY,
-//                        FALSE );
-
     else if ( (imageSX | imageX0 | imageX1) & 1 ) // not dword aligned? slower func
     {
         unsigned short *SRCPtr, *DSTPtr;
@@ -2862,85 +2837,114 @@ static void primMoveImage ( unsigned char * baseAddr )
     {
         InvalidateTextureArea ( imageX1, imageY1, imageSX - 1, imageSY - 1 );
 
+        int uploaded = 0;
         if ( CheckAgainstScreen ( imageX1, imageY1, imageSX, imageSY ) )
         {
-            if ( imageX1 >= PreviousPSXDisplay.DisplayPosition.x &&
-                    imageX1 < PreviousPSXDisplay.DisplayEnd.x &&
-                    imageY1 >= PreviousPSXDisplay.DisplayPosition.y &&
-                    imageY1 < PreviousPSXDisplay.DisplayEnd.y )
+            if ((screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
+             && screenX1 == PreviousPSXDisplay.DisplayEnd.x && screenY1 == PreviousPSXDisplay.DisplayEnd.y)
+            || (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
+                && screenX1 == PSXDisplay.DisplayEnd.x && screenY1 == PSXDisplay.DisplayEnd.y))
             {
-                imageX1 += imageSX;
-                imageY1 += imageSY;
-
-                if ( imageX1 >= PreviousPSXDisplay.DisplayPosition.x &&
-                        imageX1 <= PreviousPSXDisplay.DisplayEnd.x &&
-                        imageY1 >= PreviousPSXDisplay.DisplayPosition.y &&
-                        imageY1 <= PreviousPSXDisplay.DisplayEnd.y )
-                {
-                    if ( ! (
-                                imageX0 >= PSXDisplay.DisplayPosition.x &&
-                                imageX0 < PSXDisplay.DisplayEnd.x &&
-                                imageY0 >= PSXDisplay.DisplayPosition.y &&
-                                imageY0 < PSXDisplay.DisplayEnd.y
-                            ) )
-                    {
-                        if ( bRenderFrontBuffer )
-                        {
-                            updateFrontDisplayGl();
-                        }
-
-                        UploadScreen ( FALSE );
-                    }
-                    else bFakeFrontBuffer = TRUE;
-                }
-            }
-
-            bNeedUploadTest = TRUE;
-        }
-        else if ( iOffscreenDrawing )
-        {
-#if defined(DISP_DEBUG)
-            //sprintf ( txtbuffer, "MoveImage 3 %d\r\n", iOffscreenDrawing );
-            //DEBUG_print ( txtbuffer, DBG_SPU3 );
-            //writeLogFile ( txtbuffer );
-#endif // DISP_DEBUG
-            if ( CheckAgainstFrontScreen ( imageX1, imageY1, imageSX, imageSY ) )
-            {
-                if ( !PSXDisplay.InterlacedTest &&
-//          !bFullVRam &&
-                        ( (
-                              imageX0 >= PreviousPSXDisplay.DisplayPosition.x &&
-                              imageX0 < PreviousPSXDisplay.DisplayEnd.x &&
-                              imageY0 >= PreviousPSXDisplay.DisplayPosition.y &&
-                              imageY0 < PreviousPSXDisplay.DisplayEnd.y
-                          ) ||
-                          (
-                              imageX0 >= PSXDisplay.DisplayPosition.x &&
-                              imageX0 < PSXDisplay.DisplayEnd.x &&
-                              imageY0 >= PSXDisplay.DisplayPosition.y &&
-                              imageY0 < PSXDisplay.DisplayEnd.y
-                          ) ) )
-                    return;
+                isFrameOk = TRUE;
+                uploaded = UploadScreen ( FALSE );
 
                 bNeedUploadTest = TRUE;
-
-                if ( !bNeedUploadAfter )
-                {
-                    bNeedUploadAfter = TRUE;
-                    xrUploadArea.x0 = imageX0;
-                    xrUploadArea.x1 = imageX0 + imageSX;
-                    xrUploadArea.y0 = imageY0;
-                    xrUploadArea.y1 = imageY0 + imageSY;
-                }
-                else
-                {
-                    xrUploadArea.x0 = min ( xrUploadArea.x0, imageX0 );
-                    xrUploadArea.x1 = max ( xrUploadArea.x1, imageX0 + imageSX );
-                    xrUploadArea.y0 = min ( xrUploadArea.y0, imageY0 );
-                    xrUploadArea.y1 = max ( xrUploadArea.y1, imageY0 + imageSY );
-                }
             }
+
+//            if ( imageX1 >= PreviousPSXDisplay.DisplayPosition.x &&
+//                    imageX1 < PreviousPSXDisplay.DisplayEnd.x &&
+//                    imageY1 >= PreviousPSXDisplay.DisplayPosition.y &&
+//                    imageY1 < PreviousPSXDisplay.DisplayEnd.y )
+//            {
+//                imageX1 += imageSX;
+//                imageY1 += imageSY;
+//
+//                if ( imageX1 >= PreviousPSXDisplay.DisplayPosition.x &&
+//                        imageX1 <= PreviousPSXDisplay.DisplayEnd.x &&
+//                        imageY1 >= PreviousPSXDisplay.DisplayPosition.y &&
+//                        imageY1 <= PreviousPSXDisplay.DisplayEnd.y )
+//                {
+//                    if ( ! (
+//                                imageX0 >= PSXDisplay.DisplayPosition.x &&
+//                                imageX0 < PSXDisplay.DisplayEnd.x &&
+//                                imageY0 >= PSXDisplay.DisplayPosition.y &&
+//                                imageY0 < PSXDisplay.DisplayEnd.y
+//                            ) )
+//                    {
+//                        if ( bRenderFrontBuffer )
+//                        {
+//                            updateFrontDisplayGl();
+//                        }
+//
+//                        UploadScreen ( FALSE );
+//                    }
+//                    else bFakeFrontBuffer = TRUE;
+//                }
+//            }
+//
+//            bNeedUploadTest = TRUE;
         }
+
+        if (uploaded == 0 &&
+            ((imageY1 + imageSY) <= screenY1)
+            && (imageY1 >= screenY)
+            && ((imageX1 + imageSX) <= screenX1)
+            && (imageX1 >= screenX))
+        {
+            xrUploadArea.x0 = imageX1;
+            xrUploadArea.y0 = imageY1;
+            xrUploadArea.x1 = imageX1 + imageSX;
+            xrUploadArea.y1 = imageY1 + imageSY;
+            uploaded = UploadScreen ( FALSE );
+            if (uploaded)
+            {
+                needFlipEGL = TRUE;
+            }
+
+            #if defined(DISP_DEBUG)
+            sprintf ( txtbuffer, "MoveImage UploadedScreen\r\n" );
+            writeLogFile ( txtbuffer );
+            #endif // DISP_DEBUG
+        }
+//        else if ( iOffscreenDrawing )
+//        {
+//            if ( CheckAgainstFrontScreen ( imageX1, imageY1, imageSX, imageSY ) )
+//            {
+//                if ( !PSXDisplay.InterlacedTest &&
+////          !bFullVRam &&
+//                        ( (
+//                              imageX0 >= PreviousPSXDisplay.DisplayPosition.x &&
+//                              imageX0 < PreviousPSXDisplay.DisplayEnd.x &&
+//                              imageY0 >= PreviousPSXDisplay.DisplayPosition.y &&
+//                              imageY0 < PreviousPSXDisplay.DisplayEnd.y
+//                          ) ||
+//                          (
+//                              imageX0 >= PSXDisplay.DisplayPosition.x &&
+//                              imageX0 < PSXDisplay.DisplayEnd.x &&
+//                              imageY0 >= PSXDisplay.DisplayPosition.y &&
+//                              imageY0 < PSXDisplay.DisplayEnd.y
+//                          ) ) )
+//                    return;
+//
+//                bNeedUploadTest = TRUE;
+//
+//                if ( !bNeedUploadAfter )
+//                {
+//                    bNeedUploadAfter = TRUE;
+//                    xrUploadArea.x0 = imageX0;
+//                    xrUploadArea.x1 = imageX0 + imageSX;
+//                    xrUploadArea.y0 = imageY0;
+//                    xrUploadArea.y1 = imageY0 + imageSY;
+//                }
+//                else
+//                {
+//                    xrUploadArea.x0 = min ( xrUploadArea.x0, imageX0 );
+//                    xrUploadArea.x1 = max ( xrUploadArea.x1, imageX0 + imageSX );
+//                    xrUploadArea.y0 = min ( xrUploadArea.y0, imageY0 );
+//                    xrUploadArea.y1 = max ( xrUploadArea.y1, imageY0 + imageSY );
+//                }
+//            }
+//        }
     }
 }
 
@@ -2958,6 +2962,15 @@ static void primTileS ( unsigned char * baseAddr )
     sprtY = GETLEs16 ( &sgpuData[3] );
     sprtW = GETLEs16 ( &sgpuData[4] ) & 0x3ff;
     sprtH = GETLEs16 ( &sgpuData[5] ) & iGPUHeightMask;
+
+    if (sprtW == 0)
+    {
+        sprtW = screenWidth;
+    }
+    if (sprtH == 0)
+    {
+        screenHeight = screenWidth;
+    }
 
 // x and y of start
 

@@ -139,21 +139,26 @@ static unsigned short largeRangeY2 = 0;
 
 static unsigned short screenX = 0;
 static unsigned short screenY = 0;
+static unsigned short screenX1 = 320;
+static unsigned short screenY1 = 240;
 static unsigned short screenWidth = 320;
 static unsigned short screenHeight = 240;
 static BOOL    isFrameOk = FALSE;
 
 static BOOL    needUploadScreen = FALSE;
 static BOOL    uploadedScreen = FALSE;
+static BOOL    needFlipEGL = FALSE;
 
 #define CHECK_SCREEN_INFO() { \
     screenX = PSXDisplay.DisplayPosition.x; \
     screenY = PSXDisplay.DisplayPosition.y; \
     screenWidth = PSXDisplay.DisplayModeNew.x; \
     screenHeight = PSXDisplay.DisplayModeNew.y; \
+    screenX1 = screenX + screenWidth; \
+    screenY1 = screenY + screenHeight; \
 }
 
-#define CLEAR_SCREEN(x0, y0, x1, y1)  (((screenY + screenHeight - 1) <= y1) && (screenY >= y0) && ((screenX + screenWidth - 1) <= x1) && (screenX >= x0))
+#define CLEAR_SCREEN(x0, y0, x1, y1)  (((screenY1 - 1) <= y1) && (screenY >= y0) && ((screenX1 - 1) <= x1) && (screenX >= x0))
 
 #define INRANGE(x1, x2, y1, y2) ((y2 <= largeRangeY2) && (y1 >= largeRangeY1) && (x2 <= largeRangeX2) && (x1 >= largeRangeX1))
 
@@ -993,7 +998,7 @@ else if(usFirstPos==1)                                // initial updates (after 
      sprintf ( txtbuffer, "GPUupdateLace5 %d %d %d %d\r\n", iDrawnSomething, PSXDisplay.Interlaced, PSXDisplay.Disabled, PSXDisplay.InterlacedTest);
      writeLogFile ( txtbuffer );
      #endif // DISP_DEBUG
-     if (CheckFullScreenUpload())
+     if (CheckFullScreenUpload() || needFlipEGL == TRUE)
      {
          flipEGL();
      }
@@ -2207,6 +2212,7 @@ static void flipEGL(void)
     clearLargeRange = 0;
     isFrameOk = FALSE;
     uploadedScreen = FALSE;
+    needFlipEGL = FALSE;
 }
 
 #include "../Gamecube/wiiSXconfig.h"
