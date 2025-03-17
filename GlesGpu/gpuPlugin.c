@@ -148,6 +148,7 @@ static BOOL    isFrameOk = FALSE;
 static BOOL    needUploadScreen = FALSE;
 static BOOL    uploadedScreen = FALSE;
 static BOOL    needFlipEGL = FALSE;
+static unsigned short    RGB24Uploaded = 0;
 
 #define CHECK_SCREEN_INFO() { \
     screenX = PSXDisplay.DisplayPosition.x; \
@@ -1007,6 +1008,20 @@ else if(usFirstPos==1)                                // initial updates (after 
          isFrameOk = FALSE;
          updateDisplayGl();
      }
+     else if (RGB24Uploaded)
+     {
+         isFrameOk = TRUE;
+         xrUploadArea.x0 = PreviousPSXDisplay.DisplayPosition.x;
+         xrUploadArea.x1 = PreviousPSXDisplay.DisplayEnd.x;
+         xrUploadArea.y0 = PreviousPSXDisplay.DisplayPosition.y;
+         xrUploadArea.y1 = PreviousPSXDisplay.DisplayEnd.y;
+         #if defined(DISP_DEBUG)
+         sprintf(txtbuffer, "Upload Movie Screen %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1, xrUploadArea.y1, RGB24Uploaded);
+         writeLogFile(txtbuffer);
+         #endif // DISP_DEBUG
+         UploadScreen(PSXDisplay.Interlaced);              // -> upload whole screen from psx vram
+         flipEGL();
+     }
  }
 }
 
@@ -1201,12 +1216,6 @@ switch(lCommand)
          writeLogFile(txtbuffer);
          #endif // DISP_DEBUG
          //updateDisplayGl();
-         if (PSXDisplay.RGB24)
-         {
-             isFrameOk = TRUE;
-             updateDisplayGl();
-         }
-
          CHECK_SCREEN_INFO();
      }
     else
@@ -2213,6 +2222,7 @@ static void flipEGL(void)
     isFrameOk = FALSE;
     uploadedScreen = FALSE;
     needFlipEGL = FALSE;
+    RGB24Uploaded = 0;
 }
 
 #include "../Gamecube/wiiSXconfig.h"

@@ -1578,17 +1578,31 @@ int CheckFullScreenUpload ( void )
         return 0;
     }
 
-    if ((screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
-        && screenX1 == PreviousPSXDisplay.DisplayEnd.x
-         && screenY1 == PreviousPSXDisplay.DisplayEnd.y)
-            || (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
-                && screenX1 == PSXDisplay.DisplayEnd.x
-                && screenY1 == PSXDisplay.DisplayEnd.y))
+    if (needUploadScreen == TRUE && uploadedScreen == FALSE)
     {
-        if (needUploadScreen == TRUE && uploadedScreen == FALSE)
+        if (screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
+            && screenX1 <= PreviousPSXDisplay.DisplayEnd.x && screenY1 <= PreviousPSXDisplay.DisplayEnd.y)
         {
             #if defined(DISP_DEBUG)
-            sprintf(txtbuffer, "Upload Full Screen\r\n");
+            sprintf(txtbuffer, "Upload Full Screen Pre\r\n");
+            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
+
+            uploadedScreen = TRUE;
+
+            xrUploadArea.x0 = screenX;
+            xrUploadArea.x1 = screenX1;
+            xrUploadArea.y0 = screenY;
+            xrUploadArea.y1 = screenY1;
+            UploadScreen(PSXDisplay.Interlaced);              // -> upload whole screen from psx vram
+
+            return 1;
+        }
+        else if (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
+                    && screenX1 <= PSXDisplay.DisplayEnd.x && screenY1 <= PSXDisplay.DisplayEnd.y)
+        {
+            #if defined(DISP_DEBUG)
+            sprintf(txtbuffer, "Upload Full Screen Cur\r\n");
             writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
 
@@ -2251,7 +2265,7 @@ static void primLoadImage ( unsigned char * baseAddr )
     if (PSXDisplay.RGB24)
     {
         #if defined(DISP_DEBUG)
-        sprintf ( txtbuffer, "primLoadImage24 %d %d %d %d %d %d\r\n", VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height, PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560, PSXDisplay.Height );
+        sprintf ( txtbuffer, "primLoadImage24 %d %d %d %d %d %d\r\n", VRAMWrite.x * 2 / 3, VRAMWrite.y, VRAMWrite.Width * 2 / 3, VRAMWrite.Height, PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560, PSXDisplay.Height );
         DEBUG_print ( txtbuffer, DBG_SPU1 );
         writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
@@ -2306,17 +2320,25 @@ static void PrepareRGB24Upload ( void )
     if ( !PSXDisplay.InterlacedTest && // NEW
             CheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
-        xrUploadArea.x0 -= PreviousPSXDisplay.DisplayPosition.x;
-        xrUploadArea.x1 -= PreviousPSXDisplay.DisplayPosition.x;
-        xrUploadArea.y0 -= PreviousPSXDisplay.DisplayPosition.y;
-        xrUploadArea.y1 -= PreviousPSXDisplay.DisplayPosition.y;
+//        xrUploadArea.x0 -= PreviousPSXDisplay.DisplayPosition.x;
+//        xrUploadArea.x1 -= PreviousPSXDisplay.DisplayPosition.x;
+//        xrUploadArea.y0 -= PreviousPSXDisplay.DisplayPosition.y;
+//        xrUploadArea.y1 -= PreviousPSXDisplay.DisplayPosition.y;
+        if (VRAMWrite.x + VRAMWrite.Width >= PreviousPSXDisplay.DisplayEnd.x)
+        {
+            RGB24Uploaded = 1;
+        }
     }
     else if ( CheckAgainstFrontScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
-        xrUploadArea.x0 -= PSXDisplay.DisplayPosition.x;
-        xrUploadArea.x1 -= PSXDisplay.DisplayPosition.x;
-        xrUploadArea.y0 -= PSXDisplay.DisplayPosition.y;
-        xrUploadArea.y1 -= PSXDisplay.DisplayPosition.y;
+//        xrUploadArea.x0 -= PSXDisplay.DisplayPosition.x;
+//        xrUploadArea.x1 -= PSXDisplay.DisplayPosition.x;
+//        xrUploadArea.y0 -= PSXDisplay.DisplayPosition.y;
+//        xrUploadArea.y1 -= PSXDisplay.DisplayPosition.y;
+        if (VRAMWrite.x + VRAMWrite.Width >= PSXDisplay.DisplayEnd.x)
+        {
+            RGB24Uploaded = 2;
+        }
     }
 }
 
@@ -2355,9 +2377,9 @@ void CheckWriteUpdate()
             CheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
         if ((screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
-             && screenX1 == PreviousPSXDisplay.DisplayEnd.x && screenY1 == PreviousPSXDisplay.DisplayEnd.y)
+             && screenX1 <= PreviousPSXDisplay.DisplayEnd.x && screenY1 <= PreviousPSXDisplay.DisplayEnd.y)
             || (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
-                && screenX1 == PSXDisplay.DisplayEnd.x && screenY1 == PSXDisplay.DisplayEnd.y))
+                && screenX1 <= PSXDisplay.DisplayEnd.x && screenY1 <= PSXDisplay.DisplayEnd.y))
         {
             //if ( dwActFixes & 0x800 ) return;
 
