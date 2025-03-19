@@ -2382,7 +2382,14 @@ void CheckWriteUpdate()
     // so the data uploaded by command primLoadImage does not need to be manually displayed on the screen
     if (drawTexturePage == FALSE)
     {
-        return;
+        if (VRAMWrite.Width != screenWidth || VRAMWrite.Height != screenHeight)
+        {
+            #if defined(DISP_DEBUG)
+            sprintf ( txtbuffer, "No drawTexturePage\r\n" );
+            writeLogFile ( txtbuffer );
+            #endif // DISP_DEBUG
+            return;
+        }
     }
 
     int uploaded = 0;
@@ -2811,6 +2818,7 @@ static void primMoveImage ( unsigned char * baseAddr )
     if (imageSX == 2 && imageSY == 1)
     {
         isFrameOk = TRUE;
+        iDrawnSomething &= ~0x8;
     }
 
     if ( ( imageX0 == imageX1 ) && ( imageY0 == imageY1 ) ) return;
@@ -2976,6 +2984,14 @@ static void primMoveImage ( unsigned char * baseAddr )
 //                }
 //            }
 //        }
+    }
+    else
+    {
+        iDrawnSomething |= 0x8;
+        if (imageSX == screenWidth || imageSY == screenHeight)
+        {
+            RGB24Uploaded = TRUE;
+        }
     }
 }
 
@@ -4807,7 +4823,7 @@ static void primPolyGT4 ( unsigned char *baseAddr )
 {
     CheckFullScreenUpload();
 
-    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
     sprintf ( txtbuffer, "primPolyGT4 \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
     writeLogFile(txtbuffer);
