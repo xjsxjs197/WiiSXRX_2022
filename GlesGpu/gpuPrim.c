@@ -1725,7 +1725,7 @@ int UploadScreen ( int Position )
         return 0;
     }
 
-    iDrawnSomething   = 2;
+    iDrawnSomething |= 0x2;
     iLastRGB24 = PSXDisplay.RGB24 + 1;
 
     if ( bSkipNextFrame ) return 0;
@@ -1735,6 +1735,11 @@ int UploadScreen ( int Position )
     // Clear Movie garbage
     if (PSXDisplay.RGB24)
     {
+        if (RGB24Uploaded == 0)
+        {
+            return 1;
+        }
+
         if (clearMovieGarbageFlg == 1 && clearMovieGarbageCnt++ < 3)
         {
             int realMovieHeight = clearMovieGarbageY1 - clearMovieGarbageY0;
@@ -1970,6 +1975,7 @@ static void cmdTexturePage ( unsigned char * baseAddr )
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
     uint32_t gdata = GETLE32 ( ( uint32_t* ) baseAddr );
+    drawTexturePage = TRUE;
 
     usMirror = gdata & 0x3000;
     STATUSREG &= ~0x07ff;                                 // Clear the necessary bits
@@ -2372,14 +2378,17 @@ void CheckWriteUpdate()
         return;
     }
 
+    // The current frame does not have the cmdTexturePage command,
+    // so the data uploaded by command primLoadImage does not need to be manually displayed on the screen
+    if (drawTexturePage == FALSE)
+    {
+        return;
+    }
+
     int uploaded = 0;
     if ( !PSXDisplay.InterlacedTest &&
             CheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
-        if ((screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
-             && screenX1 <= PreviousPSXDisplay.DisplayEnd.x && screenY1 <= PreviousPSXDisplay.DisplayEnd.y)
-            || (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
-                && screenX1 <= PSXDisplay.DisplayEnd.x && screenY1 <= PSXDisplay.DisplayEnd.y))
         {
             //if ( dwActFixes & 0x800 ) return;
 
@@ -2531,7 +2540,7 @@ static void primBlkFill ( unsigned char * baseAddr )
     uint32_t *gpuData = ( ( unsigned long * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x4;
 
     sprtX = GETLEs16 ( &sgpuData[2] );
     sprtY = GETLEs16 ( &sgpuData[3] );
@@ -2870,7 +2879,7 @@ static void primMoveImage ( unsigned char * baseAddr )
                 isFrameOk = TRUE;
                 uploaded = UploadScreen ( FALSE );
 
-                bNeedUploadTest = TRUE;
+                //bNeedUploadTest = TRUE;
             }
 
 //            if ( imageX1 >= PreviousPSXDisplay.DisplayPosition.x &&
@@ -3080,7 +3089,7 @@ static void primTileS ( unsigned char * baseAddr )
 
     PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -3135,7 +3144,7 @@ static void primTile1 ( unsigned char * baseAddr )
 
     PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -3189,7 +3198,7 @@ static void primTile8 ( unsigned char * baseAddr )
 
     PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -3243,7 +3252,7 @@ static void primTile16 ( unsigned char * baseAddr )
 
     PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -3386,7 +3395,7 @@ writeLogFile(txtbuffer);
         PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
     iSpriteTex = 0;
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -3494,7 +3503,7 @@ writeLogFile(txtbuffer);
         PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
     iSpriteTex = 0;
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -3818,7 +3827,7 @@ static void primSprtS ( unsigned char * baseAddr )
     }
 
     iSpriteTex = 0;
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -3871,7 +3880,7 @@ static void primPolyF4 ( unsigned char *baseAddr )
 
     PRIMdrawTri2 ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -3997,7 +4006,7 @@ static void primPolyG4 ( unsigned char * baseAddr )
 
     PRIMdrawGouraudTri2Color ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -4148,7 +4157,7 @@ static BOOL DoLineCheck ( unsigned int * gpuData )
 
     PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 
     return TRUE;
 }
@@ -4216,7 +4225,7 @@ static void primPolyFT3 ( unsigned char * baseAddr )
 
     PRIMdrawTexturedTri ( &vertex[0], &vertex[1], &vertex[2] );
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -4646,7 +4655,7 @@ static void primPolyFT4 ( unsigned char * baseAddr )
 
     PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -4734,7 +4743,7 @@ static void primPolyGT3 ( unsigned char *baseAddr )
 
     PRIMdrawTexGouraudTriColor ( &vertex[0], &vertex[1], &vertex[2] );
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -4787,7 +4796,7 @@ static void primPolyG3 ( unsigned char *baseAddr )
 
     PRIMdrawGouraudTriColor ( &vertex[0], &vertex[1], &vertex[2] );
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -4885,7 +4894,7 @@ static void primPolyGT4 ( unsigned char *baseAddr )
 
     PRIMdrawTexGouraudTriColorQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -4938,7 +4947,7 @@ static void primPolyF3 ( unsigned char *baseAddr )
 
     PRIMdrawTri ( &vertex[0], &vertex[1], &vertex[2] );
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -5045,7 +5054,7 @@ static void primLineGEx ( unsigned char *baseAddr )
         if ( i > iMax ) break;
     }
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -5098,7 +5107,7 @@ static void primLineG2 ( unsigned char *baseAddr )
 //if(ClipVertexList4())
     PRIMdrawGouraudLine ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -5192,7 +5201,7 @@ static void primLineFEx ( unsigned char *baseAddr )
         if ( i > iMax ) break;
     }
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -5241,7 +5250,7 @@ static void primLineF2 ( unsigned char *baseAddr )
 //if(ClipVertexList4())
     PRIMdrawFlatLine ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-    iDrawnSomething = 1;
+    iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////

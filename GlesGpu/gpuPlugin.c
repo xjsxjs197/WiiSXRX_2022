@@ -149,6 +149,8 @@ static BOOL    needUploadScreen = FALSE;
 static BOOL    uploadedScreen = FALSE;
 static BOOL    needFlipEGL = FALSE;
 static unsigned short    RGB24Uploaded = 0;
+// Use drawTexturePage flag to determine whether the data uploaded through command primLoadImage needs to be manually displayed on the screen
+static BOOL    drawTexturePage = FALSE;
 
 #define CHECK_SCREEN_INFO() { \
     screenX = PSXDisplay.DisplayPosition.x; \
@@ -964,7 +966,7 @@ if(PSXDisplay.Interlaced)                             // interlaced mode?
     writeLogFile ( txtbuffer );
     #endif // DISP_DEBUG
 
-    isFrameOk = iDrawnSomething ? TRUE : FALSE;
+    isFrameOk = (iDrawnSomething & 0x1) ? TRUE : FALSE;
     updateDisplayGl();                                  // -> swap buffers (new frame)
    }
      #ifdef DISP_DEBUG
@@ -2223,6 +2225,10 @@ static void flipEGL(void)
     uploadedScreen = FALSE;
     needFlipEGL = FALSE;
     RGB24Uploaded = 0;
+    if (!PSXDisplay.Disabled)
+    {
+        drawTexturePage = FALSE;
+    }
 }
 
 #include "../Gamecube/wiiSXconfig.h"
