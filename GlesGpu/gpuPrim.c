@@ -1725,12 +1725,9 @@ int UploadScreen ( int Position )
         return 0;
     }
 
-    iDrawnSomething |= 0x2;
     iLastRGB24 = PSXDisplay.RGB24 + 1;
 
     if ( bSkipNextFrame ) return 0;
-
-    isFrameOk = TRUE;
 
     // Clear Movie garbage
     if (PSXDisplay.RGB24)
@@ -1775,6 +1772,9 @@ int UploadScreen ( int Position )
         writeLogFile ( txtbuffer );
         #endif // DISP_DEBUG
     }
+
+    isFrameOk = TRUE;
+    iDrawnSomething |= 0x2;
 
 
 //if(dwActFixes & 2) {UploadScreenEx(Position);return;}
@@ -2271,7 +2271,7 @@ static void primLoadImage ( unsigned char * baseAddr )
     if (PSXDisplay.RGB24)
     {
         #if defined(DISP_DEBUG)
-        sprintf ( txtbuffer, "primLoadImage24 %d %d %d %d %d %d\r\n", VRAMWrite.x * 2 / 3, VRAMWrite.y, VRAMWrite.Width * 2 / 3, VRAMWrite.Height, PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560, PSXDisplay.Height );
+        sprintf ( txtbuffer, "primLoadImage24 %d %d %d %d\r\n", VRAMWrite.x * 2 / 3, VRAMWrite.y, VRAMWrite.Width * 2 / 3, VRAMWrite.Height);
         DEBUG_print ( txtbuffer, DBG_SPU1 );
         writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
@@ -2332,8 +2332,9 @@ static void PrepareRGB24Upload ( void )
 //        xrUploadArea.y1 -= PreviousPSXDisplay.DisplayPosition.y;
         if (VRAMWrite.x + VRAMWrite.Width >= PreviousPSXDisplay.DisplayEnd.x)
         {
-            RGB24Uploaded = 1;
+            RGB24Uploaded |= 0x1;
         }
+        RGB24Uploaded |= 0x4;
     }
     else if ( CheckAgainstFrontScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
@@ -2343,8 +2344,9 @@ static void PrepareRGB24Upload ( void )
 //        xrUploadArea.y1 -= PSXDisplay.DisplayPosition.y;
         if (VRAMWrite.x + VRAMWrite.Width >= PSXDisplay.DisplayEnd.x)
         {
-            RGB24Uploaded = 2;
+            RGB24Uploaded |= 0x2;
         }
+        RGB24Uploaded |= 0x8;
     }
 }
 

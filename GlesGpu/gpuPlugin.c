@@ -962,20 +962,31 @@ if(PSXDisplay.Interlaced)                             // interlaced mode?
   if(PSXDisplay.DisplayMode.x>0 && PSXDisplay.DisplayMode.y>0)
    {
        #ifdef DISP_DEBUG
-    sprintf ( txtbuffer, "GPUupdateLace1 %d\r\n", iDrawnSomething);
-    writeLogFile ( txtbuffer );
-    #endif // DISP_DEBUG
-
-    isFrameOk = (iDrawnSomething & 0x1) ? TRUE : FALSE;
-    updateDisplayGl();                                  // -> swap buffers (new frame)
+       sprintf ( txtbuffer, "GPUupdateLace1 %d %x\r\n", iDrawnSomething, RGB24Uploaded);
+       writeLogFile ( txtbuffer );
+       #endif // DISP_DEBUG
+       if (iDrawnSomething == 0 && (RGB24Uploaded & 0x4))
+       {
+         isFrameOk = TRUE;
+         PrepareFullScreenUpload(-1);
+//         xrUploadArea.x0 = PreviousPSXDisplay.DisplayPosition.x;
+//         xrUploadArea.x1 = PreviousPSXDisplay.DisplayEnd.x;
+//         xrUploadArea.y0 = PreviousPSXDisplay.DisplayPosition.y;
+//         xrUploadArea.y1 = PreviousPSXDisplay.DisplayEnd.y;
+         #if defined(DISP_DEBUG)
+         sprintf(txtbuffer, "Upload Movie Screen %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1, xrUploadArea.y1, RGB24Uploaded);
+         writeLogFile(txtbuffer);
+         #endif // DISP_DEBUG
+         UploadScreen(PSXDisplay.Interlaced);              // -> upload whole screen from psx vram
+         flipEGL();
+         iDrawnSomething = 0;
+       }
+       else
+       {
+           isFrameOk = (iDrawnSomething & 0x1) ? TRUE : FALSE;
+           updateDisplayGl();                                  // -> swap buffers (new frame)
+       }
    }
-     #ifdef DISP_DEBUG
-     else
-     {
-        sprintf ( txtbuffer, "GPUupdateLace6 %d\r\n", iDrawnSomething);
-        writeLogFile ( txtbuffer );
-     }
-     #endif // DISP_DEBUG
  }
 else if(bRenderFrontBuffer)                           // no interlace mode? and some stuff in front has changed?
  {
@@ -1010,7 +1021,7 @@ else if(usFirstPos==1)                                // initial updates (after 
          isFrameOk = FALSE;
          updateDisplayGl();
      }
-     else if (RGB24Uploaded)
+     else if (RGB24Uploaded & 0x3)
      {
          isFrameOk = TRUE;
          xrUploadArea.x0 = PreviousPSXDisplay.DisplayPosition.x;
