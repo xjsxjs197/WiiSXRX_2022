@@ -1581,7 +1581,7 @@ int CheckFullScreenUpload ( void )
     if (needUploadScreen == TRUE && uploadedScreen == FALSE)
     {
         if (screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
-            && screenX1 <= PreviousPSXDisplay.DisplayEnd.x && screenY1 <= PreviousPSXDisplay.DisplayEnd.y)
+            && (screenX1 - 4) <= PreviousPSXDisplay.DisplayEnd.x && (screenY1 - 4) <= PreviousPSXDisplay.DisplayEnd.y)
         {
             #if defined(DISP_DEBUG)
             sprintf(txtbuffer, "Upload Full Screen Pre\r\n");
@@ -1599,7 +1599,7 @@ int CheckFullScreenUpload ( void )
             return 1;
         }
         else if (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
-                    && screenX1 <= PSXDisplay.DisplayEnd.x && screenY1 <= PSXDisplay.DisplayEnd.y)
+                    && (screenX1 - 4) <= PSXDisplay.DisplayEnd.x && (screenY1 - 4) <= PSXDisplay.DisplayEnd.y)
         {
             #if defined(DISP_DEBUG)
             sprintf(txtbuffer, "Upload Full Screen Cur\r\n");
