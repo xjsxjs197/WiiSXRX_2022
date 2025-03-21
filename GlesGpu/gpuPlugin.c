@@ -1009,7 +1009,7 @@ else if(usFirstPos==1)                                // initial updates (after 
  else
  {
      #ifdef DISP_DEBUG
-     sprintf ( txtbuffer, "GPUupdateLace5 %d %d %d %d\r\n", iDrawnSomething, PSXDisplay.Interlaced, PSXDisplay.Disabled, PSXDisplay.InterlacedTest);
+     sprintf ( txtbuffer, "GPUupdateLace5 %x %d %d %d %x\r\n", iDrawnSomething, PSXDisplay.Interlaced, PSXDisplay.Disabled, PSXDisplay.InterlacedTest, RGB24Uploaded);
      writeLogFile ( txtbuffer );
      #endif // DISP_DEBUG
      if (CheckFullScreenUpload() || needFlipEGL == TRUE)
@@ -1021,9 +1021,11 @@ else if(usFirstPos==1)                                // initial updates (after 
          isFrameOk = FALSE;
          updateDisplayGl();
      }
-     else if (RGB24Uploaded & 0x3)
+     //else if ((RGB24Uploaded & 0x3) || (drawTexturePage && RGB24Uploaded))
+     else if ((RGB24Uploaded & 0x3))
      {
          isFrameOk = TRUE;
+//         PrepareFullScreenUpload(-1);
          xrUploadArea.x0 = PreviousPSXDisplay.DisplayPosition.x;
          xrUploadArea.x1 = PreviousPSXDisplay.DisplayEnd.x;
          xrUploadArea.y0 = PreviousPSXDisplay.DisplayPosition.y;

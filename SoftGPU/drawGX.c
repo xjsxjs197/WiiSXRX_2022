@@ -146,8 +146,8 @@ void gx_vout_render(short isFrameOk)
 	GX_Flush();
 
 	gc_vout_copydone();
-	//gc_vout_vsync(0);
-	new_frame = 1;
+	gc_vout_vsync(0);
+	//new_frame = 1;
 }
 
 void showFpsAndDebugInfo(void)
@@ -444,7 +444,7 @@ int gc_vout_open(void) {
 }
 
 int gx_vout_open(void) {
-	VIDEO_SetPreRetraceCallback(gc_vout_vsync);
+	//VIDEO_SetPreRetraceCallback(gc_vout_vsync);
 	return 0;
 }
 

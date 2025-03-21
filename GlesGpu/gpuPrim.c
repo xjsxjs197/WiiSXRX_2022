@@ -2348,6 +2348,10 @@ static void PrepareRGB24Upload ( void )
         }
         RGB24Uploaded |= 0x8;
     }
+    #if defined(DISP_DEBUG)
+    sprintf ( txtbuffer, "PrepareRGB24Upload %x\r\n", RGB24Uploaded);
+    writeLogFile ( txtbuffer );
+    #endif // DISP_DEBUG
 }
 
 ////////////////////////////////////////////////////////////////////////
