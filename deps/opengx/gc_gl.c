@@ -692,12 +692,6 @@ void glSetDoubleCol( void )
     doubleColor = 1;
 }
 
-static short normalBlend = 0;
-void glSetNormalBlend( short norBlend )
-{
-    normalBlend = norBlend;
-    //setTextureMask = tmpTextureMask;
-}
 
 void glDeleteTextures(GLsizei n, const GLuint *textures)
 {
@@ -2537,7 +2531,7 @@ void _ogx_apply_state()
     //GX_SetDstAlpha(GX_ENABLE, 0xFF);
 
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "draw %d %d %d %d %d %d\r\n", glparamstate.blendenabled, texen, glparamstate.color_enabled, glparamstate.globalTextABR, glparamstate.glcurtex, normalBlend);
+    sprintf(txtbuffer, "draw %d %d %d %d %d\r\n", glparamstate.blendenabled, texen, glparamstate.color_enabled, glparamstate.globalTextABR, glparamstate.glcurtex);
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 

@@ -909,95 +909,95 @@ void SetScanTexTrans ( void )                          // blending for scan mask
 // multi pass in old 'Advanced blending' mode... got it from Lewpy :)
 ////////////////////////////////////////////////////////////////////////
 
-static SemiTransParams MultiTexTransSets[4][2] =
-{
-    {
-        {GL_ONE, GL_SRC_ALPHA,          127},
-        {GL_SRC_ALPHA, GL_ONE,                127}
-    },
-    {
-        {GL_ONE,      GL_SRC_ALPHA,          255},
-        {GL_SRC_ALPHA, GL_ONE,                255}
-    },
-    {
-        {GL_ZERO,     GL_ONE_MINUS_SRC_COLOR, 255},
-        {GL_ZERO,     GL_ONE_MINUS_SRC_COLOR, 255}
-    },
-    {
-        {GL_SRC_ALPHA, GL_ONE,                127},
-        {GL_ONE_MINUS_SRC_ALPHA, GL_ONE,      255}
-    }
-};
+//static SemiTransParams MultiTexTransSets[4][2] =
+//{
+//    {
+//        {GL_ONE, GL_SRC_ALPHA,          127},
+//        {GL_SRC_ALPHA, GL_ONE,                127}
+//    },
+//    {
+//        {GL_ONE,      GL_SRC_ALPHA,          255},
+//        {GL_SRC_ALPHA, GL_ONE,                255}
+//    },
+//    {
+//        {GL_ZERO,     GL_ONE_MINUS_SRC_COLOR, 255},
+//        {GL_ZERO,     GL_ONE_MINUS_SRC_COLOR, 255}
+//    },
+//    {
+//        {GL_SRC_ALPHA, GL_ONE,                127},
+//        {GL_ONE_MINUS_SRC_ALPHA, GL_ONE,      255}
+//    }
+//};
 
 ////////////////////////////////////////////////////////////////////////
 
-static SemiTransParams MultiColTransSets[4] =
-{
-    {GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, 127},
-    {GL_ONE,      GL_ONE,                255},
-    {GL_ZERO,     GL_ONE_MINUS_SRC_COLOR, 255},
-    {GL_SRC_ALPHA, GL_ONE,                127}
-};
+//static SemiTransParams MultiColTransSets[4] =
+//{
+//    {GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, 127},
+//    {GL_ONE,      GL_ONE,                255},
+//    {GL_ZERO,     GL_ONE_MINUS_SRC_COLOR, 255},
+//    {GL_SRC_ALPHA, GL_ONE,                127}
+//};
 
 ////////////////////////////////////////////////////////////////////////
 
-static void SetSemiTransMulti ( int Pass )
-{
-    static GLenum bm1 = GL_ZERO;
-    static GLenum bm2 = GL_ONE;
-
-    ubGloAlpha = 255;
-    ubGloColAlpha = 255;
-
-// are we enabling SemiTransparent mode?
-    if ( DrawSemiTrans )
-    {
-        if ( bDrawTextured )
-        {
-            bm1 = MultiTexTransSets[GlobalTextABR][Pass].srcFac;
-            bm2 = MultiTexTransSets[GlobalTextABR][Pass].dstFac;
-            ubGloAlpha = MultiTexTransSets[GlobalTextABR][Pass].alpha;
-        }
-        // no texture
-        else
-        {
-            bm1 = MultiColTransSets[GlobalTextABR].srcFac;
-            bm2 = MultiColTransSets[GlobalTextABR].dstFac;
-            ubGloColAlpha = MultiColTransSets[GlobalTextABR].alpha;
-        }
-    }
-// no shading
-    else
-    {
-        if ( Pass == 0 )
-        {
-            // disable blending
-            bm1 = GL_ONE;
-            bm2 = GL_ZERO;
-        }
-        else
-        {
-            // disable blending, but add src col a second time
-            bm1 = GL_ONE;
-            bm2 = GL_ONE;
-        }
-    }
-
-    if ( !bBlendEnable )
-    {
-        glEnable ( GL_BLEND );    // wanna blend
-        glError();
-        bBlendEnable = TRUE;
-    }
-
-    if ( bm1 != obm1 || bm2 != obm2 )
-    {
-        glBlendFunc ( bm1, bm2 );
-        glError();                    // set blend func
-        obm1 = bm1;
-        obm2 = bm2;
-    }
-}
+//static void SetSemiTransMulti ( int Pass )
+//{
+//    static GLenum bm1 = GL_ZERO;
+//    static GLenum bm2 = GL_ONE;
+//
+//    ubGloAlpha = 255;
+//    ubGloColAlpha = 255;
+//
+//// are we enabling SemiTransparent mode?
+//    if ( DrawSemiTrans )
+//    {
+//        if ( bDrawTextured )
+//        {
+//            bm1 = MultiTexTransSets[GlobalTextABR][Pass].srcFac;
+//            bm2 = MultiTexTransSets[GlobalTextABR][Pass].dstFac;
+//            ubGloAlpha = MultiTexTransSets[GlobalTextABR][Pass].alpha;
+//        }
+//        // no texture
+//        else
+//        {
+//            bm1 = MultiColTransSets[GlobalTextABR].srcFac;
+//            bm2 = MultiColTransSets[GlobalTextABR].dstFac;
+//            ubGloColAlpha = MultiColTransSets[GlobalTextABR].alpha;
+//        }
+//    }
+//// no shading
+//    else
+//    {
+//        if ( Pass == 0 )
+//        {
+//            // disable blending
+//            bm1 = GL_ONE;
+//            bm2 = GL_ZERO;
+//        }
+//        else
+//        {
+//            // disable blending, but add src col a second time
+//            bm1 = GL_ONE;
+//            bm2 = GL_ONE;
+//        }
+//    }
+//
+//    if ( !bBlendEnable )
+//    {
+//        glEnable ( GL_BLEND );    // wanna blend
+//        glError();
+//        bBlendEnable = TRUE;
+//    }
+//
+//    if ( bm1 != obm1 || bm2 != obm2 )
+//    {
+//        glBlendFunc ( bm1, bm2 );
+//        glError();                    // set blend func
+//        obm1 = bm1;
+//        obm2 = bm2;
+//    }
+//}
 
 ////////////////////////////////////////////////////////////////////////
 // Set several rendering stuff including blending
@@ -1135,7 +1135,6 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
 
     glSetSemiTransFlg(DrawSemiTrans);
     glSetTextureMask( sSetMask ? 1 : 0 );
-    glSetNormalBlend(0);
 
     if ( bDrawTextured )                                  // texture ? build it/get it from cache
     {
@@ -1777,7 +1776,6 @@ int UploadScreen ( int Position )
     iDrawnSomething |= 0x2;
 
 
-//if(dwActFixes & 2) {UploadScreenEx(Position);return;}
 
     bUsingMovie       = TRUE;
     bDrawTextured     = TRUE;                             // just doing textures
@@ -2326,10 +2324,10 @@ static void PrepareRGB24Upload ( void )
     if ( !PSXDisplay.InterlacedTest && // NEW
             CheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
-//        xrUploadArea.x0 -= PreviousPSXDisplay.DisplayPosition.x;
-//        xrUploadArea.x1 -= PreviousPSXDisplay.DisplayPosition.x;
-//        xrUploadArea.y0 -= PreviousPSXDisplay.DisplayPosition.y;
-//        xrUploadArea.y1 -= PreviousPSXDisplay.DisplayPosition.y;
+        xrUploadArea.x0 -= PreviousPSXDisplay.DisplayPosition.x;
+        xrUploadArea.x1 -= PreviousPSXDisplay.DisplayPosition.x;
+        xrUploadArea.y0 -= PreviousPSXDisplay.DisplayPosition.y;
+        xrUploadArea.y1 -= PreviousPSXDisplay.DisplayPosition.y;
         if (VRAMWrite.x + VRAMWrite.Width >= PreviousPSXDisplay.DisplayEnd.x)
         {
             RGB24Uploaded |= 0x1;
@@ -2338,10 +2336,10 @@ static void PrepareRGB24Upload ( void )
     }
     else if ( CheckAgainstFrontScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
-//        xrUploadArea.x0 -= PSXDisplay.DisplayPosition.x;
-//        xrUploadArea.x1 -= PSXDisplay.DisplayPosition.x;
-//        xrUploadArea.y0 -= PSXDisplay.DisplayPosition.y;
-//        xrUploadArea.y1 -= PSXDisplay.DisplayPosition.y;
+        xrUploadArea.x0 -= PSXDisplay.DisplayPosition.x;
+        xrUploadArea.x1 -= PSXDisplay.DisplayPosition.x;
+        xrUploadArea.y0 -= PSXDisplay.DisplayPosition.y;
+        xrUploadArea.y1 -= PSXDisplay.DisplayPosition.y;
         if (VRAMWrite.x + VRAMWrite.Width >= PSXDisplay.DisplayEnd.x)
         {
             RGB24Uploaded |= 0x2;
@@ -2366,10 +2364,10 @@ void CheckWriteUpdate()
     InvalidateTextureArea ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width - iX, VRAMWrite.Height - iY );
 
     #if defined(DISP_DEBUG)
-    sprintf ( txtbuffer, "CheckWriteUpdate %d %d %d %d %d %d %d %d %d %d %d\r\n",
+    sprintf ( txtbuffer, "CheckWriteUpdate %d %d %d %d %d %d %d %d %d %d %d %d\r\n",
              PreviousPSXDisplay.DisplayPosition.x, PreviousPSXDisplay.DisplayPosition.y, PreviousPSXDisplay.DisplayEnd.x, PreviousPSXDisplay.DisplayEnd.y,
              PSXDisplay.DisplayPosition.x,         PSXDisplay.DisplayPosition.y,         PSXDisplay.DisplayEnd.x,         PSXDisplay.DisplayEnd.y,
-             PSXDisplay.InterlacedTest, bCheckMask, sSetMask);
+             PSXDisplay.Interlaced, PSXDisplay.InterlacedTest, bCheckMask, sSetMask);
     writeLogFile ( txtbuffer );
     sprintf ( txtbuffer, "screenInfo %d %d %d %d\r\n",
              screenX, screenY, screenWidth, screenHeight);
@@ -2405,10 +2403,10 @@ void CheckWriteUpdate()
         {
             //if ( dwActFixes & 0x800 ) return;
 
-            if ( bRenderFrontBuffer )
-            {
-                updateFrontDisplayGl();
-            }
+//            if ( bRenderFrontBuffer )
+//            {
+//                updateFrontDisplayGl();
+//            }
 
             isFrameOk = TRUE;
             uploaded = UploadScreen ( FALSE );
@@ -2419,6 +2417,83 @@ void CheckWriteUpdate()
                 needUploadScreen = FALSE;
                 uploadedScreen = FALSE;
             }
+        }
+    }
+    //else if ( iOffscreenDrawing )
+    else if ( 1 )
+    {
+        if ( CheckAgainstFrontScreen  ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
+        {
+            #if defined(DISP_DEBUG)
+            sprintf ( txtbuffer, "CheckWriteUpdate2 %d %d %d %d %d %d %d %d %d %d %d %d\r\n",
+                     PreviousPSXDisplay.DisplayPosition.x, PreviousPSXDisplay.DisplayPosition.y, PreviousPSXDisplay.DisplayEnd.x, PreviousPSXDisplay.DisplayEnd.y,
+                     PSXDisplay.DisplayPosition.x,         PSXDisplay.DisplayPosition.y,         PSXDisplay.DisplayEnd.x,         PSXDisplay.DisplayEnd.y,
+                     PSXDisplay.Interlaced, PSXDisplay.InterlacedTest, bCheckMask, sSetMask);
+            writeLogFile ( txtbuffer );
+            #endif // DISP_DEBUG
+            if ( PSXDisplay.InterlacedTest )
+            {
+                if ( PreviousPSXDisplay.InterlacedNew )
+                {
+                    PreviousPSXDisplay.InterlacedNew = FALSE;
+                    bNeedInterlaceUpdate = TRUE;
+                    xrUploadAreaIL.x0 = PSXDisplay.DisplayPosition.x;
+                    xrUploadAreaIL.y0 = PSXDisplay.DisplayPosition.y;
+                    xrUploadAreaIL.x1 = PSXDisplay.DisplayPosition.x + PSXDisplay.DisplayModeNew.x;
+                    xrUploadAreaIL.y1 = PSXDisplay.DisplayPosition.y + PSXDisplay.DisplayModeNew.y;
+                    if ( xrUploadAreaIL.x1 > 1023 ) xrUploadAreaIL.x1 = 1023;
+                    if ( xrUploadAreaIL.y1 > 511 )  xrUploadAreaIL.y1 = 511;
+                }
+
+                if ( bNeedInterlaceUpdate == FALSE )
+                {
+                    xrUploadAreaIL = xrUploadArea;
+                    bNeedInterlaceUpdate = TRUE;
+                }
+                else
+                {
+                    xrUploadAreaIL.x0 = min ( xrUploadAreaIL.x0, xrUploadArea.x0 );
+                    xrUploadAreaIL.x1 = max ( xrUploadAreaIL.x1, xrUploadArea.x1 );
+                    xrUploadAreaIL.y0 = min ( xrUploadAreaIL.y0, xrUploadArea.y0 );
+                    xrUploadAreaIL.y1 = max ( xrUploadAreaIL.y1, xrUploadArea.y1 );
+                }
+                #if defined(DISP_DEBUG)
+                sprintf ( txtbuffer, "CheckWriteUpdate3 %d %d %d %d\r\n", xrUploadAreaIL.x0, xrUploadAreaIL.x1, xrUploadAreaIL.y0, xrUploadAreaIL.y1 );
+                writeLogFile ( txtbuffer );
+                #endif // DISP_DEBUG
+                return;
+            }
+
+            if ( !bNeedUploadAfter )
+            {
+                bNeedUploadAfter = TRUE;
+                xrUploadArea.x0 = VRAMWrite.x;
+                xrUploadArea.x1 = VRAMWrite.x + VRAMWrite.Width;
+                xrUploadArea.y0 = VRAMWrite.y;
+                xrUploadArea.y1 = VRAMWrite.y + VRAMWrite.Height;
+            }
+            else
+            {
+                xrUploadArea.x0 = min ( xrUploadArea.x0, VRAMWrite.x );
+                xrUploadArea.x1 = max ( xrUploadArea.x1, VRAMWrite.x + VRAMWrite.Width );
+                xrUploadArea.y0 = min ( xrUploadArea.y0, VRAMWrite.y );
+                xrUploadArea.y1 = max ( xrUploadArea.y1, VRAMWrite.y + VRAMWrite.Height );
+            }
+            #if defined(DISP_DEBUG)
+            sprintf(txtbuffer, "CheckWriteUpdate4 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
+                           VRAMWrite.x, VRAMWrite.Width, VRAMWrite.y, VRAMWrite.Height);
+            writeLogFile ( txtbuffer );
+            #endif // DISP_DEBUG
+
+//            if ( dwActFixes & 0x8000 )
+//            {
+//                if ( ( xrUploadArea.x1 - xrUploadArea.x0 ) >= ( PSXDisplay.DisplayMode.x - 32 ) &&
+//                        ( xrUploadArea.y1 - xrUploadArea.y0 ) >= ( PSXDisplay.DisplayMode.y - 32 ) )
+//                {
+//                    UploadScreen ( -1 );
+//                    updateFrontDisplayGl();
+//                }
+//            }
         }
     }
 
@@ -2436,84 +2511,6 @@ void CheckWriteUpdate()
         writeLogFile ( txtbuffer );
         #endif // DISP_DEBUG
     }
-//    else if ( iOffscreenDrawing )
-//    {
-//        #if defined(DISP_DEBUG)
-//        sprintf ( txtbuffer, "CheckWriteUpdate2 %d %d %d %d %d %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayEnd.x,
-//                 PSXDisplay.DisplayPosition.y, PSXDisplay.DisplayEnd.y,
-//                 PSXDisplay.InterlacedTest, bCheckMask, sSetMask);
-//        //DEBUG_print ( txtbuffer, DBG_CDR1 );
-//        writeLogFile ( txtbuffer );
-//        #endif // DISP_DEBUG
-//        if ( CheckAgainstFrontScreen  ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
-//        {
-//            if ( PSXDisplay.InterlacedTest )
-//            {
-//                if ( PreviousPSXDisplay.InterlacedNew )
-//                {
-//                    PreviousPSXDisplay.InterlacedNew = FALSE;
-//                    bNeedInterlaceUpdate = TRUE;
-//                    xrUploadAreaIL.x0 = PSXDisplay.DisplayPosition.x;
-//                    xrUploadAreaIL.y0 = PSXDisplay.DisplayPosition.y;
-//                    xrUploadAreaIL.x1 = PSXDisplay.DisplayPosition.x + PSXDisplay.DisplayModeNew.x;
-//                    xrUploadAreaIL.y1 = PSXDisplay.DisplayPosition.y + PSXDisplay.DisplayModeNew.y;
-//                    if ( xrUploadAreaIL.x1 > 1023 ) xrUploadAreaIL.x1 = 1023;
-//                    if ( xrUploadAreaIL.y1 > 511 )  xrUploadAreaIL.y1 = 511;
-//                }
-//
-//                if ( bNeedInterlaceUpdate == FALSE )
-//                {
-//                    xrUploadAreaIL = xrUploadArea;
-//                    bNeedInterlaceUpdate = TRUE;
-//                }
-//                else
-//                {
-//                    xrUploadAreaIL.x0 = min ( xrUploadAreaIL.x0, xrUploadArea.x0 );
-//                    xrUploadAreaIL.x1 = max ( xrUploadAreaIL.x1, xrUploadArea.x1 );
-//                    xrUploadAreaIL.y0 = min ( xrUploadAreaIL.y0, xrUploadArea.y0 );
-//                    xrUploadAreaIL.y1 = max ( xrUploadAreaIL.y1, xrUploadArea.y1 );
-//                }
-//                #if defined(DISP_DEBUG)
-//                sprintf ( txtbuffer, "CheckWriteUpdate3 %d %d %d %d\r\n", xrUploadAreaIL.x0, xrUploadAreaIL.x1, xrUploadAreaIL.y0, xrUploadAreaIL.y1 );
-//                //DEBUG_print ( txtbuffer, DBG_SPU3 );
-//                writeLogFile ( txtbuffer );
-//                #endif // DISP_DEBUG
-//                return;
-//            }
-//
-//            if ( !bNeedUploadAfter )
-//            {
-//                bNeedUploadAfter = TRUE;
-//                xrUploadArea.x0 = VRAMWrite.x;
-//                xrUploadArea.x1 = VRAMWrite.x + VRAMWrite.Width;
-//                xrUploadArea.y0 = VRAMWrite.y;
-//                xrUploadArea.y1 = VRAMWrite.y + VRAMWrite.Height;
-//            }
-//            else
-//            {
-//                xrUploadArea.x0 = min ( xrUploadArea.x0, VRAMWrite.x );
-//                xrUploadArea.x1 = max ( xrUploadArea.x1, VRAMWrite.x + VRAMWrite.Width );
-//                xrUploadArea.y0 = min ( xrUploadArea.y0, VRAMWrite.y );
-//                xrUploadArea.y1 = max ( xrUploadArea.y1, VRAMWrite.y + VRAMWrite.Height );
-//            }
-//            #if defined(DISP_DEBUG)
-//            sprintf(txtbuffer, "CheckWriteUpdate4 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
-//                           VRAMWrite.x, VRAMWrite.Width, VRAMWrite.y, VRAMWrite.Height);
-//            //DEBUG_print ( txtbuffer, DBG_SPU3 );
-//            writeLogFile ( txtbuffer );
-//            #endif // DISP_DEBUG
-//
-////            if ( dwActFixes & 0x8000 )
-////            {
-////                if ( ( xrUploadArea.x1 - xrUploadArea.x0 ) >= ( PSXDisplay.DisplayMode.x - 32 ) &&
-////                        ( xrUploadArea.y1 - xrUploadArea.y0 ) >= ( PSXDisplay.DisplayMode.y - 32 ) )
-////                {
-////                    UploadScreen ( -1 );
-////                    updateFrontDisplayGl();
-////                }
-////            }
-//        }
-//    }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2529,11 +2526,10 @@ static void primStoreImage ( unsigned char * baseAddr )
     VRAMRead.Width  = GETLEs16 ( &sgpuData[4] );
     VRAMRead.Height = GETLEs16 ( &sgpuData[5] );
 
-#if defined(DISP_DEBUG)
-//    sprintf ( txtbuffer, "primStoreImage %d %d %d %d\r\n", VRAMRead.x, VRAMRead.y, VRAMRead.Width, VRAMRead.Height );
-//    DEBUG_print ( txtbuffer, DBG_SPU1 );
+    //#if defined(DISP_DEBUG)
+    //sprintf ( txtbuffer, "primStoreImage %d %d %d %d\r\n", VRAMRead.x, VRAMRead.y, VRAMRead.Width, VRAMRead.Height );
     //writeLogFile(txtbuffer);
-#endif // DISP_DEBUG
+    //#endif // DISP_DEBUG
 
     VRAMRead.ImagePtr = psxVuw + ( VRAMRead.y << 10 ) + VRAMRead.x;
     VRAMRead.RowsRemaining = VRAMRead.Width;
@@ -2584,12 +2580,9 @@ static void primBlkFill ( unsigned char * baseAddr )
         isFrameOk = TRUE;
     }
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
-    //if ((sprtW & 3) > 0 || (sprtH & 3) > 0)
-    {
-        sprintf ( txtbuffer, "primBlkFill %d %d %d %d %08x %d %d\r\n", sprtX, sprtY, sprtW, sprtH, gpuData[0] ,DrawSemiTrans, GlobalTextABR);
-        DEBUG_print ( txtbuffer, DBG_SPU3 );
-        writeLogFile(txtbuffer);
-    }
+    sprintf ( txtbuffer, "primBlkFill %d %d %d %d %08x %d %d\r\n", sprtX, sprtY, sprtW, sprtH, gpuData[0] ,DrawSemiTrans, GlobalTextABR);
+    DEBUG_print ( txtbuffer, DBG_SPU3 );
+    writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
     FillSoftwareArea(sprtX, sprtY, sprtW + sprtX, sprtH + sprtY, BGR24to16(GETLE32(&gpuData[0])));
@@ -3097,16 +3090,9 @@ static void primTileS ( unsigned char * baseAddr )
     }
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
-    //if ((sprtW & 3) > 0 || (sprtH & 3) > 0)
-    {
-        //sprintf ( txtbuffer, "SRC SIZE %d %d %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayEnd.x, PSXDisplay.DisplayPosition.y, PSXDisplay.DisplayEnd.y);
-        //DEBUG_print ( txtbuffer, DBG_CDR3 );
-        //writeLogFile(txtbuffer);
-
-        sprintf ( txtbuffer, "primTileS %d %d %d %d %08x\r\n", sprtX, sprtY, sprtW, sprtH, vertex[0].c.lcol);
-        DEBUG_print ( txtbuffer, DBG_SPU3 );
-        writeLogFile(txtbuffer);
-    }
+    sprintf ( txtbuffer, "primTileS %d %d %d %d %08x\r\n", sprtX, sprtY, sprtW, sprtH, vertex[0].c.lcol);
+    DEBUG_print ( txtbuffer, DBG_SPU3 );
+    writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
     PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
@@ -3281,8 +3267,8 @@ static void primTile16 ( unsigned char * baseAddr )
 
 #define   POFF 0.375f
 
-void DrawMultiFilterSprite ( void )
-{
+//void DrawMultiFilterSprite ( void )
+//{
 //    int lABR, lDST;
 //
 //    if ( bUseMultiPass || DrawSemiTrans || ubOpaqueDraw )
@@ -3310,7 +3296,7 @@ void DrawMultiFilterSprite ( void )
 //    PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 //    GlobalTextABR = lABR;
 //    DrawSemiTrans = lDST;
-}
+//}
 
 ////////////////////////////////////////////////////////////////////////
 // cmd: small sprite (textured rect)
@@ -3411,9 +3397,9 @@ writeLogFile(txtbuffer);
 
     assignTextureSprite();
 
-    if ( iFilterType > 4 )
-        DrawMultiFilterSprite();
-    else
+//    if ( iFilterType > 4 )
+//        DrawMultiFilterSprite();
+//    else
         PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
     iSpriteTex = 0;
@@ -3519,9 +3505,9 @@ writeLogFile(txtbuffer);
 
     assignTextureSprite();
 
-    if ( iFilterType > 4 )
-        DrawMultiFilterSprite();
-    else
+//    if ( iFilterType > 4 )
+//        DrawMultiFilterSprite();
+//    else
         PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
     iSpriteTex = 0;
@@ -3688,9 +3674,9 @@ static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
 
     assignTextureSprite();
 
-    if ( iFilterType > 4 )
-        DrawMultiFilterSprite();
-    else
+//    if ( iFilterType > 4 )
+//        DrawMultiFilterSprite();
+//    else
         PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
     if ( sTypeRest && type < 4 )
@@ -3836,9 +3822,9 @@ static void primSprtS ( unsigned char * baseAddr )
     #endif // DISP_DEBUG
 
 
-    if ( iFilterType > 4 )
-        DrawMultiFilterSprite();
-    else
+//    if ( iFilterType > 4 )
+//        DrawMultiFilterSprite();
+//    else
         PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
     if ( sTypeRest )
@@ -4235,7 +4221,6 @@ static void primPolyFT3 ( unsigned char * baseAddr )
       }
     */
     SetRenderMode ( GETLE32 ( &gpuData[0] ), TRUE );
-    glSetNormalBlend(1);
     SetZMask3();
 
     assignTexture3();
@@ -4659,7 +4644,6 @@ static void primPolyFT4 ( unsigned char * baseAddr )
       }
     */
     SetRenderMode ( GETLE32 ( &gpuData[0] ), TRUE );
-    glSetNormalBlend(1);
 
     SetZMask4();
 
@@ -4732,7 +4716,6 @@ static void primPolyGT3 ( unsigned char *baseAddr )
       }
     */
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
-    glSetNormalBlend(1);
     SetZMask3();
 
     assignTexture3();
@@ -4877,7 +4860,6 @@ static void primPolyGT4 ( unsigned char *baseAddr )
       }
     */
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
-    glSetNormalBlend(1);
     SetZMask4();
 
     assignTexture4();

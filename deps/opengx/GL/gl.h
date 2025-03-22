@@ -1347,7 +1347,6 @@ GLAPI void GLAPIENTRY glSetRGB24( short rgb24 );
 GLAPI void GLAPIENTRY glSetSemiTransFlg( short semiTransFlg );
 GLAPI void GLAPIENTRY glSetTextureMask( short mask );
 GLAPI void GLAPIENTRY glNoNeedMulConstColor( short noNeedMulConstColorFlg );
-GLAPI void GLAPIENTRY glSetNormalBlend( short normalBlend );
 GLAPI void GLAPIENTRY glSetVramClearedFlg( void );
 GLAPI void GLAPIENTRY glSetTextureType( short textureType );
 
