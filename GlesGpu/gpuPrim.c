@@ -2605,13 +2605,21 @@ static void primBlkFill ( unsigned char * baseAddr )
         #endif // DISP_DEBUG
 
         // Clear all Screen
-        unsigned char g, b, r;
-        r = baseAddr[0];
-        g = baseAddr[1];
-        b = baseAddr[2];
+//        unsigned char g, b, r;
+//        r = baseAddr[0];
+//        g = baseAddr[1];
+//        b = baseAddr[2];
+//
+//        glClearColor2 ( r, g, b, 255 );
+//        glClear ( uiBufferBits );
+        bDrawTextured     = FALSE;
+        bDrawSmoothShaded = FALSE;
+        SetRenderState ( ( unsigned int ) 0x01000000 );
+        SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
+        vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
+        SETCOL ( vertex[0] );
+        PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-        glClearColor2 ( r, g, b, 255 );
-        glClear ( uiBufferBits );
         gl_z = 0.0f;
     }
     else
@@ -2884,6 +2892,7 @@ static void primMoveImage ( unsigned char * baseAddr )
                 && screenX1 == PSXDisplay.DisplayEnd.x && screenY1 == PSXDisplay.DisplayEnd.y))
             {
                 isFrameOk = TRUE;
+                needFlipEGL = TRUE;
                 uploaded = UploadScreen ( FALSE );
 
                 //bNeedUploadTest = TRUE;

@@ -149,6 +149,7 @@ static BOOL    needUploadScreen = FALSE;
 static BOOL    uploadedScreen = FALSE;
 static BOOL    needFlipEGL = FALSE;
 static unsigned short    RGB24Uploaded = 0;
+static unsigned short    GPUupdateLace5Flg = 0;
 // Use drawTexturePage flag to determine whether the data uploaded through command primLoadImage needs to be manually displayed on the screen
 static BOOL    drawTexturePage = FALSE;
 
@@ -995,10 +996,13 @@ else if(usFirstPos==1)                                // initial updates (after 
      sprintf ( txtbuffer, "GPUupdateLace5 %x %d %d %d %x\r\n", iDrawnSomething, PSXDisplay.Interlaced, PSXDisplay.Disabled, PSXDisplay.InterlacedTest, RGB24Uploaded);
      writeLogFile ( txtbuffer );
      #endif // DISP_DEBUG
-//     if (CheckFullScreenUpload() || needFlipEGL == TRUE)
-//     {
-//         flipEGL();
-//     }
+     GPUupdateLace5Flg = 0;
+     if (CheckFullScreenUpload() || (needFlipEGL == TRUE && (iDrawnSomething & 0x1) == 0))
+     {
+         GPUupdateLace5Flg = 1;
+         flipEGL();
+         iDrawnSomething = 0;
+     }
 //     else if (iDrawnSomething && !PSXDisplay.RGB24)
 //     {
 //         isFrameOk = FALSE;
@@ -1213,10 +1217,16 @@ switch(lCommand)
          //DEBUG_print(txtbuffer, DBG_CDR2);
          writeLogFile(txtbuffer);
          #endif // DISP_DEBUG
-		 CHECK_SCREEN_INFO();
+         CHECK_SCREEN_INFO();
 
-         updateDisplayGl();
+         if (GPUupdateLace5Flg && iDrawnSomething == 0)
+         {
 
+         }
+         else
+         {
+             updateDisplayGl();
+         }
      }
     else
     if(PSXDisplay.InterlacedTest &&
