@@ -947,6 +947,7 @@ if(PSXDisplay.Interlaced)                             // interlaced mode?
        sprintf ( txtbuffer, "GPUupdateLace1 %d %x\r\n", iDrawnSomething, RGB24Uploaded);
        writeLogFile ( txtbuffer );
        #endif // DISP_DEBUG
+       isFrameOk = FALSE;
        updateDisplayGl();                                  // -> swap buffers (new frame)
 
 //       if (iDrawnSomething == 0 && (RGB24Uploaded & 0x4))
@@ -2198,14 +2199,14 @@ static void flipEGL(void)
     gx_vout_render(isFrameOk);
 
     clearLargeRange = 0;
+    if (isFrameOk && !PSXDisplay.Disabled)
+    {
+        drawTexturePage = FALSE;
+    }
     isFrameOk = FALSE;
     uploadedScreen = FALSE;
     needFlipEGL = FALSE;
     RGB24Uploaded = 0;
-    if (!PSXDisplay.Disabled)
-    {
-        drawTexturePage = FALSE;
-    }
 }
 
 #include "../Gamecube/wiiSXconfig.h"

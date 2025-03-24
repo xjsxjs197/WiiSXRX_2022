@@ -1772,7 +1772,7 @@ int UploadScreen ( int Position )
         #endif // DISP_DEBUG
     }
 
-    isFrameOk = TRUE;
+    //isFrameOk = TRUE;
     iDrawnSomething |= 0x2;
 
 
@@ -2575,10 +2575,10 @@ static void primBlkFill ( unsigned char * baseAddr )
     //sprtW += sprtX;
     //sprtH += sprtY;
 
-    if (sprtW == screenWidth && sprtH == screenHeight)
-    {
-        isFrameOk = TRUE;
-    }
+//    if (sprtW == screenWidth && sprtH == screenHeight)
+//    {
+//        isFrameOk = TRUE;
+//    }
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     sprintf ( txtbuffer, "primBlkFill %d %d %d %d %08x %d %d\r\n", sprtX, sprtY, sprtW, sprtH, gpuData[0] ,DrawSemiTrans, GlobalTextABR);
     DEBUG_print ( txtbuffer, DBG_SPU3 );
