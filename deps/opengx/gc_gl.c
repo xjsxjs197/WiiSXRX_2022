@@ -2512,7 +2512,7 @@ static void setup_render_stages(int texen)
     }
 }
 
-void _ogx_apply_state()
+static int _ogx_apply_state()
 {
     int texen = glparamstate.texcoord_enabled & glparamstate.texture_enabled;
     gltexture_ *currtex;
@@ -2554,13 +2554,13 @@ void _ogx_apply_state()
                     }
                     else
                     {
-                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                        //GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                        return 0;
                     }
                 }
-                else
-                // transparent colors in transparent mode(0.5B or other SemiTrans mode)
-                if (glDrawArraysFlg == 1)
+                else if (glDrawArraysFlg == 1)
                 {
+                    // transparent colors in transparent mode(0.5B or other SemiTrans mode)
                     if ((texturyType & TXT_TYPE_2))
                     {
                         //GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_NEQUAL, 0xF0);
@@ -2570,7 +2570,7 @@ void _ogx_apply_state()
                     }
                     else
                     {
-                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                        return 0;
                     }
                 }
                 else if (glDrawArraysFlg == 2)
@@ -2584,7 +2584,7 @@ void _ogx_apply_state()
                     }
                     else
                     {
-                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                        return 0;
                     }
                 }
             }
@@ -2611,8 +2611,9 @@ void _ogx_apply_state()
             {
                 if (vramClearedFlg)
                 {
-                    GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                    //GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
                     vramClearedFlg = 0;
+                    return 0;
                 }
                 else
                 {
@@ -2627,7 +2628,7 @@ void _ogx_apply_state()
                         }
                         else
                         {
-                            GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                            return 0;
                         }
                     }
                     else if (glDrawArraysFlg == 1)
@@ -2642,7 +2643,7 @@ void _ogx_apply_state()
                         }
                         else
                         {
-                            GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                            return 0;
                         }
                     }
                 }
@@ -2671,7 +2672,7 @@ void _ogx_apply_state()
                     }
                     else
                     {
-                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                        return 0;
                     }
                 }
                 else if (glDrawArraysFlg == 1)
@@ -2685,7 +2686,7 @@ void _ogx_apply_state()
                     }
                     else
                     {
-                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                        return 0;
                     }
                 }
                 else if (glDrawArraysFlg == 2)
@@ -2698,7 +2699,7 @@ void _ogx_apply_state()
                     }
                     else
                     {
-                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_ZERO, GX_BL_ONE, GX_LO_CLEAR);
+                        return 0;
                     }
                 }
             }
@@ -2741,6 +2742,8 @@ void _ogx_apply_state()
 
     // All the state has been transferred, no need to update it again next time
     glparamstate.dirty.all = 0;
+
+    return 1;
 }
 
 void glDrawArrays(GLenum mode, GLint first, GLsizei count)
@@ -2834,14 +2837,16 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
     //   2nd GX_SetBlendMode: transparent colors in transparent mode(0.5B or other SemiTrans mode)
     //   3rd GX_SetBlendMode: transparent colors in transparent mode(0.5F + 0.5B)
     glDrawArraysFlg = 0;
-
-    _ogx_apply_state();
-
     bool loop = (mode == GL_LINE_LOOP);
-    GX_Begin(gxmode, GX_VTXFMT0, count + loop);
-    draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
-                        count, glparamstate.normal_enabled, color_provide, texen, loop);
-    GX_End();
+    int needDraw;
+
+    if (_ogx_apply_state())
+    {
+        GX_Begin(gxmode, GX_VTXFMT0, count + loop);
+        draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
+                            count, glparamstate.normal_enabled, color_provide, texen, loop);
+        GX_End();
+    }
 
     if (glparamstate.blendenabled && (texen || (!texen && (glparamstate.globalTextABR == 1 || glparamstate.globalTextABR == 3))))
     {
@@ -2849,25 +2854,25 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
         // it was implemented by executing GX_SetBlendMode twice
         glDrawArraysFlg = 1;
 
-        _ogx_apply_state();
-
-        bool loop = (mode == GL_LINE_LOOP);
-        GX_Begin(gxmode, GX_VTXFMT0, count + loop);
-        draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
-                            count, glparamstate.normal_enabled, color_provide, texen, loop);
-        GX_End();
+        if (_ogx_apply_state())
+        {
+            GX_Begin(gxmode, GX_VTXFMT0, count + loop);
+            draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
+                                count, glparamstate.normal_enabled, color_provide, texen, loop);
+            GX_End();
+        }
 
         if (texen && (glparamstate.globalTextABR == 1 || glparamstate.globalTextABR == 3))
         {
             glDrawArraysFlg = 2;
 
-            _ogx_apply_state();
-
-            bool loop = (mode == GL_LINE_LOOP);
-            GX_Begin(gxmode, GX_VTXFMT0, count + loop);
-            draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
-                                count, glparamstate.normal_enabled, color_provide, texen, loop);
-            GX_End();
+            if (_ogx_apply_state())
+            {
+                GX_Begin(gxmode, GX_VTXFMT0, count + loop);
+                draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
+                                    count, glparamstate.normal_enabled, color_provide, texen, loop);
+                GX_End();
+            }
         }
     }
 }
