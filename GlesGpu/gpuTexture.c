@@ -171,7 +171,7 @@ typedef struct textureWndCacheEntryTag
  short          used;
  EXLong         pos;
  GLuint         texname;
- unsigned char   textureType;
+ unsigned int   textureType;
 } textureWndCacheEntry;
 
 // "standard texture" cache entry (12 byte per entry, as small as possible... we need lots of them)
@@ -184,7 +184,7 @@ typedef struct textureSubCacheEntryTagS
  unsigned char   posTY;
  unsigned char   cTexID;
  unsigned char   Opaque;
- unsigned char   textureType;
+ unsigned int   textureType;
 } textureSubCacheEntryS;
 
 
