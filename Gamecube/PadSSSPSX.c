@@ -43,6 +43,9 @@
 #include "wiiSXconfig.h"
 #include "PadSSSPSX.h"
 
+/* Scale factor of analog sticks / 128 */
+#define ANALOG_SCALE_FACTOR 180
+
 //static BUTTONS PAD_1;
 //static BUTTONS PAD_2;
 extern PadDataS lastport1;
@@ -93,6 +96,21 @@ extern virtualControllers_t virtualControllers[10];
 
 void assign_controller(int wv, controller_t* type, int wp);
 
+static inline u8 clamp(int value)
+{
+    if (value < 0)
+        return 0;
+    if (value > 255)
+        return 255;
+
+    return (u8)value;
+}
+
+static inline u8 analog_scale(u8 val)
+{
+    return clamp((int)val * ANALOG_SCALE_FACTOR / 128 + 128 - ANALOG_SCALE_FACTOR);
+}
+
 void setIrq( u32 irq )
 {
     psxHu32ref(0x1070) |= irq;
@@ -139,10 +157,11 @@ void lightgunInterrupt()
 
 static inline u8 SetSensitivity(int a, float sensitivity)
 {
-	a -= 128;
-	a *= sensitivity;
-	if(a >= 128) a = 127; else if(a < -128) a = -128; // clamp
-	return a + 128; // PSX controls range 0-255
+//	a -= 128;
+//	a *= sensitivity;
+//	if(a >= 128) a = 127; else if(a < -128) a = -128; // clamp
+//	return a + 128; // PSX controls range 0-255
+    return clamp((int)a * ANALOG_SCALE_FACTOR / 128 + 128 - ANALOG_SCALE_FACTOR);
 }
 
 static void PADsetMode (const int pad, const int mode)	//mode = 0 (digital) or 1 (analog)
@@ -161,12 +180,12 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 	const int vib0 = global.padVibF[pad][0] ? 1 : 0;
 	const int vib1 = global.padVibF[pad][1] ? 1 : 0;
 	int cursorX = 0x1;
-	int cursorY = 0xA; 
+	int cursorY = 0xA;
 	int curMouse;
 	static int tempcursorX[4];
-	static int tempcursorY[4]; 
+	static int tempcursorY[4];
 	static int oldcursorX[4];
-	static int oldcursorY[4]; 
+	static int oldcursorY[4];
 	static BUTTONS PAD_Data;
 	static WPADData* wpad;
 	float sensitivity;
@@ -193,48 +212,48 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 	}
 
 	if (lightGun && padLightgun[pad]){
-		if (virtualControllers[Control].control == &controller_Wiimote || 
+		if (virtualControllers[Control].control == &controller_Wiimote ||
 			virtualControllers[Control].control == &controller_WiimoteNunchuk){
 				if (lightGun == LIGHTGUN_GUNCON){
 					global.padID[pad] = 0x63;
 					wpad = WPAD_Data(0);
 					if(screenMode == 2)	cursorX = ((wpad[virtualControllers[Control].number].ir.x*848/640 - 104)/1.72) + 75;
 					else cursorX = (wpad[virtualControllers[Control].number].ir.x/1.72) + 75;
-					
-					cursorY = (wpad[virtualControllers[Control].number].ir.y/2) + (Config.PsxType ? 48 : 25); 
-					
+
+					cursorY = (wpad[virtualControllers[Control].number].ir.y/2) + (Config.PsxType ? 48 : 25);
+
 					if (!wpad[virtualControllers[Control].number].ir.valid){
 						cursorX = 0x1;
-						cursorY = 0xA; 
+						cursorY = 0xA;
 					}
 				}
 				else if (lightGun == LIGHTGUN_MOUSE){
 					curMouse = virtualControllers[Control].number;
 					global.padID[pad] = 0x12;
-					if (!gMouse[curMouse]){				
+					if (!gMouse[curMouse]){
 						wpad = WPAD_Data(0);
-						
+
 						if(screenMode == 2)	cursorX = wpad[curMouse].ir.x*848/640 - 104;
 						else cursorX = wpad[curMouse].ir.x;
-						tempcursorX[curMouse] = cursorX;					
+						tempcursorX[curMouse] = cursorX;
 						sensitivity = virtualControllers[Control].config->sensitivity;
-						if (sensitivity < 0.1) sensitivity = 1.0;					
+						if (sensitivity < 0.1) sensitivity = 1.0;
 						cursorX = (cursorX - oldcursorX[curMouse]) * sensitivity;
 						if (cursorX > 127) cursorX = 127;
 						if (cursorX < -128) cursorX = -128;
-						
+
 						cursorY = wpad[curMouse].ir.y;
 						tempcursorY[curMouse] = cursorY;
 						cursorY = (cursorY - oldcursorY[curMouse]) * sensitivity;
 						if (cursorY > 127) cursorY = 127;
 						if (cursorY < -128) cursorY = -128;
-						
+
 						cursorX = (cursorX & 0xFF) | (cursorY<<8);
-						
+
 						oldcursorX[curMouse] = tempcursorX[curMouse];
 						oldcursorY[curMouse] = tempcursorY[curMouse];
 						tempcursorX[curMouse] = cursorX;
-						
+
 						if (!wpad[curMouse].ir.valid){
 							cursorX = 0;
 						}
@@ -244,8 +263,8 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 						cursorX = tempcursorX[curMouse];
 					}
 				}
-				
-				else 
+
+				else
 					global.padID[pad] = 0x31;
 			}
 		else{
@@ -258,14 +277,14 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 		PADsetMode( pad, controllerType == CONTROLLERTYPE_ANALOG ? 1 : 0);
 	}
 #endif
-	
+
 	if (global.padMode1[pad] != controllerType)
 		PADsetMode( pad, controllerType == CONTROLLERTYPE_ANALOG ? 1 : 0);
 
 	if(virtualControllers[Control].inUse)
 	{
 		global.isConnected[pad] = 1;
-		
+
 		miscButton = DO_CONTROL(Control, GetKeys, (BUTTONS*)&PAD_Data, virtualControllers[Control].config);
 		if (miscButton == 1)
 			stop = 1;
@@ -288,8 +307,8 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 	PAD_Data.rightStickY = SetSensitivity(PAD_Data.rightStickY, sensitivity);
 
 	global.padStat[pad] = (((PAD_Data.btns.All>>8)&0xFF) | ( (PAD_Data.btns.All<<8) & 0xFF00 )) &0xFFFF;
-	
-	
+
+
 	if ((global.padID[pad] == 0x31) || (global.padID[pad] == 0x63) || (global.padID[pad] == 0x12)){
 		if (lightGun == LIGHTGUN_GUNCON) global.padStat[pad] |= ~0x860;
 		else if (lightGun == LIGHTGUN_JUST) global.padStat[pad] |= ~0x8c0;
@@ -298,8 +317,8 @@ static void UpdateState (const int pad) //Note: pad = 0 or 1
 				cursorX = 0;
 			global.padStat[pad] |= ~0xF;
 		}
-			
-		
+
+
 		if ((pad==0) || (padType[global.curPad] == PADTYPE_MULTITAP))
 		{
 			lastport1.leftJoyX = cursorY & 0xFF; lastport1.leftJoyY = cursorY >> 8;
