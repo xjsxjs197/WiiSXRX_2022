@@ -59,6 +59,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 
 #include "../../mem2_manager.h"
+#include "../../Gamecube/wiiSXconfig.h"
 
 #define ROUND_32B(x) (((x) + 31) & (~31))
 #define min(a,b)     (((a) < (b)) ? (a) : (b))
@@ -1474,7 +1475,10 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
 
     GX_InitTexObj(&currtex->texobj, currtex->data,
                   currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
-    GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
+    if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_DISABLE)
+    {
+        GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
+    }
     // For Non transparent colors in transparent mode
 //    GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
 //                  currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
@@ -1682,22 +1686,31 @@ int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
                       currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
         GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
                       currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
-        GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
-        GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
+        if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_DISABLE)
+        {
+            GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
+            GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
+        }
     }
     else
     {
         textureType = _ogx_scramble_4b_5a3((unsigned char *)texData, currtex->data, glparamstate.blendenabled, width, height);
         GX_InitTexObj(&currtex->texobj, currtex->data,
                       currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
-        GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
+        if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_DISABLE)
+        {
+            GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
+        }
         // For Non transparent colors in transparent mode
         if (textureType & TXT_TYPE_1)
         {
             memcpy(currtex->semiTransData, semiTransBuf, currtex->w * currtex->h * 2);
             GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
                           currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
-            GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
+            if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_DISABLE)
+            {
+                GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
+            }
         }
     }
     DCFlushRange(currtex->data, tex_size_rnd);
@@ -1818,7 +1831,10 @@ int glTexSubImage2D(GLenum target, GLint level,
             currtex->semiTransData = _mem2_memalign(32, currtex->w * currtex->h * 2);
             GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
                         currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
-            GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
+            if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_DISABLE)
+            {
+                GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
+            }
             memcpy(currtex->semiTransData, semiTransBuf, currtex->w * currtex->h * 2);
         }
     }
@@ -1880,7 +1896,10 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
 
     GX_InitTexObj(&currtex->texobj, currtex->data,
                 currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
-    GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
+    if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_DISABLE)
+    {
+        GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
+    }
     // For Non transparent colors in transparent mode
     if (textureType & TXT_TYPE_1)
     {
@@ -1891,7 +1910,10 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
 
             GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
                         currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
-            GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
+            if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_DISABLE)
+            {
+                GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
+            }
         }
     }
     //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
