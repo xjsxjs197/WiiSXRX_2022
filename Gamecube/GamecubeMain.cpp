@@ -231,7 +231,7 @@ static struct {
   { "PadLightgun9", &padLightgun[8], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
   { "PadLightgun10", &padLightgun[9], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
   { "ForceNTSC", &forceNTSC, FORCENTSC_DISABLE, FORCENTSC_ENABLE },
-  { "gpuPlugin", &gpuPlugin, OLD_SOFT, NEW_SOFT }
+  { "gpuPlugin", &gpuPlugin, OLD_SOFT, OPEN_GX }
 };
 void handleConfigPair(char* kv);
 void readConfig(FILE* f);
@@ -252,7 +252,10 @@ static void setGpuPlugin()
     {
         gpuPtr = &newSoftGpu;
     }
-    gpuPtr = &glesGpu;
+    if (gpuPlugin == OPEN_GX)
+    {
+        gpuPtr = &glesGpu;
+    }
 }
 
 static bool loadControllerMapping(char* usbSd)
