@@ -1331,6 +1331,7 @@ void Func_Screen240p()
 		FRAME_BUTTONS[57].button->setSelected(true);
 		originalMode = ORIGINALMODE_ENABLE;
 	}
+	displayModeChanged = 1;
 }
 
 void Func_DitheringNone()

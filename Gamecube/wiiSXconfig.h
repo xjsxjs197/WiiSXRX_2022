@@ -265,6 +265,7 @@ enum lang
 };
 
 extern char originalMode;
+extern char displayModeChanged;
 enum originalMode
 {
 	ORIGINALMODE_DISABLE=0,

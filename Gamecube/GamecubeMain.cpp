@@ -58,6 +58,7 @@ extern "C" {
 #include "gc_input/controller.h"
 #include "vm/vm.h"
 #include "../gpu.h"
+#include "../mem2_manager.h"
 }
 
 #include "libgui/gui2/gettext.h"
@@ -138,6 +139,7 @@ char numMultitaps;
 char lang = 0;
 char fastLoad = 0;
 char originalMode = 0;
+char displayModeChanged = 0;
 char bilinearFilter = 1;
 char trapFilter = 1;
 char interlacedMode = 0;
@@ -551,6 +553,8 @@ int main(int argc, char *argv[])
         }
 
 	#endif
+
+	gx_init_mem2();
 
 	control_info_init(); //Perform controller auto assignment at least once at startup.
 

@@ -195,8 +195,6 @@ extern uint8_t globalVram[VRAM_SIZE + (VRAM_ALIGN - 1)];
 
 long CALLBACK GL_GPUinit()
 {
-    gx_init_mem2();
-
 memset(ulStatusControl,0,256*sizeof(unsigned long));
 
 bChangeRes=FALSE;
@@ -789,6 +787,28 @@ if ((PSXDisplay.DisplayMode.y == PSXDisplay.DisplayModeNew.y) &&
  }
 else                                                  // some res change?
  {
+    // Check if TVMode needs to be changed (240 or 480 lines)
+//    if (displayModeChanged)
+//    {
+//        if (originalMode == ORIGINALMODE_ENABLE)
+//        {
+//            iResX = 320;
+//            iResY = 240;
+//        }
+//        else
+//        {
+//            iResX = 640;
+//            iResY = 480;
+//        }
+//        rRatioRect.right  = iResX;
+//        rRatioRect.bottom = iResY;
+//        displayModeChanged = 0;
+//    }
+//	if (originalMode == ORIGINALMODE_ENABLE)
+//	{
+//		switchToTVMode(PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y, 0);
+//	}
+
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity(); glError();
   glOrtho(0,PSXDisplay.DisplayModeNew.x,              // -> new psx resolution
