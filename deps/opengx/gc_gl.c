@@ -2555,7 +2555,6 @@ static int _ogx_apply_state()
     setup_render_stages(texen);
 
     // Set up the OGL state to GX state
-    GX_SetZCompLoc(GX_FALSE); // Do Z-compare after texturing.
     GX_SetZMode(GX_TRUE, glparamstate.zfunc, GX_TRUE);
 
     //GX_SetAlphaUpdate(GX_ENABLE);

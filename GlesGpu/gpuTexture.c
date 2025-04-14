@@ -192,14 +192,14 @@ typedef struct textureSubCacheEntryTagS
 
 #define MAXWNDTEXCACHE 64
 #define MAXTPAGES_MAX  64
-#define MAXSORTTEX_MAX 48
+#define MAXSORTTEX_MAX 196
 
 //---------------------------------------------
 
 textureWndCacheEntry     wcWndtexStore[MAXWNDTEXCACHE];    // 64 * 20 > 1 KB
-textureSubCacheEntryS *  pscSubtexStore[3][MAXTPAGES_MAX]; // 3 * 32 * 4096 * 12 > 4 MB
-EXLong *                 pxSsubtexLeft [MAXSORTTEX_MAX];   // 40 * 2048 * 4 = 320 KB
-GLuint                   uiStexturePage[MAXSORTTEX_MAX];   // 40 * 4 = 160 B
+textureSubCacheEntryS *  pscSubtexStore[3][MAXTPAGES_MAX]; // 3 * 64 * 4096 * 16 = 12 MB
+EXLong *                 pxSsubtexLeft [MAXSORTTEX_MAX];   // 196 * 2048 * 4 = 1568 KB
+GLuint                   uiStexturePage[MAXSORTTEX_MAX];   // 196 * 4 = 160 B
 
 unsigned short           usLRUTexPage=0;
 
