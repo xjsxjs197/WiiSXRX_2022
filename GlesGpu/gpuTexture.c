@@ -192,7 +192,7 @@ typedef struct textureSubCacheEntryTagS
 
 #define MAXWNDTEXCACHE 64
 #define MAXTPAGES_MAX  64
-#define MAXSORTTEX_MAX 196
+#define MAXSORTTEX_MAX 24
 
 //---------------------------------------------
 
