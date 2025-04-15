@@ -1170,7 +1170,7 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
 
     if ( bSCol )                                          // also set color ?
     {
-        if ( bDrawNonShaded )                               // -> non shaded?
+        if ( bDrawNonShaded || (DrawAttributes & 0xffffff) == 0x808080 ) // -> non shaded?
         {
             vertex[0].c.lcol = SWAP32_C ( 0xffffff );
             glNoNeedMulConstColor( noNeedMulConstColor | 0x1 );
@@ -1207,16 +1207,16 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
 // Set Opaque multipass color
 ////////////////////////////////////////////////////////////////////////
 
-static void SetOpaqueColor ( unsigned int DrawAttributes )
-{
-    if ( bDrawNonShaded ) return;                         // no shading? bye
-
-    DrawAttributes = DoubleBGR2RGB ( DrawAttributes );    // multipass is just half color, so double it on opaque pass
-    glSetDoubleCol();
-//vertex[0].c.lcol=DrawAttributes|0xff000000;
-    PUTLE32 ( &vertex[0].c.lcol, DrawAttributes | 0xff000000 );
-    SETCOL ( vertex[0] );                                 // set color
-}
+//static void SetOpaqueColor ( unsigned int DrawAttributes )
+//{
+//    if ( bDrawNonShaded ) return;                         // no shading? bye
+//
+//    DrawAttributes = DoubleBGR2RGB ( DrawAttributes );    // multipass is just half color, so double it on opaque pass
+//    glSetDoubleCol();
+////vertex[0].c.lcol=DrawAttributes|0xff000000;
+//    PUTLE32 ( &vertex[0].c.lcol, DrawAttributes | 0xff000000 );
+//    SETCOL ( vertex[0] );                                 // set color
+//}
 
 ////////////////////////////////////////////////////////////////////////
 // Fucking stupid screen coord checking
@@ -4729,7 +4729,10 @@ static void primPolyGT3 ( unsigned char *baseAddr )
 
     assignTexture3();
 
-    if ( bDrawNonShaded )
+    if ( bDrawNonShaded ||
+        ((gpuData[0] & 0xffffff00) == 0x80808000
+         && (gpuData[3] & 0xffffff00) == 0x80808000
+         && (gpuData[6] & 0xffffff00) == 0x80808000) )
     {
         glNoNeedMulConstColor( noNeedMulConstColor | 0x1 );
         vertex[0].c.lcol = SWAP32_C ( 0xffffff );
@@ -4749,9 +4752,9 @@ static void primPolyGT3 ( unsigned char *baseAddr )
         return;
     }
 
-    PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[0] ) ) );
-    PUTLE32 ( &vertex[1].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[3] ) ) );
-    PUTLE32 ( &vertex[2].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[6] ) ) );
+    vertex[0].c.lcol = gpuData[0] ; // DoubleBGR2RGB
+    vertex[1].c.lcol = gpuData[3] ; // DoubleBGR2RGB
+    vertex[2].c.lcol = gpuData[6] ; // DoubleBGR2RGB
     glSetDoubleCol();
     vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = ubGloAlpha;
 
@@ -4875,7 +4878,11 @@ static void primPolyGT4 ( unsigned char *baseAddr )
 
     RectTexAlign();
 
-    if ( bDrawNonShaded )
+    if ( bDrawNonShaded ||
+        ((gpuData[0] & 0xffffff00) == 0x80808000
+         && (gpuData[3] & 0xffffff00) == 0x80808000
+         && (gpuData[6] & 0xffffff00) == 0x80808000
+         && (gpuData[9] & 0xffffff00) == 0x80808000) )
     {
         glNoNeedMulConstColor( noNeedMulConstColor | 0x1 );
         vertex[0].c.lcol = SWAP32_C ( 0xffffff );
@@ -4897,10 +4904,10 @@ static void primPolyGT4 ( unsigned char *baseAddr )
     }
 
 
-    PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[0] ) ) );
-    PUTLE32 ( &vertex[1].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[3] ) ) );
-    PUTLE32 ( &vertex[2].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[6] ) ) );
-    PUTLE32 ( &vertex[3].c.lcol, DoubleBGR2RGB ( GETLE32 ( &gpuData[9] ) ) );
+    vertex[0].c.lcol= gpuData[0] ; // DoubleBGR2RGB
+    vertex[1].c.lcol= gpuData[3] ; // DoubleBGR2RGB
+    vertex[2].c.lcol= gpuData[6] ; // DoubleBGR2RGB
+    vertex[3].c.lcol= gpuData[9] ; // DoubleBGR2RGB
     glSetDoubleCol();
 
     vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = vertex[3].c.col.a = ubGloAlpha;
