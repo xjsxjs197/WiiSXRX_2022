@@ -200,6 +200,7 @@ void ogx_initialize()
     for (i = 0; i < _MAX_GL_TEX; i++) {
         texture_list[i].used = 0;
         texture_list[i].data = 0;
+        texture_list[i].semiTransData = 0;
     }
 
     glparamstate.blendenabled = 0;
@@ -703,7 +704,10 @@ void glDeleteTextures(GLsizei n, const GLuint *textures)
         if (!(i < 0 || i >= _MAX_GL_TEX)) {
             if (texture_list[i].data != 0)
                 _mem2_free(texture_list[i].data);
+            if (texture_list[i].semiTransData != 0)
+                _mem2_free(texture_list[i].semiTransData);
             texture_list[i].data = 0;
+            texture_list[i].semiTransData = 0;
             texture_list[i].used = 0;
         }
     }
@@ -717,6 +721,7 @@ void glGenTextures(GLsizei n, GLuint *textures)
         if (texture_list[i].used == 0) {
             texture_list[i].used = 1;
             texture_list[i].data = 0;
+            texture_list[i].semiTransData = 0;
             texture_list[i].w = 0;
             texture_list[i].h = 0;
             texture_list[i].wraps = GX_REPEAT;

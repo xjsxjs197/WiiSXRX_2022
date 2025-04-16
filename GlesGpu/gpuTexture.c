@@ -192,12 +192,12 @@ typedef struct textureSubCacheEntryTagS
 
 #define MAXWNDTEXCACHE 64
 #define MAXTPAGES_MAX  64
-#define MAXSORTTEX_MAX 24
+#define MAXSORTTEX_MAX 196
 
 //---------------------------------------------
 
 textureWndCacheEntry     wcWndtexStore[MAXWNDTEXCACHE];    // 64 * 20 > 1 KB
-textureSubCacheEntryS *  pscSubtexStore[3][MAXTPAGES_MAX]; // 3 * 64 * 4096 * 16 = 12 MB
+textureSubCacheEntryS *  pscSubtexStore[3][MAXTPAGES_MAX]; // 3 * (64 / 2) * 4096 * 16 = 6M MB
 EXLong *                 pxSsubtexLeft [MAXSORTTEX_MAX];   // 196 * 2048 * 4 = 1568 KB
 GLuint                   uiStexturePage[MAXSORTTEX_MAX];   // 196 * 4 = 160 B
 
@@ -360,15 +360,15 @@ void InitializeTextureStore()
 {
  int i,j;
 
- if(iGPUHeight==1024)
-  {
-   MAXTPAGES     = MAXTPAGES_MAX;
-   CLUTMASK      = 0xffff;
-   CLUTYMASK     = 0x3ff;
-   MAXSORTTEX    = MAXSORTTEX_MAX;
-   iTexGarbageCollection=0;
-  }
- else
+// if(iGPUHeight==1024)
+//  {
+//   MAXTPAGES     = MAXTPAGES_MAX;
+//   CLUTMASK      = 0xffff;
+//   CLUTYMASK     = 0x3ff;
+//   MAXSORTTEX    = MAXSORTTEX_MAX;
+//   iTexGarbageCollection=0;
+//  }
+// else
   {
    MAXTPAGES     = MAXTPAGES_MAX / 2;
    CLUTMASK      = 0x7fff;
