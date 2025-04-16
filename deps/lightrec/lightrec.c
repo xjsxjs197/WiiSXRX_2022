@@ -567,22 +567,13 @@ static void lightrec_mtc0(struct lightrec_state *state, u8 reg, u32 data)
 
 static u32 count_leading_bits(s32 data)
 {
-	u32 cnt = 33;
-
 #ifdef __has_builtin
 #if __has_builtin(__builtin_clrsb)
 	return 1 + __builtin_clrsb(data);
 #endif
 #endif
-
-	data = (data ^ (data >> 31)) << 1;
-
-	do {
-		cnt -= 1;
-		data >>= 1;
-	} while (data);
-
-	return cnt;
+	data ^= data >> 31;
+	return data ? clz32(data) : 32;
 }
 
 static void lightrec_mtc2(struct lightrec_state *state, u8 reg, u32 data)
@@ -1369,6 +1360,9 @@ static unsigned int lightrec_get_mips_block_len(const u32 *src)
 		c.opcode = LE32TOH(*src++);
 
 		if (is_syscall(c))
+			return i;
+
+		if (c.i.op == OP_META_BIOS)
 			return i;
 
 		if (is_unconditional_jump(c))
