@@ -1770,6 +1770,14 @@ int UploadScreen ( int Position )
         DEBUG_print ( txtbuffer, DBG_GPU3 );
         writeLogFile ( txtbuffer );
         #endif // DISP_DEBUG
+
+        if ((xrUploadArea.x1 - xrUploadArea.x0) == 1 || (xrUploadArea.y1 - xrUploadArea.y0) == 1)
+        {
+            // The GX processor appears to have issues when handling textures with length or width of 1 pixel.
+            // This causes crashes in specific scenes of Dino Crisis 2 or Resident Evil 3.
+            // Therefore, such textures are deliberately skipped in this implementation.
+            return 1;
+        }
     }
 
     //isFrameOk = TRUE;
@@ -2586,6 +2594,8 @@ static void primBlkFill ( unsigned char * baseAddr )
     #endif // DISP_DEBUG
 
     FillSoftwareArea(sprtX, sprtY, sprtW + sprtX, sprtH + sprtY, BGR24to16(GETLE32(&gpuData[0])));
+    DCFlushRange(psxVuw, 1024 * 512 * 2);
+    //DCFlushRangeNoSync(psxVuw, 1024 * 512 * 2);
 
     // x and y of start
     ly0 = ly1 = sprtY;
@@ -2605,20 +2615,20 @@ static void primBlkFill ( unsigned char * baseAddr )
         #endif // DISP_DEBUG
 
         // Clear all Screen
-//        unsigned char g, b, r;
-//        r = baseAddr[0];
-//        g = baseAddr[1];
-//        b = baseAddr[2];
-//
-//        glClearColor2 ( r, g, b, 255 );
-//        glClear ( uiBufferBits );
-        bDrawTextured     = FALSE;
-        bDrawSmoothShaded = FALSE;
-        SetRenderState ( ( unsigned int ) 0x01000000 );
-        SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
-        vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
-        SETCOL ( vertex[0] );
-        PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+        unsigned char g, b, r;
+        r = baseAddr[0];
+        g = baseAddr[1];
+        b = baseAddr[2];
+
+        glClearColor2 ( r, g, b, 255 );
+        glClear ( uiBufferBits );
+//        bDrawTextured     = FALSE;
+//        bDrawSmoothShaded = FALSE;
+//        SetRenderState ( ( unsigned int ) 0x01000000 );
+//        SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
+//        vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
+//        SETCOL ( vertex[0] );
+//        PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
         gl_z = 0.0f;
     }
