@@ -2552,6 +2552,31 @@ static void primStoreImage ( unsigned char * baseAddr )
 // cmd: blkfill - NO primitive! Doesn't care about draw areas...
 ////////////////////////////////////////////////////////////////////////
 
+static inline void BlkFillArea(short x0, short y0, short width, short height)
+{
+    short j, i, dx, dy;
+
+    // ?? ff9 pal hooligan crack sets nonsense x0
+    if ( x0 < 0 ) x0 = 0;
+    if ( y0 < 0 ) y0 = 0;
+
+    if ( width <= 0 ) return;
+    if ( height <= 0 ) return;
+
+    if ( y0 >= 512 )   return;
+    if ( x0 > 1023 )   return;
+
+    if ( (y0 + height) > 512 ) height = 512 - y0;
+    if ( (x0 + width) > 1024 ) width = 1024 - x0;
+
+    // clear area
+    int startY = y0;
+    for (; startY < (y0 + height); startY++)
+    {
+        memset(psxVuw + (startY << 10) + x0, 0, width * 2);
+    }
+}
+
 static void primBlkFill ( unsigned char * baseAddr )
 {
     uint32_t *gpuData = ( ( unsigned long * ) baseAddr );
@@ -2562,22 +2587,22 @@ static void primBlkFill ( unsigned char * baseAddr )
     sprtX = GETLEs16 ( &sgpuData[2] );
     sprtY = GETLEs16 ( &sgpuData[3] );
     sprtW = GETLEs16 ( &sgpuData[4] ) & 0x3ff;
-    sprtH = GETLEs16 ( &sgpuData[5] ) & 0x3ff;
+    sprtH = GETLEs16 ( &sgpuData[5] ) & iGPUHeightMask;
 
     sprtW = ( sprtW + 15 ) & ~15;
 
     // Increase H & W if they are one short of full values, because they never can be full values
-    if ( sprtH >= 1023 )  sprtH = 1023;
+    if ( sprtH >= 512 )  sprtH = 512;
     if ( sprtW >= 1023 )  sprtW = 1024;
 
-    if (sprtW == 0)
-    {
-        sprtW = screenWidth;
-    }
-    if (sprtH == 0)
-    {
-        screenHeight = screenWidth;
-    }
+//    if (sprtW == 0)
+//    {
+//        sprtW = screenWidth;
+//    }
+//    if (sprtH == 0)
+//    {
+//        sprtH = screenHeight;
+//    }
 
     // x and y of end pos
     //sprtW += sprtX;
@@ -2593,8 +2618,8 @@ static void primBlkFill ( unsigned char * baseAddr )
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
-    FillSoftwareArea(sprtX, sprtY, sprtW + sprtX, sprtH + sprtY, BGR24to16(GETLE32(&gpuData[0])));
-    DCFlushRange(psxVuw, 1024 * 512 * 2);
+    BlkFillArea(sprtX, sprtY, sprtW, sprtH);
+    //DCFlushRange(psxVuw, 1024 * 512 * 2);
     //DCFlushRangeNoSync(psxVuw, 1024 * 512 * 2);
 
     // x and y of start
@@ -3018,6 +3043,45 @@ static void primMoveImage ( unsigned char * baseAddr )
 // cmd: draw free-size Tile
 ////////////////////////////////////////////////////////////////////////
 
+static inline void TitleFillArea(short x0, short y0, short width, short height, unsigned int colInfo)
+{
+    if ((colInfo & 0xffffff00) == 0)
+    {
+        BlkFillArea(x0, y0, width, height);
+    }
+    else
+    {
+        // ?? ff9 pal hooligan crack sets nonsense x0
+        if ( x0 < 0 ) x0 = 0;
+        if ( y0 < 0 ) y0 = 0;
+
+        if ( width <= 0 ) return;
+        if ( height <= 0 ) return;
+
+        if ( y0 >= 512 )   return;
+        if ( x0 > 1023 )   return;
+
+        if ( (y0 + height) > 512 ) height = 512 - y0;
+        if ( (x0 + width) > 1024 ) width = 1024 - x0;
+
+        unsigned short colTmp = (colInfo >> 27) & 0x1f;
+        colTmp = (colTmp << 10) | (colTmp << 5) | colTmp;
+        colTmp = GETLE16(&colTmp);
+        // clear area
+        int startY = y0;
+        int tmpWid;
+        for (; startY < y0 + height; startY++)
+        {
+            unsigned short *ptr = psxVuw + (startY << 10) + x0;
+            tmpWid = width;
+            while (tmpWid-- > 0)
+            {
+                *ptr++ = colTmp;
+            }
+        }
+    }
+}
+
 static void primTileS ( unsigned char * baseAddr )
 {
     unsigned int *gpuData = ( ( unsigned int* ) baseAddr );
@@ -3028,14 +3092,14 @@ static void primTileS ( unsigned char * baseAddr )
     sprtW = GETLEs16 ( &sgpuData[4] ) & 0x3ff;
     sprtH = GETLEs16 ( &sgpuData[5] ) & iGPUHeightMask;
 
-    if (sprtW == 0)
-    {
-        sprtW = screenWidth;
-    }
-    if (sprtH == 0)
-    {
-        screenHeight = screenWidth;
-    }
+//    if (sprtW == 0)
+//    {
+//        sprtW = screenWidth;
+//    }
+//    if (sprtH == 0)
+//    {
+//        sprtH = screenHeight;
+//    }
 
 // x and y of start
 
@@ -3043,6 +3107,8 @@ static void primTileS ( unsigned char * baseAddr )
     ly0 = sprtY;
 
     offsetST();
+
+    TitleFillArea(sprtX, sprtY, sprtW, sprtH, gpuData[0]);
 
     if (CLEAR_SCREEN(sprtX, sprtY, sprtX + sprtW, sprtY + sprtH))
     {
@@ -3145,6 +3211,8 @@ static void primTile1 ( unsigned char * baseAddr )
 
     offsetST();
 
+    TitleFillArea(sprtX, sprtY, 1, 1, gpuData[0]);
+
     bDrawTextured = FALSE;
     bDrawSmoothShaded = FALSE;
 
@@ -3200,6 +3268,8 @@ static void primTile8 ( unsigned char * baseAddr )
 
     offsetST();
 
+    TitleFillArea(sprtX, sprtY, 8, 8, gpuData[0]);
+
     bDrawTextured = FALSE;
     bDrawSmoothShaded = FALSE;
     SetRenderState ( GETLE32 ( &gpuData[0] ) );
@@ -3253,6 +3323,8 @@ static void primTile16 ( unsigned char * baseAddr )
     ly0 = sprtY;
 
     offsetST();
+
+    TitleFillArea(sprtX, sprtY, 16, 16, gpuData[0]);
 
     bDrawTextured = FALSE;
     bDrawSmoothShaded = FALSE;

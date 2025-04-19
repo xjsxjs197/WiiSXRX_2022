@@ -440,8 +440,6 @@ extern void gx_vout_render(short isFrameOk);
 extern void showFpsAndDebugInfo(void);
 extern void ChangeDispOffsetsXGl(void);
 extern void updateDisplayIfChangedGl(void);
-extern void FillSoftwareArea(short x0,short y0,short x1,       // FILL AREA (BLK FILL)
-                      short y1,unsigned short col);     // no draw area check here!
 
 #ifdef __cplusplus
 }

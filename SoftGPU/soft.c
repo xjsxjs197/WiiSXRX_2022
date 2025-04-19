@@ -1041,7 +1041,7 @@ static void FillSoftwareAreaTrans(short x0,short y0,short x1, // FILL AREA TRANS
 
 ////////////////////////////////////////////////////////////////////////
 
-void FillSoftwareArea(short x0,short y0,short x1,      // FILL AREA (BLK FILL)
+static void FillSoftwareArea(short x0,short y0,short x1,      // FILL AREA (BLK FILL)
                       short y1,unsigned short col)     // no draw area check here!
 {
  short j,i,dx,dy;
