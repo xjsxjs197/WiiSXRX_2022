@@ -2394,8 +2394,10 @@ void CheckWriteUpdate()
     // so the data uploaded by command primLoadImage does not need to be manually displayed on the screen
     if (drawTexturePage == FALSE)
     {
-        if (VRAMWrite.Width != screenWidth || VRAMWrite.Height != screenHeight)
+        if ((VRAMWrite.Width != screenWidth || VRAMWrite.Height != screenHeight)
+            && (VRAMWrite.y * 2 + VRAMWrite.Height) != screenHeight)
         {
+            // Cancel all operations except during animation playback.
             #if defined(DISP_DEBUG)
             sprintf ( txtbuffer, "No drawTexturePage\r\n" );
             writeLogFile ( txtbuffer );
