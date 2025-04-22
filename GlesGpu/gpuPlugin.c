@@ -1922,10 +1922,10 @@ STARTVRAM_GL:
 
 if(iDataWriteMode==DR_VRAMTRANSFER)
  {
-    #if defined(DISP_DEBUG)
-    sprintf ( txtbuffer, "GPUwriteDataMem DR_VRAMTRANSFER %d \r\n", iSize );
-    writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
+//    #if defined(DISP_DEBUG)
+//    sprintf ( txtbuffer, "GPUwriteDataMem DR_VRAMTRANSFER %d \r\n", iSize );
+//    writeLogFile(txtbuffer);
+//    #endif // DISP_DEBUG
 
   // make sure we are in vram
   while(VRAMWrite.ImagePtr>=psxVuw_eom)
@@ -1977,10 +1977,10 @@ ENDVRAM_GL:
 
 if(iDataWriteMode==DR_NORMAL)
  {
-    #if defined(DISP_DEBUG)
-    sprintf ( txtbuffer, "GPUwriteDataMem DR_NORMAL %d \r\n", iSize );
-    writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
+//    #if defined(DISP_DEBUG)
+//    sprintf ( txtbuffer, "GPUwriteDataMem DR_NORMAL %d \r\n", iSize );
+//    writeLogFile(txtbuffer);
+//    #endif // DISP_DEBUG
 
   void (* *primFunc)(unsigned char *);
   if(bSkipNextFrame) primFunc=primTableSkipGx;

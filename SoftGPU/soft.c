@@ -959,7 +959,7 @@ static inline void GetTextureTransColGX32_S(uint32_t * pdest,uint32_t color,shor
 // FILL FUNCS
 ////////////////////////////////////////////////////////////////////////
 
-static void FillSoftwareAreaTrans(short x0,short y0,short x1, // FILL AREA TRANS
+void FillSoftwareAreaTrans(short x0,short y0,short x1, // FILL AREA TRANS
                       short y1,unsigned short col)
 {
  short j,i,dx,dy;

@@ -45,6 +45,9 @@
 //#define CMD_LOG_3D
 #define CMD_LOG_2D
 //#define CMD_LOG_LINE
+//#define CMD_LOG_GT4FT4
+
+static short logType = 0;
 
 #define DEFOPAQUEON  glAlphaFunc(GL_EQUAL,0.0f);bBlendEnable=FALSE;glDisable(GL_BLEND);
 #define DEFOPAQUEOFF glAlphaFunc(GL_GREATER,0.49f);
@@ -66,7 +69,7 @@ BOOL           bRenderFrontBuffer = FALSE;             // flag for front buffer 
 GLubyte        ubGloAlpha;                             // texture alpha
 GLubyte        ubGloColAlpha;                          // color alpha
 int            iFilterType;                            // type of filter
-BOOL           bFullVRam = FALSE;                      // sign for tex win
+BOOL           bFullVRam = TRUE;                      // sign for tex win
 BOOL           bDrawDither;                            // sign for dither
 GLuint         gTexName;                               // binded texture
 BOOL           bTexEnabled;                            // texture enable flag
@@ -1189,9 +1192,12 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         glNoNeedMulConstColor( noNeedMulConstColor & 0xFFFE );
     }
     #if defined(DISP_DEBUG)
-    sprintf ( txtbuffer, "SetRenderMode %d %d %d %d %d %d %d %08x %d\r\n", DrawSemiTrans, bDrawTextured, bUsingTWin, GlobalTextABR, bCheckMask, iSetMask, bSCol, vertex[0].c.lcol, gl_ux[8] );
-    DEBUG_print ( txtbuffer,  DBG_CDR4 );
-    writeLogFile(txtbuffer);
+    if (logType)
+    {
+        sprintf ( txtbuffer, "SetRenderMode %d %d %d %d %d %d %d %08x %d\r\n", DrawSemiTrans, bDrawTextured, bUsingTWin, GlobalTextABR, bCheckMask, iSetMask, bSCol, vertex[0].c.lcol, gl_ux[8] );
+        DEBUG_print ( txtbuffer,  DBG_CDR4 );
+        writeLogFile(txtbuffer);
+    }
     #endif // DISP_DEBUG
 
     if ( bDrawSmoothShaded != bOldSmoothShaded )          // shading changed?
@@ -1244,66 +1250,66 @@ NEXTSCRTEST:
 
 ////////////////////////////////////////////////////////////////////////
 
-//static BOOL bDrawOffscreenFront ( void )
-//{
-//    if ( sxmin < PSXDisplay.DisplayPosition.x ) return FALSE; // must be complete in front
-//    if ( symin < PSXDisplay.DisplayPosition.y ) return FALSE;
-//    if ( sxmax > PSXDisplay.DisplayEnd.x )      return FALSE;
-//    if ( symax > PSXDisplay.DisplayEnd.y )      return FALSE;
-//    return TRUE;
-//}
+static BOOL bDrawOffscreenFront ( void )
+{
+    if ( sxmin < PSXDisplay.DisplayPosition.x ) return FALSE; // must be complete in front
+    if ( symin < PSXDisplay.DisplayPosition.y ) return FALSE;
+    if ( sxmax > PSXDisplay.DisplayEnd.x )      return FALSE;
+    if ( symax > PSXDisplay.DisplayEnd.y )      return FALSE;
+    return TRUE;
+}
 
-//static BOOL bOnePointInFront ( void )
-//{
-//    if ( sxmax < PSXDisplay.DisplayPosition.x )
-//        return FALSE;
-//
-//    if ( symax < PSXDisplay.DisplayPosition.y )
-//        return FALSE;
-//
-//    if ( sxmin >= PSXDisplay.DisplayEnd.x )
-//        return FALSE;
-//
-//    if ( symin >= PSXDisplay.DisplayEnd.y )
-//        return FALSE;
-//
-//    return TRUE;
-//}
+static BOOL bOnePointInFront ( void )
+{
+    if ( sxmax < PSXDisplay.DisplayPosition.x )
+        return FALSE;
+
+    if ( symax < PSXDisplay.DisplayPosition.y )
+        return FALSE;
+
+    if ( sxmin >= PSXDisplay.DisplayEnd.x )
+        return FALSE;
+
+    if ( symin >= PSXDisplay.DisplayEnd.y )
+        return FALSE;
+
+    return TRUE;
+}
 
 
-//static BOOL bOnePointInBack ( void )
-//{
-//    if ( sxmax < PreviousPSXDisplay.DisplayPosition.x )
-//        return FALSE;
-//
-//    if ( symax < PreviousPSXDisplay.DisplayPosition.y )
-//        return FALSE;
-//
-//    if ( sxmin >= PreviousPSXDisplay.DisplayEnd.x )
-//        return FALSE;
-//
-//    if ( symin >= PreviousPSXDisplay.DisplayEnd.y )
-//        return FALSE;
-//
-//    return TRUE;
-//}
+static BOOL bOnePointInBack ( void )
+{
+    if ( sxmax < PreviousPSXDisplay.DisplayPosition.x )
+        return FALSE;
 
-//static BOOL bDrawOffscreen4 ( void )
-//{
-//    BOOL bFront;
-//    short sW, sH;
-//
-//    sxmax = max ( lx0, max ( lx1, max ( lx2, lx3 ) ) );
-//    if ( sxmax < drawX ) return FALSE;
-//    sxmin = min ( lx0, min ( lx1, min ( lx2, lx3 ) ) );
-//    if ( sxmin > drawW ) return FALSE;
-//    symax = max ( ly0, max ( ly1, max ( ly2, ly3 ) ) );
-//    if ( symax < drawY ) return FALSE;
-//    symin = min ( ly0, min ( ly1, min ( ly2, ly3 ) ) );
-//    if ( symin > drawH ) return FALSE;
-//
-//    if ( PSXDisplay.Disabled ) return TRUE;               // disabled? ever
-//
+    if ( symax < PreviousPSXDisplay.DisplayPosition.y )
+        return FALSE;
+
+    if ( sxmin >= PreviousPSXDisplay.DisplayEnd.x )
+        return FALSE;
+
+    if ( symin >= PreviousPSXDisplay.DisplayEnd.y )
+        return FALSE;
+
+    return TRUE;
+}
+
+static BOOL bDrawOffscreen4 ( void )
+{
+    BOOL bFront;
+    short sW, sH;
+
+    sxmax = max ( lx0, max ( lx1, max ( lx2, lx3 ) ) );
+    if ( sxmax < drawX ) return FALSE;
+    sxmin = min ( lx0, min ( lx1, min ( lx2, lx3 ) ) );
+    if ( sxmin > drawW ) return FALSE;
+    symax = max ( ly0, max ( ly1, max ( ly2, ly3 ) ) );
+    if ( symax < drawY ) return FALSE;
+    symin = min ( ly0, min ( ly1, min ( ly2, ly3 ) ) );
+    if ( symin > drawH ) return FALSE;
+
+    if ( PSXDisplay.Disabled ) return TRUE;               // disabled? ever
+
 //    if (iOffscreenDrawing == 1) return bFullVRam;
 //
 //    if (dwActFixes & 1 && iOffscreenDrawing == 4)
@@ -1317,102 +1323,102 @@ NEXTSCRTEST:
 //            return FALSE;
 //        }
 //    }
-//
-//    sW = drawW - 1;
-//    sH = drawH - 1;
-//
-//    sxmin = min ( sW, max ( sxmin, drawX ) );
-//    sxmax = max ( drawX, min ( sxmax, sW ) );
-//    symin = min ( sH, max ( symin, drawY ) );
-//    symax = max ( drawY, min ( symax, sH ) );
-//
-//    if ( bOnePointInBack() ) return bFullVRam;
-//
+
+    sW = drawW - 1;
+    sH = drawH - 1;
+
+    sxmin = min ( sW, max ( sxmin, drawX ) );
+    sxmax = max ( drawX, min ( sxmax, sW ) );
+    symin = min ( sH, max ( symin, drawY ) );
+    symax = max ( drawY, min ( symax, sH ) );
+
+    if ( bOnePointInBack() ) return bFullVRam;
+
 //    if (iOffscreenDrawing == 2)
-//        bFront=bDrawOffscreenFront();
+        bFront = bDrawOffscreenFront();
 //    else
 //        bFront = bOnePointInFront();
-//
-//    if ( bFront )
-//    {
-//        if ( PSXDisplay.InterlacedTest ) return bFullVRam;   // -> ok, no need for adjust
-//
-//        vertex[0].x = lx0 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
-//        vertex[1].x = lx1 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
-//        vertex[2].x = lx2 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
-//        vertex[3].x = lx3 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
-//        vertex[0].y = ly0 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
-//        vertex[1].y = ly1 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
-//        vertex[2].y = ly2 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
-//        vertex[3].y = ly3 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
-//
+
+    if ( bFront )
+    {
+        if ( PSXDisplay.InterlacedTest ) return bFullVRam;   // -> ok, no need for adjust
+
+        vertex[0].x = lx0 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
+        vertex[1].x = lx1 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
+        vertex[2].x = lx2 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
+        vertex[3].x = lx3 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
+        vertex[0].y = ly0 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
+        vertex[1].y = ly1 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
+        vertex[2].y = ly2 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
+        vertex[3].y = ly3 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
+
 //        if (iOffscreenDrawing == 4 && !(dwActFixes & 1))         // -> frontbuffer wanted
 //        {
 //            bRenderFrontBuffer=TRUE;
 //            //return TRUE;
 //        }
-//        return bFullVRam;                                   // -> but no od
-//    }
-//
-//    return TRUE;
-//}
+        return bFullVRam;                                   // -> but no od
+    }
 
-////////////////////////////////////////////////////////////////////////
+    return TRUE;
+}
 
-//static BOOL bDrawOffscreen3 ( void )
-//{
-//    BOOL bFront;
-//    short sW, sH;
-//
-//    sxmax = max ( lx0, max ( lx1, lx2 ) );
-//    if ( sxmax < drawX ) return FALSE;
-//    sxmin = min ( lx0, min ( lx1, lx2 ) );
-//    if ( sxmin > drawW ) return FALSE;
-//    symax = max ( ly0, max ( ly1, ly2 ) );
-//    if ( symax < drawY ) return FALSE;
-//    symin = min ( ly0, min ( ly1, ly2 ) );
-//    if ( symin > drawH ) return FALSE;
-//
-//    if ( PSXDisplay.Disabled ) return TRUE;               // disabled? ever
-//
-//    if (iOffscreenDrawing == 1) return bFullVRam;
-//
-//    sW = drawW - 1;
-//    sH = drawH - 1;
-//    sxmin = min ( sW, max ( sxmin, drawX ) );
-//    sxmax = max ( drawX, min ( sxmax, sW ) );
-//    symin = min ( sH, max ( symin, drawY ) );
-//    symax = max ( drawY, min ( symax, sH ) );
-//
-//    if ( bOnePointInBack() ) return bFullVRam;
-//
+//////////////////////////////////////////////////////////////////////
+
+static BOOL bDrawOffscreen3 ( void )
+{
+    BOOL bFront;
+    short sW, sH;
+
+    sxmax = max ( lx0, max ( lx1, lx2 ) );
+    if ( sxmax < drawX ) return FALSE;
+    sxmin = min ( lx0, min ( lx1, lx2 ) );
+    if ( sxmin > drawW ) return FALSE;
+    symax = max ( ly0, max ( ly1, ly2 ) );
+    if ( symax < drawY ) return FALSE;
+    symin = min ( ly0, min ( ly1, ly2 ) );
+    if ( symin > drawH ) return FALSE;
+
+    if ( PSXDisplay.Disabled ) return TRUE;               // disabled? ever
+
+    //if (iOffscreenDrawing == 1) return bFullVRam;
+
+    sW = drawW - 1;
+    sH = drawH - 1;
+    sxmin = min ( sW, max ( sxmin, drawX ) );
+    sxmax = max ( drawX, min ( sxmax, sW ) );
+    symin = min ( sH, max ( symin, drawY ) );
+    symax = max ( drawY, min ( symax, sH ) );
+
+    if ( bOnePointInBack() ) return bFullVRam;
+
 //    if (iOffscreenDrawing == 2)
-//        bFront=bDrawOffscreenFront();
+        bFront=bDrawOffscreenFront();
 //    else
 //        bFront = bOnePointInFront();
-//
-//    if ( bFront )
-//    {
-//        if ( PSXDisplay.InterlacedTest ) return bFullVRam;  // -> ok, no need for adjust
-//
-//        vertex[0].x = lx0 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
-//        vertex[1].x = lx1 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
-//        vertex[2].x = lx2 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
-//        vertex[0].y = ly0 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
-//        vertex[1].y = ly1 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
-//        vertex[2].y = ly2 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
-//
+
+    if ( bFront )
+    {
+        if ( PSXDisplay.InterlacedTest ) return bFullVRam;  // -> ok, no need for adjust
+
+        vertex[0].x = lx0 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
+        vertex[1].x = lx1 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
+        vertex[2].x = lx2 - PSXDisplay.DisplayPosition.x + PreviousPSXDisplay.Range.x0;
+        vertex[0].y = ly0 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
+        vertex[1].y = ly1 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
+        vertex[2].y = ly2 - PSXDisplay.DisplayPosition.y + PreviousPSXDisplay.Range.y0;
+
 //        if (iOffscreenDrawing == 4)                            // -> frontbuffer wanted
 //        {
 //            bRenderFrontBuffer=TRUE;
 //            //  return TRUE;
 //        }
-//
-//        return bFullVRam;                                   // -> but no od
-//    }
-//
-//    return TRUE;
-//}
+
+        return bFullVRam;                                   // -> but no od
+    }
+
+    return TRUE;
+}
 
 ////////////////////////////////////////////////////////////////////////
 static PSXRect_t xUploadArea;
@@ -2128,6 +2134,39 @@ static void ClampToPSXScreen ( short *x0, short *y0, short *x1, short *y1 )
 // Used in Load Image and Blk Fill
 ////////////////////////////////////////////////////////////////////////
 
+static void ClampToPSXScreenOffset ( short *x0, short *y0, short *x1, short *y1 )
+{
+    if ( *x0 < 0 )
+    {
+        *x1 += *x0;
+        *x0 = 0;
+    }
+    else if ( *x0 > 1023 )
+    {
+        *x0 = 1023;
+        *x1 = 0;
+    }
+
+    if ( *y0 < 0 )
+    {
+        *y1 += *y0;
+        *y0 = 0;
+    }
+    else if ( *y0 > iGPUHeightMask )
+    {
+        *y0 = iGPUHeightMask;
+        *y1 = 0;
+    }
+
+    if ( *x1 < 0 ) *x1 = 0;
+
+    if ( ( *x1 + *x0 ) > 1024 ) *x1 = ( 1024 -  *x0 );
+
+    if ( *y1 < 0 ) *y1 = 0;
+
+    if ( ( *y1 + *y0 ) > iGPUHeight )  *y1 = ( iGPUHeight -  *y0 );
+}
+
 ////////////////////////////////////////////////////////////////////////
 // cmd: start of drawing area... primitives will be clipped inside
 ////////////////////////////////////////////////////////////////////////
@@ -2615,14 +2654,13 @@ static void primBlkFill ( unsigned char * baseAddr )
 //        isFrameOk = TRUE;
 //    }
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    logType = 1;
     sprintf ( txtbuffer, "primBlkFill %d %d %d %d %08x %d %d\r\n", sprtX, sprtY, sprtW, sprtH, gpuData[0] ,DrawSemiTrans, GlobalTextABR);
     DEBUG_print ( txtbuffer, DBG_SPU3 );
     writeLogFile(txtbuffer);
+    #else
+    logType = 0;
     #endif // DISP_DEBUG
-
-    BlkFillArea(sprtX, sprtY, sprtW, sprtH);
-    //DCFlushRange(psxVuw, 1024 * 512 * 2);
-    //DCFlushRangeNoSync(psxVuw, 1024 * 512 * 2);
 
     // x and y of start
     ly0 = ly1 = sprtY;
@@ -2782,6 +2820,12 @@ static void primBlkFill ( unsigned char * baseAddr )
         lClearOnSwapColor = COLOR ( GETLE32 ( &gpuData[0] ) );
         lClearOnSwap = 1;
     }
+
+    // use software blkFill
+    ClampToPSXScreenOffset( &sprtX, &sprtY, &sprtW, &sprtH);
+    if ((sprtW == 0) || (sprtH == 0)) return;
+    BlkFillArea(sprtX, sprtY, sprtW, sprtH);
+    InvalidateTextureArea(sprtX, sprtY, sprtW, sprtH);
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2849,6 +2893,7 @@ static void primMoveImage ( unsigned char * baseAddr )
     imageSY = GETLEs16 ( &sgpuData[7] );
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    logType = 1;
     sprintf ( txtbuffer, "primMoveImage %d %d %d %d %d %d %d %d\r\n", bCheckMask, sSetMask, imageX0, imageY0, imageX1, imageY1, imageSX, imageSY);
     writeLogFile ( txtbuffer );
     sprintf ( txtbuffer, "DisplayInfo %d %d %d %d %d %d %d %d\r\n",
@@ -2857,6 +2902,8 @@ static void primMoveImage ( unsigned char * baseAddr )
     writeLogFile ( txtbuffer );
     sprintf ( txtbuffer, "screenInfo %d %d %d %d\r\n", screenX, screenY, screenWidth, screenHeight);
     writeLogFile ( txtbuffer );
+    #else
+    logType = 0;
     #endif // DISP_DEBUG
 
     if (imageSX == 2 && imageSY == 1)
@@ -3124,29 +3171,33 @@ static void primTileS ( unsigned char * baseAddr )
     bDrawSmoothShaded = FALSE;
 
     SetRenderState ( GETLE32 ( &gpuData[0] ) );
-    TitleFillArea(sprtX, sprtY, sprtW, sprtH, gpuData[0]);
+    //TitleFillArea(sprtX, sprtY, sprtW, sprtH, gpuData[0]);
 
-    /* if(iOffscreenDrawing)
-      {
-       if(IsPrimCompleteInsideNextScreen(lx0,ly0,lx2,ly2) ||
-          (ly0==-6 && ly2==10))                            // OH MY GOD... I DIDN'T WANT TO DO IT... BUT I'VE FOUND NO OTHER WAY... HACK FOR GRADIUS SHOOTER :(
+    if ( 2 )
+    {
+//        if ( IsPrimCompleteInsideNextScreen ( lx0, ly0, lx2, ly2 ) ||
+//            ( ly0 == -6 && ly2 == 10 ) )                     // OH MY GOD... I DIDN'T WANT TO DO IT... BUT I'VE FOUND NO OTHER WAY... HACK FOR GRADIUS SHOOTER :(
+//        {
+//            lClearOnSwapColor = COLOR ( gpuData[0] );
+//            lClearOnSwap = 1;
+//        }
+
+        offsetPSX4();
+        if ( bDrawOffscreen4() )
         {
-         lClearOnSwapColor = COLOR(gpuData[0]);
-         lClearOnSwap = 1;
+            if ( ! ( iTileCheat && sprtH == 32 && gpuData[0] == 0x60ffffff ) ) // special cheat for certain ZiNc games
+            {
+                InvalidateTextureAreaEx();
+                FillSoftwareAreaTrans ( lx0, ly0, lx2, ly2, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
+            }
         }
+    }
 
-       offsetPSX4();
-       if(bDrawOffscreen4())
-        {
-         if(!(iTileCheat && sprtH==32 && gpuData[0]==0x60ffffff)) // special cheat for certain ZiNc games
-          {
-           InvalidateTextureAreaEx();
-           FillSoftwareAreaTrans(lx0,ly0,lx2,ly2,
-                                 BGR24to16(gpuData[0]));
-          }
-        }
-      }*/
-
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    logType = 1;
+    #else
+    logType = 0;
+    #endif // DISP_DEBUG
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
 
@@ -3198,9 +3249,12 @@ static void primTile1 ( unsigned char * baseAddr )
     sprtW = 1;
     sprtH = 1;
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    logType = 1;
     sprintf ( txtbuffer, "primTile1 %d %d 1 1\r\n", sprtX, sprtY);
     DEBUG_print ( txtbuffer, DBG_SPU3 );
     writeLogFile(txtbuffer);
+    #else
+    logType = 0;
     #endif // DISP_DEBUG
 
     lx0 = sprtX;
@@ -3212,20 +3266,19 @@ static void primTile1 ( unsigned char * baseAddr )
     bDrawSmoothShaded = FALSE;
 
     SetRenderState ( GETLE32 ( &gpuData[0] ) );
-    TitleFillArea(sprtX, sprtY, 1, 1, gpuData[0]);
+    //TitleFillArea(sprtX, sprtY, 1, 1, gpuData[0]);
 
-    /* if(iOffscreenDrawing)
-      {
-       offsetPSX4();
+    if ( 2 )
+    {
+        offsetPSX4();
 
-       if(bDrawOffscreen4())
+        if ( bDrawOffscreen4() )
         {
-         InvalidateTextureAreaEx();
-         FillSoftwareAreaTrans(lx0,ly0,lx2,ly2,
-                               BGR24to16(gpuData[0]));
+            InvalidateTextureAreaEx();
+            FillSoftwareAreaTrans ( lx0, ly0, lx2, ly2, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
         }
-      }
-    */
+    }
+
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
 
@@ -3247,9 +3300,12 @@ static void primTile8 ( unsigned char * baseAddr )
     CheckFullScreenUpload();
 
 #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    logType = 1;
     sprintf ( txtbuffer, "primTile8 0\r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
     writeLogFile(txtbuffer);
+#else
+    logType = 0;
 #endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int* ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
@@ -3267,20 +3323,19 @@ static void primTile8 ( unsigned char * baseAddr )
     bDrawTextured = FALSE;
     bDrawSmoothShaded = FALSE;
     SetRenderState ( GETLE32 ( &gpuData[0] ) );
-    TitleFillArea(sprtX, sprtY, 8, 8, gpuData[0]);
+    //TitleFillArea(sprtX, sprtY, 8, 8, gpuData[0]);
 
-    /* if(iOffscreenDrawing)
-      {
-       offsetPSX4();
+    if ( 2 )
+    {
+        offsetPSX4();
 
-       if(bDrawOffscreen4())
+        if ( bDrawOffscreen4() )
         {
-         InvalidateTextureAreaEx();
-         FillSoftwareAreaTrans(lx0,ly0,lx2,ly2,
-                               BGR24to16(gpuData[0]));
+            InvalidateTextureAreaEx();
+            FillSoftwareAreaTrans ( lx0, ly0, lx2, ly2, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
         }
-      }
-    */
+    }
+
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
 
@@ -3302,9 +3357,12 @@ static void primTile16 ( unsigned char * baseAddr )
     CheckFullScreenUpload();
 
 #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    logType = 1;
     sprintf ( txtbuffer, "primTile16 0\r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
     writeLogFile(txtbuffer);
+#else
+    logType = 0;
 #endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int* ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
@@ -3322,20 +3380,19 @@ static void primTile16 ( unsigned char * baseAddr )
     bDrawTextured = FALSE;
     bDrawSmoothShaded = FALSE;
     SetRenderState ( GETLE32 ( &gpuData[0] ) );
-    TitleFillArea(sprtX, sprtY, 16, 16, gpuData[0]);
+    //TitleFillArea(sprtX, sprtY, 16, 16, gpuData[0]);
 
-    /* if(iOffscreenDrawing)
-      {
-       offsetPSX4();
+    if ( 2 )
+    {
+        offsetPSX4();
 
-       if(bDrawOffscreen4())
+        if ( bDrawOffscreen4() )
         {
-         InvalidateTextureAreaEx();
-         FillSoftwareAreaTrans(lx0,ly0,lx2,ly2,
-                               BGR24to16(gpuData[0]));
+            InvalidateTextureAreaEx();
+            FillSoftwareAreaTrans ( lx0, ly0, lx2, ly2, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
         }
-      }
-    */
+    }
+
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
 
@@ -3447,9 +3504,12 @@ static void primSprt8 ( unsigned char * baseAddr )
     ulClutID = GETLE16 ( &sgpuData[5] );
 
 #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    logType = 1;
     sprintf ( txtbuffer, "primSprt8 %d %d 8 8\r\n", sprtX, sprtY );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
-writeLogFile(txtbuffer);
+    writeLogFile(txtbuffer);
+#else
+    logType = 0;
 #endif // DISP_DEBUG
     bDrawTextured = TRUE;
     bDrawSmoothShaded = FALSE;
@@ -3555,9 +3615,12 @@ static void primSprt16 ( unsigned char * baseAddr )
     ulClutID = GETLE16 ( &sgpuData[5] );
 
 #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    logType = 1;
     sprintf ( txtbuffer, "primSprt16 %d %d 16 16\r\n", sprtX, sprtY );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
-writeLogFile(txtbuffer);
+    writeLogFile(txtbuffer);
+#else
+    logType = 0;
 #endif // DISP_DEBUG
 
     bDrawTextured = TRUE;
@@ -3723,10 +3786,13 @@ static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     //if ((sprtW & 3) > 0 || (sprtH & 3) > 0)
     {
+        logType = 1;
         sprintf ( txtbuffer, "primSprtSRest %d %d %d %d\r\n", sprtX, sprtY, sprtW, sprtH );
         DEBUG_print ( txtbuffer, DBG_SPU1 );
         writeLogFile(txtbuffer);
     }
+    #else
+    logType = 0;
     #endif // DISP_DEBUG
 
     bDrawTextured = TRUE;
@@ -3864,6 +3930,11 @@ static void primSprtS ( unsigned char * baseAddr )
     bDrawSmoothShaded = FALSE;
     SetRenderState ( GETLE32 ( &gpuData[0] ) );
 
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    logType = 1;
+    #else
+    logType = 0;
+    #endif // DISP_DEBUG
     SetRenderMode ( GETLE32 ( &gpuData[0] ), TRUE );
     SetZMask4SP();
 
@@ -3959,6 +4030,11 @@ static void primPolyF4 ( unsigned char *baseAddr )
         }
       }
     */
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
+    logType = 1;
+    #else
+    logType = 0;
+    #endif // DISP_DEBUG
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
 
@@ -4079,6 +4155,11 @@ static void primPolyG4 ( unsigned char * baseAddr )
         }
       }
     */
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
+    logType = 1;
+    #else
+    logType = 0;
+    #endif // DISP_DEBUG
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
 
@@ -4262,9 +4343,12 @@ static void primPolyFT3 ( unsigned char * baseAddr )
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
+    logType = 1;
     sprintf ( txtbuffer, "primPolyFT3 \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
     writeLogFile(txtbuffer);
+    #else
+    logType = 0;
     #endif // DISP_DEBUG
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -4728,12 +4812,17 @@ static void primPolyFT4 ( unsigned char * baseAddr )
         }
       }
     */
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_GT4FT4)
+    logType = 1;
+    #else
+    logType = 0;
+    #endif // DISP_DEBUG
     SetRenderMode ( GETLE32 ( &gpuData[0] ), TRUE );
 
     SetZMask4();
 
     assignTexture4();
-    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_GT4FT4)
     //sprintf ( txtbuffer, "primPolyFT4 (%d %d) (%d %d) (%d %d) (%d %d)\r\n", gl_ux[0], gl_vy[0], gl_ux[1], gl_vy[1], gl_ux[2], gl_vy[2], gl_ux[3], gl_vy[3] );
     sprintf ( txtbuffer, "primPolyFT4 (%d %d) (%d %d) (%d %d) (%d %d)\r\n", lx0, ly0, lx1, ly1, lx2, ly2, lx3, ly3 );
     //DEBUG_print ( txtbuffer, DBG_CORE2 );
@@ -4758,9 +4847,12 @@ static void primPolyGT3 ( unsigned char *baseAddr )
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
+    logType = 1;
     sprintf ( txtbuffer, "primPolyGT3 \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
     writeLogFile(txtbuffer);
+    #else
+    logType = 0;
     #endif // DISP_DEBUG
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -4848,9 +4940,12 @@ static void primPolyG3 ( unsigned char *baseAddr )
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
+    logType = 1;
     sprintf ( txtbuffer, "primPolyG3 \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
     writeLogFile(txtbuffer);
+    #else
+    logType = 0;
     #endif // DISP_DEBUG
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -4900,10 +4995,13 @@ static void primPolyGT4 ( unsigned char *baseAddr )
 {
     CheckFullScreenUpload();
 
-    #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_GT4FT4)
+    logType = 1;
     sprintf ( txtbuffer, "primPolyGT4 \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
     writeLogFile(txtbuffer);
+    #else
+    logType = 0;
     #endif // DISP_DEBUG
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -5014,10 +5112,13 @@ static void primPolyF3 ( unsigned char *baseAddr )
     if ( offset3() ) return;
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
+    logType = 1;
     sprintf ( txtbuffer, "primPolyF3 (%f %f) (%f %f) (%f %f)\r\n",
              vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y);
     DEBUG_print ( txtbuffer, DBG_CORE2 );
     writeLogFile(txtbuffer);
+    #else
+    logType = 0;
     #endif // DISP_DEBUG
 
     bDrawTextured     = FALSE;
@@ -5055,9 +5156,12 @@ static void primLineGSkip ( unsigned char *baseAddr )
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
+    logType = 1;
     sprintf ( txtbuffer, "primLineGSkip \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
     writeLogFile(txtbuffer);
+    #else
+    logType = 0;
     #endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
@@ -5088,9 +5192,12 @@ static void primLineGEx ( unsigned char *baseAddr )
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
+    logType = 1;
     sprintf ( txtbuffer, "primLineGEx \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
     writeLogFile(txtbuffer);
+    #else
+    logType = 0;
     #endif // DISP_DEBUG
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -5170,9 +5277,12 @@ static void primLineG2 ( unsigned char *baseAddr )
     ly1 = GETLEs16 ( &sgpuData[7] );
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
+    logType = 1;
     sprintf ( txtbuffer, "primLineG2 %d %d %d %d \r\n", lx0, ly0, lx1, ly1 );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
     writeLogFile(txtbuffer);
+    #else
+    logType = 0;
     #endif // DISP_DEBUG
 
     vertex[0].c.lcol = vertex[3].c.lcol = gpuData[0];
@@ -5215,9 +5325,12 @@ static void primLineFSkip ( unsigned char *baseAddr )
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
+    logType = 1;
     sprintf ( txtbuffer, "primLineFSkip \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
     writeLogFile(txtbuffer);
+    #else
+    logType = 0;
     #endif // DISP_DEBUG
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     int i = 2, iMax = 255;
@@ -5243,9 +5356,12 @@ static void primLineFEx ( unsigned char *baseAddr )
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
+    logType = 1;
     sprintf ( txtbuffer, "primLineFEx \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
     writeLogFile(txtbuffer);
+    #else
+    logType = 0;
     #endif // DISP_DEBUG
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -5309,9 +5425,12 @@ static void primLineF2 ( unsigned char *baseAddr )
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
+    logType = 1;
     sprintf ( txtbuffer, "primLineF2 \r\n" );
     DEBUG_print ( txtbuffer, DBG_CORE2 );
     writeLogFile(txtbuffer);
+    #else
+    logType = 0;
     #endif // DISP_DEBUG
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );

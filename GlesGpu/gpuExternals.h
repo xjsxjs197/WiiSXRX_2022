@@ -440,6 +440,7 @@ extern void gx_vout_render(short isFrameOk);
 extern void showFpsAndDebugInfo(void);
 extern void ChangeDispOffsetsXGl(void);
 extern void updateDisplayIfChangedGl(void);
+extern void FillSoftwareAreaTrans(short x0,short y0,short x1, short y1,unsigned short col);
 
 #ifdef __cplusplus
 }
