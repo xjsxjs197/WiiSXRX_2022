@@ -153,9 +153,9 @@ static inline void UpdateGlobalTP ( unsigned short gdata )
 //    return BGR;
 //}
 
-unsigned short BGR24to16 (unsigned int BGR)
+static inline unsigned short BGR24to16 (uint32_t BGR)
 {
- return ((BGR>>3)&0x1f)|((BGR&0xf80000)>>9)|((BGR&0xf800)>>6);
+    return (unsigned short)(((BGR>>3)&0x1f)|((BGR&0xf80000)>>9)|((BGR&0xf800)>>6));
 }
 
 
@@ -2593,28 +2593,67 @@ static void primStoreImage ( unsigned char * baseAddr )
 // cmd: blkfill - NO primitive! Doesn't care about draw areas...
 ////////////////////////////////////////////////////////////////////////
 
+#define clearFillArea(x, y, wi, he) { \
+    startY = y; \
+    for (; startY < y + he; startY++) \
+    { \
+        memset(psxVuw + (startY << 10) + x, 0, wi * 2); \
+    } \
+}
+
 static inline void BlkFillArea(short x0, short y0, short width, short height)
 {
-    short j, i, dx, dy;
-
-    // ?? ff9 pal hooligan crack sets nonsense x0
-    if ( x0 < 0 ) x0 = 0;
-    if ( y0 < 0 ) y0 = 0;
-
     if ( width <= 0 ) return;
     if ( height <= 0 ) return;
 
     if ( y0 >= 512 )   return;
-    if ( x0 > 1023 )   return;
+    if ( x0 >= 1024 )   return;
 
     if ( (y0 + height) > 512 ) height = 512 - y0;
     if ( (x0 + width) > 1024 ) width = 1024 - x0;
 
     // clear area
-    int startY = y0;
-    for (; startY < (y0 + height); startY++)
+    int startY;
+    if (y0 < 0)
     {
-        memset(psxVuw + (startY << 10) + x0, 0, width * 2);
+        if (x0 >= 0)
+        {
+            InvalidateTextureArea(x0, 512 + y0, width, -y0);
+            clearFillArea(x0, 512 + y0, width, -y0);
+            if (height > 0)
+            {
+                InvalidateTextureArea(x0, 0, width, height);
+                clearFillArea(x0, 0, width, height);
+            }
+        }
+        else
+        {
+            InvalidateTextureArea(1024 + x0, 512 + y0, -x0, -y0);
+            clearFillArea(1024 + x0, 512 + y0, -x0, -y0);
+            if (height > 0 && width > 0)
+            {
+                InvalidateTextureArea(0, 0, width, height);
+                clearFillArea(0, 0, width, height);
+            }
+        }
+    }
+    else
+    {
+        if (x0 >= 0)
+        {
+            InvalidateTextureArea(x0, y0, width, height);
+            clearFillArea(x0, y0, width, height);
+        }
+        else
+        {
+            InvalidateTextureArea(1024 + x0, y0, -x0, height);
+            clearFillArea(1024 + x0, y0, -x0, height);
+            if (width > 0)
+            {
+                InvalidateTextureArea(0, y0, width, height);
+                clearFillArea(0, y0, width, height);
+            }
+        }
     }
 }
 
@@ -2625,29 +2664,25 @@ static void primBlkFill ( unsigned char * baseAddr )
 
     iDrawnSomething |= 0x4;
 
-    sprtX = GETLEs16 ( &sgpuData[2] );
-    sprtY = GETLEs16 ( &sgpuData[3] );
+    // https://psx-spx.consoledev.net/graphicsprocessingunitgpu/#masking-and-rounding-for-fill-command-parameters
+    sprtX = GETLEs16 ( &sgpuData[2] ) & 0x3f0;
+    sprtY = GETLEs16 ( &sgpuData[3] ) & iGPUHeightMask;
     sprtW = GETLEs16 ( &sgpuData[4] ) & 0x3ff;
     sprtH = GETLEs16 ( &sgpuData[5] ) & iGPUHeightMask;
 
+    if (sprtW == 0 || sprtH == 0)
+    {
+        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+        logType = 1;
+        sprintf ( txtbuffer, "primBlkFill0 %d %d %d %d\r\n", sprtX, sprtY, sprtW, sprtH);
+        writeLogFile(txtbuffer);
+        #else
+        logType = 0;
+        #endif // DISP_DEBUG
+        return;
+    }
+
     sprtW = ( sprtW + 15 ) & ~15;
-
-    // Increase H & W if they are one short of full values, because they never can be full values
-    if ( sprtH >= 512 )  sprtH = 512;
-    if ( sprtW >= 1023 )  sprtW = 1024;
-
-    if (sprtW == 0)
-    {
-        sprtW = screenWidth;
-    }
-    if (sprtH == 0)
-    {
-        sprtH = screenHeight;
-    }
-
-    // x and y of end pos
-    //sprtW += sprtX;
-    //sprtH += sprtY;
 
 //    if (sprtW == screenWidth && sprtH == screenHeight)
 //    {
@@ -2680,21 +2715,26 @@ static void primBlkFill ( unsigned char * baseAddr )
         #endif // DISP_DEBUG
 
         // Clear all Screen
-        unsigned char g, b, r;
-        r = baseAddr[0];
-        g = baseAddr[1];
-        b = baseAddr[2];
+        if ((sprtX + sprtW) >= 1023 && (sprtY + sprtH) >= 511)
+        {
+            unsigned char g, b, r;
+            r = baseAddr[0];
+            g = baseAddr[1];
+            b = baseAddr[2];
 
-        glClearColor2 ( r, g, b, 255 );
-        glClear ( uiBufferBits );
-//        bDrawTextured     = FALSE;
-//        bDrawSmoothShaded = FALSE;
-//        SetRenderState ( ( unsigned int ) 0x01000000 );
-//        SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
-//        vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
-//        SETCOL ( vertex[0] );
-//        PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-
+            glClearColor2 ( r, g, b, 255 );
+            glClear ( uiBufferBits );
+        }
+        else
+        {
+            bDrawTextured     = FALSE;
+            bDrawSmoothShaded = FALSE;
+            SetRenderState ( ( unsigned int ) 0x01000000 );
+            SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
+            vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
+            SETCOL ( vertex[0] );
+            PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+        }
         gl_z = 0.0f;
     }
     else
@@ -2822,10 +2862,11 @@ static void primBlkFill ( unsigned char * baseAddr )
     }
 
     // use software blkFill
-    ClampToPSXScreenOffset( &sprtX, &sprtY, &sprtW, &sprtH);
-    if ((sprtW == 0) || (sprtH == 0)) return;
     BlkFillArea(sprtX, sprtY, sprtW, sprtH);
-    InvalidateTextureArea(sprtX, sprtY, sprtW, sprtH);
+    //ClampToPSXScreenOffset( &sprtX, &sprtY, &sprtW, &sprtH);
+    //if ((sprtW == 0) || (sprtH == 0)) return;
+    //InvalidateTextureArea(sprtX, sprtY, sprtW - 1, sprtH - 1);
+    //FillSoftwareArea(sprtX, sprtY, sprtX + sprtW, sprtY + sprtH, BGR24to16(GETLE32 ( &gpuData[0] )));
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2843,36 +2884,36 @@ static void MoveImageWrapped ( short imageX0, short imageY0,
             psxVuw [ ( 1024 * ( ( imageY1 + j ) &iGPUHeightMask ) ) + ( ( imageX1 + i ) & 0x3ff )] =
                 psxVuw[ ( 1024 * ( ( imageY0 + j ) &iGPUHeightMask ) ) + ( ( imageX0 + i ) & 0x3ff )];
 
-//    if ( !PSXDisplay.RGB24 )
-//    {
-//        imageXE = imageX1 + imageSX;
-//        imageYE = imageY1 + imageSY;
-//
-//        if ( imageYE > iGPUHeight && imageXE > 1024 )
-//        {
-//            InvalidateTextureArea ( 0, 0,
-//                                    ( imageXE & 0x3ff ) - 1,
-//                                    ( imageYE & iGPUHeightMask ) - 1 );
-//        }
-//
-//        if ( imageXE > 1024 )
-//        {
-//            InvalidateTextureArea ( 0, imageY1,
-//                                    ( imageXE & 0x3ff ) - 1,
-//                                    ( ( imageYE > iGPUHeight ) ? iGPUHeight : imageYE ) - imageY1 - 1 );
-//        }
-//
-//        if ( imageYE > iGPUHeight )
-//        {
-//            InvalidateTextureArea ( imageX1, 0,
-//                                    ( ( imageXE > 1024 ) ? 1024 : imageXE ) - imageX1 - 1,
-//                                    ( imageYE & iGPUHeightMask ) - 1 );
-//        }
-//
-//        InvalidateTextureArea ( imageX1, imageY1,
-//                                ( ( imageXE > 1024 ) ? 1024 : imageXE ) - imageX1 - 1,
-//                                ( ( imageYE > iGPUHeight ) ? iGPUHeight : imageYE ) - imageY1 - 1 );
-//    }
+    if ( !PSXDisplay.RGB24 )
+    {
+        imageXE = imageX1 + imageSX;
+        imageYE = imageY1 + imageSY;
+
+        if ( imageYE > iGPUHeight && imageXE > 1024 )
+        {
+            InvalidateTextureArea ( 0, 0,
+                                    ( imageXE & 0x3ff ) - 1,
+                                    ( imageYE & iGPUHeightMask ) - 1 );
+        }
+
+        if ( imageXE > 1024 )
+        {
+            InvalidateTextureArea ( 0, imageY1,
+                                    ( imageXE & 0x3ff ) - 1,
+                                    ( ( imageYE > iGPUHeight ) ? iGPUHeight : imageYE ) - imageY1 - 1 );
+        }
+
+        if ( imageYE > iGPUHeight )
+        {
+            InvalidateTextureArea ( imageX1, 0,
+                                    ( ( imageXE > 1024 ) ? 1024 : imageXE ) - imageX1 - 1,
+                                    ( imageYE & iGPUHeightMask ) - 1 );
+        }
+
+        InvalidateTextureArea ( imageX1, imageY1,
+                                ( ( imageXE > 1024 ) ? 1024 : imageXE ) - imageX1 - 1,
+                                ( ( imageYE > iGPUHeight ) ? iGPUHeight : imageYE ) - imageY1 - 1 );
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -3092,39 +3133,78 @@ static void primMoveImage ( unsigned char * baseAddr )
 // cmd: draw free-size Tile
 ////////////////////////////////////////////////////////////////////////
 
+#define clearTitleArea(x, y, wi, he) { \
+    startY = y; \
+    for (; startY < y + he; startY++) \
+    { \
+        unsigned short *ptr = psxVuw + (startY << 10) + x; \
+        tmpWid = wi; \
+        while (tmpWid-- > 0) \
+        { \
+            *ptr++ = colTmp; \
+        } \
+    } \
+}
+
 static inline void TitleFillArea(short x0, short y0, short width, short height, unsigned int colInfo)
 {
-//    // ?? ff9 pal hooligan crack sets nonsense x0
-//    if ( x0 < 0 ) x0 = 0;
-//    if ( y0 < 0 ) y0 = 0;
-//
-//    if ( width <= 0 ) return;
-//    if ( height <= 0 ) return;
-//
-//    if ( y0 >= 512 )   return;
-//    if ( x0 > 1023 )   return;
-//
-//    if ( (y0 + height) > 512 ) height = 512 - y0;
-//    if ( (x0 + width) > 1024 ) width = 1024 - x0;
-//
-//    unsigned short colTmp = (colInfo >> 27) & 0x1f;
-//    colTmp = (colTmp << 10) | (colTmp << 5) | colTmp | sSetMask;
-//    colTmp = GETLE16(&colTmp);
-//    // clear area
-//    int startY = y0;
-//    int tmpWid;
-//    if (!bCheckMask && !DrawSemiTrans)
-//    {
-//        for (; startY < y0 + height; startY++)
-//        {
-//            unsigned short *ptr = psxVuw + (startY << 10) + x0;
-//            tmpWid = width;
-//            while (tmpWid-- > 0)
-//            {
-//                *ptr++ = colTmp;
-//            }
-//        }
-//    }
+    if ( width < 0 ) return;
+    if ( height < 0 ) return;
+
+    if ( y0 >= 512 )   return;
+    if ( x0 >= 1024 )   return;
+
+    if ( (y0 + height) > 512 ) height = 512 - y0;
+    if ( (x0 + width) > 1024 ) width = 1024 - x0;
+
+    unsigned short colTmp = GETLE16(&colInfo);
+    // clear area
+    int startY;
+    int tmpWid;
+    if (!bCheckMask && !DrawSemiTrans)
+    {
+        if (y0 < 0)
+        {
+            if (x0 >= 0)
+            {
+                InvalidateTextureArea(x0, 512 + y0, width, -y0);
+                clearTitleArea(x0, 512 + y0, width, -y0);
+                if (height > 0)
+                {
+                    InvalidateTextureArea(x0, 0, width, height);
+                    clearTitleArea(x0, 0, width, height);
+                }
+            }
+            else
+            {
+                InvalidateTextureArea(1024 + x0, 512 + y0, -x0, -y0);
+                clearTitleArea(1024 + x0, 512 + y0, -x0, -y0);
+                if (height > 0 && width > 0)
+                {
+                    InvalidateTextureArea(0, 0, width, height);
+                    clearTitleArea(0, 0, width, height);
+                }
+            }
+        }
+        else
+        {
+            if (x0 >= 0)
+            {
+                InvalidateTextureArea(x0, y0, width, height);
+                clearTitleArea(x0, y0, width, height);
+            }
+            else
+            {
+                InvalidateTextureArea(1024 + x0, y0, -x0, height);
+                clearTitleArea(1024 + x0, y0, -x0, height);
+                if (width > 0)
+                {
+                    InvalidateTextureArea(0, y0, width, height);
+                    clearTitleArea(0, y0, width, height);
+                }
+            }
+        }
+    }
 }
 
 static void primTileS ( unsigned char * baseAddr )
@@ -3137,14 +3217,13 @@ static void primTileS ( unsigned char * baseAddr )
     sprtW = GETLEs16 ( &sgpuData[4] ) & 0x3ff;
     sprtH = GETLEs16 ( &sgpuData[5] ) & iGPUHeightMask;
 
-    if (sprtW == 0)
-    {
-        sprtW = screenWidth;
-    }
-    if (sprtH == 0)
-    {
-        sprtH = screenHeight;
-    }
+    sprtX = (sprtX <= -1024 ? 0 : sprtX);
+    sprtY = (sprtY <= -512 ? 0 : sprtY);
+
+    sprtW = (sprtW == 0 ? screenWidth : sprtW);
+    sprtW = (sprtW == 1023 ? 1024 : sprtW);
+    sprtH = (sprtH == 0 ? screenHeight : sprtH);
+    sprtH = (sprtH == 511 ? 512 : sprtH);
 
 // x and y of start
 
@@ -3171,10 +3250,7 @@ static void primTileS ( unsigned char * baseAddr )
     bDrawSmoothShaded = FALSE;
 
     SetRenderState ( GETLE32 ( &gpuData[0] ) );
-    //TitleFillArea(sprtX, sprtY, sprtW, sprtH, gpuData[0]);
 
-    if ( 2 )
-    {
 //        if ( IsPrimCompleteInsideNextScreen ( lx0, ly0, lx2, ly2 ) ||
 //            ( ly0 == -6 && ly2 == 10 ) )                     // OH MY GOD... I DIDN'T WANT TO DO IT... BUT I'VE FOUND NO OTHER WAY... HACK FOR GRADIUS SHOOTER :(
 //        {
@@ -3182,16 +3258,30 @@ static void primTileS ( unsigned char * baseAddr )
 //            lClearOnSwap = 1;
 //        }
 
-        offsetPSX4();
-        if ( bDrawOffscreen4() )
-        {
-            if ( ! ( iTileCheat && sprtH == 32 && gpuData[0] == 0x60ffffff ) ) // special cheat for certain ZiNc games
-            {
-                InvalidateTextureAreaEx();
-                FillSoftwareAreaTrans ( lx0, ly0, lx2, ly2, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
-            }
-        }
-    }
+    offsetPSX4();
+    TitleFillArea(lx0, ly0, sprtW, sprtH, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
+//        if ( bDrawOffscreen4() )
+//        {
+//            if ( ! ( iTileCheat && sprtH == 32 && gpuData[0] == SWAP32_C(0x60ffffff) ) ) // special cheat for certain ZiNc games
+//            {
+//                InvalidateTextureAreaEx();
+//                FillSoftwareAreaTrans ( lx0, ly0, lx2, ly2, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
+//            }
+//            #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+//            else
+//            {
+//                sprintf ( txtbuffer, "primTileS Not FillSoftwareAreaTrans\r\n");
+//                writeLogFile(txtbuffer);
+//            }
+//            #endif // DISP_DEBUG
+//        }
+//        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+//        else
+//        {
+//            sprintf ( txtbuffer, "primTileS Not bDrawOffscreen4\r\n");
+//            writeLogFile(txtbuffer);
+//        }
+//        #endif // DISP_DEBUG
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     logType = 1;
@@ -3246,6 +3336,8 @@ static void primTile1 ( unsigned char * baseAddr )
 
     sprtX = GETLEs16 ( &sgpuData[2] );
     sprtY = GETLEs16 ( &sgpuData[3] );
+    sprtX = (sprtX <= -1024 ? 0 : sprtX);
+    sprtY = (sprtY <= -512 ? 0 : sprtY);
     sprtW = 1;
     sprtH = 1;
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
@@ -3266,18 +3358,22 @@ static void primTile1 ( unsigned char * baseAddr )
     bDrawSmoothShaded = FALSE;
 
     SetRenderState ( GETLE32 ( &gpuData[0] ) );
-    //TitleFillArea(sprtX, sprtY, 1, 1, gpuData[0]);
 
-    if ( 2 )
-    {
-        offsetPSX4();
+    offsetPSX4();
+    TitleFillArea(lx0, ly0, 1, 1, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
 
-        if ( bDrawOffscreen4() )
-        {
-            InvalidateTextureAreaEx();
-            FillSoftwareAreaTrans ( lx0, ly0, lx2, ly2, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
-        }
-    }
+//        if ( bDrawOffscreen4() )
+//        {
+//            InvalidateTextureAreaEx();
+//            FillSoftwareAreaTrans ( lx0, ly0, lx2, ly2, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
+//        }
+//        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+//        else
+//        {
+//            sprintf ( txtbuffer, "primTile1 Not bDrawOffscreen4\r\n");
+//            writeLogFile(txtbuffer);
+//        }
+//        #endif // DISP_DEBUG
 
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
@@ -3312,6 +3408,8 @@ static void primTile8 ( unsigned char * baseAddr )
 
     sprtX = GETLEs16 ( &sgpuData[2] );
     sprtY = GETLEs16 ( &sgpuData[3] );
+    sprtX = (sprtX <= -1024 ? 0 : sprtX);
+    sprtY = (sprtY <= -512 ? 0 : sprtY);
     sprtW = 8;
     sprtH = 8;
 
@@ -3323,18 +3421,22 @@ static void primTile8 ( unsigned char * baseAddr )
     bDrawTextured = FALSE;
     bDrawSmoothShaded = FALSE;
     SetRenderState ( GETLE32 ( &gpuData[0] ) );
-    //TitleFillArea(sprtX, sprtY, 8, 8, gpuData[0]);
 
-    if ( 2 )
-    {
-        offsetPSX4();
+    offsetPSX4();
+    TitleFillArea(lx0, ly0, 8, 8, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
 
-        if ( bDrawOffscreen4() )
-        {
-            InvalidateTextureAreaEx();
-            FillSoftwareAreaTrans ( lx0, ly0, lx2, ly2, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
-        }
-    }
+//        if ( bDrawOffscreen4() )
+//        {
+//            InvalidateTextureAreaEx();
+//            FillSoftwareAreaTrans ( lx0, ly0, lx2, ly2, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
+//        }
+//        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+//        else
+//        {
+//            sprintf ( txtbuffer, "primTile8 Not bDrawOffscreen4\r\n");
+//            writeLogFile(txtbuffer);
+//        }
+//        #endif // DISP_DEBUG
 
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
@@ -3369,6 +3471,8 @@ static void primTile16 ( unsigned char * baseAddr )
 
     sprtX = GETLEs16 ( &sgpuData[2] );
     sprtY = GETLEs16 ( &sgpuData[3] );
+    sprtX = (sprtX <= -1024 ? 0 : sprtX);
+    sprtY = (sprtY <= -512 ? 0 : sprtY);
     sprtW = 16;
     sprtH = 16;
 // x and y of start
@@ -3380,18 +3484,22 @@ static void primTile16 ( unsigned char * baseAddr )
     bDrawTextured = FALSE;
     bDrawSmoothShaded = FALSE;
     SetRenderState ( GETLE32 ( &gpuData[0] ) );
-    //TitleFillArea(sprtX, sprtY, 16, 16, gpuData[0]);
 
-    if ( 2 )
-    {
-        offsetPSX4();
+    offsetPSX4();
+    TitleFillArea(lx0, ly0, 16, 16, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
 
-        if ( bDrawOffscreen4() )
-        {
-            InvalidateTextureAreaEx();
-            FillSoftwareAreaTrans ( lx0, ly0, lx2, ly2, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
-        }
-    }
+//        if ( bDrawOffscreen4() )
+//        {
+//            InvalidateTextureAreaEx();
+//            FillSoftwareAreaTrans ( lx0, ly0, lx2, ly2, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
+//        }
+//        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+//        else
+//        {
+//            sprintf ( txtbuffer, "primTile16 Not bDrawOffscreen4\r\n");
+//            writeLogFile(txtbuffer);
+//        }
+//        #endif // DISP_DEBUG
 
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
