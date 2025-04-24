@@ -3148,8 +3148,8 @@ static void primMoveImage ( unsigned char * baseAddr )
 
 static inline void TitleFillArea(short x0, short y0, short width, short height, unsigned int colInfo)
 {
-    if ( width < 0 ) return;
-    if ( height < 0 ) return;
+    if ( width <= 0 ) return;
+    if ( height <= 0 ) return;
 
     if ( y0 >= 512 )   return;
     if ( x0 >= 1024 )   return;
@@ -3167,23 +3167,19 @@ static inline void TitleFillArea(short x0, short y0, short width, short height, 
         {
             if (x0 >= 0)
             {
-                InvalidateTextureArea(x0, 512 + y0, width, -y0);
-                clearTitleArea(x0, 512 + y0, width, -y0);
-                if (height > 0)
-                {
-                    InvalidateTextureArea(x0, 0, width, height);
-                    clearTitleArea(x0, 0, width, height);
-                }
+                //InvalidateTextureArea(x0, 512 + y0, width, -y0);
+                //clearTitleArea(x0, 512 + y0, width, -y0);
+
+                InvalidateTextureArea(x0, 0, width, height);
+                clearTitleArea(x0, 0, width, height);
             }
             else
             {
-                InvalidateTextureArea(1024 + x0, 512 + y0, -x0, -y0);
-                clearTitleArea(1024 + x0, 512 + y0, -x0, -y0);
-                if (height > 0 && width > 0)
-                {
-                    InvalidateTextureArea(0, 0, width, height);
-                    clearTitleArea(0, 0, width, height);
-                }
+                //InvalidateTextureArea(1024 + x0, 512 + y0, -x0, -y0);
+                //clearTitleArea(1024 + x0, 512 + y0, -x0, -y0);
+
+                InvalidateTextureArea(0, 0, width, height);
+                clearTitleArea(0, 0, width, height);
             }
         }
         else
@@ -3195,13 +3191,11 @@ static inline void TitleFillArea(short x0, short y0, short width, short height, 
             }
             else
             {
-                InvalidateTextureArea(1024 + x0, y0, -x0, height);
-                clearTitleArea(1024 + x0, y0, -x0, height);
-                if (width > 0)
-                {
-                    InvalidateTextureArea(0, y0, width, height);
-                    clearTitleArea(0, y0, width, height);
-                }
+                //InvalidateTextureArea(1024 + x0, y0, -x0, height);
+                //clearTitleArea(1024 + x0, y0, -x0, height);
+
+                InvalidateTextureArea(0, y0, width, height);
+                clearTitleArea(0, y0, width, height);
             }
         }
     }
