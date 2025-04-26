@@ -103,6 +103,19 @@ static const char * const special_game_hack_db2[] =
     "SLUS01279", "SLPM86627", "SLES03221", "SLES03222", "SLES03223", "SLES03224", "SLES03225",
 };
 
+static const char * const special_game_hack_no_soft_title[] =
+{
+    /* hokuto no ken For GX gpu fix(no software primTitle) */
+    "SLPS02993",
+};
+
+static const char * const special_game_hack_chrono_cross[] =
+{
+    /* CHRONO_CROSS For GX gpu fix */
+    "SLPS45447", "SLPS45448", "SLPS02364", "SLPS02365", "SLPS91464", "SLPS91465", "SLPS02777", "SLPS02778",
+    "SLPS87395", "SLPS87396", "SLPS01041", "SLPS01080",
+};
+
 #define HACK_ENTRY(var, list) \
     { #var, &Config.hacks.var, list, ARRAY_SIZE(list) }
 
@@ -276,6 +289,20 @@ void Apply_Hacks_Cdrom()
         if (strcmp(CdromId, special_game_hack_db2[i]) == 0)
         {
             Config.hacks.dwActFixes |= AUTO_FIX_DINO_CRISIS2;
+            break;
+        }
+    }
+    for (i = 0; i < ARRAY_SIZE(special_game_hack_no_soft_title); i++) {
+        if (strcmp(CdromId, special_game_hack_no_soft_title[i]) == 0)
+        {
+            Config.hacks.dwActFixes |= AUTO_FIX_NO_SOFT_TITLE;
+            break;
+        }
+    }
+    for (i = 0; i < ARRAY_SIZE(special_game_hack_chrono_cross); i++) {
+        if (strcmp(CdromId, special_game_hack_chrono_cross[i]) == 0)
+        {
+            Config.hacks.dwActFixes |= AUTO_FIX_CHRONO_CROSS;
             break;
         }
     }

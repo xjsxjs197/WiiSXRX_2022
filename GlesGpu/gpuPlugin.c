@@ -942,7 +942,7 @@ static unsigned short usFirstPos=2;
 
 void CALLBACK GL_GPUupdateLace(void)
 {
-if(!(dwActFixes&0x1000))
+if(!(dwActFixes&AUTO_FIX_CHRONO_CROSS))
  STATUSREG^=0x80000000;                               // interlaced bit toggle, if the CC game fix is not active (see gpuReadStatus)
 
     static char oldframeLimit = 1;
@@ -1056,7 +1056,7 @@ else if(usFirstPos==1)                                // initial updates (after 
 
 unsigned long CALLBACK GL_GPUreadStatus(void)
 {
-if(dwActFixes&0x1000)                                 // CC game fix
+if(dwActFixes&AUTO_FIX_CHRONO_CROSS)                                 // CC game fix
  {
   static int iNumRead=0;
   if((iNumRead++)==2)
