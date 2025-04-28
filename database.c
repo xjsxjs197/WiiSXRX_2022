@@ -105,8 +105,11 @@ static const char * const special_game_hack_db2[] =
 
 static const char * const special_game_hack_no_soft_title[] =
 {
-    /* hokuto no ken For GX gpu fix(no software primTitle) */
+    // For GX gpu fix(no software primTitle)
+    /* hokuto no ken */
     "SLPS02993",
+    /* SILENT HILL */
+    "SCPS45380", "SLPM86192", "SLPM86498", "SLPM87029", "SLES01514", "SLUS00707",
 };
 
 static const char * const special_game_hack_chrono_cross[] =
