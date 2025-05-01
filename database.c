@@ -103,13 +103,13 @@ static const char * const special_game_hack_db2[] =
     "SLUS01279", "SLPM86627", "SLES03221", "SLES03222", "SLES03223", "SLES03224", "SLES03225",
 };
 
-static const char * const special_game_hack_no_soft_title[] =
+static const char * const special_game_hack_need_soft_title[] =
 {
-    // For GX gpu fix(no software primTitle)
-    /* hokuto no ken */
-    "SLPS02993",
-    /* SILENT HILL */
-    "SCPS45380", "SLPM86192", "SLPM86498", "SLPM87029", "SLES01514", "SLUS00707",
+    // For GX gpu fix(need software primTitle)
+    /* BRAVE FENCER MUSASHIDEN */
+    "SLPS01490", "SLPS01491", "SCPS45291", "SLUS00726", "SLUS90029",
+    /* VAGRANT STORY */
+    "SLPS02377", "SCPS45486", "SLPS91457", "SLPM87393", "SLUS01040",
 };
 
 static const char * const special_game_hack_chrono_cross[] =
@@ -295,10 +295,10 @@ void Apply_Hacks_Cdrom()
             break;
         }
     }
-    for (i = 0; i < ARRAY_SIZE(special_game_hack_no_soft_title); i++) {
-        if (strcmp(CdromId, special_game_hack_no_soft_title[i]) == 0)
+    for (i = 0; i < ARRAY_SIZE(special_game_hack_need_soft_title); i++) {
+        if (strcmp(CdromId, special_game_hack_need_soft_title[i]) == 0)
         {
-            Config.hacks.dwActFixes |= AUTO_FIX_NO_SOFT_TITLE;
+            Config.hacks.dwActFixes |= AUTO_FIX_NEED_SOFT_TITLE;
             break;
         }
     }

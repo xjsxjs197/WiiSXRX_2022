@@ -3120,7 +3120,7 @@ static void primMoveImage ( unsigned char * baseAddr )
 
 static inline void TitleFillArea(short x0, short y0, short width, short height, unsigned int colInfo)
 {
-    if (dwActFixes & AUTO_FIX_NO_SOFT_TITLE)
+    if (!(dwActFixes & AUTO_FIX_NEED_SOFT_TITLE))
     {
         return;
     }
