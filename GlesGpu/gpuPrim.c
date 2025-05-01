@@ -809,14 +809,14 @@ typedef struct SEMITRANSTAG
 
 static SemiTransParams TransSets[4] =
 {
-    // 0.5B + 0.5F, Due to the possibility of 0.5Alpha in the final result,
-    // it was implemented by executing GX_SetBlendMode twice in gc_gl.c
-    {GL_ONE,      GL_ONE, 255},
+    // 0.5B + 0.5F
+    {GL_ONE,      GL_ONE, 0x7f},
+    // 1.0B + 1.0F
     {GL_ONE,      GL_ONE, 255},
     // B - F was implemented in gc_gl.c
     {GL_ONE,      GL_ONE, 255},
-    // 0.25F was implemented in gc_gl.c
-    {GL_ONE,      GL_ONE, 255}
+    // 1.0B + 0.25F
+    {GL_ONE,      GL_ONE, 0x3f}
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -1186,19 +1186,27 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         }
         vertex[0].c.col.a = ubGloAlpha;                    // -> set color with
         SETCOL ( vertex[0] );                               //    texture alpha
+        #if defined(DISP_DEBUG)
+        if (logType)
+        {
+            sprintf ( txtbuffer, "SetRenderMode %d %d %d %d %d %d %d %08x %d\r\n", DrawSemiTrans, bDrawTextured, bUsingTWin, GlobalTextABR, bCheckMask, iSetMask, bSCol, vertex[0].c.lcol, gl_ux[8] );
+            DEBUG_print ( txtbuffer,  DBG_CDR4 );
+            writeLogFile(txtbuffer);
+        }
+        #endif // DISP_DEBUG
     }
     else
     {
         glNoNeedMulConstColor( noNeedMulConstColor & 0xFFFE );
+        #if defined(DISP_DEBUG)
+        if (logType)
+        {
+            sprintf ( txtbuffer, "SetRenderMode %d %d %d %d %d %d %d %08x %d\r\n", DrawSemiTrans, bDrawTextured, bUsingTWin, GlobalTextABR, bCheckMask, iSetMask, bSCol, SWAP32 ( DrawAttributes ), gl_ux[8] );
+            DEBUG_print ( txtbuffer,  DBG_CDR4 );
+            writeLogFile(txtbuffer);
+        }
+        #endif // DISP_DEBUG
     }
-    #if defined(DISP_DEBUG)
-    if (logType)
-    {
-        sprintf ( txtbuffer, "SetRenderMode %d %d %d %d %d %d %d %08x %d\r\n", DrawSemiTrans, bDrawTextured, bUsingTWin, GlobalTextABR, bCheckMask, iSetMask, bSCol, vertex[0].c.lcol, gl_ux[8] );
-        DEBUG_print ( txtbuffer,  DBG_CDR4 );
-        writeLogFile(txtbuffer);
-    }
-    #endif // DISP_DEBUG
 
     if ( bDrawSmoothShaded != bOldSmoothShaded )          // shading changed?
     {
@@ -2609,52 +2617,16 @@ static inline void BlkFillArea(short x0, short y0, short width, short height)
     if ( y0 >= 512 )   return;
     if ( x0 >= 1024 )   return;
 
+    if (y0 < 0) y0 = 0;
+    if (x0 < 0) x0 = 0;
+
     if ( (y0 + height) > 512 ) height = 512 - y0;
     if ( (x0 + width) > 1024 ) width = 1024 - x0;
 
     // clear area
     int startY;
-    if (y0 < 0)
-    {
-        if (x0 >= 0)
-        {
-            InvalidateTextureArea(x0, 512 + y0, width, -y0);
-            clearFillArea(x0, 512 + y0, width, -y0);
-            if (height > 0)
-            {
-                InvalidateTextureArea(x0, 0, width, height);
-                clearFillArea(x0, 0, width, height);
-            }
-        }
-        else
-        {
-            InvalidateTextureArea(1024 + x0, 512 + y0, -x0, -y0);
-            clearFillArea(1024 + x0, 512 + y0, -x0, -y0);
-            if (height > 0 && width > 0)
-            {
-                InvalidateTextureArea(0, 0, width, height);
-                clearFillArea(0, 0, width, height);
-            }
-        }
-    }
-    else
-    {
-        if (x0 >= 0)
-        {
-            InvalidateTextureArea(x0, y0, width, height);
-            clearFillArea(x0, y0, width, height);
-        }
-        else
-        {
-            InvalidateTextureArea(1024 + x0, y0, -x0, height);
-            clearFillArea(1024 + x0, y0, -x0, height);
-            if (width > 0)
-            {
-                InvalidateTextureArea(0, y0, width, height);
-                clearFillArea(0, y0, width, height);
-            }
-        }
-    }
+    InvalidateTextureArea(x0, y0, width, height);
+    clearFillArea(x0, y0, width, height);
 }
 
 static void primBlkFill ( unsigned char * baseAddr )
@@ -3159,6 +3131,9 @@ static inline void TitleFillArea(short x0, short y0, short width, short height, 
     if ( y0 >= 512 )   return;
     if ( x0 >= 1024 )   return;
 
+    if (y0 < 0) y0 = 0;
+    if (x0 < 0) x0 = 0;
+
     if ( (y0 + height) > 512 ) height = 512 - y0;
     if ( (x0 + width) > 1024 ) width = 1024 - x0;
 
@@ -3168,42 +3143,16 @@ static inline void TitleFillArea(short x0, short y0, short width, short height, 
     int tmpWid;
     if (!bCheckMask && !DrawSemiTrans)
     {
-        if (y0 < 0)
-        {
-            if (x0 >= 0)
-            {
-                //InvalidateTextureArea(x0, 512 + y0, width, -y0);
-                //clearTitleArea(x0, 512 + y0, width, -y0);
-
-                InvalidateTextureArea(x0, 0, width, height);
-                clearTitleArea(x0, 0, width, height);
-            }
-            else
-            {
-                //InvalidateTextureArea(1024 + x0, 512 + y0, -x0, -y0);
-                //clearTitleArea(1024 + x0, 512 + y0, -x0, -y0);
-
-                InvalidateTextureArea(0, 0, width, height);
-                clearTitleArea(0, 0, width, height);
-            }
-        }
-        else
-        {
-            if (x0 >= 0)
-            {
-                InvalidateTextureArea(x0, y0, width, height);
-                clearTitleArea(x0, y0, width, height);
-            }
-            else
-            {
-                //InvalidateTextureArea(1024 + x0, y0, -x0, height);
-                //clearTitleArea(1024 + x0, y0, -x0, height);
-
-                InvalidateTextureArea(0, y0, width, height);
-                clearTitleArea(0, y0, width, height);
-            }
-        }
+        InvalidateTextureArea(x0, y0, width, height);
+        clearTitleArea(x0, y0, width, height);
     }
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    else
+    {
+        sprintf ( txtbuffer, "bCheckMask or DrawSemiTrans %d %d\r\n", bCheckMask, DrawSemiTrans);
+        writeLogFile(txtbuffer);
+    }
+    #endif // DISP_DEBUG
 }
 
 static void primTileS ( unsigned char * baseAddr )
@@ -4059,6 +4008,7 @@ static void primSprtS ( unsigned char * baseAddr )
     // is screen cleared?
     if (clearLargeRange && INRANGE(sprtX, sprtX + sprtW, sprtY, sprtY + sprtH))
     {
+        // Which game was this fix intended for? I can't recall.
         glSetVramClearedFlg();
     }
 
@@ -5104,9 +5054,6 @@ static void primPolyGT4 ( unsigned char *baseAddr )
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_GT4FT4)
     logType = 1;
-    sprintf ( txtbuffer, "primPolyGT4 \r\n" );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
-    writeLogFile(txtbuffer);
     #else
     logType = 0;
     #endif // DISP_DEBUG
@@ -5170,6 +5117,10 @@ static void primPolyGT4 ( unsigned char *baseAddr )
         vertex[0].c.col.a = ubGloAlpha;
         SETCOL ( vertex[0] );
 
+        #if defined(DISP_DEBUG) && defined(CMD_LOG_GT4FT4)
+        sprintf ( txtbuffer, "primPolyGT4 1 \r\n" );
+        writeLogFile(txtbuffer);
+        #endif // DISP_DEBUG
         PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
 
 //        if ( ubOpaqueDraw )
@@ -5193,6 +5144,10 @@ static void primPolyGT4 ( unsigned char *baseAddr )
 
     vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = vertex[3].c.col.a = ubGloAlpha;
 
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_GT4FT4)
+    sprintf ( txtbuffer, "primPolyGT4 2 \r\n" );
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
     PRIMdrawTexGouraudTriColorQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
 
     iDrawnSomething |= 0x1;
