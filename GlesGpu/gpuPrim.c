@@ -1584,6 +1584,25 @@ BOOL CheckAgainstFrontScreen ( short imageX0, short imageY0, short imageX1, shor
 }
 
 ////////////////////////////////////////////////////////////////////////
+//int CheckClearUploadArea ( short x0, short x1, short y0, short y1 )
+//{
+//    if (PSXDisplay.Disabled || PSXDisplay.RGB24)
+//    {
+//        return 0;
+//    }
+//
+//    if (needUploadScreen == TRUE && uploadedScreen == FALSE)
+//    {
+//        if ((uploadAreaX1 >= x0) && (uploadAreaX2 <= x1) && (uploadAreaY1 >= y0) && (uploadAreaY2 <= y1))
+//        {
+//            canSwapFrameBuf = TRUE;
+//            return 1;
+//        }
+//    }
+//
+//    return 0;
+//}
+
 int CheckFullScreenUpload ( void )
 {
     if (PSXDisplay.Disabled || PSXDisplay.RGB24)
@@ -1792,9 +1811,14 @@ int UploadScreen ( int Position )
             // Therefore, such textures are deliberately skipped in this implementation.
             return 1;
         }
+
+        // VAGRANT STORY For GX gpu fix
+        if ((dwActFixes & AUTO_FIX_NO_SWAP_BUF) && (xrUploadArea.x1 - xrUploadArea.x0) == 511 && (xrUploadArea.y1 - xrUploadArea.y0) == 480)
+        {
+            canSwapFrameBuf = FALSE;
+        }
     }
 
-    //isFrameOk = TRUE;
     iDrawnSomething |= 0x2;
 
 
@@ -2465,7 +2489,6 @@ void CheckWriteUpdate()
 //                updateFrontDisplayGl();
 //            }
 
-            isFrameOk = TRUE;
             uploaded = UploadScreen ( FALSE );
 
             //bNeedUploadTest = TRUE;
@@ -2473,6 +2496,20 @@ void CheckWriteUpdate()
             {
                 needUploadScreen = FALSE;
                 uploadedScreen = FALSE;
+            }
+            else
+            {
+                // need upload screen ?
+                needUploadScreen = TRUE;
+                uploadedScreen = FALSE;
+                uploadAreaX1 = xrUploadArea.x0;
+                uploadAreaX2 = xrUploadArea.x1;
+                uploadAreaY1 = xrUploadArea.y0;
+                uploadAreaY2 = xrUploadArea.y1;
+                #if defined(DISP_DEBUG)
+                sprintf ( txtbuffer, "needUploadScreen\r\n" );
+                writeLogFile ( txtbuffer );
+                #endif // DISP_DEBUG
             }
         }
     }
@@ -2554,20 +2591,20 @@ void CheckWriteUpdate()
         }
     }
 
-    if (uploaded == 0 &&
-        ((VRAMWrite.y + VRAMWrite.Height) <= screenY1)
-        && (VRAMWrite.y >= screenY)
-        && ((VRAMWrite.x + VRAMWrite.Width) <= screenX1)
-        && (VRAMWrite.x >= screenX))
-    {
-        // need upload screen ?
-        needUploadScreen = TRUE;
-        uploadedScreen = FALSE;
-        #if defined(DISP_DEBUG)
-        sprintf ( txtbuffer, "needUploadScreen\r\n" );
-        writeLogFile ( txtbuffer );
-        #endif // DISP_DEBUG
-    }
+//    if (uploaded == 0 &&
+//        ((VRAMWrite.y + VRAMWrite.Height) <= screenY1)
+//        && (VRAMWrite.y >= screenY)
+//        && ((VRAMWrite.x + VRAMWrite.Width) <= screenX1)
+//        && (VRAMWrite.x >= screenX))
+//    {
+//        // need upload screen ?
+//        needUploadScreen = TRUE;
+//        uploadedScreen = FALSE;
+//        #if defined(DISP_DEBUG)
+//        sprintf ( txtbuffer, "needUploadScreen\r\n" );
+//        writeLogFile ( txtbuffer );
+//        #endif // DISP_DEBUG
+//    }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2656,10 +2693,6 @@ static void primBlkFill ( unsigned char * baseAddr )
 
     sprtW = ( sprtW + 15 ) & ~15;
 
-//    if (sprtW == screenWidth && sprtH == screenHeight)
-//    {
-//        isFrameOk = TRUE;
-//    }
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     logType = 1;
     sprintf ( txtbuffer, "primBlkFill %d %d %d %d %08x %d %d\r\n", sprtX, sprtY, sprtW, sprtH, gpuData[0] ,DrawSemiTrans, GlobalTextABR);
@@ -2681,6 +2714,7 @@ static void primBlkFill ( unsigned char * baseAddr )
     {
         needUploadScreen = FALSE;
         uploadedScreen = FALSE;
+        canSwapFrameBuf = TRUE;
         #if defined(DISP_DEBUG)
         sprintf(txtbuffer, "CLEAR_SCREEN\r\n");
         writeLogFile(txtbuffer);
@@ -2712,6 +2746,7 @@ static void primBlkFill ( unsigned char * baseAddr )
     else
     {
         CheckFullScreenUpload();
+        //CheckClearUploadArea(lx0, ly0, lx1, ly2);
 
         // Clear part of screen
         bDrawTextured     = FALSE;
@@ -2921,7 +2956,6 @@ static void primMoveImage ( unsigned char * baseAddr )
 
     if (imageSX == 2 && imageSY == 1)
     {
-        isFrameOk = TRUE;
         iDrawnSomething &= ~0x8;
     }
 
@@ -2988,7 +3022,6 @@ static void primMoveImage ( unsigned char * baseAddr )
             || (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
                 && screenX1 == PSXDisplay.DisplayEnd.x && screenY1 == PSXDisplay.DisplayEnd.y))
             {
-                isFrameOk = TRUE;
                 needFlipEGL = TRUE;
                 uploaded = UploadScreen ( FALSE );
 
@@ -3184,6 +3217,7 @@ static void primTileS ( unsigned char * baseAddr )
     {
         needUploadScreen = FALSE;
         uploadedScreen = FALSE;
+        canSwapFrameBuf = TRUE;
     }
     else
     {
@@ -3208,6 +3242,7 @@ static void primTileS ( unsigned char * baseAddr )
 
     offsetPSX4();
     TitleFillArea(lx0, ly0, sprtW, sprtH, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
+    //CheckClearUploadArea(lx0, ly0, lx0 + sprtW, ly0 + sprtH);
 //        if ( bDrawOffscreen4() )
 //        {
 //            if ( ! ( iTileCheat && sprtH == 32 && gpuData[0] == SWAP32_C(0x60ffffff) ) ) // special cheat for certain ZiNc games
@@ -3916,6 +3951,16 @@ static void primSprtS ( unsigned char * baseAddr )
     if ((dwActFixes & AUTO_FIX_DINO_CRISIS2) && sprtW == 64 && sprtH == 48)
     {
         return;
+    }
+
+    // TOMB RAIDER For GX gpu fix
+    if ((dwActFixes & AUTO_FIX_NO_SWAP_BUF) && sprtW == 256 && sprtH == 240)
+    {
+        canSwapFrameBuf = FALSE;
+        #if defined(DISP_DEBUG)
+        sprintf ( txtbuffer, "primSprtS TOMB RAIDER For GX gpu fix\r\n");
+        writeLogFile(txtbuffer);
+        #endif // DISP_DEBUG
     }
 
     iSpriteTex = 1;

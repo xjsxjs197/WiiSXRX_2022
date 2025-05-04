@@ -137,13 +137,18 @@ static unsigned short largeRangeX2 = 0;
 static unsigned short largeRangeY1 = 0;
 static unsigned short largeRangeY2 = 0;
 
+static unsigned short uploadAreaX1 = 0;
+static unsigned short uploadAreaX2 = 0;
+static unsigned short uploadAreaY1 = 0;
+static unsigned short uploadAreaY2 = 0;
+
 static unsigned short screenX = 0;
 static unsigned short screenY = 0;
 static unsigned short screenX1 = 320;
 static unsigned short screenY1 = 240;
 static unsigned short screenWidth = 320;
 static unsigned short screenHeight = 240;
-static BOOL    isFrameOk = FALSE;
+static BOOL    canSwapFrameBuf = TRUE;
 
 static BOOL    needUploadScreen = FALSE;
 static BOOL    uploadedScreen = FALSE;
@@ -967,12 +972,10 @@ if(PSXDisplay.Interlaced)                             // interlaced mode?
        sprintf ( txtbuffer, "GPUupdateLace1 %d %x\r\n", iDrawnSomething, RGB24Uploaded);
        writeLogFile ( txtbuffer );
        #endif // DISP_DEBUG
-       isFrameOk = FALSE;
        updateDisplayGl();                                  // -> swap buffers (new frame)
 
 //       if (iDrawnSomething == 0 && (RGB24Uploaded & 0x4))
 //       {
-//         isFrameOk = TRUE;
 //         PrepareFullScreenUpload(-1);
 ////         xrUploadArea.x0 = PreviousPSXDisplay.DisplayPosition.x;
 ////         xrUploadArea.x1 = PreviousPSXDisplay.DisplayEnd.x;
@@ -988,7 +991,7 @@ if(PSXDisplay.Interlaced)                             // interlaced mode?
 //       }
 //       else
 //       {
-//           isFrameOk = (iDrawnSomething & 0x1) ? TRUE : FALSE;
+//           canSwapFrameBuf = (iDrawnSomething & 0x1) ? TRUE : FALSE;
 //           updateDisplayGl();                                  // -> swap buffers (new frame)
 //       }
    }
@@ -999,7 +1002,6 @@ if(PSXDisplay.Interlaced)                             // interlaced mode?
 //    sprintf ( txtbuffer, "GPUupdateLace2 %d\r\n", iDrawnSomething);
 //    writeLogFile ( txtbuffer );
 //    #endif // DISP_DEBUG
-//    isFrameOk = TRUE;
 //  updateFrontDisplayGl();                               // -> update front buffer
 // }
 else if(usFirstPos==1)                                // initial updates (after startup)
@@ -1008,7 +1010,6 @@ else if(usFirstPos==1)                                // initial updates (after 
     sprintf ( txtbuffer, "GPUupdateLace3\r\n");
     writeLogFile ( txtbuffer );
     #endif // DISP_DEBUG
-    isFrameOk = TRUE;
   updateDisplayGl();
  }
  else
@@ -1026,13 +1027,11 @@ else if(usFirstPos==1)                                // initial updates (after 
      }
 //     else if (iDrawnSomething && !PSXDisplay.RGB24)
 //     {
-//         isFrameOk = FALSE;
 //         updateDisplayGl();
 //     }
 //     //else if ((RGB24Uploaded & 0x3) || (drawTexturePage && RGB24Uploaded))
      else if ((RGB24Uploaded & 0x3))
      {
-         isFrameOk = TRUE;
          GPUupdateLace5Flg = 1;
          PrepareFullScreenUpload(-1);
 //         xrUploadArea.x0 = PreviousPSXDisplay.DisplayPosition.x;
@@ -1043,7 +1042,7 @@ else if(usFirstPos==1)                                // initial updates (after 
          sprintf(txtbuffer, "Upload Movie Screen %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1, xrUploadArea.y1, RGB24Uploaded);
          writeLogFile(txtbuffer);
          #endif // DISP_DEBUG
-         UploadScreen(-1);              // -> upload whole screen from psx vram
+         canSwapFrameBuf = UploadScreen(-1);              // -> upload whole screen from psx vram
          flipEGL();
          iDrawnSomething = 0;
      }
@@ -1140,7 +1139,6 @@ switch(lCommand)
        //DEBUG_print(txtbuffer, DBG_CDR2);
        writeLogFile(txtbuffer);
        #endif // DISP_DEBUG
-       isFrameOk = TRUE;
        UploadScreen(TRUE);
        updateDisplayGl();
       }
@@ -2207,25 +2205,24 @@ void CALLBACK GL_GPUrearmedCallbacks(const struct rearmed_cbs *_cbs)
 static void flipEGL(void)
 {
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "flipEGL %d \r\n", isFrameOk);
+    sprintf(txtbuffer, "flipEGL %d \r\n", canSwapFrameBuf);
     DEBUG_print(txtbuffer, DBG_SPU3);
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
-    if (isFrameOk)
+    if (canSwapFrameBuf)
     {
         // Write menu/debug text on screen
         showFpsAndDebugInfo();
     }
 
-    gx_vout_render(isFrameOk);
+    gx_vout_render(canSwapFrameBuf);
 
     clearLargeRange = 0;
-    if (isFrameOk && !PSXDisplay.Disabled)
+    if (canSwapFrameBuf && !PSXDisplay.Disabled)
     {
         drawTexturePage = FALSE;
     }
-    isFrameOk = FALSE;
     uploadedScreen = FALSE;
     needFlipEGL = FALSE;
     RGB24Uploaded = 0;
