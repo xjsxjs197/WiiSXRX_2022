@@ -204,7 +204,7 @@ void psxDma2(u32 madr, u32 bcr, u32 chcr) { // GPU
 			cycles_sum = gpuPtr->dmaChain((u32 *)psxM, madr & 0x1fffff,
 					madr_next_p, &cycles_last_cmd);
 			// Old Soft Gpu check
-			if (gpuPtr == &oldSoftGpu)
+			if (gpuPtr != &newSoftGpu)
 			{
 				if ((int)cycles_sum <= 0)
 				    cycles_sum = gpuDmaChainSize(madr);
@@ -256,7 +256,7 @@ void gpuInterrupt() {
 		DMA_INTERRUPT(2);
 	}
 	// Old Soft Gpu check
-	if (gpuPtr == &oldSoftGpu)
+	if (gpuPtr != &newSoftGpu)
 	{
 		HW_GPU_STATUS |= SWAP32(PSXGPU_nBUSY); // GPU no longer busy
 	}

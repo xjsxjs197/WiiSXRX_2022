@@ -593,7 +593,7 @@ void fileBrowserFrame_LoadFile(int i)
 			if(Autoboot){
 				// Switches for painting textured quads as 2 triangles (small glitches, but better shading!)
                 // This function has been automatically started in soft.c and dwActFixes have been determined in gpu code, so need to set it here
-                Config.hacks.dwActFixes |= 0x200;
+                Config.hacks.dwActFixes |= AUTO_FIX_QUADS_AS_2TRIANGLES;
 
                 CheckGameR3000AutoFix(); // call to check pR3000A autoFix (Supercross 2000, etc.)
 
@@ -639,7 +639,7 @@ void fileBrowserFrame_LoadFile(int i)
             }
             if (Config.hacks.dwActFixes)
             {
-                sprintf(buffer, "Special game auto fixed\n");
+                sprintf(buffer, "Special game auto fixed %08x\n", Config.hacks.dwActFixes);
                 strcat(RomInfo,buffer);
             }
             if (Config.hacks.lightrec_hacks)
@@ -649,7 +649,7 @@ void fileBrowserFrame_LoadFile(int i)
             }
             // Switches for painting textured quads as 2 triangles (small glitches, but better shading!)
             // This function has been automatically started in soft.c and dwActFixes have been determined in gpu code, so need to set it here
-            Config.hacks.dwActFixes |= 0x200;
+            Config.hacks.dwActFixes |= AUTO_FIX_QUADS_AS_2TRIANGLES;
 
             // auto recJR => psxJR for some game
             CheckGameR3000AutoFix();

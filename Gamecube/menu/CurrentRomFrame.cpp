@@ -170,7 +170,7 @@ void Func_ShowRomInfo()
   }
   if (Config.hacks.dwActFixes)
   {
-  	sprintf(buffer, "Special game auto fixed\n");
+  	sprintf(buffer, "Special game auto fixed %08x\n", Config.hacks.dwActFixes);
   	strcat(RomInfo,buffer);
   }
   if (Config.hacks.lightrec_hacks)

@@ -112,7 +112,7 @@
 //*************************************************************************//
 
 
-#include "../SoftGPU/stdafx.h"
+#include "stdafx.h"
 #include <stdbool.h>
 #include "../Gamecube/DEBUG.h"
 #include "../Gamecube/wiiSXconfig.h"
@@ -123,6 +123,7 @@
 #include "../SoftGPU/oldGpuFps.h"
 #include "gpu.h"
 #include "../gpu.h"
+#include "../database.h"
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -154,7 +155,6 @@ extern unsigned short *psxVuw_eom;
 
 static long       lGPUdataRet;
 extern long       lGPUstatusRet;
-extern char       szDispBuf[64];
 static unsigned long ulStatusControl[256];
 
 static unsigned   long gpuDataM[256];
@@ -174,11 +174,10 @@ short             sDispWidths[8] = {256,320,512,640,368,384,512,640};
 int               dispHeight;
 unsigned long     newDwFrameRateTicks;
 long              lSelectedSlot=0;
-BOOL              bChangeWinMode=FALSE;
 BOOL              bDoLazyUpdate=FALSE;
 extern unsigned int      lGPUInfoVals[16];
 
-#define VRAM_SIZE ((1024 * 512 * 2 * 2) + 4096)
+#define VRAM_SIZE ((1024 * 512 * 2) + 4096)
 #define VRAM_ALIGN 16
 #define _IN_GPU
 
@@ -251,7 +250,6 @@ long PEOPS_GPUopen(void)
 
  gc_vout_open();
 
- bIsFirstFrame  = TRUE;                                // we have to init later
  bDoVSyncUpdate = TRUE;
 
  return 0;
@@ -317,7 +315,7 @@ void updateDisplay(void)                               // UPDATE DISPLAY
 
 void ChangeDispOffsetsX(void)                          // X CENTER
 {
- long lx,l;
+ long lx,l;short sO;
 
  if(!PSXDisplay.Range.x1) return;
 
@@ -327,6 +325,9 @@ void ChangeDispOffsetsX(void)                          // X CENTER
  l/=2560;lx=l;l&=0xfffffff8;
 
  if(l==PreviousPSXDisplay.Range.y1) return;            // abusing range.y1 for
+
+ sO=PreviousPSXDisplay.Range.x0;                       // store old
+
  PreviousPSXDisplay.Range.y1=(short)l;                 // storing last x range and test
 
  if(lx>=PreviousPSXDisplay.DisplayMode.x)
@@ -366,6 +367,10 @@ void ChangeDispOffsetsX(void)                          // X CENTER
   }
 
  bDoVSyncUpdate=TRUE;
+ if(sO!=PreviousPSXDisplay.Range.x0)                   // something changed?
+ {
+  bDisplayNotSet=TRUE;                                // -> recalc display stuff
+ }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -420,10 +425,11 @@ void ChangeDispOffsetsY(void)                          // Y CENTER
  else
   PreviousPSXDisplay.Range.y0=0;
 
-// if(iO!=PreviousPSXDisplay.Range.y0)
-//  {
-//   DoClearScreenBuffer();
-// }
+ if(iO!=PreviousPSXDisplay.Range.y0)
+  {
+   //DoClearScreenBuffer();
+   bDisplayNotSet=TRUE;                                // -> recalc display stuff
+ }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -506,6 +512,7 @@ void PEOPS_GPUupdateLace(void)
 ////////////////////////////////////////////////////////////////////////
 // process read request from GPU status register
 ////////////////////////////////////////////////////////////////////////
+static int iFakePrimBusy = 0;
 
 unsigned long PEOPS_GPUreadStatus(void)
 {
@@ -1117,7 +1124,7 @@ ENDVRAM:
        gpuDataC=gpuDataP=0;
        primFunc[gpuCommand]((unsigned char *)gpuDataM);
 
-       if(dwEmuFixes&0x0001 || dwActFixes&0x0400)      // hack for emulating "gpu busy" in some games
+       if (dwActFixes & AUTO_FIX_GPU_BUSY)      // hack for emulating "gpu busy" in some games
         iFakePrimBusy=4;
       }
     }

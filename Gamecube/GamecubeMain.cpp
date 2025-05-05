@@ -58,6 +58,7 @@ extern "C" {
 #include "gc_input/controller.h"
 #include "vm/vm.h"
 #include "../gpu.h"
+#include "../mem2_manager.h"
 }
 
 #include "libgui/gui2/gettext.h"
@@ -138,6 +139,7 @@ char numMultitaps;
 char lang = 0;
 char fastLoad = 0;
 char originalMode = 0;
+char displayModeChanged = 0;
 char bilinearFilter = 1;
 char trapFilter = 1;
 char interlacedMode = 0;
@@ -231,7 +233,7 @@ static struct {
   { "PadLightgun9", &padLightgun[8], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
   { "PadLightgun10", &padLightgun[9], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
   { "ForceNTSC", &forceNTSC, FORCENTSC_DISABLE, FORCENTSC_ENABLE },
-  { "gpuPlugin", &gpuPlugin, OLD_SOFT, NEW_SOFT }
+  { "gpuPlugin", &gpuPlugin, OLD_SOFT, OPEN_GX }
 };
 void handleConfigPair(char* kv);
 void readConfig(FILE* f);
@@ -251,6 +253,10 @@ static void setGpuPlugin()
     if (gpuPlugin == NEW_SOFT)
     {
         gpuPtr = &newSoftGpu;
+    }
+    if (gpuPlugin == OPEN_GX)
+    {
+        gpuPtr = &glesGpu;
     }
 }
 
@@ -547,6 +553,8 @@ int main(int argc, char *argv[])
         }
 
 	#endif
+
+	gx_init_mem2();
 
 	control_info_init(); //Perform controller auto assignment at least once at startup.
 

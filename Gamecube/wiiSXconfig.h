@@ -265,6 +265,7 @@ enum lang
 };
 
 extern char originalMode;
+extern char displayModeChanged;
 enum originalMode
 {
 	ORIGINALMODE_DISABLE=0,
@@ -326,7 +327,8 @@ extern char gpuPlugin;
 enum gpuPlugin
 {
 	OLD_SOFT=0,
-	NEW_SOFT
+	NEW_SOFT,
+	OPEN_GX
 };
 
 extern const unsigned char En_dat[];

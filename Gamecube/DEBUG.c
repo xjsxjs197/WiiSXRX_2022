@@ -13,6 +13,7 @@
 #include <stdbool.h>
 #include "DEBUG.h"
 #include "TEXT.h"
+#include "../mem2_manager.h"
 //#include "usb.h"
 
 char text[DEBUG_TEXT_HEIGHT][DEBUG_TEXT_WIDTH];
@@ -28,7 +29,7 @@ extern u32 dyna_total;
 extern long long gettime();
 extern unsigned int diff_sec(long long start,long long end);
 static void check_heap_space(void){
-    sprintf(txtbuffer,"%dKB MEM1 available", SYS_GetArena1Size() >> 10);
+    sprintf(txtbuffer,"%dKB MEM1 (%dKB / %dKB MEM2)", SYS_GetArena1Size() >> 10, gx_mem2_used() >> 10, gx_mem2_total() >> 10);
     DEBUG_print(txtbuffer, DBG_MEMFREEINFO);
 
     //sprintf(txtbuffer,"Dynarec (KB) %05d/%05d", dyna_used, dyna_total >> 10);
@@ -62,7 +63,7 @@ FILE* fdebug = NULL;
 
 static FILE* fdebugLog = NULL;
 static char *debugLogFile = "sd:/wiisxrx/debugLog.txt";
-bool canWriteLog = true;
+bool canWriteLog = false;
 
 void openLogFile() {
     if (!canWriteLog) return;

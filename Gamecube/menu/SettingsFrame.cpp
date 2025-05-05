@@ -126,6 +126,7 @@ void SetFrameLimit();
 
 void Func_UseOldSoftGpu();
 void Func_UseNewSoftGpu();
+void Func_UseOpenGxGpu();
 
 extern "C" void VIDEO_SetTrapFilter(bool enable);
 
@@ -151,7 +152,7 @@ void gpuChangePsxType();
 void setSpuInterpolation(int spuInterpolation);
 }
 
-#define NUM_FRAME_BUTTONS 66
+#define NUM_FRAME_BUTTONS 67
 #define NUM_TAB_BUTTONS 5
 #define FRAME_BUTTONS settingsFrameButtons
 #define FRAME_STRINGS settingsFrameStrings
@@ -298,10 +299,11 @@ static char LANG_STRINGS[13][24] =
       "Tu" // TURKISH
       };
 
-static char GPU_PLUGIN_STRINGS[3][24] =
+static char GPU_PLUGIN_STRINGS[4][24] =
     { "GPU Plugin",
       "Old Soft",
-      "New Soft"
+      "New Soft",
+      "Open Gx"
       };
 
 struct ButtonInfo
@@ -397,8 +399,9 @@ struct ButtonInfo
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[77],	385.0,	400.0,	 140.0,	56.0,	54,	 0,	15,	14,	Func_SaveSettingsSeparately,	Func_ReturnFromSettingsFrame }, // Save Settings: Separately
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[78],	390.0,	160.0,	160.0,	56.0,	17,	21,	19,	18,	Func_ForceNTSC,			Func_ReturnFromSettingsFrame },  // Force NTSC toggle
 
-	{	NULL,	BTN_A_SEL,	GPU_PLUGIN_STRINGS[1],	215.0,	160.0,	140.0,	56.0,	 5,	 7,	 65, 65,Func_UseOldSoftGpu,		Func_ReturnFromSettingsFrame }, // GpuPlugin: Old Soft
-	{	NULL,	BTN_A_SEL,	GPU_PLUGIN_STRINGS[2],	365.0,	160.0,	130.0,	56.0,	 6,	 9,	 64, 64,Func_UseNewSoftGpu,		Func_ReturnFromSettingsFrame }, // GpuPlugin: New Soft
+	{	NULL,	BTN_A_SEL,	GPU_PLUGIN_STRINGS[1],	215.0,	160.0,	140.0,	56.0,	 5,	 7,	 66, 65,Func_UseOldSoftGpu,		Func_ReturnFromSettingsFrame }, // GpuPlugin: Old Soft
+	{	NULL,	BTN_A_SEL,	GPU_PLUGIN_STRINGS[2],	365.0,	160.0,	130.0,	56.0,	 6,	 9,	 64, 66,Func_UseNewSoftGpu,		Func_ReturnFromSettingsFrame }, // GpuPlugin: New Soft
+	{	NULL,	BTN_A_SEL,	GPU_PLUGIN_STRINGS[3],	505.0,	160.0,	130.0,	56.0,	 6,	 9,	 65, 64,Func_UseOpenGxGpu,		Func_ReturnFromSettingsFrame }, // GpuPlugin: Open Gx
 };
 
 struct TextBoxInfo
@@ -441,7 +444,7 @@ struct TextBoxInfo
 	{	NULL,	FRAME_STRINGS[63],	405.0,	368.0,	 1.0,	true }, // Fast load
 	{	NULL,	FRAME_STRINGS[76],	150.0,	338.0,	 1.0,	true }, // Memcard enable
     //TextBoxes for Saves Tab (starts at textBox[24]) ..was[24]
-	{	NULL,	GPU_PLUGIN_STRINGS[0],	110.0,	188.0,	 1.0,	true }, // Gpu Plugin: Old Soft/New Soft
+	{	NULL,	GPU_PLUGIN_STRINGS[0],	110.0,	188.0,	 1.0,	true }, // Gpu Plugin: Old Soft/New Soft/Open Gx
 };
 
 SettingsFrame::SettingsFrame()
@@ -572,10 +575,13 @@ void SettingsFrame::activateSubmenu(int submenu)
             // Gpu Plugin
             FRAME_BUTTONS[64].button->setVisible(true);
             FRAME_BUTTONS[65].button->setVisible(true);
+            FRAME_BUTTONS[66].button->setVisible(true);
             FRAME_BUTTONS[64].button->setActive(true);
             FRAME_BUTTONS[65].button->setActive(true);
+            FRAME_BUTTONS[66].button->setActive(true);
             FRAME_BUTTONS[64].button->setSelected(gpuPlugin == OLD_SOFT);
             FRAME_BUTTONS[65].button->setSelected(gpuPlugin == NEW_SOFT);
+            FRAME_BUTTONS[66].button->setSelected(gpuPlugin == OPEN_GX);
 			break;
 		case SUBMENU_VIDEO:
 			setDefaultFocus(FRAME_BUTTONS[1].button);
@@ -1325,6 +1331,7 @@ void Func_Screen240p()
 		FRAME_BUTTONS[57].button->setSelected(true);
 		originalMode = ORIGINALMODE_ENABLE;
 	}
+	displayModeChanged = 1;
 }
 
 void Func_DitheringNone()
@@ -1794,6 +1801,7 @@ void Func_UseOldSoftGpu()
     gpuPtr = &oldSoftGpu;
     FRAME_BUTTONS[64].button->setSelected(true);
     FRAME_BUTTONS[65].button->setSelected(false);
+    FRAME_BUTTONS[66].button->setSelected(false);
     if(hasLoadedISO && needInit) {
         SysInit ();
         CheckCdrom();
@@ -1812,6 +1820,26 @@ void Func_UseNewSoftGpu()
     gpuPtr = &newSoftGpu;
     FRAME_BUTTONS[64].button->setSelected(false);
     FRAME_BUTTONS[65].button->setSelected(true);
+    FRAME_BUTTONS[66].button->setSelected(false);
+    if(hasLoadedISO && needInit) {
+        SysInit ();
+        CheckCdrom();
+        SysReset();
+        LoadCdrom();
+        Func_SetPlayGame();
+        menu::MessageBox::getInstance().setMessage("Game Reset");
+    }
+}
+
+void Func_UseOpenGxGpu()
+{
+    int needInit = 0;
+    if(hasLoadedISO && gpuPlugin != OPEN_GX){ SysClose(); needInit = 1; }
+    gpuPlugin = OPEN_GX;
+    gpuPtr = &glesGpu;
+    FRAME_BUTTONS[64].button->setSelected(false);
+    FRAME_BUTTONS[65].button->setSelected(false);
+    FRAME_BUTTONS[66].button->setSelected(true);
     if(hasLoadedISO && needInit) {
         SysInit ();
         CheckCdrom();

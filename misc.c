@@ -461,6 +461,10 @@ int CheckCdrom() {
     if(CdromId[i]==' ') {
       CdromId[i]=0;
     }
+    else
+    {
+        CdromId[i] = toupper((unsigned char)CdromId[i]);
+    }
   }
 
 	Apply_Hacks_Cdrom();

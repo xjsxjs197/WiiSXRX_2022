@@ -24,7 +24,7 @@
 #include <ogc/machine/processor.h>
 #include <wiiuse/wpad.h>
 #include "../coredebug.h"
-#include "stdafx.h"
+#include "../gpulib/stdafx.h"
 //#define _IN_DRAW
 #include "externals.h"
 #include "gpu.h"
@@ -39,18 +39,14 @@
 ////////////////////////////////////////////////////////////////////////////////////
 // misc globals
 ////////////////////////////////////////////////////////////////////////////////////
-char           szDispBuf[64];
 int            iResX;
 int            iResY;
 //long           lLowerpart;
-BOOL           bIsFirstFrame = TRUE;
 //BOOL           bCheckMask=FALSE;
 //unsigned short sSetMask=0;
 //unsigned long  lSetMask=0;
 int            iDesktopCol=16;
 int            iShowFPS=1;
-int            iWinSize;
-int            iUseScanLines=0;
 int            iUseNoStretchBlt=0;
 int            iFastFwd=0;
 int            iDebugMode=0;
@@ -68,7 +64,7 @@ int            backFromMenu=0;
 int		iResX_Max=RESX_MAX;
 int		iResY_Max=RESY_MAX;
 
-static unsigned char	GXtexture[GXRESX_MAX*RESY_MAX*2] __attribute__((aligned(32)));
+unsigned char	GXtexture[GXRESX_MAX*RESY_MAX*2] __attribute__((aligned(32)));
 extern u32* xfb[3];	/*** Framebuffers ***/
 char *	pCaptionText;
 
@@ -127,7 +123,7 @@ static void gc_vout_drawdone(void)
 	GX_SetDrawDone();
 }
 
-static void gc_vout_render(void)
+void gc_vout_render(void)
 {
 	// reset swap table from GUI/DEBUG
 	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED ,GX_CH_ALPHA);
@@ -135,6 +131,42 @@ static void gc_vout_render(void)
 
 	GX_SetDrawDoneCallback(gc_vout_drawdone);
 	GX_SetDrawDone();
+}
+
+void gx_vout_render(short canSwapFrameBuf)
+{
+	// reset swap table from GUI/DEBUG
+	// To improve efficiency, the original BGR pixel format of PS is directly used
+	// So the format of SwapModeTable is GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED, GX_CH_ALPHA
+	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED, GX_CH_ALPHA);
+	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
+
+	GX_DrawDone();
+	GX_CopyDisp(xfb[FB_BACK], canSwapFrameBuf ? GX_TRUE : GX_FALSE);
+	GX_Flush();
+
+	gc_vout_copydone();
+	gc_vout_vsync(0);
+	//new_frame = 1;
+}
+
+void showFpsAndDebugInfo(void)
+{
+	//Write menu/debug text on screen
+	if (showFPSonScreen == FPS_SHOW)
+    {
+        GXColor fontColor = {150,255,150,255};
+	    IplFont_drawInit(fontColor);
+		IplFont_drawString(10,35,fpsInfo, 1.0, false);
+		#ifdef SHOW_DEBUG
+		int i = 0;
+        DEBUG_update();
+        for (i=0;i<DEBUG_TEXT_HEIGHT;i++)
+		{
+            IplFont_drawString(10,(24*i+60),text[i], 0.5, false);
+		}
+		#endif // SHOW_DEBUG
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -362,20 +394,7 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 	}
 
 	//Write menu/debug text on screen
-	if (showFPSonScreen == FPS_SHOW)
-    {
-        GXColor fontColor = {150,255,150,255};
-	    IplFont_drawInit(fontColor);
-		IplFont_drawString(10,35,fpsInfo, 1.0, false);
-		#ifdef SHOW_DEBUG
-		int i = 0;
-        DEBUG_update();
-        for (i=0;i<DEBUG_TEXT_HEIGHT;i++)
-		{
-            IplFont_drawString(10,(24*i+60),text[i], 0.5, false);
-		}
-		#endif // SHOW_DEBUG
-    }
+	showFpsAndDebugInfo();
 
 	gc_vout_render();
 }
@@ -421,6 +440,11 @@ drawLine(float x1, float y1, float x2, float y2, char r, char g, char b)
 int gc_vout_open(void) {
 	memset(GXtexture,0,sizeof(GXtexture));
 	VIDEO_SetPreRetraceCallback(gc_vout_vsync);
+	return 0;
+}
+
+int gx_vout_open(void) {
+	//VIDEO_SetPreRetraceCallback(gc_vout_vsync);
 	return 0;
 }
 
@@ -526,7 +550,7 @@ void DoClearFrontBuffer(void)                          // CLEAR DX BUFFER
 	{
 	    GXColor fontColor = {150,255,150,255};
         IplFont_drawInit(fontColor);
-		IplFont_drawString(10,35,szDispBuf, 1.0, false);
+		IplFont_drawString(10,35,fpsInfo, 1.0, false);
 		#ifdef SHOW_DEBUG
 		int i = 0;
         DEBUG_update();

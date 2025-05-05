@@ -80,6 +80,7 @@ void gpu_state_change(int what, int cycles);
 
 extern gpu_t oldSoftGpu;
 extern gpu_t newSoftGpu;
+extern gpu_t glesGpu;
 extern gpu_t *gpuPtr;
 
 #endif /* __GPU_H__ */

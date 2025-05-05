@@ -1,5 +1,5 @@
 README : WiiStation
-Ver Beta 4.0
+Ver Beta 4.5
 
 LICENSE:
     This software is licensed under the GNU General Public License v2
@@ -119,6 +119,20 @@ LATER UPDATES BY:
  * Jokippo
 
 WiiStation CHANGE LOG:
+Ver Beta 4.5:
+* Added OpenGx hardware rendering plugin.
+  The original code uses GLES from pcsxRearm,
+  and the OpenGx framework comes from [https://github.com/davidgfnet/opengx].
+  Key fixes for GLES and OpenGx:
+    Little-endian to big-endian conversion.
+    Display of opaque pixels in transparent mode.
+    Sub-texture pixel updates.
+    Other minor fixes.
+  Currently known major issues:
+    Due to texture caching, sometimes cached textures are not cleared in time, resulting in incorrect rendering on the screen.
+    Data transferred via the primLoadImage command occasionally fails to load correctly onto the screen.
+    Text in most Square (Square Enix) Final Fantasy games cannot be displayed properly.
+
 Ver Beta 4.0:
 * HID controllers support.
   (The PS2 and PS3 controllers (includes vibration) has been fully tested.)

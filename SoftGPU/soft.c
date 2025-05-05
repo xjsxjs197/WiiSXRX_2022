@@ -17,6 +17,8 @@
 
 #ifdef _IN_GPU
 
+#include "../database.h"
+
 // switches for painting textured quads as 2 triangles (small glitches, but better shading!)
 // can be toggled by game fix 0x200 in version 1.17 anyway, so let the defines enabled!
 #define POLYQUAD3
@@ -59,11 +61,7 @@
 #define XPSXCOL(r,g,b) ((g&0x7c00)|(b&0x3e0)|(r&0x1f))
 
 // soft globals
-//short g_m1=255,g_m2=255,g_m3=255;
-//short DrawSemiTrans=FALSE;
-//short Ymin;
-//short Ymax;
-//int  gInterlaceLine=1;
+int  gInterlaceLine=1;
 //
 //short          ly0,lx0,ly1,lx1,ly2,lx2,ly3,lx3;        // global psx vertex coords
 //int32_t           GlobalTextAddrX,GlobalTextAddrY,GlobalTextTP;
@@ -112,7 +110,13 @@ static void offsetPSX4(void)
 /////////////////////////////////////////////////////////////////
 
 
-extern unsigned char dithertable[16];
+static unsigned char dithertable[16] =
+{
+    7, 0, 6, 1,
+    2, 5, 3, 4,
+    1, 6, 0, 7,
+    4, 3, 5, 2
+};
 
 static inline void Dither16(unsigned short * pdest,uint32_t r,uint32_t g,uint32_t b,unsigned short sM)
 {
@@ -955,7 +959,7 @@ static inline void GetTextureTransColGX32_S(uint32_t * pdest,uint32_t color,shor
 // FILL FUNCS
 ////////////////////////////////////////////////////////////////////////
 
-static void FillSoftwareAreaTrans(short x0,short y0,short x1, // FILL AREA TRANS
+void FillSoftwareAreaTrans(short x0,short y0,short x1, // FILL AREA TRANS
                       short y1,unsigned short col)
 {
  short j,i,dx,dy;
@@ -6384,7 +6388,7 @@ static inline BOOL IsNoRect(void)
 // real rect test
 static inline BOOL IsNoRect(void)
 {
- if(!(dwActFixes&0x200)) return FALSE;
+ if(!(dwActFixes&AUTO_FIX_QUADS_AS_2TRIANGLES)) return FALSE;
 
  if(ly0==ly1)
   {
@@ -6415,7 +6419,7 @@ static void drawPoly3FT(unsigned char * baseAddr)
 {
  uint32_t *gpuData = ((uint32_t *) baseAddr);
 
- if(!bUsingTWin && !(dwActFixes&0x100))
+ if(!bUsingTWin && !(dwActFixes&AUTO_FIX_GPU_BUSY))
   {
    switch(GlobalTextTP)   // depending on texture mode
     {
