@@ -148,7 +148,7 @@ static unsigned short screenX1 = 320;
 static unsigned short screenY1 = 240;
 static unsigned short screenWidth = 320;
 static unsigned short screenHeight = 240;
-static BOOL    canSwapFrameBuf = TRUE;
+BOOL    canSwapFrameBuf = TRUE;
 
 static BOOL    needUploadScreen = FALSE;
 static BOOL    uploadedScreen = FALSE;
@@ -2241,12 +2241,14 @@ long GL_GPUopen()
 
  iResX = 640;
  iResY = 480;
- if (screenMode == SCREENMODE_16x9_PILLARBOX)
- {
-     iResX = 744;
- }
+ rRatioRect.left   = 0;
+// if (screenMode != SCREENMODE_4x3)
+// {
+//     rRatioRect.left   = -104;
+//     iResX = 744;
+// }
  iOffscreenDrawing = 0;
- rRatioRect.left   = rRatioRect.top=0;
+ rRatioRect.top=0;
  rRatioRect.right  = iResX;
  rRatioRect.bottom = iResY;
 
@@ -2254,6 +2256,7 @@ long GL_GPUopen()
  bDisplayNotSet = TRUE;
  bSetClip = TRUE;
  CSTEXTURE = CSVERTEX = CSCOLOR = 0;
+ canSwapFrameBuf = FALSE;
 
  InitializeTextureStore();                             // init texture mem
 
