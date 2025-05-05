@@ -2463,19 +2463,19 @@ void CheckWriteUpdate()
 
     // The current frame does not have the cmdTexturePage command,
     // so the data uploaded by command primLoadImage does not need to be manually displayed on the screen
-    if (drawTexturePage == FALSE)
-    {
-        if ((VRAMWrite.Width != screenWidth || VRAMWrite.Height != screenHeight)
-            && (VRAMWrite.y * 2 + VRAMWrite.Height) != screenHeight)
-        {
-            // Cancel all operations except during animation playback.
-            #if defined(DISP_DEBUG)
-            sprintf ( txtbuffer, "No drawTexturePage\r\n" );
-            writeLogFile ( txtbuffer );
-            #endif // DISP_DEBUG
-            return;
-        }
-    }
+//    if (drawTexturePage == FALSE)
+//    {
+//        if ((VRAMWrite.Width != screenWidth || VRAMWrite.Height != screenHeight)
+//            && (VRAMWrite.y * 2 + VRAMWrite.Height) != screenHeight)
+//        {
+//            // Cancel all operations except during animation playback.
+//            #if defined(DISP_DEBUG)
+//            sprintf ( txtbuffer, "No drawTexturePage\r\n" );
+//            writeLogFile ( txtbuffer );
+//            #endif // DISP_DEBUG
+//            return;
+//        }
+//    }
 
     int uploaded = 0;
     if ( !PSXDisplay.InterlacedTest &&
