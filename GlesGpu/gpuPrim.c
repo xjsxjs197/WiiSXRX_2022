@@ -3017,10 +3017,10 @@ static void primMoveImage ( unsigned char * baseAddr )
         int uploaded = 0;
         if ( CheckAgainstScreen ( imageX1, imageY1, imageSX, imageSY ) )
         {
-            if ((screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
-             && screenX1 == PreviousPSXDisplay.DisplayEnd.x && screenY1 == PreviousPSXDisplay.DisplayEnd.y)
-            || (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
-                && screenX1 == PSXDisplay.DisplayEnd.x && screenY1 == PSXDisplay.DisplayEnd.y))
+//            if ((screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
+//             && screenX1 == PreviousPSXDisplay.DisplayEnd.x && screenY1 == PreviousPSXDisplay.DisplayEnd.y)
+//            || (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
+//                && screenX1 == PSXDisplay.DisplayEnd.x && screenY1 == PSXDisplay.DisplayEnd.y))
             {
                 needFlipEGL = TRUE;
                 uploaded = UploadScreen ( FALSE );
