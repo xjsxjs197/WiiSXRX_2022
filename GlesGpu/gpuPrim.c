@@ -3303,7 +3303,7 @@ static void primTileS ( unsigned char * baseAddr )
 
     PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-    iDrawnSomething |= 0x1;
+    //iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -3367,7 +3367,7 @@ static void primTile1 ( unsigned char * baseAddr )
 
     PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-    iDrawnSomething |= 0x1;
+    //iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -3430,7 +3430,7 @@ static void primTile8 ( unsigned char * baseAddr )
 
     PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-    iDrawnSomething |= 0x1;
+    //iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -3493,7 +3493,7 @@ static void primTile16 ( unsigned char * baseAddr )
 
     PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
 
-    iDrawnSomething |= 0x1;
+    //iDrawnSomething |= 0x1;
 }
 
 ////////////////////////////////////////////////////////////////////////
