@@ -2297,11 +2297,6 @@ static void cmdDrawAreaEnd ( unsigned char * baseAddr )
 
 static void cmdDrawOffset ( unsigned char * baseAddr )
 {
-    #if defined(DISP_DEBUG)
-    sprintf ( txtbuffer, "cmdDrawOffset \r\n");
-    writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
-
     uint32_t gdata = GETLE32 ( ( uint32_t* ) baseAddr );
 
     PreviousPSXDisplay.DrawOffset.x =
@@ -2325,6 +2320,13 @@ static void cmdDrawOffset ( unsigned char * baseAddr )
         PSXDisplay.DrawOffset.x - PSXDisplay.GDrawOffset.x + PreviousPSXDisplay.Range.x0;
     PSXDisplay.CumulOffset.y =
         PSXDisplay.DrawOffset.y - PSXDisplay.GDrawOffset.y + PreviousPSXDisplay.Range.y0;
+
+    #if defined(DISP_DEBUG)
+    sprintf ( txtbuffer, "cmdDrawOffset %d %d %d %d %d %d %d %d\r\n", PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y,
+              PreviousPSXDisplay.Range.x0, PreviousPSXDisplay.Range.y0, PSXDisplay.CumulOffset.x, PSXDisplay.CumulOffset.y);
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
+
 #if defined(DISP_DEBUG)
 //sprintf(txtbuffer, "drawOffset %d %d %d %d %d %d %d %d\r\n", PSXDisplay.CumulOffset.x, PSXDisplay.CumulOffset.y, PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PreviousPSXDisplay.Range.x0, PreviousPSXDisplay.Range.y0, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
 //DEBUG_print(txtbuffer, DBG_GPU2);
@@ -4067,15 +4069,14 @@ static void primSprtS ( unsigned char * baseAddr )
 //        sprintf ( txtbuffer, "primSprtS (%f %f) (%f %f) (%f %f) (%f %f)\r\n",
 //                 vertex[0].sow, vertex[0].tow, vertex[1].sow, vertex[1].tow, vertex[2].sow, vertex[2].tow, vertex[3].sow, vertex[3].tow );
 //        writeLogFile(txtbuffer);
-        sprintf ( txtbuffer, "primSprtS %d %d %d %d %04x %d %d\r\n", sprtX, sprtY, sprtW, sprtH,
-                 usMirror, ((ulClutID << 4) & 0x3F0), ((ulClutID >> 6) & CLUTYMASK) );
+        sprintf ( txtbuffer, "primSprtS %d %d %d %d %04x\r\n", sprtX, sprtY, sprtW, sprtH, usMirror);
         DEBUG_print ( txtbuffer, DBG_SPU1 );
         writeLogFile(txtbuffer);
 
-//        sprintf ( txtbuffer, "XY (%f %f) (%f %f) (%f %f) (%f %f)\r\n",
-//                 vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+        sprintf ( txtbuffer, "XY (%f %f) (%f %f) (%f %f) (%f %f)\r\n",
+                 vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
 //        DEBUG_print ( txtbuffer, DBG_SPU1 );
-//        writeLogFile(txtbuffer);
+        writeLogFile(txtbuffer);
     }
     #endif // DISP_DEBUG
 
