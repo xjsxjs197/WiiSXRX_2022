@@ -1833,7 +1833,17 @@ int UploadScreen ( int Position )
     glSetRGB24( PSXDisplay.RGB24 );
     glNoNeedMulConstColor( noNeedMulConstColor | 0x2 );
 
+    #if defined(DISP_DEBUG)
+    sprintf ( txtbuffer, "DrawOffset BEF_SetOGLD %d %d %d %d %d %d %d %d\r\n", PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y,
+              PreviousPSXDisplay.Range.x0, PreviousPSXDisplay.Range.y0, PSXDisplay.CumulOffset.x, PSXDisplay.CumulOffset.y);
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
     SetOGLDisplaySettings ( 0 );
+    #if defined(DISP_DEBUG)
+    sprintf ( txtbuffer, "DrawOffset AFT_SetOGLD %d %d %d %d %d %d %d %d\r\n", PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y,
+              PreviousPSXDisplay.Range.x0, PreviousPSXDisplay.Range.y0, PSXDisplay.CumulOffset.x, PSXDisplay.CumulOffset.y);
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     YStep = 256;                                          // max texture size
     XStep = 256;
@@ -2695,15 +2705,6 @@ static void primBlkFill ( unsigned char * baseAddr )
 
     sprtW = ( sprtW + 15 ) & ~15;
 
-    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
-    logType = 1;
-    sprintf ( txtbuffer, "primBlkFill %d %d %d %d %08x %d %d\r\n", sprtX, sprtY, sprtW, sprtH, gpuData[0] ,DrawSemiTrans, GlobalTextABR);
-    DEBUG_print ( txtbuffer, DBG_SPU3 );
-    writeLogFile(txtbuffer);
-    #else
-    logType = 0;
-    #endif // DISP_DEBUG
-
     // x and y of start
     ly0 = ly1 = sprtY;
     ly2 = ly3 = ( sprtY + sprtH );
@@ -2711,6 +2712,18 @@ static void primBlkFill ( unsigned char * baseAddr )
     lx1 = lx2 = ( sprtX + sprtW );
 
     offsetBlk();
+
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    sprintf ( txtbuffer, "DrawOffset %d %d %d %d %d %d %d %d\r\n", PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y,
+              PreviousPSXDisplay.Range.x0, PreviousPSXDisplay.Range.y0, PSXDisplay.CumulOffset.x, PSXDisplay.CumulOffset.y);
+    writeLogFile(txtbuffer);
+    logType = 1;
+    sprintf ( txtbuffer, "primBlkFill %d %d %d %d %08x %d %d\r\n", sprtX, sprtY, sprtW, sprtH, gpuData[0] ,DrawSemiTrans, GlobalTextABR);
+    DEBUG_print ( txtbuffer, DBG_SPU3 );
+    writeLogFile(txtbuffer);
+    #else
+    logType = 0;
+    #endif // DISP_DEBUG
 
     if (CLEAR_SCREEN(sprtX, sprtY, sprtX + sprtW, sprtY + sprtH))
     {
@@ -3298,6 +3311,9 @@ static void primTileS ( unsigned char * baseAddr )
     }
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    sprintf ( txtbuffer, "DrawOffset %d %d %d %d %d %d %d %d\r\n", PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y,
+              PreviousPSXDisplay.Range.x0, PreviousPSXDisplay.Range.y0, PSXDisplay.CumulOffset.x, PSXDisplay.CumulOffset.y);
+    writeLogFile(txtbuffer);
     sprintf ( txtbuffer, "primTileS %d %d %d %d %08x\r\n", sprtX, sprtY, sprtW, sprtH, vertex[0].c.lcol);
     DEBUG_print ( txtbuffer, DBG_SPU3 );
     writeLogFile(txtbuffer);
@@ -3596,14 +3612,6 @@ static void primSprt8 ( unsigned char * baseAddr )
 
     ulClutID = GETLE16 ( &sgpuData[5] );
 
-#if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
-    logType = 1;
-    sprintf ( txtbuffer, "primSprt8 %d %d 8 8\r\n", sprtX, sprtY );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
-    writeLogFile(txtbuffer);
-#else
-    logType = 0;
-#endif // DISP_DEBUG
     bDrawTextured = TRUE;
     bDrawSmoothShaded = FALSE;
     SetRenderState ( GETLE32 ( &gpuData[0] ) );
@@ -3634,6 +3642,25 @@ static void primSprt8 ( unsigned char * baseAddr )
     sSprite_vy2 = gl_vy[0] + sprtH;
 
     assignTextureSprite();
+
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    logType = 1;
+    sprintf ( txtbuffer, "primSprt8 %d %d 8 8\r\n", sprtX, sprtY );
+    DEBUG_print ( txtbuffer, DBG_CORE2 );
+    writeLogFile(txtbuffer);
+
+    sprintf ( txtbuffer, "XY (%d %d) (%d %d) (%d %d) (%d %d)\r\n",
+        lx0+PSXDisplay.CumulOffset.x,ly0+PSXDisplay.CumulOffset.y,
+        lx1+PSXDisplay.CumulOffset.x,ly1+PSXDisplay.CumulOffset.y,
+        lx2+PSXDisplay.CumulOffset.x,ly2+PSXDisplay.CumulOffset.y,
+        lx3+PSXDisplay.CumulOffset.x,ly3+PSXDisplay.CumulOffset.y);
+    writeLogFile(txtbuffer);
+    sprintf ( txtbuffer, "TEX (%d %d) (%d %d) (%d %d) (%d %d)\r\n",
+            gl_ux[0],gl_vy[0],sSprite_ux2,gl_vy[0],sSprite_ux2,sSprite_vy2,gl_ux[0],sSprite_vy2);
+    writeLogFile(txtbuffer);
+    #else
+    logType = 0;
+    #endif // DISP_DEBUG
 
 //    if ( iFilterType > 4 )
 //        DrawMultiFilterSprite();
@@ -3707,15 +3734,6 @@ static void primSprt16 ( unsigned char * baseAddr )
 
     ulClutID = GETLE16 ( &sgpuData[5] );
 
-#if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
-    logType = 1;
-    sprintf ( txtbuffer, "primSprt16 %d %d 16 16\r\n", sprtX, sprtY );
-    DEBUG_print ( txtbuffer, DBG_CORE2 );
-    writeLogFile(txtbuffer);
-#else
-    logType = 0;
-#endif // DISP_DEBUG
-
     bDrawTextured = TRUE;
     bDrawSmoothShaded = FALSE;
     SetRenderState ( GETLE32 ( &gpuData[0] ) );
@@ -3745,6 +3763,25 @@ static void primSprt16 ( unsigned char * baseAddr )
     sSprite_vy2 = gl_vy[0] + sprtH;
 
     assignTextureSprite();
+
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    logType = 1;
+    sprintf ( txtbuffer, "primSprt16 %d %d 16 16\r\n", sprtX, sprtY );
+    DEBUG_print ( txtbuffer, DBG_CORE2 );
+    writeLogFile(txtbuffer);
+
+    sprintf ( txtbuffer, "XY (%d %d) (%d %d) (%d %d) (%d %d)\r\n",
+        lx0+PSXDisplay.CumulOffset.x,ly0+PSXDisplay.CumulOffset.y,
+        lx1+PSXDisplay.CumulOffset.x,ly1+PSXDisplay.CumulOffset.y,
+        lx2+PSXDisplay.CumulOffset.x,ly2+PSXDisplay.CumulOffset.y,
+        lx3+PSXDisplay.CumulOffset.x,ly3+PSXDisplay.CumulOffset.y);
+    writeLogFile(txtbuffer);
+    sprintf ( txtbuffer, "TEX (%d %d) (%d %d) (%d %d) (%d %d)\r\n",
+            gl_ux[0],gl_vy[0],sSprite_ux2,gl_vy[0],sSprite_ux2,sSprite_vy2,gl_ux[0],sSprite_vy2);
+    writeLogFile(txtbuffer);
+    #else
+    logType = 0;
+    #endif // DISP_DEBUG
 
 //    if ( iFilterType > 4 )
 //        DrawMultiFilterSprite();
@@ -3876,18 +3913,6 @@ static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
 
     ulClutID = GETLE16 ( &sgpuData[5] );
 
-    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
-    //if ((sprtW & 3) > 0 || (sprtH & 3) > 0)
-    {
-        logType = 1;
-        sprintf ( txtbuffer, "primSprtSRest %d %d %d %d\r\n", sprtX, sprtY, sprtW, sprtH );
-        DEBUG_print ( txtbuffer, DBG_SPU1 );
-        writeLogFile(txtbuffer);
-    }
-    #else
-    logType = 0;
-    #endif // DISP_DEBUG
-
     bDrawTextured = TRUE;
     bDrawSmoothShaded = FALSE;
     SetRenderState ( GETLE32 ( &gpuData[0] ) );
@@ -3917,6 +3942,25 @@ static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
     sSprite_vy2 = gl_vy[0] + sprtH;
 
     assignTextureSprite();
+
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    logType = 1;
+    sprintf ( txtbuffer, "primSprtSRest %d %d %d %d\r\n", sprtX, sprtY, sprtW, sprtH );
+    DEBUG_print ( txtbuffer, DBG_SPU1 );
+    writeLogFile(txtbuffer);
+
+    sprintf ( txtbuffer, "XY (%d %d) (%d %d) (%d %d) (%d %d)\r\n",
+        lx0+PSXDisplay.CumulOffset.x,ly0+PSXDisplay.CumulOffset.y,
+        lx1+PSXDisplay.CumulOffset.x,ly1+PSXDisplay.CumulOffset.y,
+        lx2+PSXDisplay.CumulOffset.x,ly2+PSXDisplay.CumulOffset.y,
+        lx3+PSXDisplay.CumulOffset.x,ly3+PSXDisplay.CumulOffset.y);
+    writeLogFile(txtbuffer);
+    sprintf ( txtbuffer, "TEX (%d %d) (%d %d) (%d %d) (%d %d)\r\n",
+            gl_ux[0],gl_vy[0],sSprite_ux2,gl_vy[0],sSprite_ux2,sSprite_vy2,gl_ux[0],sSprite_vy2);
+    writeLogFile(txtbuffer);
+    #else
+    logType = 0;
+    #endif // DISP_DEBUG
 
 //    if ( iFilterType > 4 )
 //        DrawMultiFilterSprite();
@@ -4060,24 +4104,22 @@ static void primSprtS ( unsigned char * baseAddr )
     }
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
-    //if ((sprtW & 3) > 0 || (sprtH & 3) > 0)
-    {
-//        sprintf ( txtbuffer, "CHK %d %d\r\n", clearLargeRange, INRANGE(sprtX, sprtX + sprtW, sprtY, sprtY + sprtH));
-//        DEBUG_print ( txtbuffer, DBG_CDR3 );
-//        writeLogFile(txtbuffer);
+    sprintf ( txtbuffer, "DrawOffset %d %d %d %d %d %d %d %d\r\n", PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y,
+          PreviousPSXDisplay.Range.x0, PreviousPSXDisplay.Range.y0, PSXDisplay.CumulOffset.x, PSXDisplay.CumulOffset.y);
+    writeLogFile(txtbuffer);
+    sprintf ( txtbuffer, "primSprtS %d %d %d %d %04x\r\n", sprtX, sprtY, sprtW, sprtH, usMirror);
+    DEBUG_print ( txtbuffer, DBG_SPU1 );
+    writeLogFile(txtbuffer);
 
-//        sprintf ( txtbuffer, "primSprtS (%f %f) (%f %f) (%f %f) (%f %f)\r\n",
-//                 vertex[0].sow, vertex[0].tow, vertex[1].sow, vertex[1].tow, vertex[2].sow, vertex[2].tow, vertex[3].sow, vertex[3].tow );
-//        writeLogFile(txtbuffer);
-        sprintf ( txtbuffer, "primSprtS %d %d %d %d %04x\r\n", sprtX, sprtY, sprtW, sprtH, usMirror);
-        DEBUG_print ( txtbuffer, DBG_SPU1 );
-        writeLogFile(txtbuffer);
-
-        sprintf ( txtbuffer, "XY (%f %f) (%f %f) (%f %f) (%f %f)\r\n",
-                 vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-//        DEBUG_print ( txtbuffer, DBG_SPU1 );
-        writeLogFile(txtbuffer);
-    }
+    sprintf ( txtbuffer, "XY (%d %d) (%d %d) (%d %d) (%d %d)\r\n",
+            lx0+PSXDisplay.CumulOffset.x,ly0+PSXDisplay.CumulOffset.y,
+            lx1+PSXDisplay.CumulOffset.x,ly1+PSXDisplay.CumulOffset.y,
+            lx2+PSXDisplay.CumulOffset.x,ly2+PSXDisplay.CumulOffset.y,
+            lx3+PSXDisplay.CumulOffset.x,ly3+PSXDisplay.CumulOffset.y);
+    writeLogFile(txtbuffer);
+    sprintf ( txtbuffer, "TEX (%d %d) (%d %d) (%d %d) (%d %d)\r\n",
+            gl_ux[0],gl_vy[0],sSprite_ux2,gl_vy[0],sSprite_ux2,sSprite_vy2,gl_ux[0],sSprite_vy2);
+    writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
 
