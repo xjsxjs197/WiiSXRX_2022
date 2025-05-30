@@ -1320,90 +1320,91 @@ void SetOGLDisplaySettings(BOOL DisplaySet)
  PSXDisplay.CumulOffset.x = PSXDisplay.DrawOffset.x - PSXDisplay.GDrawOffset.x+PreviousPSXDisplay.Range.x0;
  PSXDisplay.CumulOffset.y = PSXDisplay.DrawOffset.y - PSXDisplay.GDrawOffset.y+PreviousPSXDisplay.Range.y0;
 
- r.top   =PSXDisplay.DrawArea.y0 - PreviousPSXDisplay.DisplayPosition.y;
- r.bottom=PSXDisplay.DrawArea.y1 - PreviousPSXDisplay.DisplayPosition.y;
-
- if(r.bottom<0 || r.top>=PSXDisplay.DisplayMode.y)
-  {
-   r.top   =PSXDisplay.DrawArea.y0 - PSXDisplay.DisplayPosition.y;
-   r.bottom=PSXDisplay.DrawArea.y1 - PSXDisplay.DisplayPosition.y;
-  }
-
- r.left  =PSXDisplay.DrawArea.x0 - PreviousPSXDisplay.DisplayPosition.x;
- r.right =PSXDisplay.DrawArea.x1 - PreviousPSXDisplay.DisplayPosition.x;
-
- if(r.right<0 || r.left>=PSXDisplay.DisplayMode.x)
-  {
-   r.left  =PSXDisplay.DrawArea.x0 - PSXDisplay.DisplayPosition.x;
-   r.right =PSXDisplay.DrawArea.x1 - PSXDisplay.DisplayPosition.x;
-  }
-
- if(!bSetClip && EqualRect(&r,&rprev) &&
-    iOldX == PSXDisplay.DisplayMode.x &&
-    iOldY == PSXDisplay.DisplayMode.y)
-  return;
-
- rprev = r;
- iOldX = PSXDisplay.DisplayMode.x;
- iOldY = PSXDisplay.DisplayMode.y;
-
- XS=(float)rRatioRect.right/(float)PSXDisplay.DisplayMode.x;
- YS=(float)rRatioRect.bottom/(float)PSXDisplay.DisplayMode.y;
-
- if(PreviousPSXDisplay.Range.x0)
-  {
-   short s=PreviousPSXDisplay.Range.x0+PreviousPSXDisplay.Range.x1;
-
-   r.left+=PreviousPSXDisplay.Range.x0+1;
-
-   r.right+=PreviousPSXDisplay.Range.x0;
-
-   if(r.left>s)  r.left=s;
-   if(r.right>s) r.right=s;
-  }
-
- if(PreviousPSXDisplay.Range.y0)
-  {
-   short s=PreviousPSXDisplay.Range.y0+PreviousPSXDisplay.Range.y1;
-
-   r.top+=PreviousPSXDisplay.Range.y0+1;
-   r.bottom+=PreviousPSXDisplay.Range.y0;
-
-   if(r.top>s)    r.top=s;
-   if(r.bottom>s) r.bottom=s;
-  }
-
- // Set the ClipArea variables to reflect the new screen,
- // offset from zero (since it is a new display buffer)
- r.left   = (int)(((float)(r.left))      *XS);
- r.top    = (int)(((float)(r.top))       *YS);
- r.right  = (int)(((float)(r.right  + 1))*XS);
- r.bottom = (int)(((float)(r.bottom + 1))*YS);
-
- // Limit clip area to the screen size
- if (r.left   > iResX)   r.left   = iResX;
- if (r.left   < 0)       r.left   = 0;
- if (r.top    > iResY)   r.top    = iResY;
- if (r.top    < 0)       r.top    = 0;
- if (r.right  > iResX)   r.right  = iResX;
- if (r.right  < 0)       r.right  = 0;
- if (r.bottom > iResY)   r.bottom = iResY;
- if (r.bottom < 0)       r.bottom = 0;
-
- r.right -=r.left;
- r.bottom-=r.top;
- r.top=iResY-(r.top+r.bottom);
-
- r.left+=rRatioRect.left;
- r.top -=rRatioRect.top;
-
- if(bSetClip || !EqualRect(&r,&rC))
-  {
-   glScissor(r.left,r.top,r.right,r.bottom); glError();
-
-   rC=r;
-   bSetClip=FALSE;
-  }
+ // The following code doesn't seem to have much effect and may affect text display in all FF games. Let's comment it out for now
+// r.top   =PSXDisplay.DrawArea.y0 - PreviousPSXDisplay.DisplayPosition.y;
+// r.bottom=PSXDisplay.DrawArea.y1 - PreviousPSXDisplay.DisplayPosition.y;
+//
+// if(r.bottom<0 || r.top>=PSXDisplay.DisplayMode.y)
+//  {
+//   r.top   =PSXDisplay.DrawArea.y0 - PSXDisplay.DisplayPosition.y;
+//   r.bottom=PSXDisplay.DrawArea.y1 - PSXDisplay.DisplayPosition.y;
+//  }
+//
+// r.left  =PSXDisplay.DrawArea.x0 - PreviousPSXDisplay.DisplayPosition.x;
+// r.right =PSXDisplay.DrawArea.x1 - PreviousPSXDisplay.DisplayPosition.x;
+//
+// if(r.right<0 || r.left>=PSXDisplay.DisplayMode.x)
+//  {
+//   r.left  =PSXDisplay.DrawArea.x0 - PSXDisplay.DisplayPosition.x;
+//   r.right =PSXDisplay.DrawArea.x1 - PSXDisplay.DisplayPosition.x;
+//  }
+//
+// if(!bSetClip && EqualRect(&r,&rprev) &&
+//    iOldX == PSXDisplay.DisplayMode.x &&
+//    iOldY == PSXDisplay.DisplayMode.y)
+//  return;
+//
+// rprev = r;
+// iOldX = PSXDisplay.DisplayMode.x;
+// iOldY = PSXDisplay.DisplayMode.y;
+//
+// XS=(float)rRatioRect.right/(float)PSXDisplay.DisplayMode.x;
+// YS=(float)rRatioRect.bottom/(float)PSXDisplay.DisplayMode.y;
+//
+// if(PreviousPSXDisplay.Range.x0)
+//  {
+//   short s=PreviousPSXDisplay.Range.x0+PreviousPSXDisplay.Range.x1;
+//
+//   r.left+=PreviousPSXDisplay.Range.x0+1;
+//
+//   r.right+=PreviousPSXDisplay.Range.x0;
+//
+//   if(r.left>s)  r.left=s;
+//   if(r.right>s) r.right=s;
+//  }
+//
+// if(PreviousPSXDisplay.Range.y0)
+//  {
+//   short s=PreviousPSXDisplay.Range.y0+PreviousPSXDisplay.Range.y1;
+//
+//   r.top+=PreviousPSXDisplay.Range.y0+1;
+//   r.bottom+=PreviousPSXDisplay.Range.y0;
+//
+//   if(r.top>s)    r.top=s;
+//   if(r.bottom>s) r.bottom=s;
+//  }
+//
+// // Set the ClipArea variables to reflect the new screen,
+// // offset from zero (since it is a new display buffer)
+// r.left   = (int)(((float)(r.left))      *XS);
+// r.top    = (int)(((float)(r.top))       *YS);
+// r.right  = (int)(((float)(r.right  + 1))*XS);
+// r.bottom = (int)(((float)(r.bottom + 1))*YS);
+//
+// // Limit clip area to the screen size
+// if (r.left   > iResX)   r.left   = iResX;
+// if (r.left   < 0)       r.left   = 0;
+// if (r.top    > iResY)   r.top    = iResY;
+// if (r.top    < 0)       r.top    = 0;
+// if (r.right  > iResX)   r.right  = iResX;
+// if (r.right  < 0)       r.right  = 0;
+// if (r.bottom > iResY)   r.bottom = iResY;
+// if (r.bottom < 0)       r.bottom = 0;
+//
+// r.right -=r.left;
+// r.bottom-=r.top;
+// r.top=iResY-(r.top+r.bottom);
+//
+// r.left+=rRatioRect.left;
+// r.top -=rRatioRect.top;
+//
+// if(bSetClip || !EqualRect(&r,&rC))
+//  {
+//   //glScissor(r.left,r.top,r.right,r.bottom); glError();
+//
+//   rC=r;
+//   bSetClip=FALSE;
+//  }
 }
 
 #endif // _IN_GPU_LIB
