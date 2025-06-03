@@ -15,6 +15,7 @@
  *                                                                         *
  ***************************************************************************/
 
+#include <stddef.h>
 #include <assert.h>
 #include "stdafx.h"
 
@@ -140,6 +141,7 @@ typedef struct
  uint32_t   XARepeat;
  uint32_t   XALastVal;
  uint32_t   last_keyon_cycles;
+ uint32_t   rvb_sb[2][4];
 
 } SPUOSSFreeze_t;
 
@@ -251,7 +253,7 @@ long CALLBACK DF_SPUfreeze(unsigned long ulFreezeMode, SPUFreeze_t * pF,
  uint32_t cycles)
 {
  SPUOSSFreeze_t * pFO = NULL;
- int i;
+ int i, j;
 
  if(!pF) return 0;                                     // first check
 
@@ -321,6 +323,8 @@ long CALLBACK DF_SPUfreeze(unsigned long ulFreezeMode, SPUFreeze_t * pF,
    pFO->XARepeat = spu.XARepeat;
    pFO->XALastVal = spu.XALastVal;
    pFO->last_keyon_cycles = spu.last_keyon_cycles;
+   for (i = 0; i < 2; i++)
+    memcpy(&pFO->rvb_sb[i], spu.rvb->SB[i], sizeof(pFO->rvb_sb[i]));
 
    for(i=0;i<MAXCHAN;i++)
     {
@@ -368,7 +372,7 @@ long CALLBACK DF_SPUfreeze(unsigned long ulFreezeMode, SPUFreeze_t * pF,
  spu.XARepeat = 0;
  spu.XALastVal = 0;
  spu.last_keyon_cycles = cycles - 16*786u;
- if (pFO && pF->ulFreezeSize >= sizeof(*pF) + sizeof(*pFO)) {
+ if (pFO && pF->ulFreezeSize >= sizeof(*pF) + offsetof(SPUOSSFreeze_t, rvb_sb)) {
   spu.cycles_dma_end = pFO->cycles_dma_end;
   spu.decode_dirty_ch = pFO->decode_dirty_ch;
   spu.dwNoiseVal = pFO->dwNoiseVal;
@@ -376,6 +380,11 @@ long CALLBACK DF_SPUfreeze(unsigned long ulFreezeMode, SPUFreeze_t * pF,
   spu.XARepeat = pFO->XARepeat;
   spu.XALastVal = pFO->XALastVal;
   spu.last_keyon_cycles = pFO->last_keyon_cycles;
+ }
+ if (pFO && pF->ulFreezeSize >= sizeof(*pF) + sizeof(*pFO)) {
+  for (i = 0; i < 2; i++)
+   for (j = 0; j < 2; j++)
+    memcpy(&spu.rvb->SB[i][j*4], pFO->rvb_sb[i], 4 * sizeof(spu.rvb->SB[i][0]));
  }
 
  // repair some globals

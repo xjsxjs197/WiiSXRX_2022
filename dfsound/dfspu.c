@@ -355,12 +355,11 @@ INLINE int GetInterpolationGauss(const sample_buf *sb, int spos)
  int gpos = sb->interp.gauss.pos;
  int vl = (spos >> 6) & ~3;
  int vr;
- vr  = (gauss[vl+0] * gval(0)) >> 15;
- vr += (gauss[vl+1] * gval(1)) >> 15;
- vr += (gauss[vl+2] * gval(2)) >> 15;
- vr += (gauss[vl+3] * gval(3)) >> 15;
- //ssat32_to_16(vr);
- return vr;
+ vr  = gauss[vl+0] * gval(0);
+ vr += gauss[vl+1] * gval(1);
+ vr += gauss[vl+2] * gval(2);
+ vr += gauss[vl+3] * gval(3);
+ return vr >> 15;
 }
 
 static f32 FK0[16] = {
