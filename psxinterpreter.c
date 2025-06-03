@@ -875,7 +875,7 @@ void MTC0(int reg, u32 val) {
 			    DEBUG_print(txtbuffer, DBG_CDR3);
 			}
 			#endif // DISP_DEBUG
-			if (unlikely((psxRegs.CP0.n.SR ^ val) & (1 << 16)))
+			if (unlikely((psxRegs.CP0.n.SR ^ val) & (1u << 16)))
 				psxMemOnIsolate((val >> 16) & 1);
 			psxRegs.CP0.r[12] = val;
 			psxTestSWInts(1);
