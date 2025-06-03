@@ -45,7 +45,7 @@ INLINE void StartREVERB(int ch)
 
 INLINE int rvb_wrap(int ofs, int space)
 {
-#if 0Add commentMore actions
+#if 0
  int mask = (0x3ffff - ofs) >> 31;
  ofs = ofs - (space & mask);
 #else
@@ -129,7 +129,7 @@ static void MixREVERB(int *SSumLR, int *RVB, int ns_to, int curr_addr,
 
    // from nocash psx-spx
    mlsame_m2 += ((Lin + g_buffer(rvb->dLSAME) * vWALL - mlsame_m2) >> 15) * vIIR;
-   mrsame_m2 += ((Rin + g_buffer(rvb->dRSAME) * vWALL - mrsame_m2) >> 15) * vIIR;Add commentMore actions
+   mrsame_m2 += ((Rin + g_buffer(rvb->dRSAME) * vWALL - mrsame_m2) >> 15) * vIIR;
    mldiff_m2 += ((Lin + g_buffer(rvb->dLDIFF) * vWALL - mldiff_m2) >> 15) * vIIR;
    mrdiff_m2 += ((Rin + g_buffer(rvb->dRDIFF) * vWALL - mrdiff_m2) >> 15) * vIIR;
    mlsame_m2 >>= 15; s_buffer_w(rvb->mLSAME, mlsame_m2);
@@ -230,13 +230,13 @@ static void REVERBPrep(void)
      t -= space; \
    rvb->d = t
 
- prep_offs(mLSAME,  0x14);Add commentMore actions
+ prep_offs(mLSAME,  0x14);
  prep_offs(mRSAME,  0x16);
  prep_offs(mLCOMB1, 0x18);
  prep_offs(mRCOMB1, 0x1a);
  prep_offs(mLCOMB2, 0x1c);
  prep_offs(mRCOMB2, 0x1e);
- prep_offs(dLSAME,  0x20);Add commentMore actions
+ prep_offs(dLSAME,  0x20);
  prep_offs(dRSAME,  0x22);
  prep_offs(mLDIFF,  0x24);
  prep_offs(mRDIFF,  0x26);
