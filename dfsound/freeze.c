@@ -253,6 +253,7 @@ long CALLBACK DF_SPUfreeze(unsigned long ulFreezeMode, SPUFreeze_t * pF,
  uint32_t cycles)
 {
  SPUOSSFreeze_t * pFO = NULL;
+ sample_buf *sb_rvb = &spu.sb[MAXCHAN];
  int i, j;
 
  if(!pF) return 0;                                     // first check
@@ -324,7 +325,7 @@ long CALLBACK DF_SPUfreeze(unsigned long ulFreezeMode, SPUFreeze_t * pF,
    pFO->XALastVal = spu.XALastVal;
    pFO->last_keyon_cycles = spu.last_keyon_cycles;
    for (i = 0; i < 2; i++)
-    memcpy(&pFO->rvb_sb[i], spu.rvb->SB[i], sizeof(pFO->rvb_sb[i]));
+    memcpy(&pFO->rvb_sb[i], sb_rvb->SB_rvb[i], sizeof(pFO->rvb_sb[i]));
 
    for(i=0;i<MAXCHAN;i++)
     {
@@ -384,7 +385,7 @@ long CALLBACK DF_SPUfreeze(unsigned long ulFreezeMode, SPUFreeze_t * pF,
  if (pFO && pF->ulFreezeSize >= sizeof(*pF) + sizeof(*pFO)) {
   for (i = 0; i < 2; i++)
    for (j = 0; j < 2; j++)
-    memcpy(&spu.rvb->SB[i][j*4], pFO->rvb_sb[i], 4 * sizeof(spu.rvb->SB[i][0]));
+    memcpy(&sb_rvb->SB_rvb[i][j*4], pFO->rvb_sb[i], 4 * sizeof(sb_rvb->SB_rvb[i][0]));
  }
 
  // repair some globals
