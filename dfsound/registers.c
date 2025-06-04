@@ -337,16 +337,13 @@ unsigned short CALLBACK DF_SPUreadRegister(unsigned long reg, unsigned int cycle
     {
      case 12:                                          // get adsr vol
       {
+       // this used to return 1 immediately after keyon to deal with
+       // some poor timing, but that causes Rayman 2 to lose track of
+       // it's channels on busy scenes and start looping some of them forever
        const int ch=(r>>4)-0xc0;
 	   if (spu.s_chan[ch].bStarting)
         do_samples_if_needed(cycles, 0, 4);
-       if(spu.dwNewChannel&(1<<ch)) return 1;          // we are started, but not processed? return 1
-       if((spu.dwChannelsAudible&(1<<ch)) &&                 // same here... we haven't decoded one sample yet, so no envelope yet. return 1 as well
-          //!spu.s_chan[ch].ADSRX.EnvelopeVol)
-          spu.s_chan[ch].ADSRX.EnvelopeVol <= 0)
-        return 1;
-       //return (unsigned short)(spu.s_chan[ch].ADSRX.EnvelopeVol>>16);
-       return (unsigned short)(spu.s_chan[ch].ADSRX.EnvelopeVol);
+      return (unsigned short)(spu.s_chan[ch].ADSRX.EnvelopeVol >> 16);
       }
 
      case 14:                                          // get loop address

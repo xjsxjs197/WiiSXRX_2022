@@ -218,6 +218,8 @@ typedef struct
 
  int             iLeftXAVol;
  int             iRightXAVol;
+
+ unsigned int    last_keyon_cycles;
  
  int             cdClearSamples;       // extra samples to clear the capture buffers
  struct {                              // channel volume in the cd controller
