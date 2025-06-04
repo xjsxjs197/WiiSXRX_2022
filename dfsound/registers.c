@@ -279,7 +279,7 @@ void CALLBACK DF_SPUwriteRegister(unsigned long reg, unsigned short val,
       ReverbOn(16,24,val);
       break;
     //-------------------------------------------------//
-    case H_Reverb + 0x00 : goto rvbd;Add commentMore actions
+    case H_Reverb + 0x00 : goto rvbd;
     case H_Reverb + 0x02 : goto rvbd;
     case H_Reverb + 0x04 : spu.rvb->vIIR   = (signed short)val; break;
     case H_Reverb + 0x06 : spu.rvb->vCOMB1 = (signed short)val; break;
