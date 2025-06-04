@@ -42,6 +42,7 @@ extern "C" {
 #include "../fileBrowser/fileBrowser-libfat.h"
 #include "../fileBrowser/fileBrowser-CARD.h"
 #include "../../gpu.h"
+#include "../../deps/opengx/GL/gl.h"
 }
 
 extern void Func_SetPlayGame();
@@ -1376,6 +1377,8 @@ void Func_BilinearFilter()
 		FRAME_BUTTONS[28].button->setSelected(true);
 		bilinearFilter = BILINEARFILTER_ENABLE;
 	}
+
+	glChgTextureFilter();
 }
 
 void Func_TrapFilter()

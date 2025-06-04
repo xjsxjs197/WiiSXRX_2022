@@ -694,6 +694,42 @@ void glSetDoubleCol( void )
     doubleColor = 1;
 }
 
+void glChgTextureFilter( void )
+{
+    int i;
+    for (i = 1; i < _MAX_GL_TEX; i++) {
+        gltexture_ *currtex = &texture_list[i];
+        if (currtex->used == 1) {
+            if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_DISABLE)
+            {
+                if (currtex->data)
+                {
+                    GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
+                }
+                if (currtex->semiTransData)
+                {
+                    GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
+                }
+            }
+            else
+            {
+                if (currtex->data)
+                {
+                    GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
+                }
+                if (currtex->semiTransData)
+                {
+                    GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_LINEAR, GX_LINEAR);
+                }
+            }
+        }
+        else
+        {
+            break;
+        }
+    }
+}
+
 
 void glDeleteTextures(GLsizei n, const GLuint *textures)
 {

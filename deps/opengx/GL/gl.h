@@ -1349,6 +1349,7 @@ GLAPI void GLAPIENTRY glSetTextureMask( short mask );
 GLAPI void GLAPIENTRY glNoNeedMulConstColor( short noNeedMulConstColorFlg );
 GLAPI void GLAPIENTRY glSetVramClearedFlg( void );
 GLAPI void GLAPIENTRY glSetTextureType( short textureType );
+GLAPI void GLAPIENTRY glChgTextureFilter( void );
 
 GLAPI void GLAPIENTRY glPrioritizeTextures( GLsizei n,
                                             const GLuint *textures,
