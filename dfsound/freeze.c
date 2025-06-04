@@ -387,6 +387,9 @@ long CALLBACK DF_SPUfreeze(unsigned long ulFreezeMode, SPUFreeze_t * pF,
    for (j = 0; j < 2; j++)
     memcpy(&sb_rvb->SB_rvb[i][j*4], pFO->rvb_sb[i], 4 * sizeof(sb_rvb->SB_rvb[i][0]));
  }
+ for (i = 0; i <= 2; i += 2)
+  if (!regAreaGet(H_SPUcmvolL+i) && regAreaGet(H_SPUmvolL+i) < 0x8000u)
+   regAreaRef(H_SPUcmvolL+i) = regAreaGet(H_SPUmvolL+i) << 1;
 
  // repair some globals
  for(i=0;i<=62;i+=2)
