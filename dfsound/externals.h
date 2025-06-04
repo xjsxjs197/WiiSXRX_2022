@@ -226,8 +226,6 @@ typedef struct
   unsigned char  ll, lr, rl, rr;       // see cdr.Attenuator* in cdrom.c
  } cdv;                                // applied on spu side for easier emulation
 
- unsigned int    last_keyon_cycles;
-
  union {
   unsigned char  *spuMemC;
   unsigned short *spuMem;
