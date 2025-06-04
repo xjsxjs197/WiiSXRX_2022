@@ -1378,7 +1378,10 @@ void Func_BilinearFilter()
 		bilinearFilter = BILINEARFILTER_ENABLE;
 	}
 
-	glChgTextureFilter();
+	if (gpuPlugin == OPEN_GX)
+    {
+        glChgTextureFilter();
+    }
 }
 
 void Func_TrapFilter()

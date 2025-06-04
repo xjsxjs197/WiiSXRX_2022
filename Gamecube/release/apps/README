@@ -131,7 +131,6 @@ Ver Beta 4.5:
   Currently known major issues:
     Due to texture caching, sometimes cached textures are not cleared in time, resulting in incorrect rendering on the screen.
     Data transferred via the primLoadImage command occasionally fails to load correctly onto the screen.
-    Text in most Square (Square Enix) Final Fantasy games cannot be displayed properly.
 
 Ver Beta 4.0:
 * HID controllers support.
