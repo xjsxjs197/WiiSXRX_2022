@@ -213,7 +213,7 @@ static inline u32 limE_(psxCP2Regs *regs, u32 result) {
 #define limE(result) \
     limE_(regs,result)
 
-#define A1(a) BOUNDS((a), 0x7fffffff, (1u << 30), -(s64)0x80000000, (1u << 31) | (1u << 27))Add commentMore actions
+#define A1(a) BOUNDS((a), 0x7fffffff, (1u << 30), -(s64)0x80000000, (1u << 31) | (1u << 27))
 #define A2(a) BOUNDS((a), 0x7fffffff, (1u << 29), -(s64)0x80000000, (1u << 31) | (1u << 26))
 #define A3(a) BOUNDS((a), 0x7fffffff, (1u << 28), -(s64)0x80000000, (1u << 31) | (1u << 25))
 #define limB1(a, l) LIM((a), 0x7fff, -0x8000 * !l, (1u << 31) | (1u << 24))
