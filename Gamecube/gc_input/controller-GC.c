@@ -3,7 +3,7 @@
  * Copyright (C) 2007, 2008, 2009 Mike Slegeir
  * Copyright (C) 2007, 2008, 2009, 2010 sepp256
  * Copyright (C) 2007, 2008, 2009 emu_kidid
- * 
+ *
  * Gamecube controller input module
  *
  * WiiSX homepage: http://www.emulatemii.com
@@ -132,6 +132,7 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 		return (b & button->mask) == button->mask ? 0 : 1;
 	}
 	
+
 	c->btns.SQUARE_BUTTON    = isHeld(config->SQU);
 	c->btns.CROSS_BUTTON     = isHeld(config->CRO);
 	c->btns.CIRCLE_BUTTON    = isHeld(config->CIR);

@@ -2226,6 +2226,7 @@ static void flipEGL(void)
     uploadedScreen = FALSE;
     needFlipEGL = FALSE;
     RGB24Uploaded = 0;
+    glSetLoadMtxFlg();
 }
 
 #include "../Gamecube/wiiSXconfig.h"

@@ -679,6 +679,12 @@ void glSetTextureType( short texType )
     texturyType = texType;
 }
 
+static short needLoadMtx = 1;
+void glSetLoadMtxFlg( void )
+{
+    needLoadMtx = 1;
+}
+
 void glBindTextureBef(GLenum target, GLuint texture)
 {
     if (texture < 0 || texture >= _MAX_GL_TEX)
@@ -1692,9 +1698,10 @@ void glResetMovieTexPtr( void )
 int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
 {
     int textureType = 0;
-    GX_DrawDone();
-    GX_Flush();
-    GX_InvalidateTexAll();
+    //GX_DrawDone();
+    GX_SetDrawDone();
+    //GX_Flush();
+    //GX_InvalidateTexAll();
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
     int wi = width; //(width + 3) & ~(unsigned int)3;
@@ -1725,12 +1732,12 @@ int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
         _ogx_scramble_4b((unsigned char *)texData, currtex->data, width, height);
         GX_InitTexObj(&currtex->texobj, currtex->data,
                       currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
-        GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
-                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
+        //GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
+        //              currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
         if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_DISABLE)
         {
             GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
-            GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
+            //GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
         }
     }
     else
@@ -1779,7 +1786,7 @@ int glTexSubImage2D(GLenum target, GLint level,
         // The position happens to be the integer position of the Block
         int startOffset = ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32;
         textureType = _ogx_scramble_4b_sub((unsigned char *)data, currtex->data + startOffset, semiTransBufPtr + startOffset, glparamstate.blendenabled, width, height, currtex->w);
-        DCFlushRange(currtex->data , currtex->w * currtex->h * 4);
+        DCFlushRange(currtex->data , currtex->w * currtex->h * 2);
     }
     else
     {
@@ -1878,6 +1885,7 @@ int glTexSubImage2D(GLenum target, GLint level,
             }
             memcpy(currtex->semiTransData, semiTransBuf, currtex->w * currtex->h * 2);
         }
+        DCFlushRange(currtex->semiTransData , currtex->w * currtex->h * 2);
     }
 
     return textureType;
@@ -1895,10 +1903,11 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
         return 0; // FIXME Implement non 2D textures
 
     int textureType = 0;
-    GX_DrawDone(); // Very ugly, we should have a list of used textures and only wait if we are using the curr tex.
+    //GX_DrawDone(); // Very ugly, we should have a list of used textures and only wait if we are using the curr tex.
                    // This way we are sure that we are not modifying a texture which is being drawn
-    GX_Flush();
-    GX_InvalidateTexAll();
+    GX_SetDrawDone();
+    //GX_Flush();
+    //GX_InvalidateTexAll();
 
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
@@ -2712,11 +2721,13 @@ static int _ogx_apply_state()
     }
 
     // Matrix stuff
-    //if (glparamstate.dirty.bits.dirty_matrices)
+    if (needLoadMtx)
     {
         MODELVIEW_UPDATE
         //PROJECTION_UPDATE
         GX_LoadProjectionMtx(GXprojection2D, GX_ORTHOGRAPHIC);
+
+        needLoadMtx = 0;
     }
 //    if (glparamstate.dirty.bits.dirty_matrices | glparamstate.dirty.bits.dirty_lighting) {
 //        NORMAL_UPDATE
@@ -3026,6 +3037,7 @@ void glFrustum(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top,
 void glOrtho(int left, int right, int bottom, int top, int near_val, int far_val)
 {
     guOrtho(GXprojection2D, top, bottom, left, right, near_val, far_val);
+    needLoadMtx = 1;
 //    Mtx44 newmat;
 //    // Same as GX's guOrtho, but transposed
 //    float x = (left + right) / (left - right);
