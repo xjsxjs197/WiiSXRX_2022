@@ -2725,29 +2725,64 @@ static void primBlkFill ( unsigned char * baseAddr )
     logType = 0;
     #endif // DISP_DEBUG
 
-    if (CLEAR_SCREEN(sprtX, sprtY, sprtX + sprtW, sprtY + sprtH))
+    //mmm... will clean all stuff, also if not all _should_ be cleaned...
+//if (IsInsideNextScreen(sprtX, sprtY, sprtW, sprtH))
+// try this:
+    if ( IsCompleteInsideNextScreen ( sprtX, sprtY, sprtW, sprtH ) )
     {
-        needUploadScreen = FALSE;
-        uploadedScreen = FALSE;
-        canSwapFrameBuf = TRUE;
-        #if defined(DISP_DEBUG)
-        sprintf(txtbuffer, "CLEAR_SCREEN\r\n");
+        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+        sprintf(txtbuffer, "clear Next Screen\r\n");
         writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
-
-        // Clear all Screen
-        if ((sprtX + sprtW) >= 1023 && (sprtY + sprtH) >= 511)
+        lClearOnSwapColor = COLOR ( GETLE32 ( &gpuData[0] ) );
+        lClearOnSwap = 1;
+        canSwapFrameBuf = TRUE;
+    }
+    else
+    {
+        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+        sprintf(txtbuffer, "clear Current Screen\r\n");
+        writeLogFile(txtbuffer);
+        #endif // DISP_DEBUG
+        if (CLEAR_SCREEN(sprtX, sprtY, sprtX + sprtW, sprtY + sprtH))
         {
-            unsigned char g, b, r;
-            r = baseAddr[0];
-            g = baseAddr[1];
-            b = baseAddr[2];
+            needUploadScreen = FALSE;
+            uploadedScreen = FALSE;
+            canSwapFrameBuf = TRUE;
+            #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+            sprintf(txtbuffer, "CLEAR_SCREEN\r\n");
+            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
 
-            glClearColor2 ( r, g, b, 255 );
-            glClear ( uiBufferBits );
+            // Clear all Screen
+            if ((sprtX + sprtW) >= 1023 && (sprtY + sprtH) >= 511)
+            {
+                unsigned char g, b, r;
+                r = baseAddr[0];
+                g = baseAddr[1];
+                b = baseAddr[2];
+
+                glClearColor2 ( r, g, b, 255 );
+                glClear ( uiBufferBits );
+            }
+            else
+            {
+                bDrawTextured     = FALSE;
+                bDrawSmoothShaded = FALSE;
+                SetRenderState ( ( unsigned int ) 0x01000000 );
+                SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
+                vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
+                SETCOL ( vertex[0] );
+                PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+            }
+            gl_z = 0.0f;
         }
         else
         {
+            CheckFullScreenUpload();
+            //CheckClearUploadArea(lx0, ly0, lx1, ly2);
+
+            // Clear part of screen
             bDrawTextured     = FALSE;
             bDrawSmoothShaded = FALSE;
             SetRenderState ( ( unsigned int ) 0x01000000 );
@@ -2756,21 +2791,9 @@ static void primBlkFill ( unsigned char * baseAddr )
             SETCOL ( vertex[0] );
             PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
         }
-        gl_z = 0.0f;
-    }
-    else
-    {
-        CheckFullScreenUpload();
-        //CheckClearUploadArea(lx0, ly0, lx1, ly2);
 
-        // Clear part of screen
-        bDrawTextured     = FALSE;
-        bDrawSmoothShaded = FALSE;
-        SetRenderState ( ( unsigned int ) 0x01000000 );
-        SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
-        vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
-        SETCOL ( vertex[0] );
-        PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
+        // use software blkFill
+        BlkFillArea(sprtX, sprtY, sprtW, sprtH);
     }
 
 //    if ( ClipVertexListScreen() )
@@ -2874,17 +2897,6 @@ static void primBlkFill ( unsigned char * baseAddr )
 //        }
 //    }
 
-//mmm... will clean all stuff, also if not all _should_ be cleaned...
-//if (IsInsideNextScreen(sprtX, sprtY, sprtW, sprtH))
-// try this:
-    if ( IsCompleteInsideNextScreen ( sprtX, sprtY, sprtW, sprtH ) )
-    {
-        lClearOnSwapColor = COLOR ( GETLE32 ( &gpuData[0] ) );
-        lClearOnSwap = 1;
-    }
-
-    // use software blkFill
-    BlkFillArea(sprtX, sprtY, sprtW, sprtH);
     //ClampToPSXScreenOffset( &sprtX, &sprtY, &sprtW, &sprtH);
     //if ((sprtW == 0) || (sprtH == 0)) return;
     //InvalidateTextureArea(sprtX, sprtY, sprtW - 1, sprtH - 1);

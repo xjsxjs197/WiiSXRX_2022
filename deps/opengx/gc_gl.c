@@ -1555,20 +1555,24 @@ static inline void _ogx_scramble_4b(unsigned char *src, void *dst,
     unsigned char c;
     unsigned char argb;
     unsigned char *p = (unsigned char *)dst;
+    int tmp1, tmp2, tmp3;
 
     for (block = 0; block < height; block += 4) {
         for (i = 0; i < width; i += 4) {
             for (c = 0; c < 4; c++) {
+                tmp1 = (block + c);
+                tmp2 = tmp1 * width;
                 for (argb = 0; argb < 4; argb++) {
-                    if ((i + argb) >= width || (block + c) >= height)
+                    tmp3 = (i + argb);
+                    if (tmp3 >= width || tmp1 >= height)
                     {
                         *(unsigned short*)p = 0;
                         *(unsigned short*)(p + 32) = 0;
                     }
                     else
                     {
-                        *(unsigned short*)p = *(unsigned short*)(src + ((i + argb) + ((block + c) * width)) * 4);             // AR
-                        *(unsigned short*)(p + 32) = *(unsigned short*)(src + ((i + argb) + ((block + c) * width)) * 4 + 2);  // GB
+                        *(unsigned short*)p = *(unsigned short*)(src + ((tmp3 + tmp2) << 2));             // AR
+                        *(unsigned short*)(p + 32) = *(unsigned short*)(src + ((tmp3 + tmp2) << 2) + 2);  // GB
                     }
                     p += 2;
                 }

@@ -1032,19 +1032,19 @@ else if(usFirstPos==1)                                // initial updates (after 
 //     //else if ((RGB24Uploaded & 0x3) || (drawTexturePage && RGB24Uploaded))
      else if ((RGB24Uploaded & 0x3))
      {
-         GPUupdateLace5Flg = 1;
-         PrepareFullScreenUpload(-1);
-//         xrUploadArea.x0 = PreviousPSXDisplay.DisplayPosition.x;
-//         xrUploadArea.x1 = PreviousPSXDisplay.DisplayEnd.x;
-//         xrUploadArea.y0 = PreviousPSXDisplay.DisplayPosition.y;
-//         xrUploadArea.y1 = PreviousPSXDisplay.DisplayEnd.y;
-         #if defined(DISP_DEBUG)
-         sprintf(txtbuffer, "Upload Movie Screen %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1, xrUploadArea.y1, RGB24Uploaded);
-         writeLogFile(txtbuffer);
-         #endif // DISP_DEBUG
-         canSwapFrameBuf = UploadScreen(-1);              // -> upload whole screen from psx vram
-         flipEGL();
-         iDrawnSomething = 0;
+//         GPUupdateLace5Flg = 1;
+//         PrepareFullScreenUpload(-1);
+////         xrUploadArea.x0 = PreviousPSXDisplay.DisplayPosition.x;
+////         xrUploadArea.x1 = PreviousPSXDisplay.DisplayEnd.x;
+////         xrUploadArea.y0 = PreviousPSXDisplay.DisplayPosition.y;
+////         xrUploadArea.y1 = PreviousPSXDisplay.DisplayEnd.y;
+//         #if defined(DISP_DEBUG)
+//         sprintf(txtbuffer, "Upload Movie Screen %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1, xrUploadArea.y1, RGB24Uploaded);
+//         writeLogFile(txtbuffer);
+//         #endif // DISP_DEBUG
+//         canSwapFrameBuf = UploadScreen(-1);              // -> upload whole screen from psx vram
+//         flipEGL();
+//         iDrawnSomething = 0;
      }
  }
 }
