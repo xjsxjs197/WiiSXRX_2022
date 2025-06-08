@@ -1497,7 +1497,7 @@ static int calc_mipmap_offset(int level, int w, int h, int b)
 void glInitRGBATextures( GLsizei width, GLsizei height )
 {
     GX_DrawDone();
-    GX_Flush();
+    //GX_Flush();
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
     int wi = width; //(width + 3) & ~(unsigned int)3;
@@ -1702,8 +1702,8 @@ void glResetMovieTexPtr( void )
 int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
 {
     int textureType = 0;
-    //GX_DrawDone();
-    GX_SetDrawDone();
+    GX_DrawDone();
+    //GX_SetDrawDone();
     //GX_Flush();
     //GX_InvalidateTexAll();
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
@@ -1779,8 +1779,8 @@ int glTexSubImage2D(GLenum target, GLint level,
 {
     int textureType = 0;
     GX_DrawDone();
-    GX_Flush();
-    GX_InvalidateTexAll();
+    //GX_Flush();
+    //GX_InvalidateTexAll();
 
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
     unsigned char * semiTransBufPtr = (currtex->semiTransData == 0 ? semiTransBuf : currtex->semiTransData);
@@ -1907,9 +1907,9 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
         return 0; // FIXME Implement non 2D textures
 
     int textureType = 0;
-    //GX_DrawDone(); // Very ugly, we should have a list of used textures and only wait if we are using the curr tex.
+    GX_DrawDone(); // Very ugly, we should have a list of used textures and only wait if we are using the curr tex.
                    // This way we are sure that we are not modifying a texture which is being drawn
-    GX_SetDrawDone();
+    //GX_SetDrawDone();
     //GX_Flush();
     //GX_InvalidateTexAll();
 
@@ -2792,7 +2792,10 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 
     // Invalidate vertex data as may have been modified by the user
     GX_InvVtxCache();
-    //GX_InvalidateTexAll();
+    if (texen)
+    {
+        GX_InvalidateTexAll();
+    }
     #ifdef DISP_DEBUG
     if (texen)
     {

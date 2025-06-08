@@ -1149,10 +1149,24 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
 
         if ( gTexName != currTex )
         {
+            #if defined(DISP_DEBUG)
+            //if (logType)
+            {
+                sprintf ( txtbuffer, "ChgTex %02d(%02d)\r\n", gTexName, curTexCnt);
+                writeLogFile(txtbuffer);
+                curTexCnt = 1;
+            }
+            #endif // DISP_DEBUG
             gTexName = currTex;
             glBindTextureBef ( GL_TEXTURE_2D, currTex );
             glError();
         }
+        #if defined(DISP_DEBUG)
+        else //if (logType)
+        {
+            curTexCnt++;
+        }
+        #endif // DISP_DEBUG
 
         if ( !bTexEnabled )                                 // -> turn texturing on
         {

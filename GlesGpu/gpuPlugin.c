@@ -171,6 +171,10 @@ static BOOL    drawTexturePage = FALSE;
 
 #define INRANGE(x1, x2, y1, y2) ((y2 <= largeRangeY2) && (y1 >= largeRangeY1) && (x2 <= largeRangeX2) && (x1 >= largeRangeX1))
 
+#if defined(DISP_DEBUG)
+static int curTexCnt = 1;
+#endif // DISP_DEBUG
+
 #include "gpuDraw.c"
 #include "gpuTexture.c"
 #include "gpuPrim.c"
