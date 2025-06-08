@@ -1204,6 +1204,8 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
    else tsx=ts;
   }
 
+  texChgType = 1;
+
  if(!tsx)
   {
    if(iMaxTexWnds==iTexWndLimit)
@@ -1255,6 +1257,8 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
 
 static inline void DefineTextureMovie(void)
 {
+  texChgType = 2;
+
  if(gTexMovieName==0)
   {
    glGenTextures(1, &gTexMovieName); glError();
@@ -3172,6 +3176,8 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
 //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
  if(!OPtr) return uiStexturePage[iCache];
+
+  texChgType = 3;
 
  // not found? upload texture and store infos in cache
  gTexName=uiStexturePage[iCache];

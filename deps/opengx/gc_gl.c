@@ -736,6 +736,11 @@ void glChgTextureFilter( void )
     }
 }
 
+static short loadTexFlg = 0;
+void glNeedLoadTex( short needLoadTexFlg )
+{
+    loadTexFlg = needLoadTexFlg;
+}
 
 void glDeleteTextures(GLsizei n, const GLuint *textures)
 {
@@ -2599,7 +2604,7 @@ static int _ogx_apply_state()
                     if ((texturyType & TXT_TYPE_1))
                     {
                         // Non transparent colors in transparent mode
-                        GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
+                        if (loadTexFlg) GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
                         GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
                     }
                     else
@@ -2612,7 +2617,7 @@ static int _ogx_apply_state()
                     // transparent colors in transparent mode(0.5F + 0.5B)
                     if ((texturyType & TXT_TYPE_2))
                     {
-                        GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+                        if (loadTexFlg) GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
                         // 0.5B + 0.5F
                         GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_SRCALPHA, GX_LO_CLEAR);
                     }
@@ -2644,7 +2649,7 @@ static int _ogx_apply_state()
                     {
                         if (texturyType & TXT_TYPE_1)
                         {
-                            GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
+                            if (loadTexFlg) GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
                             // Non transparent colors in transparent mode
                             GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
                         }
@@ -2657,7 +2662,7 @@ static int _ogx_apply_state()
                     {
                         if (texturyType & TXT_TYPE_2)
                         {
-                            GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+                            if (loadTexFlg) GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
                             // transparent colors in transparent mode(F + B)
                             // transparent colors in transparent mode(0.25F + B)
                             GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_ONE, GX_LO_CLEAR);
@@ -2684,7 +2689,7 @@ static int _ogx_apply_state()
                 {
                     if (texturyType & TXT_TYPE_1)
                     {
-                        GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
+                        if (loadTexFlg) GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
                         // Non transparent colors in transparent mode
                         GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
                     }
@@ -2697,7 +2702,7 @@ static int _ogx_apply_state()
                 {
                     if (texturyType & TXT_TYPE_2)
                     {
-                        GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+                        if (loadTexFlg) GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
                         // transparent colors in transparent mode(B - F)
                         GX_SetBlendMode(GX_BM_SUBTRACT, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
                     }
@@ -2718,7 +2723,7 @@ static int _ogx_apply_state()
     {
         if (texen)
         {
-            GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+            if (loadTexFlg) GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
 
         }
         GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
@@ -2792,7 +2797,7 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 
     // Invalidate vertex data as may have been modified by the user
     GX_InvVtxCache();
-    if (texen)
+    if (texen && loadTexFlg)
     {
         GX_InvalidateTexAll();
     }

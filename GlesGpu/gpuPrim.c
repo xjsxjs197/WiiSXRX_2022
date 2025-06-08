@@ -1141,6 +1141,7 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
 
     if ( bDrawTextured )                                  // texture ? build it/get it from cache
     {
+        texChgType = 0;
         GLuint currTex;
         if ( bUsingTWin )       currTex = LoadTextureWnd ( GlobalTexturePage, GlobalTextTP, ulClutID );
         else if ( bUsingMovie ) currTex = LoadTextureMovie();
@@ -1152,21 +1153,34 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
             #if defined(DISP_DEBUG)
             //if (logType)
             {
-                sprintf ( txtbuffer, "ChgTex %02d(%02d)\r\n", gTexName, curTexCnt);
+                sprintf ( txtbuffer, "ChgTex1 %02d(%02d) %d\r\n", gTexName, curTexCnt, texChgType);
                 writeLogFile(txtbuffer);
                 curTexCnt = 1;
             }
             #endif // DISP_DEBUG
             gTexName = currTex;
             glBindTextureBef ( GL_TEXTURE_2D, currTex );
+            glNeedLoadTex(1);
             glError();
         }
-        #if defined(DISP_DEBUG)
         else //if (logType)
         {
-            curTexCnt++;
+            if (texChgType)
+            {
+                glNeedLoadTex(1);
+                #if defined(DISP_DEBUG)
+                sprintf ( txtbuffer, "ChgTex2 %02d(%02d) %d\r\n", gTexName, curTexCnt, texChgType);
+                writeLogFile(txtbuffer);
+                #endif // DISP_DEBUG
+            }
+            else
+            {
+                glNeedLoadTex(0);
+                #if defined(DISP_DEBUG)
+                curTexCnt++;
+                #endif // DISP_DEBUG
+            }
         }
-        #endif // DISP_DEBUG
 
         if ( !bTexEnabled )                                 // -> turn texturing on
         {
