@@ -1155,30 +1155,33 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
             {
                 sprintf ( txtbuffer, "ChgTex1 %02d(%02d) %d\r\n", gTexName, curTexCnt, texChgType);
                 writeLogFile(txtbuffer);
-                curTexCnt = 1;
             }
             #endif // DISP_DEBUG
             gTexName = currTex;
             glBindTextureBef ( GL_TEXTURE_2D, currTex );
             glNeedLoadTex(1);
+            curTexCnt = 1;
             glError();
         }
         else //if (logType)
         {
             if (texChgType)
             {
-                glNeedLoadTex(1);
                 #if defined(DISP_DEBUG)
                 sprintf ( txtbuffer, "ChgTex2 %02d(%02d) %d\r\n", gTexName, curTexCnt, texChgType);
                 writeLogFile(txtbuffer);
                 #endif // DISP_DEBUG
+                glNeedLoadTex(1);
+                curTexCnt = 1;
             }
             else
             {
-                glNeedLoadTex(0);
+                glNeedLoadTex(1);
                 #if defined(DISP_DEBUG)
-                curTexCnt++;
+                sprintf ( txtbuffer, "ChgTex3 %02d(%02d) %d\r\n", gTexName, curTexCnt, texChgType);
+                writeLogFile(txtbuffer);
                 #endif // DISP_DEBUG
+                curTexCnt++;
             }
         }
 

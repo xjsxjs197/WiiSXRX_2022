@@ -2799,6 +2799,7 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
     GX_InvVtxCache();
     if (texen && loadTexFlg)
     {
+        GX_DrawDone();
         GX_InvalidateTexAll();
     }
     #ifdef DISP_DEBUG
