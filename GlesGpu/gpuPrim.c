@@ -1156,11 +1156,12 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
                 sprintf ( txtbuffer, "ChgTex1 %02d(%02d) %d\r\n", gTexName, curTexCnt, texChgType);
                 writeLogFile(txtbuffer);
             }
+            curTexCnt = 1;
             #endif // DISP_DEBUG
             gTexName = currTex;
             glBindTextureBef ( GL_TEXTURE_2D, currTex );
             glNeedLoadTex(1);
-            curTexCnt = 1;
+            isNewFrame = 0;
             glError();
         }
         else //if (logType)
@@ -1170,18 +1171,25 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
                 #if defined(DISP_DEBUG)
                 sprintf ( txtbuffer, "ChgTex2 %02d(%02d) %d\r\n", gTexName, curTexCnt, texChgType);
                 writeLogFile(txtbuffer);
+                curTexCnt = 1;
                 #endif // DISP_DEBUG
                 glNeedLoadTex(1);
+                isNewFrame = 0;
+            }
+            else if (isNewFrame)
+            {
+                #if defined(DISP_DEBUG)
                 curTexCnt = 1;
+                #endif // DISP_DEBUG
+                glNeedLoadTex(1);
+                isNewFrame = 0;
             }
             else
             {
-                glNeedLoadTex(1);
                 #if defined(DISP_DEBUG)
-                sprintf ( txtbuffer, "ChgTex3 %02d(%02d) %d\r\n", gTexName, curTexCnt, texChgType);
-                writeLogFile(txtbuffer);
-                #endif // DISP_DEBUG
                 curTexCnt++;
+                #endif // DISP_DEBUG
+                glNeedLoadTex(0);
             }
         }
 
