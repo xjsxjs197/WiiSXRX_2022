@@ -29,6 +29,7 @@
 extern "C" {
 #include "../fileBrowser/fileBrowser.h"
 #include "../fileBrowser/fileBrowser-libfat.h"
+#include "../../gpu.h"
 }
 
 namespace menu {
@@ -348,7 +349,8 @@ void IplFont::drawString(int x, int y, char *string, float scale, bool centered)
         y = (int) y - strHeight/2;
     }
 
-    GX_InvalidateTexAll();
+    //GX_InvalidateTexAll();
+    curTexType = TEX_TYPE_FPS;
 
     wchar_t *utf8Txt = charToWideChar(gettext(string));
     wchar_t *tmpPtr = utf8Txt;

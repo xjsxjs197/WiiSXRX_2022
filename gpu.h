@@ -24,6 +24,14 @@
 #ifndef __GPU_H__
 #define __GPU_H__
 
+#define TEX_TYPE_DEFAULT      0
+#define TEX_TYPE_MOVIE        1
+#define TEX_TYPE_UPLOAD       2
+#define TEX_TYPE_WIN          3
+#define TEX_TYPE_SUB          4
+#define TEX_TYPE_FPS          5
+#define TEX_TYPE_SEMI         6
+
 #define PSXGPU_LCF     (1u<<31)
 #define PSXGPU_nBUSY   (1u<<26)
 #define PSXGPU_ILACE   (1u<<22)
@@ -82,5 +90,7 @@ extern gpu_t oldSoftGpu;
 extern gpu_t newSoftGpu;
 extern gpu_t glesGpu;
 extern gpu_t *gpuPtr;
+
+extern short curTexType;
 
 #endif /* __GPU_H__ */

@@ -172,7 +172,6 @@ static BOOL    drawTexturePage = FALSE;
 #define INRANGE(x1, x2, y1, y2) ((y2 <= largeRangeY2) && (y1 >= largeRangeY1) && (x2 <= largeRangeX2) && (x1 >= largeRangeX1))
 
 static short   texChgType = 0;
-static short   isNewFrame = 1;
 #if defined(DISP_DEBUG)
 static short   curTexCnt = 1;
 #endif // DISP_DEBUG
@@ -2234,7 +2233,6 @@ static void flipEGL(void)
     needFlipEGL = FALSE;
     RGB24Uploaded = 0;
     glSetLoadMtxFlg();
-    isNewFrame = 1;
 }
 
 #include "../Gamecube/wiiSXconfig.h"

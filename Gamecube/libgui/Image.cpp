@@ -19,6 +19,9 @@
 **/
 
 #include "Image.h"
+extern "C" {
+#include "../../gpu.h"
+}
 
 namespace menu {
 
@@ -53,7 +56,8 @@ Image::~Image()
 
 void Image::activateImage(u8 mapid)
 {
-	if (tlut_ptr) GX_LoadTlut(&tlut_obj, tlut_name);	
+	if (tlut_ptr) GX_LoadTlut(&tlut_obj, tlut_name);
+	curTexType = TEX_TYPE_MOVIE;
 	GX_LoadTexObj(&obj, mapid);
 }
 
