@@ -747,7 +747,10 @@ void glChgTextureFilter( void )
 #define TEX_TYPE_FPS          5
 #define TEX_TYPE_SEMI         6
 
-extern short curTexType;
+extern GXTexRegion movieUploadTexRegion;
+extern GXTexRegion semiTransTexRegion;
+extern GXTexRegion subTexRegion;
+extern GXTexRegion winTexRegion;
 
 void glCheckLoadTextureObj( int loadTextureType )
 {
@@ -755,13 +758,26 @@ void glCheckLoadTextureObj( int loadTextureType )
 
     if (texturyType & TXT_TYPE_1)
     {
-        curTexType = TEX_TYPE_SEMI;
-        GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
+        GX_InvalidateTexRegion(&semiTransTexRegion);
+        GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &semiTransTexRegion, GX_TEXMAP0);
     }
     if (texturyType & TXT_TYPE_2)
     {
-        curTexType = loadTextureType;
-        GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+        switch (loadTextureType)
+        {
+            case TEX_TYPE_MOVIE:
+                GX_InvalidateTexRegion(&movieUploadTexRegion);
+                GX_LoadTexObjPreloaded(&currtex->texobj, &movieUploadTexRegion, GX_TEXMAP0);
+                break;
+            case TEX_TYPE_WIN:
+                GX_InvalidateTexRegion(&winTexRegion);
+                GX_LoadTexObjPreloaded(&currtex->texobj, &winTexRegion, GX_TEXMAP0);
+                break;
+            case TEX_TYPE_SUB:
+                GX_PreloadEntireTexture(&currtex->texobj, &subTexRegion);
+                GX_LoadTexObjPreloaded(&currtex->texobj, &subTexRegion, GX_TEXMAP0);
+                break;
+        }
     }
 }
 
@@ -1521,45 +1537,6 @@ static int calc_mipmap_offset(int level, int w, int h, int b)
     return size;
 }
 
-// Create a Blank Texture
-void glInitRGBATextures( GLsizei width, GLsizei height )
-{
-    //GX_WaitDrawDone();
-    //GX_Flush();
-    gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
-
-    int wi = width; //(width + 3) & ~(unsigned int)3;
-    int he = height; //(height + 3) & ~(unsigned int)3;
-
-    if (currtex->data != 0)
-        _mem2_free(currtex->data);
-    if (currtex->semiTransData != 0)
-    {
-        _mem2_free(currtex->semiTransData);
-        currtex->semiTransData = 0;
-    }
-
-    int required_size = wi * he * 2;
-    int tex_size_rnd = ROUND_32B(required_size);
-    currtex->data = _mem2_memalign(32, tex_size_rnd);
-    memset(currtex->data, 0, tex_size_rnd);
-    DCFlushRange(currtex->data, tex_size_rnd);
-
-    currtex->w = wi;
-    currtex->h = he;
-
-    GX_InitTexObj(&currtex->texobj, currtex->data,
-                  currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
-    if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_DISABLE)
-    {
-        GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
-    }
-    // For Non transparent colors in transparent mode
-//    GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
-//                  currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
-    //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
-}
-
 #define RESY_MAX 512	//Vmem height
 #define GXRESX_MAX 1366	//1024 * 1.33 for ARGB
 #define MOVIE_BUF_SIZE (GXRESX_MAX*RESY_MAX*2)
@@ -1592,17 +1569,18 @@ static inline void _ogx_scramble_4b(unsigned char *src, void *dst,
                     if (tmp3 >= width || tmp1 >= height)
                     {
                         *(unsigned short*)p = 0;
-                        *(unsigned short*)(p + 32) = 0;
+                        //*(unsigned short*)(p + 32) = 0;
                     }
                     else
                     {
-                        *(unsigned short*)p = *(unsigned short*)(src + ((tmp3 + tmp2) << 2));             // AR
-                        *(unsigned short*)(p + 32) = *(unsigned short*)(src + ((tmp3 + tmp2) << 2) + 2);  // GB
+                        //*(unsigned short*)p = *(unsigned short*)(src + ((tmp3 + tmp2) << 2));             // AR
+                        //*(unsigned short*)(p + 32) = *(unsigned short*)(src + ((tmp3 + tmp2) << 2) + 2);  // GB
+                        *(unsigned short*)p = *(unsigned short*)(src + ((tmp3 + tmp2) << 2) + 2);  // BGR
                     }
                     p += 2;
                 }
             }
-            p += 32;
+            //p += 32;
         }
     }
 }
@@ -1717,6 +1695,41 @@ static inline int _ogx_scramble_4b_5a3(unsigned char *src, void *dst, unsigned s
     return textureType;
 }
 
+// Create a Blank Texture
+void glInitRGBATextures( GLsizei width, GLsizei height )
+{
+    //GX_WaitDrawDone();
+    //GX_Flush();
+    gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
+
+    int wi = width; //(width + 3) & ~(unsigned int)3;
+    int he = height; //(height + 3) & ~(unsigned int)3;
+
+    if (currtex->data != 0)
+        _mem2_free(currtex->data);
+    if (currtex->semiTransData != 0)
+    {
+        _mem2_free(currtex->semiTransData);
+        currtex->semiTransData = 0;
+    }
+
+    int required_size = wi * he * 2;
+    int tex_size_rnd = ROUND_32B(required_size);
+    currtex->data = _mem2_memalign(32, tex_size_rnd);
+    memset(currtex->data, 0, tex_size_rnd);
+    DCFlushRange(currtex->data, tex_size_rnd);
+
+    currtex->w = wi;
+    currtex->h = he;
+
+    GX_InitTexObj(&currtex->texobj, currtex->data,
+                  currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
+    if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_DISABLE)
+    {
+        GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
+    }
+}
+
 void glResetMovieTexPtr( void )
 {
     movieUsedSize = 0;
@@ -1737,6 +1750,7 @@ int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
     int he = height; //(height + 3) & ~(unsigned int)3;
 
     int required_size = wi * he * 4;
+    //int required_size = wi * he * 2;
     int tex_size_rnd = ROUND_32B(required_size);
     if ((movieUsedSize + tex_size_rnd) > MOVIE_BUF_SIZE)
     {
@@ -1759,14 +1773,13 @@ int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
     {
         textureType = TXT_TYPE_2;
         _ogx_scramble_4b((unsigned char *)texData, currtex->data, width, height);
+//        GX_InitTexObj(&currtex->texobj, currtex->data,
+//                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
         GX_InitTexObj(&currtex->texobj, currtex->data,
-                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
-        //GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
-        //              currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
+                      currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
         if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_DISABLE)
         {
             GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
-            //GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
         }
     }
     else
@@ -1995,7 +2008,6 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
             }
         }
     }
-    //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
     //GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
 
     return textureType;

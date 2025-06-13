@@ -1161,7 +1161,7 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
             #endif // DISP_DEBUG
             gTexName = currTex;
             glBindTextureBef ( GL_TEXTURE_2D, currTex );
-            if (loadTextureType == TEX_TYPE_MOVIE || texChgType)
+            //if (loadTextureType == TEX_TYPE_MOVIE || texChgType)
             {
                 glCheckLoadTextureObj(loadTextureType);
             }
@@ -1183,6 +1183,7 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
                 #if defined(DISP_DEBUG)
                 curTexCnt++;
                 #endif // DISP_DEBUG
+                glCheckLoadTextureObj(loadTextureType);
             }
         }
 

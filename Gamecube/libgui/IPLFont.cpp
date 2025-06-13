@@ -32,6 +32,8 @@ extern "C" {
 #include "../../gpu.h"
 }
 
+extern GXTexRegion fpsTexRegion;
+
 namespace menu {
 
 #define CH_FONT_HEIGHT 24
@@ -350,14 +352,14 @@ void IplFont::drawString(int x, int y, char *string, float scale, bool centered)
     }
 
     //GX_InvalidateTexAll();
-    curTexType = TEX_TYPE_FPS;
+    GX_InvalidateTexRegion(&fpsTexRegion);
 
     wchar_t *utf8Txt = charToWideChar(gettext(string));
     wchar_t *tmpPtr = utf8Txt;
     while (*utf8Txt) {
 
         GX_InitTexObj(&fontTexObj, this->getCharPngBuf(*utf8Txt), CH_FONT_WIDTH, CH_FONT_HEIGHT, GX_TF_IA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
-        GX_LoadTexObj(&fontTexObj, GX_TEXMAP0);
+        GX_LoadTexObjPreloaded(&fontTexObj, &fpsTexRegion, GX_TEXMAP0);
 
         GX_Begin(GX_QUADS, GX_VTXFMT1, 4);
             GX_Position2s16(x, y);
