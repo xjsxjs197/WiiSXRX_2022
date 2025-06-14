@@ -744,38 +744,54 @@ void glChgTextureFilter( void )
 #define TEX_TYPE_UPLOAD       2
 #define TEX_TYPE_WIN          3
 #define TEX_TYPE_SUB          4
-#define TEX_TYPE_FPS          5
+#define TEX_TYPE_UI           5
 #define TEX_TYPE_SEMI         6
+
+#define GX_TEXMAP_MOV         GX_TEXMAP0
+#define GX_TEXMAP_WIN         GX_TEXMAP1
+#define GX_TEXMAP_SUB         GX_TEXMAP2
+#define GX_TEXMAP_SEMI        GX_TEXMAP3
+#define GX_TEXMAP_UI          GX_TEXMAP4
 
 extern GXTexRegion movieUploadTexRegion;
 extern GXTexRegion semiTransTexRegion;
 extern GXTexRegion subTexRegion;
 extern GXTexRegion winTexRegion;
 
+static short curTextureType;
 void glCheckLoadTextureObj( int loadTextureType )
 {
+    curTextureType = loadTextureType;
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
     if (texturyType & TXT_TYPE_1)
     {
-        GX_InvalidateTexRegion(&semiTransTexRegion);
-        GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &semiTransTexRegion, GX_TEXMAP0);
+        if (glparamstate.blendenabled)
+        {
+            //GX_InvalidateTexRegion(&semiTransTexRegion);
+            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &semiTransTexRegion, GX_TEXMAP_SEMI);
+            GX_SetDrawDone();
+        }
     }
     if (texturyType & TXT_TYPE_2)
     {
         switch (loadTextureType)
         {
             case TEX_TYPE_MOVIE:
-                GX_InvalidateTexRegion(&movieUploadTexRegion);
-                GX_LoadTexObjPreloaded(&currtex->texobj, &movieUploadTexRegion, GX_TEXMAP0);
+                //GX_InvalidateTexRegion(&movieUploadTexRegion);
+                GX_LoadTexObjPreloaded(&currtex->texobj, &movieUploadTexRegion, GX_TEXMAP_MOV);
                 break;
             case TEX_TYPE_WIN:
-                GX_InvalidateTexRegion(&winTexRegion);
-                GX_LoadTexObjPreloaded(&currtex->texobj, &winTexRegion, GX_TEXMAP0);
+                //GX_InvalidateTexRegion(&winTexRegion);
+                GX_LoadTexObjPreloaded(&currtex->texobj, &winTexRegion, GX_TEXMAP_WIN);
                 break;
             case TEX_TYPE_SUB:
-                GX_PreloadEntireTexture(&currtex->texobj, &subTexRegion);
-                GX_LoadTexObjPreloaded(&currtex->texobj, &subTexRegion, GX_TEXMAP0);
+                if ((texturyType & TXT_TYPE_1) && glparamstate.blendenabled)
+                {
+                    GX_WaitDrawDone();
+                }
+                //GX_InvalidateTexRegion(&subTexRegion);
+                GX_LoadTexObjPreloaded(&currtex->texobj, &subTexRegion, GX_TEXMAP_SUB);
                 break;
         }
     }
@@ -2505,7 +2521,28 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
             GX_SetTevColorOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
         }
         GX_SetTevAlphaOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
-        GX_SetTevOrder(stage, GX_TEXCOORD0, GX_TEXMAP0, channel);
+        short gxTexMap;
+        if (glDrawArraysFlg == 0 && (texturyType & TXT_TYPE_1))
+        {
+            gxTexMap = GX_TEXMAP_SEMI;
+        }
+        else
+        {
+            switch (curTextureType)
+            {
+                case TEX_TYPE_MOVIE:
+                    gxTexMap = GX_TEXMAP_MOV;
+                    break;
+                case TEX_TYPE_WIN:
+                    gxTexMap = GX_TEXMAP_WIN;
+                    break;
+                case TEX_TYPE_SUB:
+                    gxTexMap = GX_TEXMAP_SUB;
+                    break;
+            }
+        }
+
+        GX_SetTevOrder(stage, GX_TEXCOORD0, gxTexMap, channel);
     }
 
     // Set up the data for the TEXCOORD0 (use a identity matrix, TODO: allow user texture matrices)
