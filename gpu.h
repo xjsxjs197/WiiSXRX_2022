@@ -29,8 +29,14 @@
 #define TEX_TYPE_UPLOAD       2
 #define TEX_TYPE_WIN          3
 #define TEX_TYPE_SUB          4
-#define TEX_TYPE_FPS          5
+#define TEX_TYPE_UI           5
 #define TEX_TYPE_SEMI         6
+
+#define GX_TEXMAP_MOV         GX_TEXMAP0
+#define GX_TEXMAP_WIN         GX_TEXMAP1
+#define GX_TEXMAP_SUB         GX_TEXMAP2
+#define GX_TEXMAP_SEMI        GX_TEXMAP3
+#define GX_TEXMAP_UI          GX_TEXMAP4
 
 #define PSXGPU_LCF     (1u<<31)
 #define PSXGPU_nBUSY   (1u<<26)

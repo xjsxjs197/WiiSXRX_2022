@@ -67,7 +67,7 @@ GXTexRegion movieUploadTexRegion;
 GXTexRegion semiTransTexRegion;
 GXTexRegion subTexRegion;
 GXTexRegion winTexRegion;
-GXTexRegion fpsTexRegion;
+GXTexRegion uiTexRegion;
 short      curTexType;
 
 extern u32* xfb[3];
@@ -295,8 +295,8 @@ GXTexRegion * GXTexRegionCallback(GXTexObj *obj, u8 mapid)
         case TEX_TYPE_WIN:
             return &winTexRegion;
 
-        case TEX_TYPE_FPS:
-            return &fpsTexRegion;
+        case TEX_TYPE_UI:
+            return &uiTexRegion;
     }
 
     curTexType = TEX_TYPE_DEFAULT;
@@ -327,10 +327,11 @@ void Graphics::init()
 	GX_SetCopyFilter(vmode->aa,vmode->sample_pattern,GX_TRUE,vmode->vfilter);
 	GX_SetFieldMode(vmode->field_rendering,((vmode->viHeight==2*vmode->xfbHeight)?GX_ENABLE:GX_DISABLE));
 
-	if (vmode->aa)
-			GX_SetPixelFmt(GX_PF_RGB565_Z16, GX_ZC_LINEAR);
-		else
-			GX_SetPixelFmt(GX_PF_RGB8_Z24, GX_ZC_LINEAR);
+//	if (vmode->aa)
+//			GX_SetPixelFmt(GX_PF_RGB565_Z16, GX_ZC_LINEAR);
+//		else
+//			GX_SetPixelFmt(GX_PF_RGB8_Z24, GX_ZC_LINEAR);
+    GX_SetPixelFmt(GX_PF_RGBA6_Z24, GX_ZC_LINEAR);
 
 	GX_SetCullMode(GX_CULL_NONE);
 	GX_SetDispCopyGamma(GX_GM_1_0);
@@ -353,8 +354,8 @@ void Graphics::init()
     GX_InitTexCacheRegion(&movieUploadTexRegion, GX_FALSE, 0x0, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
 	GX_InitTexCacheRegion(&semiTransTexRegion, GX_FALSE, 0x20000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
 	GX_InitTexCacheRegion(&winTexRegion, GX_FALSE, 0x40000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
-	GX_InitTexPreloadRegion(&subTexRegion, 0x60000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
-	GX_InitTexCacheRegion(&fpsTexRegion, GX_FALSE, 0x80000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
+	GX_InitTexCacheRegion(&subTexRegion, GX_FALSE, 0x60000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
+	GX_InitTexCacheRegion(&uiTexRegion, GX_FALSE, 0x80000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
 
 
 	GX_SetTexRegionCallback(GXTexRegionCallback);
@@ -675,7 +676,7 @@ void Graphics::setTEV(int tev_op)
 	GX_SetNumTevStages(1);
 	GX_SetNumChans (1);
 	GX_SetNumTexGens (1);
-	GX_SetTevOrder (GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
+	GX_SetTevOrder (GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP_UI, GX_COLOR0A0);
 	GX_SetTevOp (GX_TEVSTAGE0, tev_op);
 	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_RED, GX_CH_GREEN, GX_CH_BLUE, GX_CH_ALPHA);
 	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
