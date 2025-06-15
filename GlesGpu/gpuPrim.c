@@ -1142,10 +1142,11 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
     if ( bDrawTextured )                                  // texture ? build it/get it from cache
     {
         texChgType = 0;
+        int loadTextureType;
         GLuint currTex;
-        if ( bUsingTWin )       currTex = LoadTextureWnd ( GlobalTexturePage, GlobalTextTP, ulClutID );
-        else if ( bUsingMovie ) currTex = LoadTextureMovie();
-        else                 currTex = SelectSubTextureS ( GlobalTextTP, ulClutID );
+        if ( bUsingTWin )       { currTex = LoadTextureWnd ( GlobalTexturePage, GlobalTextTP, ulClutID ); loadTextureType = TEX_TYPE_WIN; }
+        else if ( bUsingMovie ) { currTex = LoadTextureMovie(); loadTextureType = TEX_TYPE_MOVIE; }
+        else                    { currTex = SelectSubTextureS ( GlobalTextTP, ulClutID ); loadTextureType = TEX_TYPE_SUB; }
         glSetTextureType(gl_ux[8]);
 
         if ( gTexName != currTex )
@@ -1160,8 +1161,10 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
             #endif // DISP_DEBUG
             gTexName = currTex;
             glBindTextureBef ( GL_TEXTURE_2D, currTex );
-            glNeedLoadTex(1);
-            isNewFrame = 0;
+            //if (loadTextureType == TEX_TYPE_MOVIE || texChgType)
+            {
+                glCheckLoadTextureObj(loadTextureType);
+            }
             glError();
         }
         else //if (logType)
@@ -1173,23 +1176,14 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
                 writeLogFile(txtbuffer);
                 curTexCnt = 1;
                 #endif // DISP_DEBUG
-                glNeedLoadTex(1);
-                isNewFrame = 0;
-            }
-            else if (isNewFrame)
-            {
-                #if defined(DISP_DEBUG)
-                curTexCnt = 1;
-                #endif // DISP_DEBUG
-                glNeedLoadTex(1);
-                isNewFrame = 0;
+                glCheckLoadTextureObj(loadTextureType);
             }
             else
             {
                 #if defined(DISP_DEBUG)
                 curTexCnt++;
                 #endif // DISP_DEBUG
-                glNeedLoadTex(0);
+                glCheckLoadTextureObj(loadTextureType);
             }
         }
 

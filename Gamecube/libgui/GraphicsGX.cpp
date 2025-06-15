@@ -20,6 +20,10 @@
 
 #include <math.h>
 #include "GraphicsGX.h"
+extern "C" {
+    #include "../../gpu.h"
+}
+
 
 GXRModeObj TVMODE_240p =
 {
@@ -58,6 +62,13 @@ extern "C" void VIDEO_SetTrapFilter(bool enable);
 
 GXRModeObj gvmode;
 GXRModeObj mgvmode;
+
+GXTexRegion movieUploadTexRegion;
+GXTexRegion semiTransTexRegion;
+GXTexRegion subTexRegion;
+GXTexRegion winTexRegion;
+GXTexRegion uiTexRegion;
+short      curTexType;
 
 extern u32* xfb[3];
 enum {
@@ -265,6 +276,35 @@ Graphics::~Graphics()
 {
 }
 
+
+GXTexRegion * GXTexRegionCallback(GXTexObj *obj, u8 mapid)
+{
+    if (gpuPtr != &glesGpu)
+    {
+        return &movieUploadTexRegion;
+    }
+
+    switch (curTexType)
+    {
+        case TEX_TYPE_SUB:
+            return &subTexRegion;
+
+        case TEX_TYPE_SEMI:
+            return &semiTransTexRegion;
+
+        case TEX_TYPE_WIN:
+            return &winTexRegion;
+
+        case TEX_TYPE_UI:
+            return &uiTexRegion;
+    }
+
+    curTexType = TEX_TYPE_DEFAULT;
+
+    return &movieUploadTexRegion;
+}
+
+
 void Graphics::init()
 {
 
@@ -297,6 +337,27 @@ void Graphics::init()
 
 	GX_InvVtxCache();
 	GX_InvalidateTexAll();
+
+	// Init custom texture cache region
+	curTexType = TEX_TYPE_DEFAULT;
+//	GX_InitTexCacheRegion(&movieUploadTexRegion, GX_FALSE, 0x0, GX_TEXCACHE_512K, 0x80000, GX_TEXCACHE_512K);
+//	GX_InitTexCacheRegion(&semiTransTexRegion, GX_FALSE, 0x40000, GX_TEXCACHE_128K, 0xC0000, GX_TEXCACHE_128K);
+//	GX_InitTexCacheRegion(&fpsTexRegion, GX_FALSE, 0x60000, GX_TEXCACHE_128K, 0xE0000, GX_TEXCACHE_128K);
+//	GX_InitTexCacheRegion(&subTexRegion, GX_FALSE, 0x100000, GX_TEXCACHE_128K, 0x120000, GX_TEXCACHE_128K);
+//	GX_InitTexCacheRegion(&winTexRegion, GX_FALSE, 0x140000, GX_TEXCACHE_128K, 0x160000, GX_TEXCACHE_128K);
+//    GX_InitTexCacheRegion(&movieUploadTexRegion, GX_FALSE, 0x0, GX_TEXCACHE_128K, 0x20000, GX_TEXCACHE_128K);
+//	GX_InitTexCacheRegion(&semiTransTexRegion, GX_FALSE, 0x40000, GX_TEXCACHE_128K, 0x60000, GX_TEXCACHE_128K);
+//	GX_InitTexCacheRegion(&winTexRegion, GX_FALSE, 0x80000, GX_TEXCACHE_128K, 0xA0000, GX_TEXCACHE_128K);
+//	GX_InitTexPreloadRegion(&subTexRegion, 0xC0000, GX_TEXCACHE_128K, 0xE0000, GX_TEXCACHE_128K);
+
+    GX_InitTexCacheRegion(&movieUploadTexRegion, GX_FALSE, 0x0, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
+	GX_InitTexCacheRegion(&semiTransTexRegion, GX_FALSE, 0x20000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
+	GX_InitTexCacheRegion(&winTexRegion, GX_FALSE, 0x40000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
+	GX_InitTexCacheRegion(&subTexRegion, GX_FALSE, 0x60000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
+	GX_InitTexCacheRegion(&uiTexRegion, GX_FALSE, 0x80000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
+
+
+	GX_SetTexRegionCallback(GXTexRegionCallback);
 
 	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
 	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_NRM, GX_NRM_XYZ, GX_F32, 0);
@@ -339,7 +400,7 @@ void Graphics::drawInit()
 	GX_SetCullMode (GX_CULL_NONE);
 
 	GX_InvVtxCache();
-	GX_InvalidateTexAll();
+	//GX_InvalidateTexAll();
 
 	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
 	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_NRM, GX_NRM_XYZ, GX_F32, 0);
@@ -614,7 +675,7 @@ void Graphics::setTEV(int tev_op)
 	GX_SetNumTevStages(1);
 	GX_SetNumChans (1);
 	GX_SetNumTexGens (1);
-	GX_SetTevOrder (GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
+	GX_SetTevOrder (GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP_UI, GX_COLOR0A0);
 	GX_SetTevOp (GX_TEVSTAGE0, tev_op);
 	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_RED, GX_CH_GREEN, GX_CH_BLUE, GX_CH_ALPHA);
 	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);

@@ -19,6 +19,10 @@
 **/
 
 #include "Image.h"
+extern "C" {
+#include "../../gpu.h"
+}
+extern GXTexRegion uiTexRegion;
 
 namespace menu {
 
@@ -53,8 +57,9 @@ Image::~Image()
 
 void Image::activateImage(u8 mapid)
 {
-	if (tlut_ptr) GX_LoadTlut(&tlut_obj, tlut_name);	
-	GX_LoadTexObj(&obj, mapid);
+	if (tlut_ptr) GX_LoadTlut(&tlut_obj, tlut_name);
+	//GX_LoadTexObj(&obj, mapid);
+	GX_LoadTexObjPreloaded(&obj, &uiTexRegion, GX_TEXMAP_UI);
 }
 
-} //namespace menu 
+} //namespace menu

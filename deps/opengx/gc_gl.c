@@ -64,6 +64,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #define ROUND_32B(x) (((x) + 31) & (~31))
 #define min(a,b)     (((a) < (b)) ? (a) : (b))
 
+#define TXT_TYPE_1  0x1
+#define TXT_TYPE_2  0x2
+
 //#define DISP_DEBUG
 
 #ifdef DISP_DEBUG
@@ -736,10 +739,62 @@ void glChgTextureFilter( void )
     }
 }
 
-static short loadTexFlg = 0;
-void glNeedLoadTex( short needLoadTexFlg )
+#define TEX_TYPE_DEFAULT      0
+#define TEX_TYPE_MOVIE        1
+#define TEX_TYPE_UPLOAD       2
+#define TEX_TYPE_WIN          3
+#define TEX_TYPE_SUB          4
+#define TEX_TYPE_UI           5
+#define TEX_TYPE_SEMI         6
+
+#define GX_TEXMAP_MOV         GX_TEXMAP0
+#define GX_TEXMAP_WIN         GX_TEXMAP1
+#define GX_TEXMAP_SUB         GX_TEXMAP2
+#define GX_TEXMAP_SEMI        GX_TEXMAP3
+#define GX_TEXMAP_UI          GX_TEXMAP4
+
+extern GXTexRegion movieUploadTexRegion;
+extern GXTexRegion semiTransTexRegion;
+extern GXTexRegion subTexRegion;
+extern GXTexRegion winTexRegion;
+
+static short curTextureType;
+void glCheckLoadTextureObj( int loadTextureType )
 {
-    loadTexFlg = needLoadTexFlg;
+    curTextureType = loadTextureType;
+    gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
+
+    if (texturyType & TXT_TYPE_1)
+    {
+        if (glparamstate.blendenabled)
+        {
+            GX_InvalidateTexRegion(&semiTransTexRegion);
+            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &semiTransTexRegion, GX_TEXMAP_SEMI);
+            GX_SetDrawDone();
+        }
+    }
+    if (texturyType & TXT_TYPE_2)
+    {
+        switch (loadTextureType)
+        {
+            case TEX_TYPE_MOVIE:
+                GX_InvalidateTexRegion(&movieUploadTexRegion);
+                GX_LoadTexObjPreloaded(&currtex->texobj, &movieUploadTexRegion, GX_TEXMAP_MOV);
+                break;
+            case TEX_TYPE_WIN:
+                GX_InvalidateTexRegion(&winTexRegion);
+                GX_LoadTexObjPreloaded(&currtex->texobj, &winTexRegion, GX_TEXMAP_WIN);
+                break;
+            case TEX_TYPE_SUB:
+                if ((texturyType & TXT_TYPE_1) && glparamstate.blendenabled)
+                {
+                    GX_WaitDrawDone();
+                }
+                GX_InvalidateTexRegion(&subTexRegion);
+                GX_LoadTexObjPreloaded(&currtex->texobj, &subTexRegion, GX_TEXMAP_SUB);
+                break;
+        }
+    }
 }
 
 void glDeleteTextures(GLsizei n, const GLuint *textures)
@@ -1542,9 +1597,6 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
 #define MOVIE_BUF_SIZE (GXRESX_MAX*RESY_MAX*2)
 #define W_BLOCK(w) (((w + 3) & ~(unsigned int)3) >> 2)
 
-#define TXT_TYPE_1  0x1
-#define TXT_TYPE_2  0x2
-
 extern unsigned char GXtexture[MOVIE_BUF_SIZE];
 static unsigned char *movieTexPtr;
 static int movieUsedSize = 0;
@@ -1572,17 +1624,18 @@ static inline void _ogx_scramble_4b(unsigned char *src, void *dst,
                     if (tmp3 >= width || tmp1 >= height)
                     {
                         *(unsigned short*)p = 0;
-                        *(unsigned short*)(p + 32) = 0;
+                        //*(unsigned short*)(p + 32) = 0;
                     }
                     else
                     {
-                        *(unsigned short*)p = *(unsigned short*)(src + ((tmp3 + tmp2) << 2));             // AR
-                        *(unsigned short*)(p + 32) = *(unsigned short*)(src + ((tmp3 + tmp2) << 2) + 2);  // GB
+                        //*(unsigned short*)p = *(unsigned short*)(src + ((tmp3 + tmp2) << 2));             // AR
+                        //*(unsigned short*)(p + 32) = *(unsigned short*)(src + ((tmp3 + tmp2) << 2) + 2);  // GB
+                        *(unsigned short*)p = *(unsigned short*)(src + ((tmp3 + tmp2) << 2) + 2);  // BGR
                     }
                     p += 2;
                 }
             }
-            p += 32;
+            //p += 32;
         }
     }
 }
@@ -1739,14 +1792,13 @@ int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
     {
         textureType = TXT_TYPE_2;
         _ogx_scramble_4b((unsigned char *)texData, currtex->data, width, height);
+//        GX_InitTexObj(&currtex->texobj, currtex->data,
+//                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
         GX_InitTexObj(&currtex->texobj, currtex->data,
-                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
-        //GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
-        //              currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
+                      currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
         if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_DISABLE)
         {
             GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
-            //GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
         }
     }
     else
@@ -2473,7 +2525,28 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
             GX_SetTevColorOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
         }
         GX_SetTevAlphaOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
-        GX_SetTevOrder(stage, GX_TEXCOORD0, GX_TEXMAP0, channel);
+        short gxTexMap;
+        if (glDrawArraysFlg == 0 && (texturyType & TXT_TYPE_1))
+        {
+            gxTexMap = GX_TEXMAP_SEMI;
+        }
+        else
+        {
+            switch (curTextureType)
+            {
+                case TEX_TYPE_MOVIE:
+                    gxTexMap = GX_TEXMAP_MOV;
+                    break;
+                case TEX_TYPE_WIN:
+                    gxTexMap = GX_TEXMAP_WIN;
+                    break;
+                case TEX_TYPE_SUB:
+                    gxTexMap = GX_TEXMAP_SUB;
+                    break;
+            }
+        }
+
+        GX_SetTevOrder(stage, GX_TEXCOORD0, gxTexMap, channel);
     }
 
     // Set up the data for the TEXCOORD0 (use a identity matrix, TODO: allow user texture matrices)
@@ -2604,7 +2677,7 @@ static int _ogx_apply_state()
                     if ((texturyType & TXT_TYPE_1))
                     {
                         // Non transparent colors in transparent mode
-                        if (loadTexFlg) GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
+                        //if (loadTexFlg) GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
                         GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
                     }
                     else
@@ -2617,7 +2690,7 @@ static int _ogx_apply_state()
                     // transparent colors in transparent mode(0.5F + 0.5B)
                     if ((texturyType & TXT_TYPE_2))
                     {
-                        if (loadTexFlg) GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+                        //if (loadTexFlg) GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
                         // 0.5B + 0.5F
                         GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_SRCALPHA, GX_LO_CLEAR);
                     }
@@ -2649,7 +2722,7 @@ static int _ogx_apply_state()
                     {
                         if (texturyType & TXT_TYPE_1)
                         {
-                            if (loadTexFlg) GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
+                            //if (loadTexFlg) GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
                             // Non transparent colors in transparent mode
                             GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
                         }
@@ -2662,7 +2735,7 @@ static int _ogx_apply_state()
                     {
                         if (texturyType & TXT_TYPE_2)
                         {
-                            if (loadTexFlg) GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+                            //if (loadTexFlg) GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
                             // transparent colors in transparent mode(F + B)
                             // transparent colors in transparent mode(0.25F + B)
                             GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_ONE, GX_LO_CLEAR);
@@ -2689,7 +2762,7 @@ static int _ogx_apply_state()
                 {
                     if (texturyType & TXT_TYPE_1)
                     {
-                        if (loadTexFlg) GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
+                        //if (loadTexFlg) GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
                         // Non transparent colors in transparent mode
                         GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
                     }
@@ -2702,7 +2775,7 @@ static int _ogx_apply_state()
                 {
                     if (texturyType & TXT_TYPE_2)
                     {
-                        if (loadTexFlg) GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+                        //if (loadTexFlg) GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
                         // transparent colors in transparent mode(B - F)
                         GX_SetBlendMode(GX_BM_SUBTRACT, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
                     }
@@ -2721,11 +2794,11 @@ static int _ogx_apply_state()
     }
     else
     {
-        if (texen)
-        {
-            if (loadTexFlg) GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
-
-        }
+//        if (texen)
+//        {
+//            if (loadTexFlg) GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
+//
+//        }
         GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
     }
 

@@ -306,6 +306,11 @@ unsigned int P8RGBA_0(unsigned int BGR)
     return BGR;
 }
 
+static inline unsigned short MOV24to16 (unsigned char *BGR)
+{
+    return (((uint16_t)(*(BGR + 2)>>3) << 10)|((uint16_t)(*(BGR + 1)>>3) << 5)|((uint16_t)(*(BGR)>>3)));
+}
+
 ////////////////////////////////////////////////////////////////////////
 // CHECK TEXTURE MEM (on plugin startup)
 ////////////////////////////////////////////////////////////////////////
@@ -1372,8 +1377,8 @@ GLuint LoadTextureMovie(void)
          pD=(unsigned char *)&psxVuw[startxy];
          for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
           {
-           PUTLE32(ta++, *((unsigned int *)pD)|SWAP32_C(0xff000000));
-           //*ta++ = (*((unsigned int *)pD) >> 8) | 0xff000000;
+           //PUTLE32(ta++, *((unsigned int *)pD)|SWAP32_C(0xff000000)); // BGR24 => ARGB
+           *ta++ = MOV24to16(pD)  | 0x8000;
            pD+=3;
           }
         }
