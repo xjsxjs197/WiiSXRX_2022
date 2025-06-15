@@ -96,7 +96,7 @@ static volatile int hidRun = 0;
 static lwp_t HID_Thread = LWP_THREAD_NULL;
 static u64 HID_Timer = 0;
 static vu32 hidread = 0, keyboardread = 0, hidchange = 0, hidattach = 0, hidattached = 0, hidwaittimer = 0;
-static u32 *HIDRun();
+static u32 *HIDRun(void *param);
 static void HIDUpdateRegisters(u32 LoaderRequest);
 static void HIDGCInit( void );
 static void HIDPS3Init( void );

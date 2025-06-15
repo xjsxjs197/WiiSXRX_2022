@@ -51,7 +51,7 @@ fileBrowser_file topLevel_CARD_SlotB =
 int mount_card(int slot) {
   /* Pass company identifier and number */
   CARD_Init ("N64E", "OS");
-	if(!SysArea) SysArea = memalign(32,CARD_WORKAREA);
+	if(!SysArea) SysArea = memalign(32,CARD_WORKAREA_SIZE);
   int Slot_error = CARD_Mount (slot, SysArea, card_removed_cb);
     
   /* Lets try 50 times to mount it. Sometimes it takes a while */

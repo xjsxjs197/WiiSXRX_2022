@@ -95,15 +95,15 @@ void psxDma4(u32 madr, u32 bcr, u32 chcr) { // SPU
 
 // Taken from PEOPS SOFTGPU
 static inline bool CheckForEndlessLoop(u32 laddr, u32 *lUsedAddr) {
-	if (laddr == lUsedAddr[1]) return TRUE;
-	if (laddr == lUsedAddr[2]) return TRUE;
+	if (laddr == lUsedAddr[1]) return true;
+	if (laddr == lUsedAddr[2]) return true;
 
 	if (laddr < lUsedAddr[0]) lUsedAddr[1] = laddr;
 	else lUsedAddr[2] = laddr;
 
 	lUsedAddr[0] = laddr;
 
-	return FALSE;
+	return false;
 }
 
 static u32 gpuDmaChainSize(u32 addr) {

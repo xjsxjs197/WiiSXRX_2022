@@ -3,6 +3,7 @@
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
+#include <unistd.h>
 #include "gzguts.h"
 
 /* Initialize state for writing a gzip file.  Mark initialization by setting

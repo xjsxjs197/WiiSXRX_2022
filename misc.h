@@ -65,7 +65,7 @@ int Load(fileBrowser_file *exe);
 
 int SaveState();
 int LoadState();
-int CheckState();
+int CheckState(char *file);
 
 int SendPcsxInfo();
 int RecvPcsxInfo();

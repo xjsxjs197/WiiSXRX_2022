@@ -278,7 +278,7 @@ static inline u32 *Read_ICache(u32 pc, bool isolate) {
 		memset(psxRegs.ICache_Addr, 0xff, sizeof(psxRegs.ICache_Addr));
 		memset(psxRegs.ICache_Code, 0xff, sizeof(psxRegs.ICache_Code));
 
-		psxRegs.ICache_valid = TRUE;
+		psxRegs.ICache_valid = true;
 	}
 
 	// uncached

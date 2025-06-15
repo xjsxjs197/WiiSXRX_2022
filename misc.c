@@ -329,7 +329,7 @@ int LoadCdromFile(const char *filename, EXE_HEADER *head, u8 *time_bcd_out) {
 	psxCpu->Clear(addr, size / 4);
 	//psxCpu->Reset();
 
-	psxRegs.ICache_valid = FALSE;
+	psxRegs.ICache_valid = false;
 
 	while (size & ~2047) {
 		READTRACK();

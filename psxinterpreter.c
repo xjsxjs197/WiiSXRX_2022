@@ -62,7 +62,7 @@ void (*psxSPC[64])();
 void (*psxREG[32])();
 void (*psxCP0[32])();
 void (*psxCP2[64])(struct psxCP2Regs *regs);
-void (*psxCP2BSC[32])();
+void (*psxCP2BSC[32])(struct psxCP2Regs *regs);
 
 static void delayRead(int reg, u32 bpc) {
 	u32 rold, rnew;
@@ -294,7 +294,7 @@ void psxDelayTest(int reg, u32 bpc) {
 	u32 tmp;
 
 	// Don't execute yet - just peek
-	code = Read_ICache(bpc, TRUE);
+	code = Read_ICache(bpc, true);
 
 	tmp = ((code == NULL) ? 0 : SWAP32(*code));
 	branch = R3000A_BRANCH_TAKEN;
@@ -330,7 +330,7 @@ static u32 psxBranchNoDelay(void) {
 	u32 *code;
 	u32 temp;
 
-	code = Read_ICache(psxRegs.pc, TRUE);
+	code = Read_ICache(psxRegs.pc, true);
 	psxRegs.code = ((code == NULL) ? 0 : SWAP32(*code));
 	switch (_Op_) {
 		case 0x00: // SPECIAL
@@ -463,7 +463,7 @@ __inline void doBranch(u32 tar) {
 		return;
 
 	// branch delay slot
-	code = Read_ICache(psxRegs.pc, TRUE);
+	code = Read_ICache(psxRegs.pc, true);
 
 	psxRegs.code = ((code == NULL) ? 0 : SWAP32(*code));
 
@@ -985,7 +985,7 @@ void (*psxCP2[64])(struct psxCP2Regs *regs) = {
 	psxNULL , psxNULL , psxNULL , psxNULL, psxNULL, gteGPF  , gteGPL  , gteNCCT  // 38
 };
 
-void (*psxCP2BSC[32])() = {
+void (*psxCP2BSC[32])(struct psxCP2Regs *regs) = {
 	gteMFC2, psxNULL, gteCFC2, psxNULL, gteMTC2, psxNULL, gteCTC2, psxNULL,
 	psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL,
 	psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL, psxNULL,
@@ -1000,12 +1000,12 @@ static int intInit() {
 }
 
 static void intReset() {
-	psxRegs.ICache_valid = FALSE;
+	psxRegs.ICache_valid = false;
 }
 
 // interpreter execution
 static void execI() {
-	u32 *code = Read_ICache(psxRegs.pc, FALSE);
+	u32 *code = Read_ICache(psxRegs.pc, false);
 	psxRegs.code = ((code == NULL) ? 0 : SWAP32(*code));
 
 	debugI();
@@ -1052,7 +1052,7 @@ static void intNotify(enum R3000Anote note, void *data) {
 		//setupCop(psxRegs.CP0.n.SR);
 		// fallthrough
 	case R3000ACPU_NOTIFY_CACHE_ISOLATED: // Armored Core?
-		psxRegs.ICache_valid = FALSE;
+		psxRegs.ICache_valid = false;
 		//memset(&ICache, 0xff, sizeof(ICache));
 		break;
 	case R3000ACPU_NOTIFY_CACHE_UNISOLATED:

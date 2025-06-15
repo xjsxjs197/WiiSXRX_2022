@@ -3,6 +3,7 @@
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
+#include <unistd.h>
 #include "gzguts.h"
 
 /* Use read() to load a buffer -- return -1 on error, otherwise 0.  Read from

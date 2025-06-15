@@ -65,7 +65,7 @@ int psxInit() {
 }
 
 void psxReset() {
-	bool introBypassed = FALSE;
+	bool introBypassed = false;
 	psxMemReset();
 
 	memset(&psxRegs, 0, sizeof(psxRegs));
