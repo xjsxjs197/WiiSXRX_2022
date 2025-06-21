@@ -1353,6 +1353,18 @@ GLAPI void GLAPIENTRY glChgTextureFilter( void );
 GLAPI void GLAPIENTRY glSetLoadMtxFlg( void );
 GLAPI void GLAPIENTRY glCheckLoadTextureObj( int loadTextureType );
 
+GLAPI void GLAPIENTRY glPRIMdrawTexturedQuad( void* vertexAdr, int changePointOrder );
+GLAPI void GLAPIENTRY glPRIMdrawTexturedTri( void* vertexAdr );
+GLAPI void GLAPIENTRY glPRIMdrawTexGouraudTriColor( void* vertexAdr );
+GLAPI void GLAPIENTRY glPRIMdrawTexGouraudTriColorQuad( void* vertexAdr );
+GLAPI void GLAPIENTRY glPRIMdrawTri( void* vertexAdr );
+GLAPI void GLAPIENTRY glPRIMdrawTri2( void* vertexAdr );
+GLAPI void GLAPIENTRY glPRIMdrawGouraudTriColor( void* vertexAdr );
+GLAPI void GLAPIENTRY glPRIMdrawGouraudTri2Color( void* vertexAdr );
+GLAPI void GLAPIENTRY glPRIMdrawFlatLine( void* vertexAdr );
+GLAPI void GLAPIENTRY glPRIMdrawGouraudLine( void* vertexAdr );
+GLAPI void GLAPIENTRY glPRIMdrawQuad( void* vertexAdr );
+
 GLAPI void GLAPIENTRY glPrioritizeTextures( GLsizei n,
                                             const GLuint *textures,
                                             const GLclampf *priorities );

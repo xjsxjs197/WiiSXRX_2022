@@ -770,7 +770,6 @@ void glCheckLoadTextureObj( int loadTextureType )
         {
             GX_InvalidateTexRegion(&semiTransTexRegion);
             GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &semiTransTexRegion, GX_TEXMAP_SEMI);
-            GX_SetDrawDone();
         }
     }
     if (texturyType & TXT_TYPE_2)
@@ -786,10 +785,6 @@ void glCheckLoadTextureObj( int loadTextureType )
                 GX_LoadTexObjPreloaded(&currtex->texobj, &winTexRegion, GX_TEXMAP_WIN);
                 break;
             case TEX_TYPE_SUB:
-                if ((texturyType & TXT_TYPE_1) && glparamstate.blendenabled)
-                {
-                    GX_WaitDrawDone();
-                }
                 GX_InvalidateTexRegion(&subTexRegion);
                 GX_LoadTexObjPreloaded(&currtex->texobj, &subTexRegion, GX_TEXMAP_SUB);
                 break;
@@ -2026,6 +2021,7 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
                 GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
             }
         }
+        DCFlushRange(currtex->semiTransData, currtex->w * currtex->h * 2);
     }
     //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
     //GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
@@ -2483,7 +2479,7 @@ static unsigned char draw_mode(GLenum mode)
 static short glDrawArraysFlg = 0;
 
 static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
-                                u8 channel)
+                                u8 channel, int color_enabled)
 {
 //    if (glparamstate.color_enabled)
 //    {
@@ -2575,7 +2571,7 @@ static inline GXColor gxImmCol(unsigned char *colAdr, int texen)
     return (GXColor){ COL5TO8(colAdr[0]), COL5TO8(colAdr[1]), COL5TO8(colAdr[2]), colAdr[3]};
 }
 
-static void setup_render_stages(int texen)
+static void setup_render_stages(int texen, int color_enabled)
 {
     // Unlit scene
     // TEV STAGE 0: Modulate the vertex color with the texture 0. Outputs to GX_TEVPREV
@@ -2586,7 +2582,7 @@ static void setup_render_stages(int texen)
     unsigned char vertex_color_register = GX_CC_RASC;
     unsigned char vertex_alpha_register = GX_CA_RASA;
     unsigned char rasterized_color = GX_COLOR0A0;
-    if (!glparamstate.color_enabled) { // No need for vertex color raster, it's constant
+    if (!color_enabled) { // No need for vertex color raster, it's constant
         // Use constant color
         vertex_color_register = GX_CC_KONST;
         vertex_alpha_register = GX_CA_KONST;
@@ -2601,14 +2597,7 @@ static void setup_render_stages(int texen)
     }
 
     GX_SetNumChans(1);
-//    if (texen && glparamstate.color_enabled)
-//    {
-//        GX_SetNumTevStages(2);
-//    }
-//    else
-    {
-        GX_SetNumTevStages(1);
-    }
+    GX_SetNumTevStages(1);
 
     // Disable lighting and output vertex color to the rasterized color
     GX_SetChanCtrl(GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX, 0, 0, 0);
@@ -2618,7 +2607,7 @@ static void setup_render_stages(int texen)
         // Select COLOR0A0 for the rasterizer, Texture 0 for texture rasterizer and TEXCOORD0 slot for tex coordinates
         setup_texture_stage(GX_TEVSTAGE0,
                             vertex_color_register, vertex_alpha_register,
-                            rasterized_color);
+                            rasterized_color, color_enabled);
 
     }
     else
@@ -2635,16 +2624,15 @@ static void setup_render_stages(int texen)
     }
 }
 
-static int _ogx_apply_state()
+static inline int _ogx_apply_state(int texen, int color_enabled)
 {
-    int texen = glparamstate.texcoord_enabled & glparamstate.texture_enabled;
     gltexture_ *currtex;
     if (texen)
     {
         currtex = &texture_list[glparamstate.glcurtex];
     }
 
-    setup_render_stages(texen);
+    setup_render_stages(texen, color_enabled);
 
     // Set up the OGL state to GX state
     GX_SetZMode(GX_TRUE, glparamstate.zfunc, GX_TRUE);
@@ -2794,13 +2782,9 @@ static int _ogx_apply_state()
     }
     else
     {
-//        if (texen)
-//        {
-//            if (loadTexFlg) GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
-//
-//        }
         GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
     }
+
 
     // Matrix stuff
     if (needLoadMtx)
@@ -2811,14 +2795,34 @@ static int _ogx_apply_state()
 
         needLoadMtx = 0;
     }
-//    if (glparamstate.dirty.bits.dirty_matrices | glparamstate.dirty.bits.dirty_lighting) {
-//        NORMAL_UPDATE
-//    }
 
     // All the state has been transferred, no need to update it again next time
     glparamstate.dirty.all = 0;
 
     return 1;
+}
+
+static inline void glDrawCommon(int texen, int color_enabled)
+{
+    // Not using indices
+    GX_ClearVtxDesc();
+    GX_SetVtxDesc(GX_VA_POS, GX_DIRECT);
+    GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
+
+    if (color_enabled)
+    {
+        GX_SetVtxDesc(GX_VA_CLR0, GX_DIRECT);
+        GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
+    }
+
+    if (texen)
+    {
+        GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
+        GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
+    }
+
+    // Invalidate vertex data as may have been modified by the user
+    GX_InvVtxCache();
 }
 
 void glDrawArrays(GLenum mode, GLint first, GLsizei count)
@@ -2911,14 +2915,13 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 
     // blendenabled=false, Execute GX_SetBlendMode once
     //   1st GX_SetBlendMode: Non transparent colors
-    // blendenabled=true, Possible execution of GX_SetBlendMode three times
+    // blendenabled=true, Possible execution of GX_SetBlendMode two times
     //   1st GX_SetBlendMode: Non transparent colors in transparent mode
     //   2nd GX_SetBlendMode: transparent colors in transparent mode
     glDrawArraysFlg = 0;
     bool loop = (mode == GL_LINE_LOOP);
-    int needDraw;
 
-    if (_ogx_apply_state())
+    if (_ogx_apply_state(texen, glparamstate.color_enabled))
     {
         GX_Begin(gxmode, GX_VTXFMT0, count + loop);
         draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
@@ -2930,7 +2933,7 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
     {
         glDrawArraysFlg = 1;
 
-        if (_ogx_apply_state())
+        if (_ogx_apply_state(texen, glparamstate.color_enabled))
         {
             GX_Begin(gxmode, GX_VTXFMT0, count + loop);
             draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
@@ -2940,83 +2943,83 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
     }
 }
 
-void glDrawElements(GLenum mode, GLsizei count, GLenum type, const GLvoid *indices)
-{
-
-    unsigned char gxmode = draw_mode(mode);
-    if (gxmode == 0xff)
-        return;
-
-    _ogx_apply_state();
-
-    int texen = glparamstate.texcoord_enabled & glparamstate.texture_enabled;
-    int color_provide = 0;
-    if (glparamstate.color_enabled &&
-        (!glparamstate.lighting.enabled || glparamstate.lighting.color_material_enabled)) { // Vertex colouring
-        if (glparamstate.lighting.enabled)
-            color_provide = 2; // Lighting requires two color channels
-        else
-            color_provide = 1;
-    }
-
-    // Create data pointers
-    unsigned short *ind = (unsigned short *)indices;
-
-    // Not using indices
-    GX_ClearVtxDesc();
-    if (glparamstate.vertex_enabled)
-        GX_SetVtxDesc(GX_VA_POS, GX_DIRECT);
-    if (glparamstate.normal_enabled)
-        GX_SetVtxDesc(GX_VA_NRM, GX_DIRECT);
-    if (color_provide)
-        GX_SetVtxDesc(GX_VA_CLR0, GX_DIRECT);
-    if (color_provide == 2)
-        GX_SetVtxDesc(GX_VA_CLR1, GX_DIRECT);
-    if (texen)
-        GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
-
-    // Using floats
-    GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
-    GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_NRM, GX_NRM_XYZ, GX_F32, 0);
-    GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
-    GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
-    GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR1, GX_CLR_RGBA, GX_RGBA8, 0);
-
-    // Invalidate vertex data as may have been modified by the user
-    GX_InvVtxCache();
-
-    bool loop = (mode == GL_LINE_LOOP);
-    GX_Begin(gxmode, GX_VTXFMT0, count + loop);
-    int i;
-    for (i = 0; i < count + loop; i++) {
-        int index = ind[i % count];
-        float *ptr_pos = glparamstate.vertex_array + glparamstate.vertex_stride * index;
-        float *ptr_texc = glparamstate.texcoord_array + glparamstate.texcoord_stride * index;
-        unsigned char *ptr_color = glparamstate.color_array + glparamstate.color_stride * index;
-        float *ptr_normal = glparamstate.normal_array + glparamstate.normal_stride * index;
-
-        GX_Position3f32(ptr_pos[0], ptr_pos[1], ptr_pos[2]);
-
-        if (glparamstate.normal_enabled) {
-            GX_Normal3f32(ptr_normal[0], ptr_normal[1], ptr_normal[2]);
-        }
-
-        // If the data stream doesn't contain any color data just
-        // send the current color (the last glColor* call)
-        if (color_provide) {
-            //unsigned char arr[4] = { ptr_color[0] * 255.0f, ptr_color[1] * 255.0f, ptr_color[2] * 255.0f, ptr_color[3] * 255.0f };
-            unsigned char arr[4] = { ptr_color[0], ptr_color[1], ptr_color[2], ptr_color[3] };
-            GX_Color4u8(arr[0], arr[1], arr[2], arr[3]);
-            if (color_provide == 2)
-                GX_Color4u8(arr[0], arr[1], arr[2], arr[3]);
-        }
-
-        if (texen) {
-            GX_TexCoord2f32(ptr_texc[0], ptr_texc[1]);
-        }
-    }
-    GX_End();
-}
+//void glDrawElements(GLenum mode, GLsizei count, GLenum type, const GLvoid *indices)
+//{
+//
+//    unsigned char gxmode = draw_mode(mode);
+//    if (gxmode == 0xff)
+//        return;
+//
+//    _ogx_apply_state();
+//
+//    int texen = glparamstate.texcoord_enabled & glparamstate.texture_enabled;
+//    int color_provide = 0;
+//    if (glparamstate.color_enabled &&
+//        (!glparamstate.lighting.enabled || glparamstate.lighting.color_material_enabled)) { // Vertex colouring
+//        if (glparamstate.lighting.enabled)
+//            color_provide = 2; // Lighting requires two color channels
+//        else
+//            color_provide = 1;
+//    }
+//
+//    // Create data pointers
+//    unsigned short *ind = (unsigned short *)indices;
+//
+//    // Not using indices
+//    GX_ClearVtxDesc();
+//    if (glparamstate.vertex_enabled)
+//        GX_SetVtxDesc(GX_VA_POS, GX_DIRECT);
+//    if (glparamstate.normal_enabled)
+//        GX_SetVtxDesc(GX_VA_NRM, GX_DIRECT);
+//    if (color_provide)
+//        GX_SetVtxDesc(GX_VA_CLR0, GX_DIRECT);
+//    if (color_provide == 2)
+//        GX_SetVtxDesc(GX_VA_CLR1, GX_DIRECT);
+//    if (texen)
+//        GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
+//
+//    // Using floats
+//    GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
+//    GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_NRM, GX_NRM_XYZ, GX_F32, 0);
+//    GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
+//    GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
+//    GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR1, GX_CLR_RGBA, GX_RGBA8, 0);
+//
+//    // Invalidate vertex data as may have been modified by the user
+//    GX_InvVtxCache();
+//
+//    bool loop = (mode == GL_LINE_LOOP);
+//    GX_Begin(gxmode, GX_VTXFMT0, count + loop);
+//    int i;
+//    for (i = 0; i < count + loop; i++) {
+//        int index = ind[i % count];
+//        float *ptr_pos = glparamstate.vertex_array + glparamstate.vertex_stride * index;
+//        float *ptr_texc = glparamstate.texcoord_array + glparamstate.texcoord_stride * index;
+//        unsigned char *ptr_color = glparamstate.color_array + glparamstate.color_stride * index;
+//        float *ptr_normal = glparamstate.normal_array + glparamstate.normal_stride * index;
+//
+//        GX_Position3f32(ptr_pos[0], ptr_pos[1], ptr_pos[2]);
+//
+//        if (glparamstate.normal_enabled) {
+//            GX_Normal3f32(ptr_normal[0], ptr_normal[1], ptr_normal[2]);
+//        }
+//
+//        // If the data stream doesn't contain any color data just
+//        // send the current color (the last glColor* call)
+//        if (color_provide) {
+//            //unsigned char arr[4] = { ptr_color[0] * 255.0f, ptr_color[1] * 255.0f, ptr_color[2] * 255.0f, ptr_color[3] * 255.0f };
+//            unsigned char arr[4] = { ptr_color[0], ptr_color[1], ptr_color[2], ptr_color[3] };
+//            GX_Color4u8(arr[0], arr[1], arr[2], arr[3]);
+//            if (color_provide == 2)
+//                GX_Color4u8(arr[0], arr[1], arr[2], arr[3]);
+//        }
+//
+//        if (texen) {
+//            GX_TexCoord2f32(ptr_texc[0], ptr_texc[1]);
+//        }
+//    }
+//    GX_End();
+//}
 
 static void draw_arrays_pos_normal_texc(float *ptr_pos, float *ptr_texc, float *ptr_normal,
                                         int count, bool loop)
@@ -3088,6 +3091,477 @@ static void draw_arrays_general(float *ptr_pos, float *ptr_normal, float *ptr_te
             float *texc = ptr_texc + j * glparamstate.texcoord_stride;
             GX_TexCoord2f32(texc[0], texc[1]);
         }
+    }
+}
+
+
+void glPRIMdrawTexturedQuad( void* vertexAdr, int changePointOrder )
+{
+    // vertexAdr( float x, y, z, sow, tow; unsigned char r, g, b, a )
+    unsigned char* addrPtr = (unsigned char*)vertexAdr;
+    glDrawCommon(1, 0);
+
+    // blendenabled=false, Execute GX_SetBlendMode once
+    //   1st GX_SetBlendMode: Non transparent colors
+    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    //   1st GX_SetBlendMode: Non transparent colors in transparent mode
+    //   2nd GX_SetBlendMode: transparent colors in transparent mode
+    glDrawArraysFlg = 0;
+
+    if (_ogx_apply_state(1, 0))
+    {
+        GX_Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
+
+        GX_Position3f32(*(float*)(addrPtr + 0), *(float*)(addrPtr + 4), *(float*)(addrPtr + 8));
+        GX_TexCoord2f32(*(float*)(addrPtr + 12), *(float*)(addrPtr + 16));
+
+        GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
+        GX_TexCoord2f32(*(float*)(addrPtr + 36), *(float*)(addrPtr + 40));
+
+        if (changePointOrder)
+        {
+            GX_Position3f32(*(float*)(addrPtr + 72), *(float*)(addrPtr + 76), *(float*)(addrPtr + 80));
+            GX_TexCoord2f32(*(float*)(addrPtr + 84), *(float*)(addrPtr + 88));
+
+            GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+            GX_TexCoord2f32(*(float*)(addrPtr + 60), *(float*)(addrPtr + 64));
+        }
+        else
+        {
+            GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+            GX_TexCoord2f32(*(float*)(addrPtr + 60), *(float*)(addrPtr + 64));
+
+            GX_Position3f32(*(float*)(addrPtr + 72), *(float*)(addrPtr + 76), *(float*)(addrPtr + 80));
+            GX_TexCoord2f32(*(float*)(addrPtr + 84), *(float*)(addrPtr + 88));
+        }
+
+        GX_End();
+    }
+
+    if (glparamstate.blendenabled && 1)
+    {
+        glDrawArraysFlg = 1;
+
+        if (_ogx_apply_state(1, 0))
+        {
+            GX_Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
+
+            GX_Position3f32(*(float*)(addrPtr + 0), *(float*)(addrPtr + 4), *(float*)(addrPtr + 8));
+            GX_TexCoord2f32(*(float*)(addrPtr + 12), *(float*)(addrPtr + 16));
+
+            GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
+            GX_TexCoord2f32(*(float*)(addrPtr + 36), *(float*)(addrPtr + 40));
+
+            if (changePointOrder)
+            {
+                GX_Position3f32(*(float*)(addrPtr + 72), *(float*)(addrPtr + 76), *(float*)(addrPtr + 80));
+                GX_TexCoord2f32(*(float*)(addrPtr + 84), *(float*)(addrPtr + 88));
+
+                GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+                GX_TexCoord2f32(*(float*)(addrPtr + 60), *(float*)(addrPtr + 64));
+            }
+            else
+            {
+                GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+                GX_TexCoord2f32(*(float*)(addrPtr + 60), *(float*)(addrPtr + 64));
+
+                GX_Position3f32(*(float*)(addrPtr + 72), *(float*)(addrPtr + 76), *(float*)(addrPtr + 80));
+                GX_TexCoord2f32(*(float*)(addrPtr + 84), *(float*)(addrPtr + 88));
+            }
+
+            GX_End();
+        }
+    }
+
+}
+
+void glPRIMdrawTexturedTri( void* vertexAdr )
+{
+    // vertexAdr( float x, y, z, sow, tow; unsigned char r, g, b, a )
+    unsigned char* addrPtr = (unsigned char*)vertexAdr;
+    glDrawCommon(1, 0);
+
+    // blendenabled=false, Execute GX_SetBlendMode once
+    //   1st GX_SetBlendMode: Non transparent colors
+    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    //   1st GX_SetBlendMode: Non transparent colors in transparent mode
+    //   2nd GX_SetBlendMode: transparent colors in transparent mode
+    glDrawArraysFlg = 0;
+
+    if (_ogx_apply_state(1, 0))
+    {
+        GX_Begin(GX_TRIANGLES, GX_VTXFMT0, 3);
+
+        GX_Position3f32(*(float*)(addrPtr + 0), *(float*)(addrPtr + 4), *(float*)(addrPtr + 8));
+        GX_TexCoord2f32(*(float*)(addrPtr + 12), *(float*)(addrPtr + 16));
+
+        GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
+        GX_TexCoord2f32(*(float*)(addrPtr + 36), *(float*)(addrPtr + 40));
+
+        GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+        GX_TexCoord2f32(*(float*)(addrPtr + 60), *(float*)(addrPtr + 64));
+
+        GX_End();
+    }
+
+    if (glparamstate.blendenabled && 1)
+    {
+        glDrawArraysFlg = 1;
+
+        if (_ogx_apply_state(1, 0))
+        {
+            GX_Begin(GX_TRIANGLES, GX_VTXFMT0, 3);
+
+            GX_Position3f32(*(float*)(addrPtr + 0), *(float*)(addrPtr + 4), *(float*)(addrPtr + 8));
+            GX_TexCoord2f32(*(float*)(addrPtr + 12), *(float*)(addrPtr + 16));
+
+            GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
+            GX_TexCoord2f32(*(float*)(addrPtr + 36), *(float*)(addrPtr + 40));
+
+            GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+            GX_TexCoord2f32(*(float*)(addrPtr + 60), *(float*)(addrPtr + 64));
+
+            GX_End();
+        }
+    }
+
+}
+
+void glPRIMdrawTexGouraudTriColor( void* vertexAdr )
+{
+    // vertexAdr( float x, y, z, sow, tow; unsigned char r, g, b, a )
+    unsigned char* addrPtr = (unsigned char*)vertexAdr;
+    glDrawCommon(1, 1);
+
+    // blendenabled=false, Execute GX_SetBlendMode once
+    //   1st GX_SetBlendMode: Non transparent colors
+    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    //   1st GX_SetBlendMode: Non transparent colors in transparent mode
+    //   2nd GX_SetBlendMode: transparent colors in transparent mode
+    glDrawArraysFlg = 0;
+
+    if (_ogx_apply_state(1, 1))
+    {
+        GX_Begin(GX_TRIANGLES, GX_VTXFMT0, 3);
+
+        GX_Position3f32(*(float*)(addrPtr + 0), *(float*)(addrPtr + 4), *(float*)(addrPtr + 8));
+        GX_Color4u8(*(addrPtr + 22), *(addrPtr + 21), *(addrPtr + 20), *(addrPtr + 23));
+        GX_TexCoord2f32(*(float*)(addrPtr + 12), *(float*)(addrPtr + 16));
+
+        GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
+        GX_Color4u8(*(addrPtr + 46), *(addrPtr + 45), *(addrPtr + 44), *(addrPtr + 47));
+        GX_TexCoord2f32(*(float*)(addrPtr + 36), *(float*)(addrPtr + 40));
+
+        GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+        GX_Color4u8(*(addrPtr + 70), *(addrPtr + 69), *(addrPtr + 68), *(addrPtr + 71));
+        GX_TexCoord2f32(*(float*)(addrPtr + 60), *(float*)(addrPtr + 64));
+
+        GX_End();
+    }
+
+    if (glparamstate.blendenabled && 1)
+    {
+        glDrawArraysFlg = 1;
+
+        if (_ogx_apply_state(1, 1))
+        {
+            GX_Begin(GX_TRIANGLES, GX_VTXFMT0, 3);
+
+            GX_Position3f32(*(float*)(addrPtr + 0), *(float*)(addrPtr + 4), *(float*)(addrPtr + 8));
+            GX_Color4u8(*(addrPtr + 22), *(addrPtr + 21), *(addrPtr + 20), *(addrPtr + 23));
+            GX_TexCoord2f32(*(float*)(addrPtr + 12), *(float*)(addrPtr + 16));
+
+            GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
+            GX_Color4u8(*(addrPtr + 46), *(addrPtr + 45), *(addrPtr + 44), *(addrPtr + 47));
+            GX_TexCoord2f32(*(float*)(addrPtr + 36), *(float*)(addrPtr + 40));
+
+            GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+            GX_Color4u8(*(addrPtr + 70), *(addrPtr + 69), *(addrPtr + 68), *(addrPtr + 71));
+            GX_TexCoord2f32(*(float*)(addrPtr + 60), *(float*)(addrPtr + 64));
+
+            GX_End();
+        }
+    }
+
+}
+
+void glPRIMdrawTexGouraudTriColorQuad( void* vertexAdr )
+{
+    // vertexAdr( float x, y, z, sow, tow; unsigned char r, g, b, a )
+    unsigned char* addrPtr = (unsigned char*)vertexAdr;
+    glDrawCommon(1, 1);
+
+    // blendenabled=false, Execute GX_SetBlendMode once
+    //   1st GX_SetBlendMode: Non transparent colors
+    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    //   1st GX_SetBlendMode: Non transparent colors in transparent mode
+    //   2nd GX_SetBlendMode: transparent colors in transparent mode
+    glDrawArraysFlg = 0;
+
+    if (_ogx_apply_state(1, 1))
+    {
+        GX_Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
+
+        GX_Position3f32(*(float*)(addrPtr + 0), *(float*)(addrPtr + 4), *(float*)(addrPtr + 8));
+        GX_Color4u8(*(addrPtr + 22), *(addrPtr + 21), *(addrPtr + 20), *(addrPtr + 23));
+        GX_TexCoord2f32(*(float*)(addrPtr + 12), *(float*)(addrPtr + 16));
+
+        GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
+        GX_Color4u8(*(addrPtr + 46), *(addrPtr + 45), *(addrPtr + 44), *(addrPtr + 47));
+        GX_TexCoord2f32(*(float*)(addrPtr + 36), *(float*)(addrPtr + 40));
+
+        GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+        GX_Color4u8(*(addrPtr + 70), *(addrPtr + 69), *(addrPtr + 68), *(addrPtr + 71));
+        GX_TexCoord2f32(*(float*)(addrPtr + 60), *(float*)(addrPtr + 64));
+
+        GX_Position3f32(*(float*)(addrPtr + 72), *(float*)(addrPtr + 76), *(float*)(addrPtr + 80));
+        GX_Color4u8(*(addrPtr + 94), *(addrPtr + 93), *(addrPtr + 92), *(addrPtr + 95));
+        GX_TexCoord2f32(*(float*)(addrPtr + 84), *(float*)(addrPtr + 88));
+
+        GX_End();
+    }
+
+    if (glparamstate.blendenabled && 1)
+    {
+        glDrawArraysFlg = 1;
+
+        if (_ogx_apply_state(1, 1))
+        {
+            GX_Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
+
+            GX_Position3f32(*(float*)(addrPtr + 0), *(float*)(addrPtr + 4), *(float*)(addrPtr + 8));
+            GX_Color4u8(*(addrPtr + 22), *(addrPtr + 21), *(addrPtr + 20), *(addrPtr + 23));
+            GX_TexCoord2f32(*(float*)(addrPtr + 12), *(float*)(addrPtr + 16));
+
+            GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
+            GX_Color4u8(*(addrPtr + 46), *(addrPtr + 45), *(addrPtr + 44), *(addrPtr + 47));
+            GX_TexCoord2f32(*(float*)(addrPtr + 36), *(float*)(addrPtr + 40));
+
+            GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+            GX_Color4u8(*(addrPtr + 70), *(addrPtr + 69), *(addrPtr + 68), *(addrPtr + 71));
+            GX_TexCoord2f32(*(float*)(addrPtr + 60), *(float*)(addrPtr + 64));
+
+            GX_Position3f32(*(float*)(addrPtr + 72), *(float*)(addrPtr + 76), *(float*)(addrPtr + 80));
+            GX_Color4u8(*(addrPtr + 94), *(addrPtr + 93), *(addrPtr + 92), *(addrPtr + 95));
+            GX_TexCoord2f32(*(float*)(addrPtr + 84), *(float*)(addrPtr + 88));
+
+            GX_End();
+        }
+    }
+
+}
+
+void glPRIMdrawTri( void* vertexAdr )
+{
+    // vertexAdr( float x, y, z, sow, tow; unsigned char r, g, b, a )
+    unsigned char* addrPtr = (unsigned char*)vertexAdr;
+    glDrawCommon(0, 0);
+
+    // blendenabled=false, Execute GX_SetBlendMode once
+    //   1st GX_SetBlendMode: Non transparent colors
+    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    //   1st GX_SetBlendMode: Non transparent colors in transparent mode
+    //   2nd GX_SetBlendMode: transparent colors in transparent mode
+    glDrawArraysFlg = 0;
+
+    if (_ogx_apply_state(0, 0))
+    {
+        GX_Begin(GX_TRIANGLES, GX_VTXFMT0, 3);
+
+        GX_Position3f32(*(float*)(addrPtr + 0), *(float*)(addrPtr + 4), *(float*)(addrPtr + 8));
+
+        GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
+
+        GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+
+        GX_End();
+    }
+}
+
+void glPRIMdrawTri2( void* vertexAdr )
+{
+    // vertexAdr( float x, y, z, sow, tow; unsigned char r, g, b, a )
+    unsigned char* addrPtr = (unsigned char*)vertexAdr;
+    glDrawCommon(0, 0);
+
+    // blendenabled=false, Execute GX_SetBlendMode once
+    //   1st GX_SetBlendMode: Non transparent colors
+    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    //   1st GX_SetBlendMode: Non transparent colors in transparent mode
+    //   2nd GX_SetBlendMode: transparent colors in transparent mode
+    glDrawArraysFlg = 0;
+
+    if (_ogx_apply_state(0, 0))
+    {
+        GX_Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
+
+        GX_Position3f32(*(float*)(addrPtr + 0), *(float*)(addrPtr + 4), *(float*)(addrPtr + 8));
+
+        GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+
+        GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
+
+        GX_Position3f32(*(float*)(addrPtr + 72), *(float*)(addrPtr + 76), *(float*)(addrPtr + 80));
+
+        GX_End();
+    }
+}
+
+void glPRIMdrawGouraudTriColor( void* vertexAdr )
+{
+    // vertexAdr( float x, y, z, sow, tow; unsigned char r, g, b, a )
+    unsigned char* addrPtr = (unsigned char*)vertexAdr;
+    glDrawCommon(0, 1);
+
+    // blendenabled=false, Execute GX_SetBlendMode once
+    //   1st GX_SetBlendMode: Non transparent colors
+    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    //   1st GX_SetBlendMode: Non transparent colors in transparent mode
+    //   2nd GX_SetBlendMode: transparent colors in transparent mode
+    glDrawArraysFlg = 0;
+
+    if (_ogx_apply_state(0, 1))
+    {
+        GX_Begin(GX_TRIANGLES, GX_VTXFMT0, 3);
+
+        GX_Position3f32(*(float*)(addrPtr + 0), *(float*)(addrPtr + 4), *(float*)(addrPtr + 8));
+        GX_Color4u8(*(addrPtr + 22), *(addrPtr + 21), *(addrPtr + 20), *(addrPtr + 23));
+
+        GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
+        GX_Color4u8(*(addrPtr + 46), *(addrPtr + 45), *(addrPtr + 44), *(addrPtr + 47));
+
+        GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+        GX_Color4u8(*(addrPtr + 70), *(addrPtr + 69), *(addrPtr + 68), *(addrPtr + 71));
+
+        GX_End();
+    }
+}
+
+void glPRIMdrawGouraudTri2Color( void* vertexAdr )
+{
+    // vertexAdr( float x, y, z, sow, tow; unsigned char r, g, b, a )
+    unsigned char* addrPtr = (unsigned char*)vertexAdr;
+    glDrawCommon(0, 1);
+
+    // blendenabled=false, Execute GX_SetBlendMode once
+    //   1st GX_SetBlendMode: Non transparent colors
+    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    //   1st GX_SetBlendMode: Non transparent colors in transparent mode
+    //   2nd GX_SetBlendMode: transparent colors in transparent mode
+    glDrawArraysFlg = 0;
+
+    if (_ogx_apply_state(0, 1))
+    {
+        GX_Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
+
+        GX_Position3f32(*(float*)(addrPtr + 0), *(float*)(addrPtr + 4), *(float*)(addrPtr + 8));
+        GX_Color4u8(*(addrPtr + 22), *(addrPtr + 21), *(addrPtr + 20), *(addrPtr + 23));
+
+        GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
+        GX_Color4u8(*(addrPtr + 46), *(addrPtr + 45), *(addrPtr + 44), *(addrPtr + 47));
+
+        GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+        GX_Color4u8(*(addrPtr + 70), *(addrPtr + 69), *(addrPtr + 68), *(addrPtr + 71));
+
+        GX_Position3f32(*(float*)(addrPtr + 72), *(float*)(addrPtr + 76), *(float*)(addrPtr + 80));
+        GX_Color4u8(*(addrPtr + 94), *(addrPtr + 93), *(addrPtr + 92), *(addrPtr + 95));
+
+        GX_End();
+    }
+}
+
+void glPRIMdrawFlatLine( void* vertexAdr )
+{
+    // vertexAdr( float x, y, z, sow, tow; unsigned char r, g, b, a )
+    unsigned char* addrPtr = (unsigned char*)vertexAdr;
+    glDrawCommon(0, 1);
+
+    // blendenabled=false, Execute GX_SetBlendMode once
+    //   1st GX_SetBlendMode: Non transparent colors
+    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    //   1st GX_SetBlendMode: Non transparent colors in transparent mode
+    //   2nd GX_SetBlendMode: transparent colors in transparent mode
+    glDrawArraysFlg = 0;
+
+    if (_ogx_apply_state(0, 1))
+    {
+        GX_Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
+
+        GX_Position3f32(*(float*)(addrPtr + 0), *(float*)(addrPtr + 4), *(float*)(addrPtr + 8));
+        GX_Color4u8(*(addrPtr + 22), *(addrPtr + 21), *(addrPtr + 20), *(addrPtr + 23));
+
+        GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
+        GX_Color4u8(*(addrPtr + 46), *(addrPtr + 45), *(addrPtr + 44), *(addrPtr + 47));
+
+        GX_Position3f32(*(float*)(addrPtr + 72), *(float*)(addrPtr + 76), *(float*)(addrPtr + 80));
+        GX_Color4u8(*(addrPtr + 94), *(addrPtr + 93), *(addrPtr + 92), *(addrPtr + 95));
+
+        GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+        GX_Color4u8(*(addrPtr + 70), *(addrPtr + 69), *(addrPtr + 68), *(addrPtr + 71));
+
+        GX_End();
+    }
+}
+
+void glPRIMdrawGouraudLine( void* vertexAdr )
+{
+    // vertexAdr( float x, y, z, sow, tow; unsigned char r, g, b, a )
+    unsigned char* addrPtr = (unsigned char*)vertexAdr;
+    glDrawCommon(0, 1);
+
+    // blendenabled=false, Execute GX_SetBlendMode once
+    //   1st GX_SetBlendMode: Non transparent colors
+    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    //   1st GX_SetBlendMode: Non transparent colors in transparent mode
+    //   2nd GX_SetBlendMode: transparent colors in transparent mode
+    glDrawArraysFlg = 0;
+
+    if (_ogx_apply_state(0, 1))
+    {
+        GX_Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
+
+        GX_Position3f32(*(float*)(addrPtr + 0), *(float*)(addrPtr + 4), *(float*)(addrPtr + 8));
+        GX_Color4u8(*(addrPtr + 22), *(addrPtr + 21), *(addrPtr + 20), *(addrPtr + 23));
+
+        GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
+        GX_Color4u8(*(addrPtr + 46), *(addrPtr + 45), *(addrPtr + 44), *(addrPtr + 47));
+
+        GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+        GX_Color4u8(*(addrPtr + 70), *(addrPtr + 69), *(addrPtr + 68), *(addrPtr + 71));
+
+        GX_Position3f32(*(float*)(addrPtr + 72), *(float*)(addrPtr + 76), *(float*)(addrPtr + 80));
+        GX_Color4u8(*(addrPtr + 94), *(addrPtr + 93), *(addrPtr + 92), *(addrPtr + 95));
+
+        GX_End();
+    }
+}
+
+void glPRIMdrawQuad( void* vertexAdr )
+{
+    // vertexAdr( float x, y, z, sow, tow; unsigned char r, g, b, a )
+    unsigned char* addrPtr = (unsigned char*)vertexAdr;
+    glDrawCommon(0, 0);
+
+    // blendenabled=false, Execute GX_SetBlendMode once
+    //   1st GX_SetBlendMode: Non transparent colors
+    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    //   1st GX_SetBlendMode: Non transparent colors in transparent mode
+    //   2nd GX_SetBlendMode: transparent colors in transparent mode
+    glDrawArraysFlg = 0;
+
+    if (_ogx_apply_state(0, 0))
+    {
+        GX_Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
+
+        GX_Position3f32(*(float*)(addrPtr + 0), *(float*)(addrPtr + 4), *(float*)(addrPtr + 8));
+
+        GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
+
+        GX_Position3f32(*(float*)(addrPtr + 72), *(float*)(addrPtr + 76), *(float*)(addrPtr + 80));
+
+        GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+
+        GX_End();
     }
 }
 
