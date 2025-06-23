@@ -69,10 +69,10 @@ static void SOUND_FillAudio(void *unused, Uint8 *stream, int len) {
     }
 
     #ifdef SHOW_DEBUG
-    if (len > 0) {
-        sprintf(txtbuffer, "Spu Speed slow %d \n", len * 2);
-        DEBUG_print(txtbuffer, DBG_SPU2);
-    }
+//    if (len > 0) {
+//        sprintf(txtbuffer, "Spu Speed slow %d \n", len * 2);
+//        DEBUG_print(txtbuffer, DBG_SPU2);
+//    }
     #endif // DISP_DEBUG
 }
 
@@ -165,8 +165,8 @@ static int sdl_feed(void *pSound, int lBytes) {
         if (iWritePos == iReadPos)
         {
             #ifdef SHOW_DEBUG
-            sprintf(txtbuffer, "SdlBuffer not enough %d %d %d \n", lBytes, iWritePos, iReadPos);
-            DEBUG_print(txtbuffer, DBG_SPU1);
+            //sprintf(txtbuffer, "SdlBuffer not enough %d %d %d \n", lBytes, iWritePos, iReadPos);
+            //DEBUG_print(txtbuffer, DBG_SPU1);
             #endif // DISP_DEBUG
             iWritePos--;
             if (iWritePos < 0)
@@ -176,9 +176,9 @@ static int sdl_feed(void *pSound, int lBytes) {
             break;
         }
 
-		pSndBuffer[iWritePos] = *p++;
-		lBytes -= sizeof(short);
-	}
+        pSndBuffer[iWritePos] = *p++;
+        lBytes -= sizeof(short);
+    }
 
     return 0;
 }

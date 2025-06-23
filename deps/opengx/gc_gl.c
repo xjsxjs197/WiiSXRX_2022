@@ -1587,8 +1587,8 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
     //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
 }
 
-#define RESY_MAX 512	//Vmem height
-#define GXRESX_MAX 1366	//1024 * 1.33 for ARGB
+#define RESY_MAX 512    //Vmem height
+#define GXRESX_MAX 1366    //1024 * 1.33 for ARGB
 #define MOVIE_BUF_SIZE (GXRESX_MAX*RESY_MAX*2)
 #define W_BLOCK(w) (((w + 3) & ~(unsigned int)3) >> 2)
 
@@ -2481,95 +2481,190 @@ static short glDrawArraysFlg = 0;
 static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
                                 u8 channel, int color_enabled)
 {
-//    if (glparamstate.color_enabled)
-//    {
-//        // During texture and vertex processing, texture filtering should first be applied to discard useless pixels
-//        // otherwise invalid vertex information will be displayed.
-//        GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_DISABLE, channel);
-//        GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, raster_color);
-//        GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CC_ZERO, GX_CC_ZERO, raster_alpha);
-//        GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
-//        GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
-//
-//        GX_SetTevOrder(GX_TEVSTAGE1, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL);
-//        GX_SetTevColorIn(GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_CPREV, GX_CC_ZERO);
-//        GX_SetTevAlphaIn(GX_TEVSTAGE1, GX_CA_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CA_TEXA);
-//        GX_SetTevColorOp(GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV);
-//        GX_SetTevAlphaOp(GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
-//
-//        doubleColor = 0;
-//    }
-//    else
+    if (color_enabled)
     {
-        if (noNeedMulConstColor)
-        {
-            GX_SetTevColorIn(stage, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_TEXC);
-        }
-        else
+        // Modulation: primPolyGT3, primPolyGT4
+        if (!glparamstate.blendenabled ||
+                (glparamstate.blendenabled && (glDrawArraysFlg == 0 && (texturyType & TXT_TYPE_1))))
         {
             GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
-        }
-        GX_SetTevAlphaIn(stage, GX_CA_ZERO, raster_alpha, GX_CA_TEXA, GX_CA_ZERO);
-
-        if (doubleColor)
-        {
-            GX_SetTevColorOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV);
-            doubleColor = 0;
+            GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV);
+            GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
+            GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV);
+            GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
         }
         else
         {
-            GX_SetTevColorOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
-        }
-        GX_SetTevAlphaOp(stage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
-        short gxTexMap;
-        if (glDrawArraysFlg == 0 && (texturyType & TXT_TYPE_1))
-        {
-            gxTexMap = GX_TEXMAP_SEMI;
-        }
-        else
-        {
-            switch (curTextureType)
+            switch (glparamstate.globalTextABR)
             {
-                case TEX_TYPE_MOVIE:
-                    gxTexMap = GX_TEXMAP_MOV;
+                case 1: // 0.5B + 0.5F
+                    if (noNeedMulConstColor)
+                    {
+                        GX_SetTevColorIn(stage, GX_CC_ZERO, GX_CC_HALF, GX_CC_TEXC, GX_CC_ZERO); // 0.5F
+                    }
+                    else
+                    {
+                        GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO); // 0.5F
+                    }
+                    GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
+                    GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+                    GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_DIVIDE_2, GX_TRUE, GX_TEVPREV); // 0.5A
                     break;
-                case TEX_TYPE_WIN:
-                    gxTexMap = GX_TEXMAP_WIN;
+                case 2: // 1.0B + 1.0F
+                    if (noNeedMulConstColor)
+                    {
+                        GX_SetTevColorIn(stage, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_TEXC);
+                        GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+                    }
+                    else
+                    {
+                        GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
+                        GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV);
+                    }
+                    GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
+                    GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
                     break;
-                case TEX_TYPE_SUB:
-                    gxTexMap = GX_TEXMAP_SUB;
+                case 3: // B    -    F
+                    if (noNeedMulConstColor)
+                    {
+                        GX_SetTevColorIn(stage, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_TEXC);
+                        GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+                    }
+                    else
+                    {
+                        GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
+                        GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV);
+                    }
+                    GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
+                    GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+                    break;
+                case 4: // 1.0B + 0.25F
+                    if (noNeedMulConstColor)
+                    {
+                        GX_SetTevColorIn(stage, GX_CC_ZERO, GX_CC_HALF, GX_CC_TEXC, GX_CC_ZERO); // 0.5F
+                    }
+                    else
+                    {
+                        GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO); // 0.5F
+                    }
+                    GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
+                    GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_DIVIDE_2, GX_TRUE, GX_TEVPREV); // 0.25F
+                    GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
                     break;
             }
         }
-
-        GX_SetTevOrder(stage, GX_TEXCOORD0, gxTexMap, channel);
+    }
+    else
+    {
+        // primSprt8,primSprt16,primSprtS,primSprtSRest,primPolyFT3,primPolyFT4   primPolyGT3, primPolyGT4, UploadScreen
+        if (!glparamstate.blendenabled ||
+                (glparamstate.blendenabled && (glDrawArraysFlg == 0 && (texturyType & TXT_TYPE_1))))
+        {
+            if (noNeedMulConstColor)
+            {
+                GX_SetTevColorIn(stage, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_TEXC);
+                GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+            }
+            else
+            {
+                GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
+                GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV);
+            }
+            GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
+            GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+        }
+        else
+        {
+            switch (glparamstate.globalTextABR)
+            {
+                case 1: // 0.5B + 0.5F
+                    if (noNeedMulConstColor)
+                    {
+                        GX_SetTevColorIn(stage, GX_CC_ZERO, GX_CC_HALF, GX_CC_TEXC, GX_CC_ZERO); // 0.5F
+                    }
+                    else
+                    {
+                        GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO); // 0.5F
+                    }
+                    GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
+                    GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+                    GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_DIVIDE_2, GX_TRUE, GX_TEVPREV); // 0.5A
+                    break;
+                case 2: // 1.0B + 1.0F
+                    if (noNeedMulConstColor)
+                    {
+                        GX_SetTevColorIn(stage, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_TEXC);
+                        GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+                    }
+                    else
+                    {
+                        GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
+                        GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV);
+                    }
+                    GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
+                    GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+                    break;
+                case 3: // B    -    F
+                    if (noNeedMulConstColor)
+                    {
+                        GX_SetTevColorIn(stage, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_TEXC);
+                        GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+                    }
+                    else
+                    {
+                        GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
+                        GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV);
+                    }
+                    GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
+                    GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+                    break;
+                case 4: // 1.0B + 0.25F
+                    if (noNeedMulConstColor)
+                    {
+                        GX_SetTevColorIn(stage, GX_CC_ZERO, GX_CC_HALF, GX_CC_TEXC, GX_CC_ZERO); // 0.5F
+                    }
+                    else
+                    {
+                        GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO); // 0.5F
+                    }
+                    GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
+                    GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_DIVIDE_2, GX_TRUE, GX_TEVPREV); // 0.25F
+                    GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+                    break;
+            }
+        }
     }
 
+
+    short gxTexMap;
+    if (glDrawArraysFlg == 0 && (texturyType & TXT_TYPE_1))
+    {
+        gxTexMap = GX_TEXMAP_SEMI;
+    }
+    else
+    {
+        switch (curTextureType)
+        {
+            case TEX_TYPE_MOVIE:
+                gxTexMap = GX_TEXMAP_MOV;
+                break;
+            case TEX_TYPE_WIN:
+                gxTexMap = GX_TEXMAP_WIN;
+                break;
+            case TEX_TYPE_SUB:
+                gxTexMap = GX_TEXMAP_SUB;
+                break;
+        }
+    }
+
+    GX_SetTevOrder(stage, GX_TEXCOORD0, gxTexMap, channel);
     // Set up the data for the TEXCOORD0 (use a identity matrix, TODO: allow user texture matrices)
     GX_SetNumTexGens(1);
     GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+
 }
 
 #define COL5TO8(a) (a | ((a >> 5) & 0x7))
-
-static inline GXColor gxImmCol(unsigned char *colAdr, int texen)
-{
-    if (texen)
-    {
-//        if (glparamstate.blendenabled && glparamstate.globalTextABR == 4 && glDrawArraysFlg == 1)
-//        {
-//            // 0.25 * F
-//            return (GXColor){ (colAdr[0]) >> 2, (colAdr[1]) >> 2, (colAdr[2]) >> 2, 255};
-//        }
-//        else
-//        {
-//            return (GXColor){ (colAdr[0]), (colAdr[1]), (colAdr[2]), 255};
-//        }
-        return (GXColor){ (colAdr[0]), (colAdr[1]), (colAdr[2]), (colAdr[3])};
-    }
-
-    return (GXColor){ COL5TO8(colAdr[0]), COL5TO8(colAdr[1]), COL5TO8(colAdr[2]), colAdr[3]};
-}
 
 static void setup_render_stages(int texen, int color_enabled)
 {
@@ -2590,8 +2685,17 @@ static void setup_render_stages(int texen, int color_enabled)
         GX_SetTevKColorSel(GX_TEVSTAGE0, GX_TEV_KCSEL_K0);
         GX_SetTevKAlphaSel(GX_TEVSTAGE0, GX_TEV_KASEL_K0_A);
         // Load the color (current GL color)
-        GXColor ccol = gxImmCol(&glparamstate.imm_mode.c.col, texen);
-        GX_SetTevKColor(GX_KCOLOR0, ccol);
+        //GXColor ccol = gxImmCol(&glparamstate.imm_mode.c.col, texen);
+        //GX_SetTevKColor(GX_KCOLOR0, ccol);
+        unsigned char *colAdr = (unsigned char *)(&glparamstate.imm_mode.c.col);
+        if (texen)
+        {
+            GX_SetTevKColor(GX_KCOLOR0, (GXColor){ (colAdr[0]), (colAdr[1]), (colAdr[2]), 0xFF});
+        }
+        else
+        {
+            GX_SetTevKColor(GX_KCOLOR0, (GXColor){ (colAdr[0]), (colAdr[1]), (colAdr[2]), 0xFF});
+        }
 
         rasterized_color = GX_COLORNULL; // Disable vertex color rasterizer
     }
@@ -2612,15 +2716,60 @@ static void setup_render_stages(int texen, int color_enabled)
     }
     else
     {
-        // Display vertex information only.
-        GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, vertex_color_register);
-        GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
+        if (glparamstate.blendenabled)
+        {
+            if (glparamstate.globalTextABR == 1)
+            {
+                GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, vertex_color_register);
+                GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
+                GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_DIVIDE_2, GX_TRUE, GX_TEVPREV); // 0.5F
+                GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_DIVIDE_2, GX_TRUE, GX_TEVPREV); // 0.5A
+            }
+            else if (glparamstate.globalTextABR == 4)
+            {
+                GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_HALF, vertex_color_register, GX_CC_ZERO); // 0.5F
+                GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
+                GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_DIVIDE_2, GX_TRUE, GX_TEVPREV); // 0.25F
+                GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+            }
+            else
+            {
+                GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, vertex_color_register);
+                GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
+                GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+                GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+            }
+        }
+        else
+        {
+            GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, vertex_color_register);
+            GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
+            GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+            GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+        }
 
-        GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
-        GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
         // Select COLOR0A0 for the rasterizer, Texture 0 for texture rasterizer and TEXCOORD0 slot for tex coordinates
         GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_DISABLE, rasterized_color);
         GX_SetNumTexGens(0);
+    }
+}
+
+static inline void setComnBlendMode()
+{
+    switch (glparamstate.globalTextABR)
+    {
+        case 1: // 0.5B + 0.5F
+            GX_SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_SRCALPHA, GX_LO_CLEAR);
+            break;
+        case 2: // 1.0B + 1.0F
+            GX_SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+            break;
+        case 3: // B    -    F
+            GX_SetBlendMode(GX_BM_SUBTRACT, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+            break;
+        case 4: // 1.0B + 0.25F
+            GX_SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+            break;
     }
 }
 
@@ -2649,135 +2798,34 @@ static inline int _ogx_apply_state(int texen, int color_enabled)
 //    }
 
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "draw %d %d %d %d %d\r\n", glparamstate.blendenabled, texen, glparamstate.color_enabled, glparamstate.globalTextABR, glparamstate.glcurtex);
+    sprintf(txtbuffer, "draw %d %d %d %d %d %d %d\r\n", glparamstate.blendenabled, texen, color_enabled, glparamstate.globalTextABR, glparamstate.glcurtex, noNeedMulConstColor, doubleColor);
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
     GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_GREATER, 0);
     if (glparamstate.blendenabled)
     {
-        if (glparamstate.globalTextABR == 1)
+        if (texen)
         {
-            if (texen)
+            if (glDrawArraysFlg == 0)
             {
-                if (glDrawArraysFlg == 0)
+                if (texturyType & TXT_TYPE_1)
                 {
-                    if ((texturyType & TXT_TYPE_1))
-                    {
-                        // Non transparent colors in transparent mode
-                        //if (loadTexFlg) GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
-                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
-                    }
-                    else
-                    {
-                        return 0;
-                    }
-                }
-                else if (glDrawArraysFlg == 1)
-                {
-                    // transparent colors in transparent mode(0.5F + 0.5B)
-                    if ((texturyType & TXT_TYPE_2))
-                    {
-                        //if (loadTexFlg) GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
-                        // 0.5B + 0.5F
-                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_SRCALPHA, GX_LO_CLEAR);
-                    }
-                    else
-                    {
-                        return 0;
-                    }
-                }
-            }
-            else
-            {
-                // transparent colors in transparent mode(0.5F + 0.5B)
-                GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_SRCALPHA, GX_LO_CLEAR);
-            }
-        }
-        else if (glparamstate.globalTextABR == 2 || glparamstate.globalTextABR == 4)
-        {
-            if (texen)
-            {
-                if (vramClearedFlg)
-                {
-                    // Which game was this fix intended for? I can't recall.
-                    vramClearedFlg = 0;
-                    return 0;
+                    GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
                 }
                 else
                 {
-                    if (glDrawArraysFlg == 0)
-                    {
-                        if (texturyType & TXT_TYPE_1)
-                        {
-                            //if (loadTexFlg) GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
-                            // Non transparent colors in transparent mode
-                            GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
-                        }
-                        else
-                        {
-                            return 0;
-                        }
-                    }
-                    else if (glDrawArraysFlg == 1)
-                    {
-                        if (texturyType & TXT_TYPE_2)
-                        {
-                            //if (loadTexFlg) GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
-                            // transparent colors in transparent mode(F + B)
-                            // transparent colors in transparent mode(0.25F + B)
-                            GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_ONE, GX_LO_CLEAR);
-                        }
-                        else
-                        {
-                            return 0;
-                        }
-                    }
+                    return 0;
                 }
             }
             else
             {
-                // transparent colors in transparent mode(F + B)
-                // transparent colors in transparent mode(0.25F + B)
-                GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_ONE, GX_LO_CLEAR);
+                setComnBlendMode();
             }
         }
-        else if (glparamstate.globalTextABR == 3)
+        else
         {
-            if (texen)
-            {
-                if (glDrawArraysFlg == 0)
-                {
-                    if (texturyType & TXT_TYPE_1)
-                    {
-                        //if (loadTexFlg) GX_LoadTexObj(&currtex->semiTransTexobj, GX_TEXMAP0);
-                        // Non transparent colors in transparent mode
-                        GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
-                    }
-                    else
-                    {
-                        return 0;
-                    }
-                }
-                else if (glDrawArraysFlg == 1)
-                {
-                    if (texturyType & TXT_TYPE_2)
-                    {
-                        //if (loadTexFlg) GX_LoadTexObj(&currtex->texobj, GX_TEXMAP0);
-                        // transparent colors in transparent mode(B - F)
-                        GX_SetBlendMode(GX_BM_SUBTRACT, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
-                    }
-                    else
-                    {
-                        return 0;
-                    }
-                }
-            }
-            else
-            {
-                // transparent colors in transparent mode(B - F)
-                GX_SetBlendMode(GX_BM_SUBTRACT, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
-            }
+            setComnBlendMode();
         }
     }
     else

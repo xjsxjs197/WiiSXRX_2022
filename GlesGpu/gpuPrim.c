@@ -792,13 +792,13 @@ typedef struct SEMITRANSTAG
 static SemiTransParams TransSets[4] =
 {
     // 0.5B + 0.5F
-    {GL_ONE,      GL_ONE, 0x7f},
+    {GL_ONE,      GL_ONE, 255},
     // 1.0B + 1.0F
     {GL_ONE,      GL_ONE, 255},
     // B - F was implemented in gc_gl.c
     {GL_ONE,      GL_ONE, 255},
     // 1.0B + 0.25F
-    {GL_ONE,      GL_ONE, 0x3f}
+    {GL_ONE,      GL_ONE, 255}
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -1083,13 +1083,15 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         if ( bDrawNonShaded || (DrawAttributes & 0xffffff) == 0x808080 ) // -> non shaded?
         {
             vertex[0].c.lcol = SWAP32_C ( 0xffffff );
-            glNoNeedMulConstColor( noNeedMulConstColor | 0x1 );
+            noNeedMulConstColor |= 0x1;
+            glNoNeedMulConstColor( noNeedMulConstColor );
         }
         else                                                // -> shaded?
         {
             PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( DrawAttributes ) );
             glSetDoubleCol();
-            glNoNeedMulConstColor( noNeedMulConstColor & 0xFFFE );
+            noNeedMulConstColor &= 0xFFFE;
+            glNoNeedMulConstColor( noNeedMulConstColor );
         }
         vertex[0].c.col.a = ubGloAlpha;                    // -> set color with
         SETCOL ( vertex[0] );                               //    texture alpha
@@ -1104,7 +1106,8 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
     }
     else
     {
-        glNoNeedMulConstColor( noNeedMulConstColor & 0xFFFE );
+        noNeedMulConstColor &= 0xFFFE;
+        glNoNeedMulConstColor( noNeedMulConstColor );
         #if defined(DISP_DEBUG)
         if (logType)
         {
@@ -1738,7 +1741,8 @@ int UploadScreen ( int Position )
     SETCOL ( vertex[0] );
 
     glSetRGB24( PSXDisplay.RGB24 );
-    glNoNeedMulConstColor( noNeedMulConstColor | 0x2 );
+    noNeedMulConstColor |= 0x2;
+    glNoNeedMulConstColor( noNeedMulConstColor );
 
     #if defined(DISP_DEBUG)
     sprintf ( txtbuffer, "DrawOffset BEF_SetOGLD %d %d %d %d %d %d %d %d\r\n", PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y,
@@ -1818,7 +1822,8 @@ int UploadScreen ( int Position )
 
     bUsingMovie = FALSE;                                  // done...
     bDisplayNotSet = TRUE;
-    glNoNeedMulConstColor( noNeedMulConstColor & ~0x2 );
+    noNeedMulConstColor &= ~0x2;
+    glNoNeedMulConstColor( noNeedMulConstColor );
 
     #if defined(DISP_DEBUG)
     sprintf ( txtbuffer, "UploadScreen end\r\n");
@@ -4966,7 +4971,8 @@ static void primPolyGT3 ( unsigned char *baseAddr )
          && (gpuData[3] & 0xffffff00) == 0x80808000
          && (gpuData[6] & 0xffffff00) == 0x80808000) )
     {
-        glNoNeedMulConstColor( noNeedMulConstColor | 0x1 );
+        noNeedMulConstColor |= 0x1;
+        glNoNeedMulConstColor( noNeedMulConstColor );
         vertex[0].c.lcol = SWAP32_C ( 0xffffff );
         vertex[0].c.col.a = ubGloAlpha;
         SETCOL ( vertex[0] );
@@ -4980,7 +4986,8 @@ static void primPolyGT3 ( unsigned char *baseAddr )
 //            PRIMdrawTexturedTri ( &vertex[0], &vertex[1], &vertex[2] );
 //            DEFOPAQUEOFF
 //        }
-        glNoNeedMulConstColor( noNeedMulConstColor & 0xFFFE );
+        noNeedMulConstColor &= 0xFFFE;
+        glNoNeedMulConstColor( noNeedMulConstColor );
         return;
     }
 
@@ -5119,7 +5126,8 @@ static void primPolyGT4 ( unsigned char *baseAddr )
          && (gpuData[6] & 0xffffff00) == 0x80808000
          && (gpuData[9] & 0xffffff00) == 0x80808000) )
     {
-        glNoNeedMulConstColor( noNeedMulConstColor | 0x1 );
+        noNeedMulConstColor |= 0x1;
+        glNoNeedMulConstColor( noNeedMulConstColor );
         vertex[0].c.lcol = SWAP32_C ( 0xffffff );
         vertex[0].c.col.a = ubGloAlpha;
         SETCOL ( vertex[0] );
@@ -5138,7 +5146,8 @@ static void primPolyGT4 ( unsigned char *baseAddr )
 //            PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[3], &vertex[2] );
 //            DEFOPAQUEOFF
 //        }
-        glNoNeedMulConstColor( noNeedMulConstColor & 0xFFFE );
+        noNeedMulConstColor &= 0xFFFE;
+        glNoNeedMulConstColor( noNeedMulConstColor );
         return;
     }
 

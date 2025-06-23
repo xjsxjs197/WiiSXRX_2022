@@ -1441,7 +1441,7 @@ GLuint LoadTextureMovie(void)
          startxy=((1024)*column)+xrMovieArea.x0;
          for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
          {
-             *ta++ = LTCOL(GETLE16(&psxVuw[startxy++]) | 0x8000);
+             *ta++ = LTCOL(GETLE16(&psxVuw[startxy++]));
          }
         }
 
