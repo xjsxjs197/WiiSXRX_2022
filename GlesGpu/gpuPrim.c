@@ -66,8 +66,8 @@ int            iDrawnSomething=0;
 
 BOOL           bRenderFrontBuffer = FALSE;             // flag for front buffer rendering
 
-GLubyte        ubGloAlpha;                             // texture alpha
-GLubyte        ubGloColAlpha;                          // color alpha
+//GLubyte        ubGloAlpha;                             // texture alpha
+//GLubyte        ubGloColAlpha;                          // color alpha
 int            iFilterType;                            // type of filter
 BOOL           bFullVRam = TRUE;                      // sign for tex win
 BOOL           bDrawDither;                            // sign for dither
@@ -820,11 +820,11 @@ static void SetSemiTrans ( void )
             glError();
             bBlendEnable = FALSE;
         }
-        ubGloAlpha = ubGloColAlpha = 255;                   // -> full alpha
+        //ubGloAlpha = ubGloColAlpha = 255;                   // -> full alpha
         return;                                             // -> and bye
     }
 
-    ubGloAlpha = ubGloColAlpha = TransSets[GlobalTextABR].alpha;
+    //ubGloAlpha = ubGloColAlpha = TransSets[GlobalTextABR].alpha;
 
     if ( !bBlendEnable )
     {
@@ -833,33 +833,17 @@ static void SetSemiTrans ( void )
         bBlendEnable = TRUE;
     }
 
-    if ( TransSets[GlobalTextABR].srcFac != obm1 ||
-            TransSets[GlobalTextABR].dstFac != obm2 )
-    {
-        //if(glBlendEquationEXTEx==NULL)
-        {
-            obm1 = TransSets[GlobalTextABR].srcFac;
-            obm2 = TransSets[GlobalTextABR].dstFac;
-            glBlendFunc ( obm1, obm2 );
-            glError();                // set blend func
-        }
-        /*else
-        if(TransSets[GlobalTextABR].dstFac !=GL_ONE_MINUS_SRC_COLOR)
-         {
-          if(obm2==GL_ONE_MINUS_SRC_COLOR)
-           glBlendEquationEXTEx(FUNC_ADD_EXT);
-          obm1=TransSets[GlobalTextABR].srcFac;
-          obm2=TransSets[GlobalTextABR].dstFac;
-          glBlendFunc(obm1,obm2);                           // set blend func
-         }
-        else
-         {
-          glBlendEquationEXTEx(FUNC_REVERSESUBTRACT_EXT);
-          obm1=TransSets[GlobalTextABR].srcFac;
-          obm2=TransSets[GlobalTextABR].dstFac;
-          glBlendFunc(GL_ONE,GL_ONE);                       // set blend func
-         }*/
-    }
+//    if ( TransSets[GlobalTextABR].srcFac != obm1 ||
+//            TransSets[GlobalTextABR].dstFac != obm2 )
+//    {
+//        //if(glBlendEquationEXTEx==NULL)
+//        {
+//            obm1 = TransSets[GlobalTextABR].srcFac;
+//            obm2 = TransSets[GlobalTextABR].dstFac;
+//            glBlendFunc ( obm1, obm2 );
+//            glError();                // set blend func
+//        }
+//    }
 }
 
 void SetScanTrans ( void )                             // blending for scan lines
@@ -1082,18 +1066,18 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
     {
         if ( bDrawNonShaded || (DrawAttributes & 0xffffff) == 0x808080 ) // -> non shaded?
         {
-            vertex[0].c.lcol = SWAP32_C ( 0xffffff );
+            vertex[0].c.lcol = 0xffffffff;
             noNeedMulConstColor |= 0x1;
             glNoNeedMulConstColor( noNeedMulConstColor );
         }
         else                                                // -> shaded?
         {
-            PUTLE32 ( &vertex[0].c.lcol, DoubleBGR2RGB ( DrawAttributes ) );
+            PUTLE32 ( &vertex[0].c.lcol, 0xff000000 | DoubleBGR2RGB ( DrawAttributes ) );
             glSetDoubleCol();
             noNeedMulConstColor &= 0xFFFE;
             glNoNeedMulConstColor( noNeedMulConstColor );
         }
-        vertex[0].c.col.a = ubGloAlpha;                    // -> set color with
+        //vertex[0].c.col.a = 0xFF;                    // -> set color with
         SETCOL ( vertex[0] );                               //    texture alpha
         #if defined(DISP_DEBUG)
         if (logType)
@@ -2683,7 +2667,7 @@ static void primBlkFill ( unsigned char * baseAddr )
                 bDrawSmoothShaded = FALSE;
                 SetRenderState ( ( unsigned int ) 0x01000000 );
                 SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
-                vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
+                vertex[0].c.lcol = gpuData[0] | 0xFF;
                 SETCOL ( vertex[0] );
                 glPRIMdrawQuad ( &vertex[0] );
             }
@@ -2699,7 +2683,7 @@ static void primBlkFill ( unsigned char * baseAddr )
             bDrawSmoothShaded = FALSE;
             SetRenderState ( ( unsigned int ) 0x01000000 );
             SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
-            vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
+            vertex[0].c.lcol = gpuData[0] | 0xFF;
             SETCOL ( vertex[0] );
             glPRIMdrawQuad ( &vertex[0] );
         }
@@ -3219,8 +3203,8 @@ static void primTileS ( unsigned char * baseAddr )
         return;
     }
 
-    vertex[0].c.lcol = gpuData[0];
-    vertex[0].c.col.a = ubGloColAlpha;
+    vertex[0].c.lcol = gpuData[0] | 0xFF;
+    //vertex[0].c.col.a = 0xFF;
     SETCOL ( vertex[0] );
 
     // is clear screen?
@@ -3303,8 +3287,8 @@ static void primTile1 ( unsigned char * baseAddr )
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
 
-    vertex[0].c.lcol = gpuData[0];
-    vertex[0].c.col.a = ubGloColAlpha;
+    vertex[0].c.lcol = gpuData[0] | 0xFF;
+    //vertex[0].c.col.a = 0xFF;
     SETCOL ( vertex[0] );
 
     glPRIMdrawQuad ( &vertex[0] );
@@ -3366,8 +3350,8 @@ static void primTile8 ( unsigned char * baseAddr )
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
 
-    vertex[0].c.lcol = gpuData[0];
-    vertex[0].c.col.a = ubGloColAlpha;
+    vertex[0].c.lcol = gpuData[0] | 0xFF;
+    //vertex[0].c.col.a = 0xFF;
     SETCOL ( vertex[0] );
 
     glPRIMdrawQuad ( &vertex[0] );
@@ -3429,8 +3413,8 @@ static void primTile16 ( unsigned char * baseAddr )
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
 
-    vertex[0].c.lcol = gpuData[0];
-    vertex[0].c.col.a = ubGloColAlpha;
+    vertex[0].c.lcol = gpuData[0] | 0xFF;
+    //vertex[0].c.col.a = 0xFF;
     SETCOL ( vertex[0] );
 
     glPRIMdrawQuad ( &vertex[0] );
@@ -4107,8 +4091,8 @@ static void primPolyF4 ( unsigned char *baseAddr )
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
 
-    vertex[0].c.lcol = gpuData[0];
-    vertex[0].c.col.a = ubGloColAlpha;
+    vertex[0].c.lcol = gpuData[0] | 0xFF;
+    //vertex[0].c.col.a = 0xFF;
     SETCOL ( vertex[0] );
     #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
     sprintf ( txtbuffer, "primPolyF4 %d %d %d %d %d %d %d %d %08x \r\n", lx0, ly0, lx1, ly1, lx2, ly2, lx3, ly3, vertex[0].c.lcol );
@@ -4239,12 +4223,12 @@ static void primPolyG4 ( unsigned char * baseAddr )
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
-    vertex[0].c.lcol = gpuData[0];
-    vertex[1].c.lcol = gpuData[2];
-    vertex[2].c.lcol = gpuData[4];
-    vertex[3].c.lcol = gpuData[6];
+    vertex[0].c.lcol = gpuData[0] | 0xFF;
+    vertex[1].c.lcol = gpuData[2] | 0xFF;
+    vertex[2].c.lcol = gpuData[4] | 0xFF;
+    vertex[3].c.lcol = gpuData[6] | 0xFF;
 
-    vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = vertex[3].c.col.a = ubGloAlpha;
+    //vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = vertex[3].c.col.a = 0xFF;
 
 
     glPRIMdrawGouraudTri2Color ( &vertex[0] );
@@ -4973,8 +4957,8 @@ static void primPolyGT3 ( unsigned char *baseAddr )
     {
         noNeedMulConstColor |= 0x1;
         glNoNeedMulConstColor( noNeedMulConstColor );
-        vertex[0].c.lcol = SWAP32_C ( 0xffffff );
-        vertex[0].c.col.a = ubGloAlpha;
+        vertex[0].c.lcol = 0xffffffff;
+        //vertex[0].c.col.a = 0xFF;
         SETCOL ( vertex[0] );
 
         glPRIMdrawTexturedTri ( &vertex[0] );
@@ -4991,11 +4975,11 @@ static void primPolyGT3 ( unsigned char *baseAddr )
         return;
     }
 
-    vertex[0].c.lcol = gpuData[0] ; // DoubleBGR2RGB
-    vertex[1].c.lcol = gpuData[3] ; // DoubleBGR2RGB
-    vertex[2].c.lcol = gpuData[6] ; // DoubleBGR2RGB
+    vertex[0].c.lcol = gpuData[0] | 0xFF; // DoubleBGR2RGB
+    vertex[1].c.lcol = gpuData[3] | 0xFF; // DoubleBGR2RGB
+    vertex[2].c.lcol = gpuData[6] | 0xFF; // DoubleBGR2RGB
     glSetDoubleCol();
-    vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = ubGloAlpha;
+    //vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = 0xFF;
 
     glPRIMdrawTexGouraudTriColor ( &vertex[0] );
 
@@ -5048,10 +5032,10 @@ static void primPolyG3 ( unsigned char *baseAddr )
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask3NT();
 
-    vertex[0].c.lcol = gpuData[0];
-    vertex[1].c.lcol = gpuData[2];
-    vertex[2].c.lcol = gpuData[4];
-    vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = ubGloColAlpha;
+    vertex[0].c.lcol = gpuData[0] | 0xFF;
+    vertex[1].c.lcol = gpuData[2] | 0xFF;
+    vertex[2].c.lcol = gpuData[4] | 0xFF;
+    //vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = 0xFF;
 
     glPRIMdrawGouraudTriColor ( &vertex[0] );
 
@@ -5128,8 +5112,8 @@ static void primPolyGT4 ( unsigned char *baseAddr )
     {
         noNeedMulConstColor |= 0x1;
         glNoNeedMulConstColor( noNeedMulConstColor );
-        vertex[0].c.lcol = SWAP32_C ( 0xffffff );
-        vertex[0].c.col.a = ubGloAlpha;
+        vertex[0].c.lcol = 0xffffffff;
+        //vertex[0].c.col.a = 0xFF;
         SETCOL ( vertex[0] );
 
         #if defined(DISP_DEBUG) && defined(CMD_LOG_GT4FT4)
@@ -5152,13 +5136,13 @@ static void primPolyGT4 ( unsigned char *baseAddr )
     }
 
 
-    vertex[0].c.lcol= gpuData[0] ; // DoubleBGR2RGB
-    vertex[1].c.lcol= gpuData[3] ; // DoubleBGR2RGB
-    vertex[2].c.lcol= gpuData[6] ; // DoubleBGR2RGB
-    vertex[3].c.lcol= gpuData[9] ; // DoubleBGR2RGB
+    vertex[0].c.lcol= gpuData[0] | 0xFF; // DoubleBGR2RGB
+    vertex[1].c.lcol= gpuData[3] | 0xFF; // DoubleBGR2RGB
+    vertex[2].c.lcol= gpuData[6] | 0xFF; // DoubleBGR2RGB
+    vertex[3].c.lcol= gpuData[9] | 0xFF; // DoubleBGR2RGB
     glSetDoubleCol();
 
-    vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = vertex[3].c.col.a = ubGloAlpha;
+    //vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = vertex[3].c.col.a = 0xFF;
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_GT4FT4)
     sprintf ( txtbuffer, "primPolyGT4 2 \r\n" );
@@ -5216,8 +5200,8 @@ static void primPolyF3 ( unsigned char *baseAddr )
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask3NT();
 
-    vertex[0].c.lcol = gpuData[0];
-    vertex[0].c.col.a = ubGloColAlpha;
+    vertex[0].c.lcol = gpuData[0] | 0xFF;
+    //vertex[0].c.col.a = 0xFF;
     SETCOL ( vertex[0] );
 
     glPRIMdrawTri ( &vertex[0] );
@@ -5290,8 +5274,8 @@ static void primLineGEx ( unsigned char *baseAddr )
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
 
-    vertex[0].c.lcol = vertex[3].c.lcol = gpuData[0];
-    vertex[0].c.col.a = vertex[3].c.col.a = ubGloColAlpha;
+    vertex[0].c.lcol = vertex[3].c.lcol = gpuData[0] | 0xFF;
+    //vertex[0].c.col.a = vertex[3].c.col.a = 0xFF;
     ly1 = ( short ) ( ( GETLE32 ( &gpuData[1] ) >> 16 ) & 0xffff );
     lx1 = ( short ) ( GETLE32 ( &gpuData[1] ) & 0xffff );
 
@@ -5303,8 +5287,8 @@ static void primLineGEx ( unsigned char *baseAddr )
         ly0 = ly1;
         lx0 = lx1;
         vertex[1].c.lcol = vertex[2].c.lcol = vertex[0].c.lcol;
-        vertex[0].c.lcol = vertex[3].c.lcol = gpuData[i];
-        vertex[0].c.col.a = vertex[3].c.col.a = ubGloColAlpha;
+        vertex[0].c.lcol = vertex[3].c.lcol = gpuData[i] | 0xFF;
+        //vertex[0].c.col.a = vertex[3].c.col.a = 0xFF;
 
         i++;
 
@@ -5363,9 +5347,9 @@ static void primLineG2 ( unsigned char *baseAddr )
     logType = 0;
     #endif // DISP_DEBUG
 
-    vertex[0].c.lcol = vertex[3].c.lcol = gpuData[0];
-    vertex[1].c.lcol = vertex[2].c.lcol = gpuData[2];
-    vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = vertex[3].c.col.a = ubGloColAlpha;
+    vertex[0].c.lcol = vertex[3].c.lcol = gpuData[0] | 0xFF;
+    vertex[1].c.lcol = vertex[2].c.lcol = gpuData[2] | 0xFF;
+    //vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = vertex[3].c.col.a = 0xFF;
 
     bDrawTextured = FALSE;
     bDrawSmoothShaded = TRUE;
@@ -5455,8 +5439,8 @@ static void primLineFEx ( unsigned char *baseAddr )
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
 
-    vertex[0].c.lcol = gpuData[0];
-    vertex[0].c.col.a = ubGloColAlpha;
+    vertex[0].c.lcol = gpuData[0] | 0xFF;
+    //vertex[0].c.col.a = 0xFF;
 
     ly1 = ( short ) ( ( GETLE32 ( &gpuData[1] ) >> 16 ) & 0xffff );
     lx1 = ( short ) ( GETLE32 ( &gpuData[1] ) & 0xffff );
@@ -5527,8 +5511,8 @@ static void primLineF2 ( unsigned char *baseAddr )
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
 
-    vertex[0].c.lcol = gpuData[0];
-    vertex[0].c.col.a = ubGloColAlpha;
+    vertex[0].c.lcol = gpuData[0] | 0xFF;
+    //vertex[0].c.col.a = 0xFF;
 
     /* if(iOffscreenDrawing)
       {

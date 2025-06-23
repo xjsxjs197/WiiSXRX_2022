@@ -505,8 +505,8 @@ int GLinitialize(void *ext_gles_display, void *ext_gles_surface)
    glDisable(GL_POINT_SMOOTH); glError();
   }
 
- ubGloAlpha=127;                                       // init some drawing vars
- ubGloColAlpha=127;
+ //ubGloAlpha=127;                                       // init some drawing vars
+ //ubGloColAlpha=127;
  TWin.UScaleFactor = 1;
  TWin.VScaleFactor = 1;
  bTexEnabled=FALSE;
