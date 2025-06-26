@@ -63,12 +63,10 @@ extern "C" void VIDEO_SetTrapFilter(bool enable);
 GXRModeObj gvmode;
 GXRModeObj mgvmode;
 
-GXTexRegion movieUploadTexRegion;
-GXTexRegion semiTransTexRegion;
-GXTexRegion subTexRegion;
-GXTexRegion winTexRegion;
-GXTexRegion uiTexRegion;
-short      curTexType;
+GXTexRegion texCacheRegionS[8];
+short      texCacheUsedInfo[8];
+short      needResetCacheRegion0;
+
 
 extern u32* xfb[3];
 enum {
@@ -192,6 +190,18 @@ extern "C" void switchToTVMode(short dWidth, short dHeight, bool retMenu){
 }
 
 
+extern "C" void resetTexCacheInfo(void)
+{
+    texCacheUsedInfo[0] = -1;
+    texCacheUsedInfo[1] = -1;
+    texCacheUsedInfo[2] = -1;
+    texCacheUsedInfo[3] = -1;
+    texCacheUsedInfo[4] = -1;
+    texCacheUsedInfo[5] = -1;
+    texCacheUsedInfo[6] = -1;
+    texCacheUsedInfo[7] = -1;
+}
+
 namespace menu {
 
 Graphics::Graphics(GXRModeObj *rmode)
@@ -279,29 +289,7 @@ Graphics::~Graphics()
 
 GXTexRegion * GXTexRegionCallback(GXTexObj *obj, u8 mapid)
 {
-    if (gpuPtr != &glesGpu)
-    {
-        return &movieUploadTexRegion;
-    }
-
-    switch (curTexType)
-    {
-        case TEX_TYPE_SUB:
-            return &subTexRegion;
-
-        case TEX_TYPE_SEMI:
-            return &semiTransTexRegion;
-
-        case TEX_TYPE_WIN:
-            return &winTexRegion;
-
-        case TEX_TYPE_UI:
-            return &uiTexRegion;
-    }
-
-    curTexType = TEX_TYPE_DEFAULT;
-
-    return &movieUploadTexRegion;
+    return &texCacheRegionS[0];
 }
 
 
@@ -338,26 +326,19 @@ void Graphics::init()
 	GX_InvVtxCache();
 	GX_InvalidateTexAll();
 
-	// Init custom texture cache region
-	curTexType = TEX_TYPE_DEFAULT;
-//	GX_InitTexCacheRegion(&movieUploadTexRegion, GX_FALSE, 0x0, GX_TEXCACHE_512K, 0x80000, GX_TEXCACHE_512K);
-//	GX_InitTexCacheRegion(&semiTransTexRegion, GX_FALSE, 0x40000, GX_TEXCACHE_128K, 0xC0000, GX_TEXCACHE_128K);
-//	GX_InitTexCacheRegion(&fpsTexRegion, GX_FALSE, 0x60000, GX_TEXCACHE_128K, 0xE0000, GX_TEXCACHE_128K);
-//	GX_InitTexCacheRegion(&subTexRegion, GX_FALSE, 0x100000, GX_TEXCACHE_128K, 0x120000, GX_TEXCACHE_128K);
-//	GX_InitTexCacheRegion(&winTexRegion, GX_FALSE, 0x140000, GX_TEXCACHE_128K, 0x160000, GX_TEXCACHE_128K);
-//    GX_InitTexCacheRegion(&movieUploadTexRegion, GX_FALSE, 0x0, GX_TEXCACHE_128K, 0x20000, GX_TEXCACHE_128K);
-//	GX_InitTexCacheRegion(&semiTransTexRegion, GX_FALSE, 0x40000, GX_TEXCACHE_128K, 0x60000, GX_TEXCACHE_128K);
-//	GX_InitTexCacheRegion(&winTexRegion, GX_FALSE, 0x80000, GX_TEXCACHE_128K, 0xA0000, GX_TEXCACHE_128K);
-//	GX_InitTexPreloadRegion(&subTexRegion, 0xC0000, GX_TEXCACHE_128K, 0xE0000, GX_TEXCACHE_128K);
+    // Init custom texture cache region
+    GX_InitTexCacheRegion(&texCacheRegionS[0], GX_FALSE, 0x0, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
+    GX_InitTexCacheRegion(&texCacheRegionS[1], GX_FALSE, 0x20000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
+    GX_InitTexCacheRegion(&texCacheRegionS[2], GX_FALSE, 0x40000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
+    GX_InitTexCacheRegion(&texCacheRegionS[3], GX_FALSE, 0x60000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
+    GX_InitTexCacheRegion(&texCacheRegionS[4], GX_FALSE, 0x80000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
+    GX_InitTexCacheRegion(&texCacheRegionS[5], GX_FALSE, 0xA0000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
+    GX_InitTexCacheRegion(&texCacheRegionS[6], GX_FALSE, 0xC0000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
+    GX_InitTexCacheRegion(&texCacheRegionS[7], GX_FALSE, 0xE0000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
 
-    GX_InitTexCacheRegion(&movieUploadTexRegion, GX_FALSE, 0x0, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
-	GX_InitTexCacheRegion(&semiTransTexRegion, GX_FALSE, 0x20000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
-	GX_InitTexCacheRegion(&winTexRegion, GX_FALSE, 0x40000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
-	GX_InitTexCacheRegion(&subTexRegion, GX_FALSE, 0x60000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
-	GX_InitTexCacheRegion(&uiTexRegion, GX_FALSE, 0x80000, GX_TEXCACHE_128K, 0, GX_TEXCACHE_NONE);
+    resetTexCacheInfo();
 
-
-	GX_SetTexRegionCallback(GXTexRegionCallback);
+    GX_SetTexRegionCallback(GXTexRegionCallback);
 
 	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
 	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_NRM, GX_NRM_XYZ, GX_F32, 0);
@@ -675,7 +656,7 @@ void Graphics::setTEV(int tev_op)
 	GX_SetNumTevStages(1);
 	GX_SetNumChans (1);
 	GX_SetNumTexGens (1);
-	GX_SetTevOrder (GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP_UI, GX_COLOR0A0);
+	GX_SetTevOrder (GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
 	GX_SetTevOp (GX_TEVSTAGE0, tev_op);
 	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_RED, GX_CH_GREEN, GX_CH_BLUE, GX_CH_ALPHA);
 	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);

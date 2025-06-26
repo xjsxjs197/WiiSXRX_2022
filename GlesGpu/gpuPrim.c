@@ -96,6 +96,7 @@ short         sxmin, sxmax, symin, symax;
 unsigned int CSVERTEX = 0, CSCOLOR = 0, CSTEXTURE = 0;
 
 static unsigned short noNeedMulConstColor = 0;
+extern short      needResetCacheRegion0;
 
 
 void offsetPSX4 ( void )
@@ -994,7 +995,6 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
 {
     SetSemiTrans();
 
-    glSetSemiTransFlg(DrawSemiTrans);
     glSetTextureMask( sSetMask ? 1 : 0 );
 
     if ( bDrawTextured )                                  // texture ? build it/get it from cache
@@ -1006,6 +1006,11 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         else if ( bUsingMovie ) { currTex = LoadTextureMovie(); loadTextureType = TEX_TYPE_MOVIE; }
         else                    { currTex = SelectSubTextureS ( GlobalTextTP, ulClutID ); loadTextureType = TEX_TYPE_SUB; }
         glSetTextureType(gl_ux[8]);
+        if (needResetCacheRegion0)
+        {
+            glResetCacheRegion();
+            needResetCacheRegion0 = 0;
+        }
 
         if ( gTexName != currTex )
         {
@@ -1019,10 +1024,6 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
             #endif // DISP_DEBUG
             gTexName = currTex;
             glBindTextureBef ( GL_TEXTURE_2D, currTex );
-            //if (loadTextureType == TEX_TYPE_MOVIE || texChgType)
-            {
-                glCheckLoadTextureObj(loadTextureType);
-            }
             glError();
         }
         else //if (logType)
@@ -1034,16 +1035,15 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
                 writeLogFile(txtbuffer);
                 curTexCnt = 1;
                 #endif // DISP_DEBUG
-                glCheckLoadTextureObj(loadTextureType);
             }
+            #if defined(DISP_DEBUG)
             else
             {
-                #if defined(DISP_DEBUG)
                 curTexCnt++;
-                #endif // DISP_DEBUG
-                glCheckLoadTextureObj(loadTextureType);
             }
+            #endif // DISP_DEBUG
         }
+        //glCheckLoadTextureObj(loadTextureType, texChgType);
 
         if ( !bTexEnabled )                                 // -> turn texturing on
         {
@@ -1073,7 +1073,6 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         else                                                // -> shaded?
         {
             PUTLE32 ( &vertex[0].c.lcol, 0xff000000 | DoubleBGR2RGB ( DrawAttributes ) );
-            glSetDoubleCol();
             noNeedMulConstColor &= 0xFFFE;
             glNoNeedMulConstColor( noNeedMulConstColor );
         }
@@ -1120,7 +1119,6 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
 //    if ( bDrawNonShaded ) return;                         // no shading? bye
 //
 //    DrawAttributes = DoubleBGR2RGB ( DrawAttributes );    // multipass is just half color, so double it on opaque pass
-//    glSetDoubleCol();
 ////vertex[0].c.lcol=DrawAttributes|0xff000000;
 //    PUTLE32 ( &vertex[0].c.lcol, DrawAttributes | 0xff000000 );
 //    SETCOL ( vertex[0] );                                 // set color
@@ -4008,7 +4006,7 @@ static void primSprtS ( unsigned char * baseAddr )
     if (clearLargeRange && INRANGE(sprtX, sprtX + sprtW, sprtY, sprtY + sprtH))
     {
         // Which game was this fix intended for? I can't recall.
-        glSetVramClearedFlg();
+        //glSetVramClearedFlg();
     }
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
@@ -4978,7 +4976,6 @@ static void primPolyGT3 ( unsigned char *baseAddr )
     vertex[0].c.lcol = gpuData[0] | 0xFF; // DoubleBGR2RGB
     vertex[1].c.lcol = gpuData[3] | 0xFF; // DoubleBGR2RGB
     vertex[2].c.lcol = gpuData[6] | 0xFF; // DoubleBGR2RGB
-    glSetDoubleCol();
     //vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = 0xFF;
 
     glPRIMdrawTexGouraudTriColor ( &vertex[0] );
@@ -5140,8 +5137,6 @@ static void primPolyGT4 ( unsigned char *baseAddr )
     vertex[1].c.lcol= gpuData[3] | 0xFF; // DoubleBGR2RGB
     vertex[2].c.lcol= gpuData[6] | 0xFF; // DoubleBGR2RGB
     vertex[3].c.lcol= gpuData[9] | 0xFF; // DoubleBGR2RGB
-    glSetDoubleCol();
-
     //vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = vertex[3].c.col.a = 0xFF;
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_GT4FT4)

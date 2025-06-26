@@ -22,7 +22,7 @@
 extern "C" {
 #include "../../gpu.h"
 }
-extern GXTexRegion uiTexRegion;
+extern GXTexRegion texCacheRegionS[8];
 
 namespace menu {
 
@@ -59,7 +59,7 @@ void Image::activateImage(u8 mapid)
 {
 	if (tlut_ptr) GX_LoadTlut(&tlut_obj, tlut_name);
 	//GX_LoadTexObj(&obj, mapid);
-	GX_LoadTexObjPreloaded(&obj, &uiTexRegion, GX_TEXMAP_UI);
+	GX_LoadTexObjPreloaded(&obj, &texCacheRegionS[0], GX_TEXMAP0);
 }
 
 } //namespace menu

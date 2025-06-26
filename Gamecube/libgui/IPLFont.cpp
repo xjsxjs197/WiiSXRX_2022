@@ -32,7 +32,7 @@ extern "C" {
 #include "../../gpu.h"
 }
 
-extern GXTexRegion uiTexRegion;
+extern GXTexRegion texCacheRegionS[8];
 
 namespace menu {
 
@@ -261,7 +261,7 @@ void IplFont::drawInit(GXColor fontColor)
     //GX_LoadTexObj(&fontTexObj, GX_TEXMAP0);
 
     GX_SetNumTevStages (1);
-    GX_SetTevOrder (GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP_UI, GX_COLOR0A0); // change to (u8) tile later
+    GX_SetTevOrder (GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0); // change to (u8) tile later
     GX_SetTevColorIn (GX_TEVSTAGE0, GX_CC_C1, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO);
     GX_SetTevColorOp (GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_ENABLE, GX_TEVPREV);
     GX_SetTevAlphaIn (GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_A1, GX_CA_TEXA, GX_CA_ZERO);
@@ -352,14 +352,14 @@ void IplFont::drawString(int x, int y, char *string, float scale, bool centered)
     }
 
     //GX_InvalidateTexAll();
-    GX_InvalidateTexRegion(&uiTexRegion);
+    GX_InvalidateTexRegion(&texCacheRegionS[0]);
 
     wchar_t *utf8Txt = charToWideChar(gettext(string));
     wchar_t *tmpPtr = utf8Txt;
     while (*utf8Txt) {
 
         GX_InitTexObj(&fontTexObj, this->getCharPngBuf(*utf8Txt), CH_FONT_WIDTH, CH_FONT_HEIGHT, GX_TF_IA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
-        GX_LoadTexObjPreloaded(&fontTexObj, &uiTexRegion, GX_TEXMAP_UI);
+        GX_LoadTexObjPreloaded(&fontTexObj, &texCacheRegionS[0], GX_TEXMAP0);
 
         GX_Begin(GX_QUADS, GX_VTXFMT1, 4);
             GX_Position2s16(x, y);

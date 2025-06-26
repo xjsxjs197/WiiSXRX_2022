@@ -32,11 +32,12 @@
 #define TEX_TYPE_UI           5
 #define TEX_TYPE_SEMI         6
 
-#define GX_TEXMAP_MOV         GX_TEXMAP0
-#define GX_TEXMAP_WIN         GX_TEXMAP1
-#define GX_TEXMAP_SUB         GX_TEXMAP2
-#define GX_TEXMAP_SEMI        GX_TEXMAP3
-#define GX_TEXMAP_UI          GX_TEXMAP4
+#define GX_TEXMAP_UI          GX_TEXMAP0
+#define GX_TEXMAP_MOV         GX_TEXMAP1
+#define GX_TEXMAP_WIN         GX_TEXMAP2
+#define GX_TEXMAP_SUB         GX_TEXMAP4
+#define GX_TEXMAP_SEMI        GX_TEXMAP6
+
 
 #define PSXGPU_LCF     (1u<<31)
 #define PSXGPU_nBUSY   (1u<<26)
@@ -96,7 +97,5 @@ extern gpu_t oldSoftGpu;
 extern gpu_t newSoftGpu;
 extern gpu_t glesGpu;
 extern gpu_t *gpuPtr;
-
-extern short curTexType;
 
 #endif /* __GPU_H__ */

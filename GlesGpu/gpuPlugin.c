@@ -2222,6 +2222,17 @@ static void flipEGL(void)
         showFpsAndDebugInfo();
     }
 
+    // Check if TVMode needs to be changed (240 or 480 lines)
+    if (originalMode == ORIGINALMODE_ENABLE)
+    {
+        extern int backFromMenu;
+        if(backFromMenu)
+        {
+            backFromMenu = 0;
+            switchToTVMode(PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y, 0);
+        }
+    }
+
     gx_vout_render(canSwapFrameBuf);
 
     clearLargeRange = 0;
@@ -2233,6 +2244,9 @@ static void flipEGL(void)
     needFlipEGL = FALSE;
     RGB24Uploaded = 0;
     glSetLoadMtxFlg();
+
+    extern void resetTexCacheInfo(void);
+    resetTexCacheInfo();
 }
 
 #include "../Gamecube/wiiSXconfig.h"

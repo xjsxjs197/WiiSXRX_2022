@@ -64,8 +64,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #define ROUND_32B(x) (((x) + 31) & (~31))
 #define min(a,b)     (((a) < (b)) ? (a) : (b))
 
-#define TXT_TYPE_1  0x1
-#define TXT_TYPE_2  0x2
+#define TEX_TYPE_1  0x1
+#define TEX_TYPE_2  0x2
 
 //#define DISP_DEBUG
 
@@ -656,12 +656,6 @@ void glSetRGB24( short rgb24 )
     glparamstate.RGB24 = rgb24;
 }
 
-static short semiTransFlg = 0;
-void glSetSemiTransFlg( short semiTrans_Flg )
-{
-    semiTransFlg = semiTrans_Flg;
-}
-
 static short setTextureMask = 0;
 static short tmpTextureMask = 0;
 void glSetTextureMask( short mask )
@@ -694,13 +688,6 @@ void glBindTextureBef(GLenum target, GLuint texture)
         return;
 
     glparamstate.glcurtex = texture;
-}
-
-static short doubleColor = 0;
-
-void glSetDoubleCol( void )
-{
-    doubleColor = 1;
 }
 
 void glChgTextureFilter( void )
@@ -747,47 +734,247 @@ void glChgTextureFilter( void )
 #define TEX_TYPE_UI           5
 #define TEX_TYPE_SEMI         6
 
-#define GX_TEXMAP_MOV         GX_TEXMAP0
-#define GX_TEXMAP_WIN         GX_TEXMAP1
-#define GX_TEXMAP_SUB         GX_TEXMAP2
-#define GX_TEXMAP_SEMI        GX_TEXMAP3
-#define GX_TEXMAP_UI          GX_TEXMAP4
 
-extern GXTexRegion movieUploadTexRegion;
-extern GXTexRegion semiTransTexRegion;
-extern GXTexRegion subTexRegion;
-extern GXTexRegion winTexRegion;
+extern void resetTexCacheInfo(void);
+extern GXTexRegion texCacheRegionS[8];
+extern short      texCacheUsedInfo[8];
+extern short      needResetCacheRegion0;
 
-static short curTextureType;
-void glCheckLoadTextureObj( int loadTextureType )
+static short gxTexMap = GX_TEXMAP0;
+static short gxTexMapSemi = GX_TEXMAP1;
+
+void glResetCacheRegion()
 {
-    curTextureType = loadTextureType;
+    texCacheUsedInfo[0] = -1;
+//    int oldTexId = texCacheUsedInfo[0];
+//    if (oldTexId > 0)
+//    {
+//        gltexture_ *currtex = &texture_list[oldTexId];
+//        if (oldTexId >= _MAX_GL_TEX)
+//        {
+//            GX_InvalidateTexRegion(&texCacheRegionS[0]);
+//            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[0], 0);
+//        }
+//        else
+//        {
+//            GX_InvalidateTexRegion(&texCacheRegionS[0]);
+//            GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[0], 0);
+//        }
+//    }
+}
+
+void glCheckLoadTextureObj( int loadTextureType, int texChgType )
+{
+    short curTexId = glparamstate.glcurtex;
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
-    if (texturyType & TXT_TYPE_1)
+
+    int i;
+    int needLoadTex1 = 0, needLoadTex2 = 0, loadedTex1 = 0, loadedTex2 = 0;
+    if (glparamstate.blendenabled && (texturyType & TEX_TYPE_1))
     {
-        if (glparamstate.blendenabled)
+        needLoadTex1 = 1;
+    }
+    if (texturyType & TEX_TYPE_2)
+    {
+        needLoadTex2 = 1;
+    }
+
+    // check loaded texture cache
+    for (i = 0; i < 8; i++)
+    {
+        if (needLoadTex1 && loadedTex1 == 0 && texCacheUsedInfo[i] == (curTexId + _MAX_GL_TEX))
         {
-            GX_InvalidateTexRegion(&semiTransTexRegion);
-            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &semiTransTexRegion, GX_TEXMAP_SEMI);
+            loadedTex1 = 1;
+            gxTexMapSemi = i;
+        }
+        if (needLoadTex2 && loadedTex2 == 0 && texCacheUsedInfo[i] == curTexId)
+        {
+            loadedTex2 = 1;
+            gxTexMap = i;
         }
     }
-    if (texturyType & TXT_TYPE_2)
+
+    if (needLoadTex2 && loadedTex2)
     {
-        switch (loadTextureType)
+        if (!needLoadTex1)
         {
-            case TEX_TYPE_MOVIE:
-                GX_InvalidateTexRegion(&movieUploadTexRegion);
-                GX_LoadTexObjPreloaded(&currtex->texobj, &movieUploadTexRegion, GX_TEXMAP_MOV);
+            return;
+        }
+        else if (needLoadTex1 && loadedTex1)
+        {
+            return;
+        }
+    }
+
+    if (needLoadTex1 && loadedTex1)
+    {
+        if (needLoadTex2 && loadedTex2)
+        {
+            return;
+        }
+        else if (!needLoadTex2)
+        {
+            return;
+        }
+    }
+
+    // find free texture cache
+    int chkTexCache = 0;
+    for (i = 0; i < 8; i++)
+    {
+        if (texCacheUsedInfo[i] == -1)
+        {
+            if (needLoadTex1 && loadedTex1 == 0)
+            {
+                gxTexMapSemi = i;
+                GX_InvalidateTexRegion(&texCacheRegionS[i]);
+                GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[i], gxTexMapSemi);
+                texCacheUsedInfo[i] = curTexId + _MAX_GL_TEX;
+
+                if (needLoadTex2 && loadedTex2 == 0)
+                {
+                    i++;
+                    for (; i < 8; i++)
+                    {
+                        if (texCacheUsedInfo[i] == -1)
+                        {
+                            gxTexMap = i;
+                            GX_InvalidateTexRegion(&texCacheRegionS[i]);
+                            GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[i], gxTexMap);
+                            texCacheUsedInfo[i] = curTexId;
+
+                            chkTexCache = 1;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    chkTexCache = 1;
+                }
                 break;
-            case TEX_TYPE_WIN:
-                GX_InvalidateTexRegion(&winTexRegion);
-                GX_LoadTexObjPreloaded(&currtex->texobj, &winTexRegion, GX_TEXMAP_WIN);
+            }
+            else if (needLoadTex2 && loadedTex2 == 0)
+            {
+                gxTexMap = i;
+                GX_InvalidateTexRegion(&texCacheRegionS[i]);
+                GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[i], gxTexMap);
+                texCacheUsedInfo[i] = curTexId;
+
+                chkTexCache = 1;
                 break;
-            case TEX_TYPE_SUB:
-                GX_InvalidateTexRegion(&subTexRegion);
-                GX_LoadTexObjPreloaded(&currtex->texobj, &subTexRegion, GX_TEXMAP_SUB);
-                break;
+            }
+        }
+    }
+
+    if (chkTexCache == 0)
+    {
+        // no free texture cache, run GX_DrawDone and clear texture cache
+        GX_DrawDone();
+        resetTexCacheInfo();
+
+        int texCacheIdx = 0;
+        if (needLoadTex1)
+        {
+            gxTexMapSemi = texCacheIdx;
+            GX_InvalidateTexRegion(&texCacheRegionS[texCacheIdx]);
+            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[texCacheIdx], gxTexMapSemi);
+            texCacheUsedInfo[texCacheIdx] = curTexId + _MAX_GL_TEX;
+            texCacheIdx++;
+        }
+        if (needLoadTex2)
+        {
+            gxTexMap = texCacheIdx;
+            GX_InvalidateTexRegion(&texCacheRegionS[texCacheIdx]);
+            GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[texCacheIdx], gxTexMap);
+            texCacheUsedInfo[texCacheIdx] = curTexId;
+        }
+    }
+}
+
+static void checkLoadTextureObj( int textureType )
+{
+    short curTexId = glparamstate.glcurtex;
+    gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
+
+    int i;
+//    int loadedTex1 = 0, loadedTex2 = 0;
+//    // check loaded texture cache
+//    for (i = 0; i < 8; i++)
+//    {
+//        if (textureType == TEX_TYPE_1 && loadedTex1 == 0 && texCacheUsedInfo[i] == (curTexId + _MAX_GL_TEX))
+//        {
+//            loadedTex1 = 1;
+//            gxTexMapSemi = i;
+//            GX_InvalidateTexRegion(&texCacheRegionS[i]);
+//            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[i], gxTexMapSemi);
+//            break;
+//        }
+//        if (textureType == TEX_TYPE_2 && loadedTex2 == 0 && texCacheUsedInfo[i] == curTexId)
+//        {
+//            loadedTex2 = 1;
+//            gxTexMap = i;
+//            GX_InvalidateTexRegion(&texCacheRegionS[i]);
+//            GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[i], gxTexMap);
+//            break;
+//        }
+//    }
+//
+//    if (textureType == TEX_TYPE_1 && loadedTex1 == 1)
+//    {
+//        return;
+//    }
+//
+//    if (textureType == TEX_TYPE_2 && loadedTex2 == 1)
+//    {
+//        return;
+//    }
+
+    // find free texture cache
+    int chkTexCache = 0;
+    for (i = 0; i < 8; i++)
+    {
+        if (texCacheUsedInfo[i] == -1)
+        {
+            if (textureType == TEX_TYPE_1)
+            {
+                gxTexMapSemi = i;
+                GX_InvalidateTexRegion(&texCacheRegionS[i]);
+                GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[i], gxTexMapSemi);
+                texCacheUsedInfo[i] = curTexId + _MAX_GL_TEX;
+            }
+            else
+            {
+                gxTexMap = i;
+                GX_InvalidateTexRegion(&texCacheRegionS[i]);
+                GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[i], gxTexMap);
+                texCacheUsedInfo[i] = curTexId;
+            }
+            chkTexCache = 1;
+            break;
+        }
+    }
+
+    if (chkTexCache == 0)
+    {
+        // no free texture cache, run GX_DrawDone and clear texture cache
+        GX_DrawDone();
+        resetTexCacheInfo();
+
+        if (textureType == TEX_TYPE_1)
+        {
+            gxTexMapSemi = 0;
+            GX_InvalidateTexRegion(&texCacheRegionS[0]);
+            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[0], 0);
+            texCacheUsedInfo[0] = curTexId + _MAX_GL_TEX;
+        }
+        else
+        {
+            gxTexMap = 0;
+            GX_InvalidateTexRegion(&texCacheRegionS[0]);
+            GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[0], 0);
+            texCacheUsedInfo[0] = curTexId;
         }
     }
 }
@@ -1551,8 +1738,6 @@ static int calc_mipmap_offset(int level, int w, int h, int b)
 // Create a Blank Texture
 void glInitRGBATextures( GLsizei width, GLsizei height )
 {
-    //GX_WaitDrawDone();
-    //GX_Flush();
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
     int wi = width; //(width + 3) & ~(unsigned int)3;
@@ -1581,10 +1766,6 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
     {
         GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
     }
-    // For Non transparent colors in transparent mode
-//    GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
-//                  currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
-    //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
 }
 
 #define RESY_MAX 512    //Vmem height
@@ -1671,13 +1852,13 @@ static inline int _ogx_scramble_4b_sub(unsigned char *src, void *dst, void *semi
                         {
                             *(unsigned short*)(semiTransP) = tmpPixel | 0x8000;
                             *(unsigned short*)(p) = 0;
-                            textureType |= TXT_TYPE_1;
+                            textureType |= TEX_TYPE_1;
                         }
                         else
                         {
                             *(unsigned short*)(semiTransP) = 0;
                             *(unsigned short*)(p) = tmpPixel | 0x8000;
-                            textureType |= TXT_TYPE_2;
+                            textureType |= TEX_TYPE_2;
                         }
                     }
                     p += 2;
@@ -1726,13 +1907,13 @@ static inline int _ogx_scramble_4b_5a3(unsigned char *src, void *dst, unsigned s
                         {
                             *(unsigned short*)(semiTransP) = tmpPixel | 0x8000;
                             *(unsigned short*)p = 0;
-                            textureType |= TXT_TYPE_1;
+                            textureType |= TEX_TYPE_1;
                         }
                         else
                         {
                             *(unsigned short*)semiTransP = 0;
                             *(unsigned short*)(p) = tmpPixel | 0x8000;
-                            textureType |= TXT_TYPE_2;
+                            textureType |= TEX_TYPE_2;
                         }
                     }
                     p += 2;
@@ -1756,9 +1937,8 @@ int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
 {
     int textureType = 0;
     GX_WaitDrawDone();
-    //GX_SetDrawDone();
-    //GX_Flush();
-    //GX_InvalidateTexAll();
+    resetTexCacheInfo();
+
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
     int wi = width; //(width + 3) & ~(unsigned int)3;
@@ -1785,7 +1965,7 @@ int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
 
     if (glparamstate.RGB24)
     {
-        textureType = TXT_TYPE_2;
+        textureType = TEX_TYPE_2;
         _ogx_scramble_4b((unsigned char *)texData, currtex->data, width, height);
 //        GX_InitTexObj(&currtex->texobj, currtex->data,
 //                      currtex->w, currtex->h, GX_TF_RGBA8, currtex->wraps, currtex->wrapt, GX_FALSE);
@@ -1806,7 +1986,7 @@ int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
             GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
         }
         // For Non transparent colors in transparent mode
-        if (textureType & TXT_TYPE_1)
+        if (textureType & TEX_TYPE_1)
         {
             memcpy(currtex->semiTransData, semiTransBuf, currtex->w * currtex->h * 2);
             GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
@@ -1831,8 +2011,7 @@ int glTexSubImage2D(GLenum target, GLint level,
 {
     int textureType = 0;
     GX_WaitDrawDone();
-    //GX_Flush();
-    //GX_InvalidateTexAll();
+    resetTexCacheInfo();
 
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
     unsigned char * semiTransBufPtr = (currtex->semiTransData == 0 ? semiTransBuf : currtex->semiTransData);
@@ -1905,13 +2084,13 @@ int glTexSubImage2D(GLenum target, GLint level,
                         {
                             *(unsigned short*)(semiTransDstBlock + (blockHe * 4 + blockWi) * 2) = tmpPixel | 0x8000;
                             *(unsigned short*)(dstBlock + (blockHe * 4 + blockWi) * 2) = 0;
-                            textureType |= TXT_TYPE_1;
+                            textureType |= TEX_TYPE_1;
                         }
                         else
                         {
                             *(unsigned short*)(semiTransDstBlock + (blockHe * 4 + blockWi) * 2) = 0;
                             *(unsigned short*)(dstBlock + (blockHe * 4 + blockWi) * 2) = tmpPixel | 0x8000;
-                            textureType |= TXT_TYPE_2;
+                            textureType |= TEX_TYPE_2;
                         }
                     }
                 }
@@ -1928,7 +2107,7 @@ int glTexSubImage2D(GLenum target, GLint level,
         DCFlushRange(currtex->data , currtex->w * currtex->h * 2);
     }
 
-    if (textureType & TXT_TYPE_1)
+    if (textureType & TEX_TYPE_1)
     {
         if (currtex->semiTransData == 0)
         {
@@ -1962,8 +2141,7 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
     //GX_DrawDone(); // Very ugly, we should have a list of used textures and only wait if we are using the curr tex.
                    // This way we are sure that we are not modifying a texture which is being drawn
     GX_WaitDrawDone();
-    //GX_Flush();
-    //GX_InvalidateTexAll();
+    resetTexCacheInfo();
 
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
@@ -2007,7 +2185,7 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
         GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
     }
     // For Non transparent colors in transparent mode
-    if (textureType & TXT_TYPE_1)
+    if (textureType & TEX_TYPE_1)
     {
         if (currtex->semiTransData == 0)
         {
@@ -2485,7 +2663,7 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
     {
         // Modulation: primPolyGT3, primPolyGT4
         if (!glparamstate.blendenabled ||
-                (glparamstate.blendenabled && (glDrawArraysFlg == 0 && (texturyType & TXT_TYPE_1))))
+                (glparamstate.blendenabled && (glDrawArraysFlg == 0 && (texturyType & TEX_TYPE_1))))
         {
             GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
             GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
@@ -2557,7 +2735,7 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
     {
         // primSprt8,primSprt16,primSprtS,primSprtSRest,primPolyFT3,primPolyFT4   primPolyGT3, primPolyGT4, UploadScreen
         if (!glparamstate.blendenabled ||
-                (glparamstate.blendenabled && (glDrawArraysFlg == 0 && (texturyType & TXT_TYPE_1))))
+                (glparamstate.blendenabled && (glDrawArraysFlg == 0 && (texturyType & TEX_TYPE_1))))
         {
             if (noNeedMulConstColor)
             {
@@ -2635,25 +2813,14 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
     }
 
 
-    short gxTexMap;
-    if (glDrawArraysFlg == 0 && (texturyType & TXT_TYPE_1))
+    short gxTexMapTmp;
+    if ((texturyType & TEX_TYPE_1) && glDrawArraysFlg == 0 && glparamstate.blendenabled)
     {
-        gxTexMap = GX_TEXMAP_SEMI;
+        gxTexMapTmp = gxTexMapSemi;
     }
     else
     {
-        switch (curTextureType)
-        {
-            case TEX_TYPE_MOVIE:
-                gxTexMap = GX_TEXMAP_MOV;
-                break;
-            case TEX_TYPE_WIN:
-                gxTexMap = GX_TEXMAP_WIN;
-                break;
-            case TEX_TYPE_SUB:
-                gxTexMap = GX_TEXMAP_SUB;
-                break;
-        }
+        gxTexMapTmp = gxTexMap;
     }
 
     GX_SetTevOrder(stage, GX_TEXCOORD0, gxTexMap, channel);
@@ -2693,7 +2860,7 @@ static void setup_render_stages(int texen, int color_enabled)
         }
         else
         {
-            GX_SetTevKColor(GX_KCOLOR0, (GXColor){ (colAdr[0]), (colAdr[1]), (colAdr[2]), 0xFF});
+            GX_SetTevKColor(GX_KCOLOR0, (GXColor){ COL5TO8(colAdr[0]), COL5TO8(colAdr[1]), COL5TO8(colAdr[2]), 0xFF});
         }
 
         rasterized_color = GX_COLORNULL; // Disable vertex color rasterizer
@@ -2774,14 +2941,6 @@ static inline void setComnBlendMode()
 
 static inline int _ogx_apply_state(int texen, int color_enabled)
 {
-    gltexture_ *currtex;
-    if (texen)
-    {
-        currtex = &texture_list[glparamstate.glcurtex];
-    }
-
-    setup_render_stages(texen, color_enabled);
-
     // Set up the OGL state to GX state
     GX_SetZMode(GX_TRUE, glparamstate.zfunc, GX_TRUE);
 
@@ -2797,7 +2956,7 @@ static inline int _ogx_apply_state(int texen, int color_enabled)
 //    }
 
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "draw %d %d %d %d %d %d %d\r\n", glparamstate.blendenabled, texen, color_enabled, glparamstate.globalTextABR, glparamstate.glcurtex, noNeedMulConstColor, doubleColor);
+    sprintf(txtbuffer, "draw %d %d %d %d %d %d\r\n", glparamstate.blendenabled, texen, color_enabled, glparamstate.globalTextABR, glparamstate.glcurtex, texturyType);
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
@@ -2808,8 +2967,9 @@ static inline int _ogx_apply_state(int texen, int color_enabled)
         {
             if (glDrawArraysFlg == 0)
             {
-                if (texturyType & TXT_TYPE_1)
+                if (texturyType & TEX_TYPE_1)
                 {
+                    checkLoadTextureObj(TEX_TYPE_1);
                     GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
                 }
                 else
@@ -2819,7 +2979,15 @@ static inline int _ogx_apply_state(int texen, int color_enabled)
             }
             else
             {
-                setComnBlendMode();
+                if (texturyType & TEX_TYPE_2)
+                {
+                    checkLoadTextureObj(TEX_TYPE_2);
+                    setComnBlendMode();
+                }
+                else
+                {
+                    return 0;
+                }
             }
         }
         else
@@ -2829,8 +2997,22 @@ static inline int _ogx_apply_state(int texen, int color_enabled)
     }
     else
     {
+        if (texen)
+        {
+            if (texturyType & TEX_TYPE_2)
+            {
+                checkLoadTextureObj(TEX_TYPE_2);
+            }
+            else if (texturyType & TEX_TYPE_1)
+            {
+                checkLoadTextureObj(TEX_TYPE_1);
+            }
+        }
+
         GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
     }
+
+    setup_render_stages(texen, color_enabled);
 
 
     // Matrix stuff
@@ -2962,7 +3144,7 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 
     // blendenabled=false, Execute GX_SetBlendMode once
     //   1st GX_SetBlendMode: Non transparent colors
-    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    // blendenabled=true, Possible execution of GX_SetBlendMode twice
     //   1st GX_SetBlendMode: Non transparent colors in transparent mode
     //   2nd GX_SetBlendMode: transparent colors in transparent mode
     glDrawArraysFlg = 0;
@@ -3150,7 +3332,7 @@ void glPRIMdrawTexturedQuad( void* vertexAdr, int changePointOrder )
 
     // blendenabled=false, Execute GX_SetBlendMode once
     //   1st GX_SetBlendMode: Non transparent colors
-    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    // blendenabled=true, Possible execution of GX_SetBlendMode twice
     //   1st GX_SetBlendMode: Non transparent colors in transparent mode
     //   2nd GX_SetBlendMode: transparent colors in transparent mode
     glDrawArraysFlg = 0;
@@ -3230,7 +3412,7 @@ void glPRIMdrawTexturedTri( void* vertexAdr )
 
     // blendenabled=false, Execute GX_SetBlendMode once
     //   1st GX_SetBlendMode: Non transparent colors
-    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    // blendenabled=true, Possible execution of GX_SetBlendMode twice
     //   1st GX_SetBlendMode: Non transparent colors in transparent mode
     //   2nd GX_SetBlendMode: transparent colors in transparent mode
     glDrawArraysFlg = 0;
@@ -3282,7 +3464,7 @@ void glPRIMdrawTexGouraudTriColor( void* vertexAdr )
 
     // blendenabled=false, Execute GX_SetBlendMode once
     //   1st GX_SetBlendMode: Non transparent colors
-    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    // blendenabled=true, Possible execution of GX_SetBlendMode twice
     //   1st GX_SetBlendMode: Non transparent colors in transparent mode
     //   2nd GX_SetBlendMode: transparent colors in transparent mode
     glDrawArraysFlg = 0;
@@ -3340,7 +3522,7 @@ void glPRIMdrawTexGouraudTriColorQuad( void* vertexAdr )
 
     // blendenabled=false, Execute GX_SetBlendMode once
     //   1st GX_SetBlendMode: Non transparent colors
-    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    // blendenabled=true, Possible execution of GX_SetBlendMode twice
     //   1st GX_SetBlendMode: Non transparent colors in transparent mode
     //   2nd GX_SetBlendMode: transparent colors in transparent mode
     glDrawArraysFlg = 0;
@@ -3406,7 +3588,7 @@ void glPRIMdrawTri( void* vertexAdr )
 
     // blendenabled=false, Execute GX_SetBlendMode once
     //   1st GX_SetBlendMode: Non transparent colors
-    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    // blendenabled=true, Possible execution of GX_SetBlendMode twice
     //   1st GX_SetBlendMode: Non transparent colors in transparent mode
     //   2nd GX_SetBlendMode: transparent colors in transparent mode
     glDrawArraysFlg = 0;
@@ -3433,7 +3615,7 @@ void glPRIMdrawTri2( void* vertexAdr )
 
     // blendenabled=false, Execute GX_SetBlendMode once
     //   1st GX_SetBlendMode: Non transparent colors
-    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    // blendenabled=true, Possible execution of GX_SetBlendMode twice
     //   1st GX_SetBlendMode: Non transparent colors in transparent mode
     //   2nd GX_SetBlendMode: transparent colors in transparent mode
     glDrawArraysFlg = 0;
@@ -3462,7 +3644,7 @@ void glPRIMdrawGouraudTriColor( void* vertexAdr )
 
     // blendenabled=false, Execute GX_SetBlendMode once
     //   1st GX_SetBlendMode: Non transparent colors
-    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    // blendenabled=true, Possible execution of GX_SetBlendMode twice
     //   1st GX_SetBlendMode: Non transparent colors in transparent mode
     //   2nd GX_SetBlendMode: transparent colors in transparent mode
     glDrawArraysFlg = 0;
@@ -3492,7 +3674,7 @@ void glPRIMdrawGouraudTri2Color( void* vertexAdr )
 
     // blendenabled=false, Execute GX_SetBlendMode once
     //   1st GX_SetBlendMode: Non transparent colors
-    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    // blendenabled=true, Possible execution of GX_SetBlendMode twice
     //   1st GX_SetBlendMode: Non transparent colors in transparent mode
     //   2nd GX_SetBlendMode: transparent colors in transparent mode
     glDrawArraysFlg = 0;
@@ -3525,7 +3707,7 @@ void glPRIMdrawFlatLine( void* vertexAdr )
 
     // blendenabled=false, Execute GX_SetBlendMode once
     //   1st GX_SetBlendMode: Non transparent colors
-    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    // blendenabled=true, Possible execution of GX_SetBlendMode twice
     //   1st GX_SetBlendMode: Non transparent colors in transparent mode
     //   2nd GX_SetBlendMode: transparent colors in transparent mode
     glDrawArraysFlg = 0;
@@ -3558,7 +3740,7 @@ void glPRIMdrawGouraudLine( void* vertexAdr )
 
     // blendenabled=false, Execute GX_SetBlendMode once
     //   1st GX_SetBlendMode: Non transparent colors
-    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    // blendenabled=true, Possible execution of GX_SetBlendMode twice
     //   1st GX_SetBlendMode: Non transparent colors in transparent mode
     //   2nd GX_SetBlendMode: transparent colors in transparent mode
     glDrawArraysFlg = 0;
@@ -3591,7 +3773,7 @@ void glPRIMdrawQuad( void* vertexAdr )
 
     // blendenabled=false, Execute GX_SetBlendMode once
     //   1st GX_SetBlendMode: Non transparent colors
-    // blendenabled=true, Possible execution of GX_SetBlendMode two times
+    // blendenabled=true, Possible execution of GX_SetBlendMode twice
     //   1st GX_SetBlendMode: Non transparent colors in transparent mode
     //   2nd GX_SetBlendMode: transparent colors in transparent mode
     glDrawArraysFlg = 0;

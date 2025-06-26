@@ -1341,17 +1341,16 @@ GLAPI void GLAPIENTRY glDeleteTextures( GLsizei n, const GLuint *textures);
 
 GLAPI void GLAPIENTRY glBindTexture( GLenum target, GLuint texture );
 GLAPI void GLAPIENTRY glBindTextureBef( GLenum target, GLuint texture );
-GLAPI void GLAPIENTRY glSetDoubleCol( void );
 GLAPI void GLAPIENTRY glSetGlobalTextABR( short globalTextABR );
 GLAPI void GLAPIENTRY glSetRGB24( short rgb24 );
-GLAPI void GLAPIENTRY glSetSemiTransFlg( short semiTransFlg );
 GLAPI void GLAPIENTRY glSetTextureMask( short mask );
 GLAPI void GLAPIENTRY glNoNeedMulConstColor( short noNeedMulConstColorFlg );
 GLAPI void GLAPIENTRY glSetVramClearedFlg( void );
 GLAPI void GLAPIENTRY glSetTextureType( short textureType );
 GLAPI void GLAPIENTRY glChgTextureFilter( void );
 GLAPI void GLAPIENTRY glSetLoadMtxFlg( void );
-GLAPI void GLAPIENTRY glCheckLoadTextureObj( int loadTextureType );
+GLAPI void GLAPIENTRY glCheckLoadTextureObj( int loadTextureType, int texChgType);
+GLAPI void GLAPIENTRY glResetCacheRegion( void );
 
 GLAPI void GLAPIENTRY glPRIMdrawTexturedQuad( void* vertexAdr, int changePointOrder );
 GLAPI void GLAPIENTRY glPRIMdrawTexturedTri( void* vertexAdr );
