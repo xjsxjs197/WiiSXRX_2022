@@ -24,13 +24,10 @@
 #ifndef __GPU_H__
 #define __GPU_H__
 
-#define TEX_TYPE_DEFAULT      0
-#define TEX_TYPE_MOVIE        1
-#define TEX_TYPE_UPLOAD       2
-#define TEX_TYPE_WIN          3
-#define TEX_TYPE_SUB          4
-#define TEX_TYPE_UI           5
-#define TEX_TYPE_SEMI         6
+#define TEX_TYPE_MOV          1
+#define TEX_TYPE_WIN          2
+#define TEX_TYPE_SUB          3
+#define TEX_TYPE_SEMI         4
 
 #define GX_TEXMAP_UI          GX_TEXMAP0
 #define GX_TEXMAP_MOV         GX_TEXMAP1

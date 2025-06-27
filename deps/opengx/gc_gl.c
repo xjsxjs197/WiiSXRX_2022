@@ -670,10 +670,12 @@ void glSetVramClearedFlg( void )
     vramClearedFlg = 1;
 }
 
-static short texturyType = 0;
-void glSetTextureType( short texType )
+static short texSemiType = 0;
+static short curTexType = 0;
+void glSetTextureType( short textureSemiType, short loadTextureType )
 {
-    texturyType = texType;
+    texSemiType = textureSemiType;
+    curTexType = loadTextureType;
 }
 
 static short needLoadMtx = 1;
@@ -726,13 +728,10 @@ void glChgTextureFilter( void )
     }
 }
 
-#define TEX_TYPE_DEFAULT      0
-#define TEX_TYPE_MOVIE        1
-#define TEX_TYPE_UPLOAD       2
-#define TEX_TYPE_WIN          3
-#define TEX_TYPE_SUB          4
-#define TEX_TYPE_UI           5
-#define TEX_TYPE_SEMI         6
+#define TEX_TYPE_MOV          1
+#define TEX_TYPE_WIN          2
+#define TEX_TYPE_SUB          3
+#define TEX_TYPE_SEMI         4
 
 
 extern void resetTexCacheInfo(void);
@@ -771,11 +770,11 @@ void glCheckLoadTextureObj( int loadTextureType, int texChgType )
 
     int i;
     int needLoadTex1 = 0, needLoadTex2 = 0, loadedTex1 = 0, loadedTex2 = 0;
-    if (glparamstate.blendenabled && (texturyType & TEX_TYPE_1))
+    if (glparamstate.blendenabled && (texSemiType & TEX_TYPE_1))
     {
         needLoadTex1 = 1;
     }
-    if (texturyType & TEX_TYPE_2)
+    if (texSemiType & TEX_TYPE_2)
     {
         needLoadTex2 = 1;
     }
@@ -898,7 +897,27 @@ static void checkLoadTextureObj( int textureType )
     short curTexId = glparamstate.glcurtex;
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
-    int i;
+    if (curTexType == TEX_TYPE_SUB && textureType == TEX_TYPE_1)
+    {
+        gxTexMapSemi = TEX_TYPE_SEMI;
+        GX_InvalidateTexRegion(&texCacheRegionS[TEX_TYPE_SEMI]);
+        GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[TEX_TYPE_SEMI], TEX_TYPE_SEMI);
+    }
+    else
+    {
+        gxTexMap = curTexType;
+        GX_InvalidateTexRegion(&texCacheRegionS[curTexType]);
+        GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[curTexType], curTexType);
+    }
+
+}
+
+//static void checkLoadTextureObj( int textureType )
+//{
+//    short curTexId = glparamstate.glcurtex;
+//    gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
+//
+//    int i;
 //    int loadedTex1 = 0, loadedTex2 = 0;
 //    // check loaded texture cache
 //    for (i = 0; i < 8; i++)
@@ -931,53 +950,58 @@ static void checkLoadTextureObj( int textureType )
 //        return;
 //    }
 
-    // find free texture cache
-    int chkTexCache = 0;
-    for (i = 0; i < 8; i++)
-    {
-        if (texCacheUsedInfo[i] == -1)
-        {
-            if (textureType == TEX_TYPE_1)
-            {
-                gxTexMapSemi = i;
-                GX_InvalidateTexRegion(&texCacheRegionS[i]);
-                GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[i], gxTexMapSemi);
-                texCacheUsedInfo[i] = curTexId + _MAX_GL_TEX;
-            }
-            else
-            {
-                gxTexMap = i;
-                GX_InvalidateTexRegion(&texCacheRegionS[i]);
-                GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[i], gxTexMap);
-                texCacheUsedInfo[i] = curTexId;
-            }
-            chkTexCache = 1;
-            break;
-        }
-    }
-
-    if (chkTexCache == 0)
-    {
-        // no free texture cache, run GX_DrawDone and clear texture cache
-        GX_DrawDone();
-        resetTexCacheInfo();
-
-        if (textureType == TEX_TYPE_1)
-        {
-            gxTexMapSemi = 0;
-            GX_InvalidateTexRegion(&texCacheRegionS[0]);
-            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[0], 0);
-            texCacheUsedInfo[0] = curTexId + _MAX_GL_TEX;
-        }
-        else
-        {
-            gxTexMap = 0;
-            GX_InvalidateTexRegion(&texCacheRegionS[0]);
-            GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[0], 0);
-            texCacheUsedInfo[0] = curTexId;
-        }
-    }
-}
+//    // find free texture cache
+//    int chkTexCache = 0;
+//    for (i = 0; i < 8; i++)
+//    {
+//        if (texCacheUsedInfo[i] == -1)
+//        {
+//            if (textureType == TEX_TYPE_1)
+//            {
+//                gxTexMapSemi = i;
+//                GX_InvalidateTexRegion(&texCacheRegionS[i]);
+//                GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[i], gxTexMapSemi);
+//                texCacheUsedInfo[i] = curTexId + _MAX_GL_TEX;
+//            }
+//            else
+//            {
+//                gxTexMap = i;
+//                GX_InvalidateTexRegion(&texCacheRegionS[i]);
+//                GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[i], gxTexMap);
+//                texCacheUsedInfo[i] = curTexId;
+//            }
+//            chkTexCache = 1;
+//            break;
+//        }
+//    }
+//
+//    #ifdef DISP_DEBUG
+//    sprintf(txtbuffer, "chkTex %d %d %d %d\r\n", textureType, chkTexCache, gxTexMap, gxTexMapSemi);
+//    writeLogFile(txtbuffer);
+//    #endif // DISP_DEBUG
+//
+//    if (chkTexCache == 0)
+//    {
+//        // no free texture cache, run GX_DrawDone and clear texture cache
+//        GX_DrawDone();
+//        resetTexCacheInfo();
+//
+//        if (textureType == TEX_TYPE_1)
+//        {
+//            gxTexMapSemi = 0;
+//            GX_InvalidateTexRegion(&texCacheRegionS[0]);
+//            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[0], 0);
+//            texCacheUsedInfo[0] = curTexId + _MAX_GL_TEX;
+//        }
+//        else
+//        {
+//            gxTexMap = 0;
+//            GX_InvalidateTexRegion(&texCacheRegionS[0]);
+//            GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[0], 0);
+//            texCacheUsedInfo[0] = curTexId;
+//        }
+//    }
+//}
 
 void glDeleteTextures(GLsizei n, const GLuint *textures)
 {
@@ -2663,7 +2687,7 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
     {
         // Modulation: primPolyGT3, primPolyGT4
         if (!glparamstate.blendenabled ||
-                (glparamstate.blendenabled && (glDrawArraysFlg == 0 && (texturyType & TEX_TYPE_1))))
+                (glparamstate.blendenabled && (glDrawArraysFlg == 0 && (texSemiType & TEX_TYPE_1))))
         {
             GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
             GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
@@ -2735,7 +2759,7 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
     {
         // primSprt8,primSprt16,primSprtS,primSprtSRest,primPolyFT3,primPolyFT4   primPolyGT3, primPolyGT4, UploadScreen
         if (!glparamstate.blendenabled ||
-                (glparamstate.blendenabled && (glDrawArraysFlg == 0 && (texturyType & TEX_TYPE_1))))
+                (glparamstate.blendenabled && (glDrawArraysFlg == 0 && (texSemiType & TEX_TYPE_1))))
         {
             if (noNeedMulConstColor)
             {
@@ -2814,16 +2838,24 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
 
 
     short gxTexMapTmp;
-    if ((texturyType & TEX_TYPE_1) && glDrawArraysFlg == 0 && glparamstate.blendenabled)
+    if ((texSemiType & TEX_TYPE_1) && glDrawArraysFlg == 0 && glparamstate.blendenabled)
     {
         gxTexMapTmp = gxTexMapSemi;
+        #ifdef DISP_DEBUG
+        sprintf(txtbuffer, "setTexOrderSemi %d\r\n", gxTexMapTmp);
+        writeLogFile(txtbuffer);
+        #endif // DISP_DEBUG
     }
     else
     {
         gxTexMapTmp = gxTexMap;
+        #ifdef DISP_DEBUG
+        sprintf(txtbuffer, "setTexOrder %d\r\n", gxTexMapTmp);
+        writeLogFile(txtbuffer);
+        #endif // DISP_DEBUG
     }
 
-    GX_SetTevOrder(stage, GX_TEXCOORD0, gxTexMap, channel);
+    GX_SetTevOrder(stage, GX_TEXCOORD0, gxTexMapTmp, channel);
     // Set up the data for the TEXCOORD0 (use a identity matrix, TODO: allow user texture matrices)
     GX_SetNumTexGens(1);
     GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
@@ -2956,7 +2988,7 @@ static inline int _ogx_apply_state(int texen, int color_enabled)
 //    }
 
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "draw %d %d %d %d %d %d\r\n", glparamstate.blendenabled, texen, color_enabled, glparamstate.globalTextABR, glparamstate.glcurtex, texturyType);
+    sprintf(txtbuffer, "draw %d %d %d %d %d %d\r\n", glparamstate.blendenabled, texen, color_enabled, glparamstate.globalTextABR, glparamstate.glcurtex, texSemiType);
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
@@ -2967,7 +2999,7 @@ static inline int _ogx_apply_state(int texen, int color_enabled)
         {
             if (glDrawArraysFlg == 0)
             {
-                if (texturyType & TEX_TYPE_1)
+                if (texSemiType & TEX_TYPE_1)
                 {
                     checkLoadTextureObj(TEX_TYPE_1);
                     GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
@@ -2979,7 +3011,7 @@ static inline int _ogx_apply_state(int texen, int color_enabled)
             }
             else
             {
-                if (texturyType & TEX_TYPE_2)
+                if (texSemiType & TEX_TYPE_2)
                 {
                     checkLoadTextureObj(TEX_TYPE_2);
                     setComnBlendMode();
@@ -2999,13 +3031,13 @@ static inline int _ogx_apply_state(int texen, int color_enabled)
     {
         if (texen)
         {
-            if (texturyType & TEX_TYPE_2)
+            if (texSemiType & TEX_TYPE_2)
             {
                 checkLoadTextureObj(TEX_TYPE_2);
             }
-            else if (texturyType & TEX_TYPE_1)
+            else
             {
-                checkLoadTextureObj(TEX_TYPE_1);
+                return 0;
             }
         }
 

@@ -1003,14 +1003,14 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         int loadTextureType;
         GLuint currTex;
         if ( bUsingTWin )       { currTex = LoadTextureWnd ( GlobalTexturePage, GlobalTextTP, ulClutID ); loadTextureType = TEX_TYPE_WIN; }
-        else if ( bUsingMovie ) { currTex = LoadTextureMovie(); loadTextureType = TEX_TYPE_MOVIE; }
+        else if ( bUsingMovie ) { currTex = LoadTextureMovie(); loadTextureType = TEX_TYPE_MOV; }
         else                    { currTex = SelectSubTextureS ( GlobalTextTP, ulClutID ); loadTextureType = TEX_TYPE_SUB; }
-        glSetTextureType(gl_ux[8]);
-        if (needResetCacheRegion0)
-        {
-            glResetCacheRegion();
-            needResetCacheRegion0 = 0;
-        }
+        glSetTextureType(gl_ux[8], loadTextureType);
+//        if (needResetCacheRegion0)
+//        {
+//            glResetCacheRegion();
+//            needResetCacheRegion0 = 0;
+//        }
 
         if ( gTexName != currTex )
         {
