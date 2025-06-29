@@ -1346,7 +1346,7 @@ GLAPI void GLAPIENTRY glSetRGB24( short rgb24 );
 GLAPI void GLAPIENTRY glSetTextureMask( short mask );
 GLAPI void GLAPIENTRY glNoNeedMulConstColor( short noNeedMulConstColorFlg );
 GLAPI void GLAPIENTRY glSetVramClearedFlg( void );
-GLAPI void GLAPIENTRY glSetTextureType( short textureSemiType, short loadTextureType );
+GLAPI void GLAPIENTRY glSetTextureType( short textureSemiType, short loadTextureType, short textureChgType );
 GLAPI void GLAPIENTRY glChgTextureFilter( void );
 GLAPI void GLAPIENTRY glSetLoadMtxFlg( void );
 GLAPI void GLAPIENTRY glCheckLoadTextureObj( int loadTextureType, int texChgType);

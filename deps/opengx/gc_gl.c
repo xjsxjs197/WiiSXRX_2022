@@ -672,10 +672,12 @@ void glSetVramClearedFlg( void )
 
 static short texSemiType = 0;
 static short curTexType = 0;
-void glSetTextureType( short textureSemiType, short loadTextureType )
+static short texChgType = 0;
+void glSetTextureType( short textureSemiType, short loadTextureType, short textureChgType )
 {
     texSemiType = textureSemiType;
     curTexType = loadTextureType;
+    texChgType = textureChgType;
 }
 
 static short needLoadMtx = 1;
@@ -743,174 +745,23 @@ static short gxTexMapSemi = GX_TEXMAP1;
 
 void glResetCacheRegion()
 {
-//    texCacheUsedInfo[0] = -1;
     int oldTexId = texCacheUsedInfo[0];
     if (oldTexId > 0)
     {
-        gltexture_ *currtex = &texture_list[oldTexId];
         if (oldTexId >= _MAX_GL_TEX)
         {
+            gltexture_ *currtex = &texture_list[oldTexId - _MAX_GL_TEX];
             GX_InvalidateTexRegion(&texCacheRegionS[0]);
             GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[0], 0);
         }
         else
         {
+            gltexture_ *currtex = &texture_list[oldTexId];
             GX_InvalidateTexRegion(&texCacheRegionS[0]);
             GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[0], 0);
         }
     }
 }
-
-void glCheckLoadTextureObj( int loadTextureType, int texChgType )
-{
-    short curTexId = glparamstate.glcurtex;
-    gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
-
-
-    int i;
-    int needLoadTex1 = 0, needLoadTex2 = 0, loadedTex1 = 0, loadedTex2 = 0;
-    if (glparamstate.blendenabled && (texSemiType & TEX_TYPE_1))
-    {
-        needLoadTex1 = 1;
-    }
-    if (texSemiType & TEX_TYPE_2)
-    {
-        needLoadTex2 = 1;
-    }
-
-    // check loaded texture cache
-    for (i = 0; i < 8; i++)
-    {
-        if (needLoadTex1 && loadedTex1 == 0 && texCacheUsedInfo[i] == (curTexId + _MAX_GL_TEX))
-        {
-            loadedTex1 = 1;
-            gxTexMapSemi = i;
-        }
-        if (needLoadTex2 && loadedTex2 == 0 && texCacheUsedInfo[i] == curTexId)
-        {
-            loadedTex2 = 1;
-            gxTexMap = i;
-        }
-    }
-
-    if (needLoadTex2 && loadedTex2)
-    {
-        if (!needLoadTex1)
-        {
-            return;
-        }
-        else if (needLoadTex1 && loadedTex1)
-        {
-            return;
-        }
-    }
-
-    if (needLoadTex1 && loadedTex1)
-    {
-        if (needLoadTex2 && loadedTex2)
-        {
-            return;
-        }
-        else if (!needLoadTex2)
-        {
-            return;
-        }
-    }
-
-    // find free texture cache
-    int chkTexCache = 0;
-    for (i = 0; i < 8; i++)
-    {
-        if (texCacheUsedInfo[i] == -1)
-        {
-            if (needLoadTex1 && loadedTex1 == 0)
-            {
-                gxTexMapSemi = i;
-                GX_InvalidateTexRegion(&texCacheRegionS[i]);
-                GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[i], gxTexMapSemi);
-                texCacheUsedInfo[i] = curTexId + _MAX_GL_TEX;
-
-                if (needLoadTex2 && loadedTex2 == 0)
-                {
-                    i++;
-                    for (; i < 8; i++)
-                    {
-                        if (texCacheUsedInfo[i] == -1)
-                        {
-                            gxTexMap = i;
-                            GX_InvalidateTexRegion(&texCacheRegionS[i]);
-                            GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[i], gxTexMap);
-                            texCacheUsedInfo[i] = curTexId;
-
-                            chkTexCache = 1;
-                            break;
-                        }
-                    }
-                }
-                else
-                {
-                    chkTexCache = 1;
-                }
-                break;
-            }
-            else if (needLoadTex2 && loadedTex2 == 0)
-            {
-                gxTexMap = i;
-                GX_InvalidateTexRegion(&texCacheRegionS[i]);
-                GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[i], gxTexMap);
-                texCacheUsedInfo[i] = curTexId;
-
-                chkTexCache = 1;
-                break;
-            }
-        }
-    }
-
-    if (chkTexCache == 0)
-    {
-        // no free texture cache, run GX_DrawDone and clear texture cache
-        GX_Flush();
-        GX_DrawDone();
-        resetTexCacheInfo();
-
-        int texCacheIdx = 0;
-        if (needLoadTex1)
-        {
-            gxTexMapSemi = texCacheIdx;
-            GX_InvalidateTexRegion(&texCacheRegionS[texCacheIdx]);
-            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[texCacheIdx], gxTexMapSemi);
-            texCacheUsedInfo[texCacheIdx] = curTexId + _MAX_GL_TEX;
-            texCacheIdx++;
-        }
-        if (needLoadTex2)
-        {
-            gxTexMap = texCacheIdx;
-            GX_InvalidateTexRegion(&texCacheRegionS[texCacheIdx]);
-            GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[texCacheIdx], gxTexMap);
-            texCacheUsedInfo[texCacheIdx] = curTexId;
-        }
-    }
-}
-
-//static void checkLoadTextureObj( int textureType )
-//{
-//    short curTexId = glparamstate.glcurtex;
-//    gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
-//
-//    if (textureType == TEX_TYPE_1)
-//    {
-//        gxTexMapSemi = TEX_TYPE_SEMI;
-//        GX_InvalidateTexRegion(&texCacheRegionS[TEX_TYPE_SEMI]);
-//        GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[TEX_TYPE_SEMI], TEX_TYPE_SEMI);
-//    }
-//    else
-//    {
-//        gxTexMap = curTexType;
-//        GX_InvalidateTexRegion(&texCacheRegionS[curTexType]);
-//        GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[curTexType], curTexType);
-//    }
-//
-//}
 
 static void checkLoadTextureObj( int textureType )
 {
@@ -924,15 +775,23 @@ static void checkLoadTextureObj( int textureType )
         if (textureType == TEX_TYPE_1 && texCacheUsedInfo[i] == (curTexId + _MAX_GL_TEX))
         {
             gxTexMapSemi = i;
-            GX_InvalidateTexRegion(&texCacheRegionS[i]);
-            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[i], gxTexMapSemi);
+            if (texChgType)
+            {
+                texChgType = 0;
+                GX_InvalidateTexRegion(&texCacheRegionS[i]);
+                GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[i], gxTexMapSemi);
+            }
             return;
         }
         else if (textureType == TEX_TYPE_2 && texCacheUsedInfo[i] == curTexId)
         {
             gxTexMap = i;
-            GX_InvalidateTexRegion(&texCacheRegionS[i]);
-            GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[i], gxTexMap);
+            if (texChgType)
+            {
+                texChgType = 0;
+                GX_InvalidateTexRegion(&texCacheRegionS[i]);
+                GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[i], gxTexMap);
+            }
             return;
         }
     }
@@ -1942,7 +1801,8 @@ void glResetMovieTexPtr( void )
 int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
 {
     int textureType = 0;
-    GX_WaitDrawDone();
+    //GX_WaitDrawDone();
+    GX_DrawDone();
     resetTexCacheInfo();
 
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
@@ -2016,7 +1876,8 @@ int glTexSubImage2D(GLenum target, GLint level,
                    const GLvoid *data )
 {
     int textureType = 0;
-    GX_WaitDrawDone();
+    //GX_WaitDrawDone();
+    GX_DrawDone();
     resetTexCacheInfo();
 
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
@@ -2146,7 +2007,8 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
     int textureType = 0;
     //GX_DrawDone(); // Very ugly, we should have a list of used textures and only wait if we are using the curr tex.
                    // This way we are sure that we are not modifying a texture which is being drawn
-    GX_WaitDrawDone();
+    //GX_WaitDrawDone();
+    GX_DrawDone();
     resetTexCacheInfo();
 
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
