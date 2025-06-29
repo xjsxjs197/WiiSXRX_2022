@@ -96,7 +96,6 @@ short         sxmin, sxmax, symin, symax;
 unsigned int CSVERTEX = 0, CSCOLOR = 0, CSTEXTURE = 0;
 
 static unsigned short noNeedMulConstColor = 0;
-extern short      needResetCacheRegion0;
 
 
 void offsetPSX4 ( void )
@@ -1006,42 +1005,12 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         else if ( bUsingMovie ) { currTex = LoadTextureMovie(); loadTextureType = TEX_TYPE_MOV; }
         else                    { currTex = SelectSubTextureS ( GlobalTextTP, ulClutID ); loadTextureType = TEX_TYPE_SUB; }
         glSetTextureType(gl_ux[8], loadTextureType);
-//        if (needResetCacheRegion0)
-//        {
-//            glResetCacheRegion();
-//            needResetCacheRegion0 = 0;
-//        }
 
         if ( gTexName != currTex )
         {
-            #if defined(DISP_DEBUG)
-            //if (logType)
-            {
-                sprintf ( txtbuffer, "ChgTex1 %02d(%02d) %d\r\n", gTexName, curTexCnt, texChgType);
-                writeLogFile(txtbuffer);
-            }
-            curTexCnt = 1;
-            #endif // DISP_DEBUG
             gTexName = currTex;
             glBindTextureBef ( GL_TEXTURE_2D, currTex );
             glError();
-        }
-        else //if (logType)
-        {
-            if (texChgType)
-            {
-                #if defined(DISP_DEBUG)
-                sprintf ( txtbuffer, "ChgTex2 %02d(%02d) %d\r\n", gTexName, curTexCnt, texChgType);
-                writeLogFile(txtbuffer);
-                curTexCnt = 1;
-                #endif // DISP_DEBUG
-            }
-            #if defined(DISP_DEBUG)
-            else
-            {
-                curTexCnt++;
-            }
-            #endif // DISP_DEBUG
         }
         //glCheckLoadTextureObj(loadTextureType, texChgType);
 

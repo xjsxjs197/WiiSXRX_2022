@@ -48,12 +48,11 @@ extern "C" {
 #include "../fileBrowser/fileBrowser-libfat.h"
 #include "../fileBrowser/fileBrowser-CARD.h"
 #include "../fileBrowser/fileBrowser-SMB.h"
+#include "../../deps/opengx/GL/gl.h"
 //#include "../main/gc_dvd.h"
 }
 #include <ogc/dvd.h>
 #include "../../HidController/KernelHID.h"
-
-extern short      needResetCacheRegion0;
 
 void Func_LoadROM();
 void Func_CurrentROM();
@@ -306,7 +305,7 @@ void Func_PlayGame()
 		backFromMenu = 1;
 	frameLimit[0] = frameLimit[1];
 	//GPUsetframelimit(0);
-	needResetCacheRegion0 = 1;
+	glResetCacheRegion();
 	go();
 
 #ifdef DEBUGON

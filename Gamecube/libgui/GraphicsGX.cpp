@@ -65,7 +65,6 @@ GXRModeObj mgvmode;
 
 GXTexRegion texCacheRegionS[8];
 short      texCacheUsedInfo[8];
-short      needResetCacheRegion0;
 
 
 extern u32* xfb[3];

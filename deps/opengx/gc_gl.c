@@ -737,29 +737,28 @@ void glChgTextureFilter( void )
 extern void resetTexCacheInfo(void);
 extern GXTexRegion texCacheRegionS[8];
 extern short      texCacheUsedInfo[8];
-extern short      needResetCacheRegion0;
 
 static short gxTexMap = GX_TEXMAP0;
 static short gxTexMapSemi = GX_TEXMAP1;
 
 void glResetCacheRegion()
 {
-    texCacheUsedInfo[0] = -1;
-//    int oldTexId = texCacheUsedInfo[0];
-//    if (oldTexId > 0)
-//    {
-//        gltexture_ *currtex = &texture_list[oldTexId];
-//        if (oldTexId >= _MAX_GL_TEX)
-//        {
-//            GX_InvalidateTexRegion(&texCacheRegionS[0]);
-//            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[0], 0);
-//        }
-//        else
-//        {
-//            GX_InvalidateTexRegion(&texCacheRegionS[0]);
-//            GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[0], 0);
-//        }
-//    }
+//    texCacheUsedInfo[0] = -1;
+    int oldTexId = texCacheUsedInfo[0];
+    if (oldTexId > 0)
+    {
+        gltexture_ *currtex = &texture_list[oldTexId];
+        if (oldTexId >= _MAX_GL_TEX)
+        {
+            GX_InvalidateTexRegion(&texCacheRegionS[0]);
+            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[0], 0);
+        }
+        else
+        {
+            GX_InvalidateTexRegion(&texCacheRegionS[0]);
+            GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[0], 0);
+        }
+    }
 }
 
 void glCheckLoadTextureObj( int loadTextureType, int texChgType )
@@ -870,6 +869,7 @@ void glCheckLoadTextureObj( int loadTextureType, int texChgType )
     if (chkTexCache == 0)
     {
         // no free texture cache, run GX_DrawDone and clear texture cache
+        GX_Flush();
         GX_DrawDone();
         resetTexCacheInfo();
 
@@ -892,116 +892,98 @@ void glCheckLoadTextureObj( int loadTextureType, int texChgType )
     }
 }
 
-static void checkLoadTextureObj( int textureType )
-{
-    short curTexId = glparamstate.glcurtex;
-    gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
-
-    if (curTexType == TEX_TYPE_SUB && textureType == TEX_TYPE_1)
-    {
-        gxTexMapSemi = TEX_TYPE_SEMI;
-        GX_InvalidateTexRegion(&texCacheRegionS[TEX_TYPE_SEMI]);
-        GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[TEX_TYPE_SEMI], TEX_TYPE_SEMI);
-    }
-    else
-    {
-        gxTexMap = curTexType;
-        GX_InvalidateTexRegion(&texCacheRegionS[curTexType]);
-        GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[curTexType], curTexType);
-    }
-
-}
-
 //static void checkLoadTextureObj( int textureType )
 //{
 //    short curTexId = glparamstate.glcurtex;
 //    gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 //
-//    int i;
-//    int loadedTex1 = 0, loadedTex2 = 0;
-//    // check loaded texture cache
-//    for (i = 0; i < 8; i++)
+//    if (textureType == TEX_TYPE_1)
 //    {
-//        if (textureType == TEX_TYPE_1 && loadedTex1 == 0 && texCacheUsedInfo[i] == (curTexId + _MAX_GL_TEX))
-//        {
-//            loadedTex1 = 1;
-//            gxTexMapSemi = i;
-//            GX_InvalidateTexRegion(&texCacheRegionS[i]);
-//            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[i], gxTexMapSemi);
-//            break;
-//        }
-//        if (textureType == TEX_TYPE_2 && loadedTex2 == 0 && texCacheUsedInfo[i] == curTexId)
-//        {
-//            loadedTex2 = 1;
-//            gxTexMap = i;
-//            GX_InvalidateTexRegion(&texCacheRegionS[i]);
-//            GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[i], gxTexMap);
-//            break;
-//        }
+//        gxTexMapSemi = TEX_TYPE_SEMI;
+//        GX_InvalidateTexRegion(&texCacheRegionS[TEX_TYPE_SEMI]);
+//        GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[TEX_TYPE_SEMI], TEX_TYPE_SEMI);
+//    }
+//    else
+//    {
+//        gxTexMap = curTexType;
+//        GX_InvalidateTexRegion(&texCacheRegionS[curTexType]);
+//        GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[curTexType], curTexType);
 //    }
 //
-//    if (textureType == TEX_TYPE_1 && loadedTex1 == 1)
-//    {
-//        return;
-//    }
-//
-//    if (textureType == TEX_TYPE_2 && loadedTex2 == 1)
-//    {
-//        return;
-//    }
-
-//    // find free texture cache
-//    int chkTexCache = 0;
-//    for (i = 0; i < 8; i++)
-//    {
-//        if (texCacheUsedInfo[i] == -1)
-//        {
-//            if (textureType == TEX_TYPE_1)
-//            {
-//                gxTexMapSemi = i;
-//                GX_InvalidateTexRegion(&texCacheRegionS[i]);
-//                GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[i], gxTexMapSemi);
-//                texCacheUsedInfo[i] = curTexId + _MAX_GL_TEX;
-//            }
-//            else
-//            {
-//                gxTexMap = i;
-//                GX_InvalidateTexRegion(&texCacheRegionS[i]);
-//                GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[i], gxTexMap);
-//                texCacheUsedInfo[i] = curTexId;
-//            }
-//            chkTexCache = 1;
-//            break;
-//        }
-//    }
-//
-//    #ifdef DISP_DEBUG
-//    sprintf(txtbuffer, "chkTex %d %d %d %d\r\n", textureType, chkTexCache, gxTexMap, gxTexMapSemi);
-//    writeLogFile(txtbuffer);
-//    #endif // DISP_DEBUG
-//
-//    if (chkTexCache == 0)
-//    {
-//        // no free texture cache, run GX_DrawDone and clear texture cache
-//        GX_DrawDone();
-//        resetTexCacheInfo();
-//
-//        if (textureType == TEX_TYPE_1)
-//        {
-//            gxTexMapSemi = 0;
-//            GX_InvalidateTexRegion(&texCacheRegionS[0]);
-//            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[0], 0);
-//            texCacheUsedInfo[0] = curTexId + _MAX_GL_TEX;
-//        }
-//        else
-//        {
-//            gxTexMap = 0;
-//            GX_InvalidateTexRegion(&texCacheRegionS[0]);
-//            GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[0], 0);
-//            texCacheUsedInfo[0] = curTexId;
-//        }
-//    }
 //}
+
+static void checkLoadTextureObj( int textureType )
+{
+    short curTexId = glparamstate.glcurtex;
+    gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
+
+    int i;
+    // check loaded texture cache
+    for (i = 0; i < 8; i++)
+    {
+        if (textureType == TEX_TYPE_1 && texCacheUsedInfo[i] == (curTexId + _MAX_GL_TEX))
+        {
+            gxTexMapSemi = i;
+            GX_InvalidateTexRegion(&texCacheRegionS[i]);
+            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[i], gxTexMapSemi);
+            return;
+        }
+        else if (textureType == TEX_TYPE_2 && texCacheUsedInfo[i] == curTexId)
+        {
+            gxTexMap = i;
+            GX_InvalidateTexRegion(&texCacheRegionS[i]);
+            GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[i], gxTexMap);
+            return;
+        }
+    }
+
+    // find free texture cache
+    for (i = 0; i < 8; i++)
+    {
+        if (texCacheUsedInfo[i] == -1)
+        {
+            if (textureType == TEX_TYPE_1)
+            {
+                gxTexMapSemi = i;
+                GX_InvalidateTexRegion(&texCacheRegionS[i]);
+                GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[i], gxTexMapSemi);
+                texCacheUsedInfo[i] = curTexId + _MAX_GL_TEX;
+            }
+            else
+            {
+                gxTexMap = i;
+                GX_InvalidateTexRegion(&texCacheRegionS[i]);
+                GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[i], gxTexMap);
+                texCacheUsedInfo[i] = curTexId;
+            }
+            return;
+        }
+    }
+
+    #ifdef DISP_DEBUG
+    sprintf(txtbuffer, "chkTex %d %d %d\r\n", textureType, gxTexMap, gxTexMapSemi);
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
+
+    // no free texture cache, run GX_DrawDone and clear texture cache
+    GX_DrawDone();
+    resetTexCacheInfo();
+
+    if (textureType == TEX_TYPE_1)
+    {
+        gxTexMapSemi = 0;
+        GX_InvalidateTexRegion(&texCacheRegionS[0]);
+        GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[0], 0);
+        texCacheUsedInfo[0] = curTexId + _MAX_GL_TEX;
+    }
+    else
+    {
+        gxTexMap = 0;
+        GX_InvalidateTexRegion(&texCacheRegionS[0]);
+        GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[0], 0);
+        texCacheUsedInfo[0] = curTexId;
+    }
+}
 
 void glDeleteTextures(GLsizei n, const GLuint *textures)
 {

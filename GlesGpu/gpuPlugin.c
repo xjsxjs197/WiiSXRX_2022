@@ -172,9 +172,6 @@ static BOOL    drawTexturePage = FALSE;
 #define INRANGE(x1, x2, y1, y2) ((y2 <= largeRangeY2) && (y1 >= largeRangeY1) && (x2 <= largeRangeX2) && (x1 >= largeRangeX1))
 
 static short   texChgType = 0;
-#if defined(DISP_DEBUG)
-static short   curTexCnt = 1;
-#endif // DISP_DEBUG
 
 #include "gpuDraw.c"
 #include "gpuTexture.c"
@@ -2213,7 +2210,6 @@ static void flipEGL(void)
     sprintf(txtbuffer, "flipEGL %d \r\n", canSwapFrameBuf);
     DEBUG_print(txtbuffer, DBG_SPU3);
     writeLogFile(txtbuffer);
-    curTexCnt = 1;
     #endif // DISP_DEBUG
 
     if (canSwapFrameBuf)

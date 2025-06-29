@@ -1226,6 +1226,7 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
 
  gTexName=tsx->texname;
  texChgType = 1;
+ GX_Flush();
  GX_SetDrawDone();
 
  if(TWin.OPosition.y1==TWin.Position.y1 &&
@@ -1323,6 +1324,7 @@ static inline void DefineTextureMovie(void)
 GLuint LoadTextureMovie(void)
 {
     texChgType = 2;
+    GX_Flush();
     GX_SetDrawDone();
 
  short row,column,dx;
@@ -3184,6 +3186,7 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
  if(!OPtr) return uiStexturePage[iCache];
 
   texChgType = 3;
+  GX_Flush();
   GX_SetDrawDone();
 
  // not found? upload texture and store infos in cache
