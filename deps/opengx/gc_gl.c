@@ -2580,7 +2580,7 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
                         GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
                         GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV);
                     }
-                    GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
+                    GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO);
                     GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
                     break;
                 case 4: // 1.0B + 0.25F
@@ -2660,7 +2660,7 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
                         GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
                         GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV);
                     }
-                    GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
+                    GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO);
                     GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
                     break;
                 case 4: // 1.0B + 0.25F
@@ -2772,6 +2772,13 @@ static void setup_render_stages(int texen, int color_enabled)
                 GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_HALF, vertex_color_register, GX_CC_ZERO); // 0.5F
                 GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
                 GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_DIVIDE_2, GX_TRUE, GX_TEVPREV); // 0.25F
+                GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+            }
+            else if (glparamstate.globalTextABR == 3)
+            {
+                GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, vertex_color_register);
+                GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO);
+                GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
                 GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
             }
             else
@@ -3596,13 +3603,13 @@ void glPRIMdrawFlatLine( void* vertexAdr )
         GX_Color4u8(*(addrPtr + 22), *(addrPtr + 21), *(addrPtr + 20), *(addrPtr + 23));
 
         GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
-        GX_Color4u8(*(addrPtr + 46), *(addrPtr + 45), *(addrPtr + 44), *(addrPtr + 47));
+        GX_Color4u8(*(addrPtr + 22), *(addrPtr + 21), *(addrPtr + 20), *(addrPtr + 23));
 
         GX_Position3f32(*(float*)(addrPtr + 72), *(float*)(addrPtr + 76), *(float*)(addrPtr + 80));
-        GX_Color4u8(*(addrPtr + 94), *(addrPtr + 93), *(addrPtr + 92), *(addrPtr + 95));
+        GX_Color4u8(*(addrPtr + 22), *(addrPtr + 21), *(addrPtr + 20), *(addrPtr + 23));
 
         GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
-        GX_Color4u8(*(addrPtr + 70), *(addrPtr + 69), *(addrPtr + 68), *(addrPtr + 71));
+        GX_Color4u8(*(addrPtr + 22), *(addrPtr + 21), *(addrPtr + 20), *(addrPtr + 23));
 
         GX_End();
     }
