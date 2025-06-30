@@ -2580,7 +2580,7 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
                         GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
                         GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV);
                     }
-                    GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO);
+                    GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
                     GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
                     break;
                 case 4: // 1.0B + 0.25F
@@ -2660,7 +2660,7 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
                         GX_SetTevColorIn(stage, GX_CC_ZERO, raster_color, GX_CC_TEXC, GX_CC_ZERO);
                         GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV);
                     }
-                    GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO);
+                    GX_SetTevAlphaIn(stage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
                     GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
                     break;
                 case 4: // 1.0B + 0.25F
@@ -2686,16 +2686,16 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
     {
         gxTexMapTmp = gxTexMapSemi;
         #ifdef DISP_DEBUG
-        sprintf(txtbuffer, "setTexOrderSemi %d\r\n", gxTexMapTmp);
-        writeLogFile(txtbuffer);
+        //sprintf(txtbuffer, "setTexOrderSemi %d\r\n", gxTexMapTmp);
+        //writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
     }
     else
     {
         gxTexMapTmp = gxTexMap;
         #ifdef DISP_DEBUG
-        sprintf(txtbuffer, "setTexOrder %d\r\n", gxTexMapTmp);
-        writeLogFile(txtbuffer);
+        //sprintf(txtbuffer, "setTexOrder %d\r\n", gxTexMapTmp);
+        //writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
     }
 
@@ -2772,13 +2772,6 @@ static void setup_render_stages(int texen, int color_enabled)
                 GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_HALF, vertex_color_register, GX_CC_ZERO); // 0.5F
                 GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, vertex_alpha_register);
                 GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_DIVIDE_2, GX_TRUE, GX_TEVPREV); // 0.25F
-                GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
-            }
-            else if (glparamstate.globalTextABR == 3)
-            {
-                GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, vertex_color_register);
-                GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO);
-                GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
                 GX_SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
             }
             else
@@ -2935,6 +2928,40 @@ static inline void glDrawCommon(int texen, int color_enabled)
 
     // Invalidate vertex data as may have been modified by the user
     GX_InvVtxCache();
+
+    #ifdef DISP_DEBUG
+    if (texen)
+    {
+        // tex debug start
+        extern bool canWriteLog;
+        static bool isWritedTex = false;
+        if (canWriteLog && isWritedTex == false)
+        {
+            int i;
+            for (i = 1; i < _MAX_GL_TEX; i++) {
+                if (texture_list[i].used == 0) {
+                    break;
+                }
+                char txtbuffer[1024];
+                gltexture_ *curTex = &texture_list[i];
+                sprintf(txtbuffer, "sd:/wiisxrx/txtDebug_%d_%d_%02d.bin", curTex->w, curTex->h, i);
+                FILE* texDebugLog = fopen(txtbuffer, "wb");
+                fwrite(curTex->data, 1, curTex->w * curTex->h * 2, texDebugLog);
+                fclose(texDebugLog);
+
+                if (curTex->semiTransData)
+                {
+                    sprintf(txtbuffer, "sd:/wiisxrx/txtDebugS_%d_%d_%02d.bin", curTex->w, curTex->h, i);
+                    texDebugLog = fopen(txtbuffer, "wb");
+                    fwrite(curTex->semiTransData, 1, curTex->w * curTex->h * 2, texDebugLog);
+                    fclose(texDebugLog);
+                }
+            }
+            isWritedTex = true;
+        }
+        // tex debug end
+    }
+    #endif // DISP_DEBUG
 }
 
 void glDrawArrays(GLenum mode, GLint first, GLsizei count)
@@ -2986,44 +3013,7 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 
     // Invalidate vertex data as may have been modified by the user
     GX_InvVtxCache();
-//    if (texen && loadTexFlg)
-//    {
-//        GX_DrawDone();
-//        GX_InvalidateTexAll();
-//    }
-    #ifdef DISP_DEBUG
-    if (texen)
-    {
-        // tex debug start
-        extern bool canWriteLog;
-        static bool isWritedTex = false;
-        if (canWriteLog && isWritedTex == false)
-        {
-            int i;
-            for (i = 1; i < _MAX_GL_TEX; i++) {
-                if (texture_list[i].used == 0) {
-                    break;
-                }
-                char txtbuffer[1024];
-                gltexture_ *curTex = &texture_list[i];
-                sprintf(txtbuffer, "sd:/wiisxrx/txtDebug_%d_%d_%02d.bin", curTex->w, curTex->h, i);
-                FILE* texDebugLog = fopen(txtbuffer, "wb");
-                fwrite(curTex->data, 1, curTex->w * curTex->h * 2, texDebugLog);
-                fclose(texDebugLog);
 
-                if (curTex->semiTransData)
-                {
-                    sprintf(txtbuffer, "sd:/wiisxrx/txtDebugS_%d_%d_%02d.bin", curTex->w, curTex->h, i);
-                    texDebugLog = fopen(txtbuffer, "wb");
-                    fwrite(curTex->semiTransData, 1, curTex->w * curTex->h * 2, texDebugLog);
-                    fclose(texDebugLog);
-                }
-            }
-            isWritedTex = true;
-        }
-        // tex debug end
-    }
-    #endif // DISP_DEBUG
 
     // blendenabled=false, Execute GX_SetBlendMode once
     //   1st GX_SetBlendMode: Non transparent colors
