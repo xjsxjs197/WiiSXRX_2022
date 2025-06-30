@@ -1033,7 +1033,7 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
 
     if ( bSCol )                                          // also set color ?
     {
-        if ( bDrawNonShaded || (DrawAttributes & 0xffffff) == 0x808080 ) // -> non shaded?
+        if ( bDrawNonShaded ) // -> non shaded?
         {
             vertex[0].c.lcol = 0xffffffff;
             noNeedMulConstColor |= 0x1;
@@ -4917,10 +4917,7 @@ static void primPolyGT3 ( unsigned char *baseAddr )
 
     assignTexture3();
 
-    if ( bDrawNonShaded ||
-        ((gpuData[0] & 0xffffff00) == 0x80808000
-         && (gpuData[3] & 0xffffff00) == 0x80808000
-         && (gpuData[6] & 0xffffff00) == 0x80808000) )
+    if ( bDrawNonShaded )
     {
         noNeedMulConstColor |= 0x1;
         glNoNeedMulConstColor( noNeedMulConstColor );
@@ -5070,11 +5067,7 @@ static void primPolyGT4 ( unsigned char *baseAddr )
 
     RectTexAlign();
 
-    if ( bDrawNonShaded ||
-        ((gpuData[0] & 0xffffff00) == 0x80808000
-         && (gpuData[3] & 0xffffff00) == 0x80808000
-         && (gpuData[6] & 0xffffff00) == 0x80808000
-         && (gpuData[9] & 0xffffff00) == 0x80808000) )
+    if ( bDrawNonShaded )
     {
         noNeedMulConstColor |= 0x1;
         glNoNeedMulConstColor( noNeedMulConstColor );
