@@ -3628,11 +3628,11 @@ void glPRIMdrawGouraudLine( void* vertexAdr )
         GX_Position3f32(*(float*)(addrPtr + 24), *(float*)(addrPtr + 28), *(float*)(addrPtr + 32));
         GX_Color4u8(*(addrPtr + 46), *(addrPtr + 45), *(addrPtr + 44), *(addrPtr + 47));
 
-        GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
-        GX_Color4u8(*(addrPtr + 70), *(addrPtr + 69), *(addrPtr + 68), *(addrPtr + 71));
-
         GX_Position3f32(*(float*)(addrPtr + 72), *(float*)(addrPtr + 76), *(float*)(addrPtr + 80));
         GX_Color4u8(*(addrPtr + 94), *(addrPtr + 93), *(addrPtr + 92), *(addrPtr + 95));
+
+        GX_Position3f32(*(float*)(addrPtr + 48), *(float*)(addrPtr + 52), *(float*)(addrPtr + 56));
+        GX_Color4u8(*(addrPtr + 70), *(addrPtr + 69), *(addrPtr + 68), *(addrPtr + 71));
 
         GX_End();
     }
