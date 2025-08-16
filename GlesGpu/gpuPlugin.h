@@ -81,7 +81,6 @@ void           updateDisplayGl(void);
 void           updateFrontDisplayGl(void);
 void           SetAutoFrameCap(void);
 void           SetAspectRatio(void);
-void           CheckVRamRead(int x, int y, int dx, int dy, bool bFront);
 void           CheckVRamReadEx(int x, int y, int dx, int dy);
 void           SetFixes(void);
 

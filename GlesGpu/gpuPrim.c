@@ -42,10 +42,10 @@
 // defines
 ////////////////////////////////////////////////////////////////////////
 
-//#define CMD_LOG_3D
+#define CMD_LOG_3D
 #define CMD_LOG_2D
-//#define CMD_LOG_LINE
-//#define CMD_LOG_GT4FT4
+#define CMD_LOG_LINE
+#define CMD_LOG_GT4FT4
 
 static short logType = 0;
 
@@ -1445,25 +1445,6 @@ BOOL CheckAgainstFrontScreen ( short imageX0, short imageY0, short imageX1, shor
 }
 
 ////////////////////////////////////////////////////////////////////////
-//int CheckClearUploadArea ( short x0, short x1, short y0, short y1 )
-//{
-//    if (PSXDisplay.Disabled || PSXDisplay.RGB24)
-//    {
-//        return 0;
-//    }
-//
-//    if (needUploadScreen == TRUE && uploadedScreen == FALSE)
-//    {
-//        if ((uploadAreaX1 >= x0) && (uploadAreaX2 <= x1) && (uploadAreaY1 >= y0) && (uploadAreaY2 <= y1))
-//        {
-//            canSwapFrameBuf = TRUE;
-//            return 1;
-//        }
-//    }
-//
-//    return 0;
-//}
-
 int CheckFullScreenUpload ( void )
 {
     if (PSXDisplay.Disabled || PSXDisplay.RGB24)
@@ -1673,11 +1654,11 @@ int UploadScreen ( int Position )
             return 1;
         }
 
-        // VAGRANT STORY For GX gpu fix
-        if ((dwActFixes & AUTO_FIX_NO_SWAP_BUF) && (xrUploadArea.x1 - xrUploadArea.x0) == 511 && (xrUploadArea.y1 - xrUploadArea.y0) == 480)
-        {
-            canSwapFrameBuf = FALSE;
-        }
+//        // VAGRANT STORY For GX gpu fix
+//        if ((dwActFixes & AUTO_FIX_NO_SWAP_BUF) && (xrUploadArea.x1 - xrUploadArea.x0) == 511 && (xrUploadArea.y1 - xrUploadArea.y0) == 480)
+//        {
+//            //canPrintFps = 0;
+//        }
     }
 
     iDrawnSomething |= 0x2;
@@ -2206,12 +2187,52 @@ static void cmdDrawOffset ( unsigned char * baseAddr )
 #endif // DISP_DEBUG
 }
 
+
+static void checkFirstPrim(bool isScreenClean, bool loadImage)
+{
+    // Check if all commands in the current frame are LoadImage (play animation) commands.
+    // If so, then the buffer can be cleared when swapping buffers.
+    if (!loadImage)
+    {
+        loadImageCnt = 0;
+        if (!isScreenClean)
+        {
+            otherPrimCmdExists = 1;
+        }
+    }
+    else
+    {
+        loadImageCnt++;
+    }
+
+//    // Only check first command of the current frame
+//    if (!firstPrim)
+//    {
+//        return;
+//    }
+//
+//    firstPrim = false;
+    if (isScreenClean)
+    {
+        // The command is to clear the buffer (or play an animation),
+        // performing a concise clearing operation, and the FPS can be displayed.
+        CLEAR_EFB();
+        canPrintFps = 1;
+    }
+//    else
+//    {
+//        canPrintFps = 0;
+//    }
+}
+
 ////////////////////////////////////////////////////////////////////////
 // cmd: load image to vram
 ////////////////////////////////////////////////////////////////////////
 
 static void primLoadImage ( unsigned char * baseAddr )
 {
+    checkFirstPrim(PSXDisplay.RGB24 ? true : false, true);
+
     unsigned short *sgpuData = ( ( unsigned short * ) baseAddr );
 
     VRAMWrite.x      = GETLEs16 ( &sgpuData[2] ) & 0x03ff;
@@ -2488,6 +2509,8 @@ void CheckWriteUpdate()
 
 static void primStoreImage ( unsigned char * baseAddr )
 {
+    checkFirstPrim(false, false);
+
     unsigned short *sgpuData = ( ( unsigned short * ) baseAddr );
 
     VRAMRead.x      = GETLEs16 ( &sgpuData[2] ) & 0x03ff;
@@ -2521,7 +2544,7 @@ static void primStoreImage ( unsigned char * baseAddr )
     } \
 }
 
-static inline void BlkFillArea(short x0, short y0, short width, short height)
+void BlkFillArea(short x0, short y0, short width, short height)
 {
     if ( width <= 0 ) return;
     if ( height <= 0 ) return;
@@ -2581,55 +2604,152 @@ static void primBlkFill ( unsigned char * baseAddr )
               PreviousPSXDisplay.Range.x0, PreviousPSXDisplay.Range.y0, PSXDisplay.CumulOffset.x, PSXDisplay.CumulOffset.y);
     writeLogFile(txtbuffer);
     logType = 1;
-    sprintf ( txtbuffer, "primBlkFill %d %d %d %d %08x %d %d\r\n", sprtX, sprtY, sprtW, sprtH, gpuData[0] ,DrawSemiTrans, GlobalTextABR);
+    sprintf ( txtbuffer, "primBlkFill %d %d %d %d %08x %d %d %d %d\r\n",
+             sprtX, sprtY, sprtW, sprtH, gpuData[0],
+             screenX, screenY, screenX1, screenY1);
     DEBUG_print ( txtbuffer, DBG_SPU3 );
     writeLogFile(txtbuffer);
     #else
     logType = 0;
     #endif // DISP_DEBUG
 
-    //mmm... will clean all stuff, also if not all _should_ be cleaned...
-//if (IsInsideNextScreen(sprtX, sprtY, sprtW, sprtH))
-// try this:
-    if ( IsCompleteInsideNextScreen ( sprtX, sprtY, sprtW, sprtH ) )
+//    //mmm... will clean all stuff, also if not all _should_ be cleaned...
+//    //if (IsInsideNextScreen(sprtX, sprtY, sprtW, sprtH))
+//    // try this:
+//    if ( IsCompleteInsideNextScreen ( sprtX, sprtY, sprtW, sprtH ) )
+//    {
+//        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+//        sprintf(txtbuffer, "clear Next Screen\r\n");
+//        writeLogFile(txtbuffer);
+//        #endif // DISP_DEBUG
+//        lClearOnSwapColor = COLOR ( GETLE32 ( &gpuData[0] ) );
+//        lClearOnSwap = 1;
+//        //canPrintFps = 1;
+//
+//        checkFirstPrim(false, false);
+//    }
+//    else
+//    {
+//        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+//        sprintf(txtbuffer, "clear Current Screen\r\n");
+//        writeLogFile(txtbuffer);
+//        #endif // DISP_DEBUG
+//        if (CLEAR_SCREEN(sprtX,
+//                     sprtY,
+//                     sprtX + sprtW,
+//                     sprtY + sprtH))
+//        {
+//            checkFirstPrim(true, false);
+//
+//            needUploadScreen = FALSE;
+//            uploadedScreen = FALSE;
+//            #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+//            sprintf(txtbuffer, "BlkFill CLEAR_SCREEN\r\n");
+//            writeLogFile(txtbuffer);
+//            #endif // DISP_DEBUG
+//
+//            // Clear all Screen
+//            if ((sprtX + sprtW) >= 1023 && (sprtY + sprtH) >= 511)
+//            {
+//                unsigned char g, b, r;
+//                r = baseAddr[0];
+//                g = baseAddr[1];
+//                b = baseAddr[2];
+//
+//                glClearColor2 ( r, g, b, 255 );
+//                glClear ( uiBufferBits );
+//            }
+//            else
+//            {
+//                bDrawTextured     = FALSE;
+//                bDrawSmoothShaded = FALSE;
+//                SetRenderState ( ( unsigned int ) 0x01000000 );
+//                SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
+//                vertex[0].c.lcol = gpuData[0] | 0xFF;
+//                SETCOL ( vertex[0] );
+//                glPRIMdrawQuad ( &vertex[0] );
+//            }
+//            gl_z = 0.0f;
+//        }
+//        else
+//        {
+//            checkFirstPrim(false, false);
+//
+//            CheckFullScreenUpload();
+//
+//            // Clear part of screen
+//            bDrawTextured     = FALSE;
+//            bDrawSmoothShaded = FALSE;
+//            SetRenderState ( ( unsigned int ) 0x01000000 );
+//            SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
+//            vertex[0].c.lcol = gpuData[0] | 0xFF;
+//            SETCOL ( vertex[0] );
+//            glPRIMdrawQuad ( &vertex[0] );
+//        }
+//    }
+//
+//    // use software blkFill
+//    BlkFillArea(sprtX, sprtY, sprtW, sprtH);
+
+    if ( ClipVertexListScreen() )
     {
-        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
-        sprintf(txtbuffer, "clear Next Screen\r\n");
-        writeLogFile(txtbuffer);
-        #endif // DISP_DEBUG
-        lClearOnSwapColor = COLOR ( GETLE32 ( &gpuData[0] ) );
-        lClearOnSwap = 1;
-        canSwapFrameBuf = TRUE;
-    }
-    else
-    {
-        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
-        sprintf(txtbuffer, "clear Current Screen\r\n");
-        writeLogFile(txtbuffer);
-        #endif // DISP_DEBUG
-        if (CLEAR_SCREEN(sprtX, sprtY, sprtX + sprtW, sprtY + sprtH))
+        PSXDisplay_t * pd;
+        if ( PSXDisplay.InterlacedTest ) pd = &PSXDisplay;
+        else                          pd = &PreviousPSXDisplay;
+
+        if ( ( lx0 <= pd->DisplayPosition.x + 16 ) &&
+                ( ly0 <= pd->DisplayPosition.y + 16 ) &&
+                ( lx2 >= pd->DisplayEnd.x - 16 ) &&
+                ( ly2 >= pd->DisplayEnd.y - 16 ) )
         {
-            needUploadScreen = FALSE;
-            uploadedScreen = FALSE;
-            canSwapFrameBuf = TRUE;
             #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
-            sprintf(txtbuffer, "CLEAR_SCREEN\r\n");
+            sprintf(txtbuffer, "BlkFill clear Current Screen\r\n");
             writeLogFile(txtbuffer);
             #endif // DISP_DEBUG
-
-            // Clear all Screen
-            if ((sprtX + sprtW) >= 1023 && (sprtY + sprtH) >= 511)
+            if (CLEAR_SCREEN(sprtX,
+                     sprtY,
+                     sprtX + sprtW,
+                     sprtY + sprtH))
             {
-                unsigned char g, b, r;
-                r = baseAddr[0];
-                g = baseAddr[1];
-                b = baseAddr[2];
+                checkFirstPrim(true, false);
 
-                glClearColor2 ( r, g, b, 255 );
-                glClear ( uiBufferBits );
+                needUploadScreen = FALSE;
+                uploadedScreen = FALSE;
+                #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+                sprintf(txtbuffer, "BlkFill CLEAR_SCREEN\r\n");
+                writeLogFile(txtbuffer);
+                #endif // DISP_DEBUG
+
+                // Clear all Screen
+                if ((sprtX + sprtW) >= 1023 && (sprtY + sprtH) >= 511)
+                {
+                    unsigned char g, b, r;
+                    r = baseAddr[0];
+                    g = baseAddr[1];
+                    b = baseAddr[2];
+
+                    glClearColor2 ( r, g, b, 255 );
+                    glClear ( uiBufferBits );
+                }
+                else
+                {
+                    bDrawTextured     = FALSE;
+                    bDrawSmoothShaded = FALSE;
+                    SetRenderState ( ( unsigned int ) 0x01000000 );
+                    SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
+                    vertex[0].c.lcol = gpuData[0] | 0xFF;
+                    SETCOL ( vertex[0] );
+                    glPRIMdrawQuad ( &vertex[0] );
+                }
+                gl_z = 0.0f;
             }
             else
             {
+                checkFirstPrim(false, false);
+
+                CheckFullScreenUpload();
+
+                // Clear part of screen
                 bDrawTextured     = FALSE;
                 bDrawSmoothShaded = FALSE;
                 SetRenderState ( ( unsigned int ) 0x01000000 );
@@ -2638,42 +2758,8 @@ static void primBlkFill ( unsigned char * baseAddr )
                 SETCOL ( vertex[0] );
                 glPRIMdrawQuad ( &vertex[0] );
             }
-            gl_z = 0.0f;
-        }
-        else
-        {
-            CheckFullScreenUpload();
-            //CheckClearUploadArea(lx0, ly0, lx1, ly2);
 
-            // Clear part of screen
-            bDrawTextured     = FALSE;
-            bDrawSmoothShaded = FALSE;
-            SetRenderState ( ( unsigned int ) 0x01000000 );
-            SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
-            vertex[0].c.lcol = gpuData[0] | 0xFF;
-            SETCOL ( vertex[0] );
-            glPRIMdrawQuad ( &vertex[0] );
-        }
-
-        // use software blkFill
-        BlkFillArea(sprtX, sprtY, sprtW, sprtH);
-    }
-
-//    if ( ClipVertexListScreen() )
-//    {
-//        PSXDisplay_t * pd;
-//        if ( PSXDisplay.InterlacedTest ) pd = &PSXDisplay;
-//        else                          pd = &PreviousPSXDisplay;
-//
-//        if ( ( lx0 <= pd->DisplayPosition.x + 16 ) &&
-//                ( ly0 <= pd->DisplayPosition.y + 16 ) &&
-//                ( lx2 >= pd->DisplayEnd.x - 16 ) &&
-//                ( ly2 >= pd->DisplayEnd.y - 16 ) )
-//        {
 //            unsigned char g, b, r;
-//            //r=((unsigned char)RED(GETLE32(&gpuData[0])));
-//            //g=((unsigned char)GREEN(GETLE32(&gpuData[0])));
-//            //b=((unsigned char)BLUE(GETLE32(&gpuData[0])));
 //            r = baseAddr[0];
 //            g = baseAddr[1];
 //            b = baseAddr[2];
@@ -2705,11 +2791,9 @@ static void primBlkFill ( unsigned char * baseAddr )
 //                    vertex[2].y = ly0 - pd->DisplayPosition.y;
 //                    vertex[3].x = 0;
 //                    vertex[3].y = vertex[2].y;
-//                    PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//                    #if defined(DISP_DEBUG)
-//                    //sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+//                    glPRIMdrawQuad ( &vertex[0] );
+//                    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
 //                    sprintf(txtbuffer, "blkFill11 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-//                    //DEBUG_print ( txtbuffer, DBG_CORE2 );
 //                    writeLogFile(txtbuffer);
 //                    #endif // DISP_DEBUG
 //                }
@@ -2723,47 +2807,58 @@ static void primBlkFill ( unsigned char * baseAddr )
 //                    vertex[2].y = pd->DisplayEnd.y;
 //                    vertex[3].x = 0;
 //                    vertex[3].y = vertex[2].y;
-//                    PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//                    #if defined(DISP_DEBUG)
-//                    //sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
+//                    glPRIMdrawQuad ( &vertex[0] );
+//                    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
 //                    sprintf(txtbuffer, "blkFill12 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-//                    //DEBUG_print ( txtbuffer, DBG_CORE2 );
 //                    writeLogFile(txtbuffer);
 //                    #endif // DISP_DEBUG
 //                }
 //            }
-//            #if defined(DISP_DEBUG)
+//            #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
 //            sprintf(txtbuffer, "blkFill13\r\n");
-//            //DEBUG_print ( txtbuffer, DBG_CORE2 );
 //            writeLogFile(txtbuffer);
 //            #endif // DISP_DEBUG
-//
-//            //glEnable(GL_SCISSOR_TEST); glError();
-//        }
-//        else
-//        {
-//            #if defined(DISP_DEBUG)
-//            //sprintf ( txtbuffer, "blkFill1_1 %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f %2.0f\r\n", vertex[0].x, vertex[0].y, vertex[1].x, vertex[1].y, vertex[2].x, vertex[2].y, vertex[3].x, vertex[3].y );
-//            sprintf(txtbuffer, "blkFill14 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
-//            //DEBUG_print ( txtbuffer, DBG_CORE2 );
-//            writeLogFile(txtbuffer);
-//            #endif // DISP_DEBUG
-//            bDrawTextured     = FALSE;
-//            bDrawSmoothShaded = FALSE;
-//            SetRenderState ( ( unsigned int ) 0x01000000 );
-//            SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
-//            vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
-//            SETCOL ( vertex[0] );
-//            //glDisable(GL_SCISSOR_TEST); glError();
-//            PRIMdrawQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//            //glEnable(GL_SCISSOR_TEST); glError();
-//        }
-//    }
+        }
+        else
+        {
+            if ( IsCompleteInsideNextScreen ( sprtX, sprtY, sprtW, sprtH ) )
+            {
+                #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+                sprintf(txtbuffer, "clear Next Screen\r\n");
+                writeLogFile(txtbuffer);
+                #endif // DISP_DEBUG
+                lClearOnSwapColor = COLOR ( GETLE32 ( &gpuData[0] ) );
+                lClearOnSwap = 1;
+                nextClearX = sprtX;
+                nextClearY = sprtY;
+                nextClearWidth = sprtW;
+                nextClearHeight = sprtH;
+            }
+            else
+            {
+                checkFirstPrim(false, false);
 
-    //ClampToPSXScreenOffset( &sprtX, &sprtY, &sprtW, &sprtH);
-    //if ((sprtW == 0) || (sprtH == 0)) return;
-    //InvalidateTextureArea(sprtX, sprtY, sprtW - 1, sprtH - 1);
-    //FillSoftwareArea(sprtX, sprtY, sprtX + sprtW, sprtY + sprtH, BGR24to16(GETLE32 ( &gpuData[0] )));
+                #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+                sprintf(txtbuffer, "blkFill14 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
+                writeLogFile(txtbuffer);
+                #endif // DISP_DEBUG
+                bDrawTextured     = FALSE;
+                bDrawSmoothShaded = FALSE;
+                SetRenderState ( ( unsigned int ) 0x01000000 );
+                SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
+                vertex[0].c.lcol = gpuData[0] | SWAP32_C ( 0xff000000 );
+                SETCOL ( vertex[0] );
+                glPRIMdrawQuad ( &vertex[0] );
+
+                // use software blkFill
+                BlkFillArea(sprtX, sprtY, sprtW, sprtH);
+            }
+        }
+    }
+
+    ClampToPSXScreenOffset( &sprtX, &sprtY, &sprtW, &sprtH);
+    if ((sprtW == 0) || (sprtH == 0)) return;
+    InvalidateTextureArea(sprtX, sprtY, sprtW - 1, sprtH - 1);
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2847,6 +2942,11 @@ static void primMoveImage ( unsigned char * baseAddr )
     if (imageSX == 2 && imageSY == 1)
     {
         iDrawnSomething &= ~0x8;
+        canPrintFps = 1;
+    }
+    else
+    {
+        checkFirstPrim(false, false);
     }
 
     if ( ( imageX0 == imageX1 ) && ( imageY0 == imageY1 ) ) return;
@@ -3103,14 +3203,22 @@ static void primTileS ( unsigned char * baseAddr )
 
     offsetST();
 
-    if (CLEAR_SCREEN(sprtX, sprtY, sprtX + sprtW, sprtY + sprtH))
+    if (CLEAR_SCREEN(sprtX + PSXDisplay.DrawOffset.x,
+                     sprtY + PSXDisplay.DrawOffset.y,
+                     sprtX + sprtW + PSXDisplay.DrawOffset.x,
+                     sprtY + sprtH + PSXDisplay.DrawOffset.y))
     {
+        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+        sprintf(txtbuffer, "TileS CLEAR_SCREEN %d\r\n", firstPrim);
+        writeLogFile(txtbuffer);
+        #endif // DISP_DEBUG
+        checkFirstPrim(true, false);
         needUploadScreen = FALSE;
         uploadedScreen = FALSE;
-        canSwapFrameBuf = TRUE;
     }
     else
     {
+        checkFirstPrim(false, false);
         CheckFullScreenUpload();
     }
 
@@ -3132,7 +3240,7 @@ static void primTileS ( unsigned char * baseAddr )
 
     offsetPSX4();
     TitleFillArea(lx0, ly0, sprtW, sprtH, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
-    //CheckClearUploadArea(lx0, ly0, lx0 + sprtW, ly0 + sprtH);
+
 //        if ( bDrawOffscreen4() )
 //        {
 //            if ( ! ( iTileCheat && sprtH == 32 && gpuData[0] == SWAP32_C(0x60ffffff) ) ) // special cheat for certain ZiNc games
@@ -3175,21 +3283,23 @@ static void primTileS ( unsigned char * baseAddr )
     SETCOL ( vertex[0] );
 
     // is clear screen?
-    clearLargeRange = 0;
-    if (DrawSemiTrans && (sprtX == 0 || sprtY == 0) && sprtW > 200 && sprtH > 200)
-    {
-        clearLargeRange = 1;
-        largeRangeX1 = sprtX;
-        largeRangeX2 = sprtX + sprtW;
-        largeRangeY1 = sprtY;
-        largeRangeY2 = sprtY + sprtH;
-    }
+//    clearLargeRange = 0;
+//    if (DrawSemiTrans && (sprtX == 0 || sprtY == 0) && sprtW > 200 && sprtH > 200)
+//    {
+//        clearLargeRange = 1;
+//        largeRangeX1 = sprtX;
+//        largeRangeX2 = sprtX + sprtW;
+//        largeRangeY1 = sprtY;
+//        largeRangeY2 = sprtY + sprtH;
+//    }
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     sprintf ( txtbuffer, "DrawOffset %d %d %d %d %d %d %d %d\r\n", PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y,
               PreviousPSXDisplay.Range.x0, PreviousPSXDisplay.Range.y0, PSXDisplay.CumulOffset.x, PSXDisplay.CumulOffset.y);
     writeLogFile(txtbuffer);
-    sprintf ( txtbuffer, "primTileS %d %d %d %d %08x\r\n", sprtX, sprtY, sprtW, sprtH, vertex[0].c.lcol);
+    sprintf ( txtbuffer, "primTileS %d %d %d %d %08x %d %d %d %d\r\n",
+             sprtX, sprtY, sprtW, sprtH, vertex[0].c.lcol,
+             screenX, screenY, screenX1, screenY1 );
     DEBUG_print ( txtbuffer, DBG_SPU3 );
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
@@ -3205,6 +3315,8 @@ static void primTileS ( unsigned char * baseAddr )
 
 static void primTile1 ( unsigned char * baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     unsigned int *gpuData = ( ( unsigned int* ) baseAddr );
@@ -3269,6 +3381,8 @@ static void primTile1 ( unsigned char * baseAddr )
 
 static void primTile8 ( unsigned char * baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
 #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
@@ -3332,6 +3446,8 @@ static void primTile8 ( unsigned char * baseAddr )
 
 static void primTile16 ( unsigned char * baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
 #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
@@ -3430,6 +3546,8 @@ static void primTile16 ( unsigned char * baseAddr )
 
 static void primSprt8 ( unsigned char * baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -3552,6 +3670,8 @@ static void primSprt8 ( unsigned char * baseAddr )
 
 static void primSprt16 ( unsigned char * baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -3673,6 +3793,8 @@ static void primSprt16 ( unsigned char * baseAddr )
 
 static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -3852,6 +3974,8 @@ static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
 
 static void primSprtS ( unsigned char * baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -3875,14 +3999,14 @@ static void primSprtS ( unsigned char * baseAddr )
     }
 
     // TOMB RAIDER For GX gpu fix
-    if ((dwActFixes & AUTO_FIX_NO_SWAP_BUF) && sprtW == 256 && sprtH == 240)
-    {
-        canSwapFrameBuf = FALSE;
-        #if defined(DISP_DEBUG)
-        sprintf ( txtbuffer, "primSprtS TOMB RAIDER For GX gpu fix\r\n");
-        writeLogFile(txtbuffer);
-        #endif // DISP_DEBUG
-    }
+//    if ((dwActFixes & AUTO_FIX_NO_SWAP_BUF) && sprtW == 256 && sprtH == 240)
+//    {
+//        //canPrintFps = 0;
+//        #if defined(DISP_DEBUG)
+//        sprintf ( txtbuffer, "primSprtS TOMB RAIDER For GX gpu fix\r\n");
+//        writeLogFile(txtbuffer);
+//        #endif // DISP_DEBUG
+//    }
 
     iSpriteTex = 1;
 
@@ -3972,11 +4096,11 @@ static void primSprtS ( unsigned char * baseAddr )
     assignTextureSprite();
 
     // is screen cleared?
-    if (clearLargeRange && INRANGE(sprtX, sprtX + sprtW, sprtY, sprtY + sprtH))
-    {
-        // Which game was this fix intended for? I can't recall.
-        //glSetVramClearedFlg();
-    }
+//    if (clearLargeRange && INRANGE(sprtX, sprtX + sprtW, sprtY, sprtY + sprtH))
+//    {
+//        // Which game was this fix intended for? I can't recall.
+//        //glSetVramClearedFlg();
+//    }
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     sprintf ( txtbuffer, "DrawOffset %d %d %d %d %d %d %d %d\r\n", PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y,
@@ -4020,6 +4144,8 @@ static void primSprtS ( unsigned char * baseAddr )
 
 static void primPolyF4 ( unsigned char *baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -4142,6 +4268,8 @@ BOOL bCheckFF9G4 ( unsigned char * baseAddr )
 
 static void primPolyG4 ( unsigned char * baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     unsigned int *gpuData = ( unsigned int * ) baseAddr;
@@ -4360,6 +4488,8 @@ static BOOL DoLineCheck ( unsigned int * gpuData )
 
 static void primPolyFT3 ( unsigned char * baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
@@ -4788,6 +4918,8 @@ static void RectTexAlign ( void )
 
 static void primPolyFT4 ( unsigned char * baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -4864,6 +4996,8 @@ static void primPolyFT4 ( unsigned char * baseAddr )
 
 static void primPolyGT3 ( unsigned char *baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
@@ -4955,6 +5089,8 @@ static void primPolyGT3 ( unsigned char *baseAddr )
 
 static void primPolyG3 ( unsigned char *baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
@@ -5011,6 +5147,8 @@ static void primPolyG3 ( unsigned char *baseAddr )
 
 static void primPolyGT4 ( unsigned char *baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_GT4FT4)
@@ -5116,6 +5254,8 @@ static void primPolyGT4 ( unsigned char *baseAddr )
 
 static void primPolyF3 ( unsigned char *baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -5172,6 +5312,8 @@ static void primPolyF3 ( unsigned char *baseAddr )
 
 static void primLineGSkip ( unsigned char *baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
@@ -5208,6 +5350,8 @@ static void primLineGSkip ( unsigned char *baseAddr )
 
 static void primLineGEx ( unsigned char *baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
@@ -5285,6 +5429,8 @@ static void primLineGEx ( unsigned char *baseAddr )
 
 static void primLineG2 ( unsigned char *baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -5341,6 +5487,8 @@ static void primLineG2 ( unsigned char *baseAddr )
 
 static void primLineFSkip ( unsigned char *baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
@@ -5372,6 +5520,8 @@ static void primLineFSkip ( unsigned char *baseAddr )
 
 static void primLineFEx ( unsigned char *baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)
@@ -5441,6 +5591,8 @@ static void primLineFEx ( unsigned char *baseAddr )
 
 static void primLineF2 ( unsigned char *baseAddr )
 {
+    checkFirstPrim(false, false);
+
     CheckFullScreenUpload();
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_LINE)

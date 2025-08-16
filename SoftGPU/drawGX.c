@@ -133,7 +133,7 @@ void gc_vout_render(void)
 	GX_SetDrawDone();
 }
 
-void gx_vout_render(short canSwapFrameBuf)
+void gx_vout_render(short canClearFrameBuf)
 {
 	// reset swap table from GUI/DEBUG
 	// To improve efficiency, the original BGR pixel format of PS is directly used
@@ -142,7 +142,7 @@ void gx_vout_render(short canSwapFrameBuf)
 	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
 
 	GX_DrawDone();
-	GX_CopyDisp(xfb[FB_BACK], canSwapFrameBuf ? GX_TRUE : GX_FALSE);
+	GX_CopyDisp(xfb[FB_BACK], canClearFrameBuf ? GX_TRUE : GX_FALSE);
 	GX_Flush();
 
 	gc_vout_copydone();
