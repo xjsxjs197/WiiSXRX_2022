@@ -558,7 +558,6 @@ else
      #endif // DISP_DEBUG
      if (!isFlipEGL)
      {
-         canPrintFps = 1;
          loadImageCnt = 65536;
          otherPrimCmdExists = 0;
          flipEGL();
@@ -1833,7 +1832,7 @@ static inline void CheckVRamRead(int x, int y, int dx, int dy)
        //px = ps + (2*((int)((float)x * XS))+ (2*dx)*((int)((float)y*YS)));
        sx = *(unsigned short *)ps;
        ps += 2;
-       *p = ((sx & 0xffc0) >> 1) | (sx & 0x1f) | 0x8000;
+       *p = ((sx & 0xffc0) >> 1) | (sx & 0x1f);
 //       sx=(*px)>>3;px++;
 //       s=sx;
 //       sx=(*px)>>3;px++;
@@ -2335,7 +2334,7 @@ static void flipEGL(void)
     gx_vout_render((PSXDisplay.RGB24 || isPlayingMovie) ? 1 : 0);
 
     //clearLargeRange = 0;
-    if (canPrintFps && !PSXDisplay.Disabled)
+    if ((PSXDisplay.RGB24 || isPlayingMovie) && !PSXDisplay.Disabled)
     {
         drawTexturePage = FALSE;
     }

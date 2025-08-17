@@ -2211,7 +2211,7 @@ static void checkFirstPrim(bool isScreenClean, bool loadImage)
 //        return;
 //    }
 //
-//    firstPrim = false;
+    firstPrim = false;
     if (isScreenClean)
     {
         // The command is to clear the buffer (or play an animation),
@@ -2359,19 +2359,19 @@ void CheckWriteUpdate()
 
     // The current frame does not have the cmdTexturePage command,
     // so the data uploaded by command primLoadImage does not need to be manually displayed on the screen
-//    if (drawTexturePage == FALSE)
-//    {
-//        if ((VRAMWrite.Width != screenWidth || VRAMWrite.Height != screenHeight)
-//            && (VRAMWrite.y * 2 + VRAMWrite.Height) != screenHeight)
-//        {
-//            // Cancel all operations except during animation playback.
-//            #if defined(DISP_DEBUG)
-//            sprintf ( txtbuffer, "No drawTexturePage\r\n" );
-//            writeLogFile ( txtbuffer );
-//            #endif // DISP_DEBUG
-//            return;
-//        }
-//    }
+    if (drawTexturePage == FALSE)
+    {
+        if ((VRAMWrite.Width != screenWidth || VRAMWrite.Height != screenHeight)
+            && (VRAMWrite.y * 2 + VRAMWrite.Height) != screenHeight)
+        {
+            // Cancel all operations except during animation playback.
+            #if defined(DISP_DEBUG)
+            sprintf ( txtbuffer, "No drawTexturePage\r\n" );
+            writeLogFile ( txtbuffer );
+            #endif // DISP_DEBUG
+            return;
+        }
+    }
 
     int uploaded = 0;
     if ( !PSXDisplay.InterlacedTest &&
@@ -2758,6 +2758,9 @@ static void primBlkFill ( unsigned char * baseAddr )
                 SETCOL ( vertex[0] );
                 glPRIMdrawQuad ( &vertex[0] );
             }
+
+            // use software blkFill
+            BlkFillArea(sprtX, sprtY, sprtW, sprtH);
 
 //            unsigned char g, b, r;
 //            r = baseAddr[0];
