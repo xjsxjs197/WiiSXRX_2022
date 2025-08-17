@@ -2231,8 +2231,6 @@ static void checkFirstPrim(bool isScreenClean, bool loadImage)
 
 static void primLoadImage ( unsigned char * baseAddr )
 {
-    checkFirstPrim(PSXDisplay.RGB24 ? true : false, true);
-
     unsigned short *sgpuData = ( ( unsigned short * ) baseAddr );
 
     VRAMWrite.x      = GETLEs16 ( &sgpuData[2] ) & 0x03ff;
@@ -2243,6 +2241,8 @@ static void primLoadImage ( unsigned char * baseAddr )
     // clear movie garbage
     if (PSXDisplay.RGB24)
     {
+        checkFirstPrim(true, true);
+
         #if defined(DISP_DEBUG)
         sprintf ( txtbuffer, "primLoadImage24 %d %d %d %d\r\n", VRAMWrite.x * 2 / 3, VRAMWrite.y, VRAMWrite.Width * 2 / 3, VRAMWrite.Height);
         DEBUG_print ( txtbuffer, DBG_SPU1 );
@@ -2264,6 +2264,9 @@ static void primLoadImage ( unsigned char * baseAddr )
     }
     else
     {
+        bool loadFullScreen = (VRAMWrite.Width == (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560) && VRAMWrite.Height == PSXDisplay.Height);
+        if (loadFullScreen) canSwapBuf = 1;
+        checkFirstPrim(loadFullScreen, true);
         #if defined(DISP_DEBUG)
         if (clearMovieGarbageFlg == 1)
         {
@@ -2836,6 +2839,9 @@ static void primBlkFill ( unsigned char * baseAddr )
                 nextClearY = sprtY;
                 nextClearWidth = sprtW;
                 nextClearHeight = sprtH;
+
+                canPrintFps = 1;
+                canSwapBuf = 1;
             }
             else
             {

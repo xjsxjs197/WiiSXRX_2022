@@ -151,6 +151,7 @@ static unsigned short screenY1 = 240;
 static unsigned short screenWidth = 320;
 static unsigned short screenHeight = 240;
 static unsigned short canPrintFps = 1;
+static unsigned short canSwapBuf = 0;
 
 static BOOL    needUploadScreen = FALSE;
 static BOOL    uploadedScreen = FALSE;
@@ -2331,7 +2332,7 @@ static void flipEGL(void)
         }
     }
 
-    gx_vout_render((PSXDisplay.RGB24 || isPlayingMovie) ? 1 : 0);
+    gx_vout_render((PSXDisplay.RGB24 || isPlayingMovie || canSwapBuf) ? 1 : 0);
 
     //clearLargeRange = 0;
     if ((PSXDisplay.RGB24 || isPlayingMovie) && !PSXDisplay.Disabled)
@@ -2346,6 +2347,7 @@ static void flipEGL(void)
     firstPrim = true;
     loadImageCnt = 0;
     otherPrimCmdExists = 0;
+    canSwapBuf = 0;
 
     extern void resetTexCacheInfo(void);
     resetTexCacheInfo();
