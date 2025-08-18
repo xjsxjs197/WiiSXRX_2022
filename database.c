@@ -115,18 +115,6 @@ static const char * const special_game_hack_chrono_cross[] =
     "SLPS87395", "SLPS87396", "SLPS01041", "SLPS01080",
 };
 
-//static const char * const special_game_hack_no_swap_framebuf[] =
-//{
-//    /* TOMB RAIDER For GX gpu fix */
-//    "SLUS00152", "SLUS00437", "SLUS00691", "SLUS00885", "SLUS01311", "SLES00024", "SLES00485", "SLES00486",
-//    "SLES00718", "SLES00719", "SLES00720", "SLES00107", "SLES01649",
-//    "SLES01682", "SLES01683", "SLES01684", "SLES01685", "SLES02238", "SLES02239", "SLES02240", "SLES02241", "SLES02242",
-//    "SLES03331", "SLES03333", "SLES03334", "SLES03335", "SLES03336",
-//    "SLPS00617", "SLPS91049", "SLPS91433", "SLPS01200", "SLPS91119", "SLPS91434", "SCPS45385",
-//    "SCPS45386", "SLPM86196", "SLPM86197", "SLPS02803", "SLPM86896", "SLPM86779", "SLPM87160",
-//    /* VAGRANT STORY */
-//    "SLPS02377", "SCPS45486", "SLPS91457", "SLPM87393", "SLUS01040",
-//};
 
 #define HACK_ENTRY(var, list) \
     { #var, &Config.hacks.var, list, ARRAY_SIZE(list) }
@@ -355,13 +343,6 @@ void Apply_Hacks_Cdrom()
             break;
         }
     }
-//    for (i = 0; i < ARRAY_SIZE(special_game_hack_no_swap_framebuf); i++) {
-//        if (strcmp(CdromId, special_game_hack_no_swap_framebuf[i]) == 0)
-//        {
-//            Config.hacks.dwActFixes |= AUTO_FIX_NO_SWAP_BUF;
-//            break;
-//        }
-//    }
 }
 
 // from duckstation's gamedb.json

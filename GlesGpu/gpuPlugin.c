@@ -152,6 +152,7 @@ static unsigned short screenWidth = 320;
 static unsigned short screenHeight = 240;
 static unsigned short canPrintFps = 1;
 static unsigned short canSwapBuf = 0;
+static unsigned short chkGPUupdateLace5 = 0;
 
 static BOOL    needUploadScreen = FALSE;
 static BOOL    uploadedScreen = FALSE;
@@ -192,11 +193,12 @@ void BlkFillArea(short x0, short y0, short width, short height);
     GX_CopyTex(dummyBuf, GX_TRUE); \
 }
 
+void flipEGL(void);
+
 #include "gpuDraw.c"
 #include "gpuTexture.c"
 #include "gpuPrim.c"
 
-static void flipEGL(void);
 extern GXRModeObj *vmode;     /*** Graphics Mode Object ***/
 
 ////////////////////////////////////////////////////////////////////////
@@ -515,8 +517,6 @@ else                                                  // no skip ?
 
  }
 
-iDrawnSomething=0;
-
 //----------------------------------------------------//
 
 if(lClearOnSwap)                                      // clear buffer after swap?
@@ -557,10 +557,9 @@ else
      //DEBUG_print(txtbuffer, DBG_CDR1);
      writeLogFile(txtbuffer);
      #endif // DISP_DEBUG
-     if (!isFlipEGL)
+     if (!isFlipEGL && iDrawnSomething)
      {
-         loadImageCnt = 65536;
-         otherPrimCmdExists = 0;
+         canSwapBuf = 1;
          flipEGL();
      }
 
@@ -570,6 +569,7 @@ else
    }
  }
 
+iDrawnSomething=0;
 gl_z=0.0f;
 
 //----------------------------------------------------//
@@ -1068,19 +1068,21 @@ else if(usFirstPos==1)                                // initial updates (after 
      writeLogFile ( txtbuffer );
      #endif // DISP_DEBUG
      GPUupdateLace5Flg = 0;
+     chkGPUupdateLace5 = 0;
      if (CheckFullScreenUpload() || (needFlipEGL == TRUE && (iDrawnSomething & 0x1) == 0))
      {
          GPUupdateLace5Flg = 1;
          flipEGL();
          iDrawnSomething = 0;
      }
-//     else if (iDrawnSomething && !PSXDisplay.RGB24)
-//     {
-//         updateDisplayGl();
-//     }
-//     //else if ((RGB24Uploaded & 0x3) || (drawTexturePage && RGB24Uploaded))
-     else if ((RGB24Uploaded & 0x3))
+     else
      {
+         // The title screen of Bugs Bunny does not have a corresponding fade-to-black effect
+         // after pressing the start button.
+         if (iDrawnSomething == 1)
+         {
+             chkGPUupdateLace5 = 1;
+         }
 //         GPUupdateLace5Flg = 1;
 //         PrepareFullScreenUpload(-1);
 ////         xrUploadArea.x0 = PreviousPSXDisplay.DisplayPosition.x;
@@ -2306,15 +2308,17 @@ void CALLBACK GL_GPUrearmedCallbacks(const struct rearmed_cbs *_cbs)
   vout_set_config(_cbs);
 }
 
-static void flipEGL(void)
+void flipEGL(void)
 {
+    bool isPlayingMovie = (loadImageCnt >= 3 && !otherPrimCmdExists);
+
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "flipEGL %d \r\n", canPrintFps);
+    sprintf(txtbuffer, "flipEGL %d %d \r\n", (canPrintFps || isPlayingMovie) ? 1 : 0,
+            (PSXDisplay.RGB24 || isPlayingMovie || canSwapBuf) ? 1 : 0);
     DEBUG_print(txtbuffer, DBG_SPU3);
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
-    bool isPlayingMovie = (loadImageCnt >= 3 && !otherPrimCmdExists);
     if (canPrintFps || isPlayingMovie)
     {
         // Write menu/debug text on screen
@@ -2348,6 +2352,7 @@ static void flipEGL(void)
     loadImageCnt = 0;
     otherPrimCmdExists = 0;
     canSwapBuf = 0;
+    chkGPUupdateLace5 = 0;
 
     extern void resetTexCacheInfo(void);
     resetTexCacheInfo();
