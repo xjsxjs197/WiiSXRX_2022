@@ -1657,8 +1657,6 @@ int UploadScreen ( int Position )
 
     iDrawnSomething |= 0x2;
 
-
-
     bUsingMovie       = TRUE;
     bDrawTextured     = TRUE;                             // just doing textures
     bDrawSmoothShaded = FALSE;
@@ -1670,17 +1668,17 @@ int UploadScreen ( int Position )
     noNeedMulConstColor |= 0x2;
     glNoNeedMulConstColor( noNeedMulConstColor );
 
-    #if defined(DISP_DEBUG)
-    sprintf ( txtbuffer, "DrawOffset BEF_SetOGLD %d %d %d %d %d %d %d %d\r\n", PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y,
-              PreviousPSXDisplay.Range.x0, PreviousPSXDisplay.Range.y0, PSXDisplay.CumulOffset.x, PSXDisplay.CumulOffset.y);
-    writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
+//    #if defined(DISP_DEBUG)
+//    sprintf ( txtbuffer, "DrawOffset BEF_SetOGLD %d %d %d %d %d %d %d %d\r\n", PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y,
+//              PreviousPSXDisplay.Range.x0, PreviousPSXDisplay.Range.y0, PSXDisplay.CumulOffset.x, PSXDisplay.CumulOffset.y);
+//    writeLogFile(txtbuffer);
+//    #endif // DISP_DEBUG
     SetOGLDisplaySettings ( 0 );
-    #if defined(DISP_DEBUG)
-    sprintf ( txtbuffer, "DrawOffset AFT_SetOGLD %d %d %d %d %d %d %d %d\r\n", PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y,
-              PreviousPSXDisplay.Range.x0, PreviousPSXDisplay.Range.y0, PSXDisplay.CumulOffset.x, PSXDisplay.CumulOffset.y);
-    writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
+//    #if defined(DISP_DEBUG)
+//    sprintf ( txtbuffer, "DrawOffset AFT_SetOGLD %d %d %d %d %d %d %d %d\r\n", PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y,
+//              PreviousPSXDisplay.Range.x0, PreviousPSXDisplay.Range.y0, PSXDisplay.CumulOffset.x, PSXDisplay.CumulOffset.y);
+//    writeLogFile(txtbuffer);
+//    #endif // DISP_DEBUG
 
     YStep = 256;                                          // max texture size
     XStep = 256;
@@ -1811,10 +1809,6 @@ static BOOL IsInsideNextScreen ( short x, short y, short xoff, short yoff )
 
 static inline void cmdSTP ( unsigned char * baseAddr )
 {
-    #if defined(DISP_DEBUG)
-    sprintf ( txtbuffer, "cmdSTP\r\n");
-    writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
     uint32_t gdata = GETLE32 ( ( uint32_t* ) baseAddr );
 
     STATUSREG &= ~0x1800;                                 // clear the necessary bits
@@ -1854,6 +1848,10 @@ static inline void cmdSTP ( unsigned char * baseAddr )
         glError();
         iDepthFunc = 1;
     }
+    #if defined(DISP_DEBUG)
+    sprintf ( txtbuffer, "cmdSTP %d %d\r\n", iSetMask, bCheckMask);
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2266,6 +2264,16 @@ static void primLoadImage ( unsigned char * baseAddr )
     }
     else
     {
+        // The issue of underwater characters not being displayed in Dino Crisis 2
+//        if (chkGPUupdateLace5_Dino2)
+//        {
+//            canPrintFps = 1;
+//            canSwapBuf = 1;
+//            chkGPUupdateLace5_Dino2 = 0;
+//            flipEGL();
+//            iDrawnSomething = 0;
+//        }
+
         bool loadFullScreen = (VRAMWrite.Width == (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560) && VRAMWrite.Height == PSXDisplay.Height);
         if (loadFullScreen) canSwapBuf = 1;
         checkFirstPrim(loadFullScreen, true, false);
@@ -2364,19 +2372,19 @@ void CheckWriteUpdate()
 
     // The current frame does not have the cmdTexturePage command,
     // so the data uploaded by command primLoadImage does not need to be manually displayed on the screen
-    if (drawTexturePage == FALSE)
-    {
-        if ((VRAMWrite.Width != screenWidth || VRAMWrite.Height != screenHeight)
-            && (VRAMWrite.y * 2 + VRAMWrite.Height) != screenHeight)
-        {
-            // Cancel all operations except during animation playback.
-            #if defined(DISP_DEBUG)
-            sprintf ( txtbuffer, "No drawTexturePage\r\n" );
-            writeLogFile ( txtbuffer );
-            #endif // DISP_DEBUG
-            return;
-        }
-    }
+//    if (drawTexturePage == FALSE)
+//    {
+//        if ((VRAMWrite.Width != screenWidth || VRAMWrite.Height != screenHeight)
+//            && (VRAMWrite.y * 2 + VRAMWrite.Height) != screenHeight)
+//        {
+//            // Cancel all operations except during animation playback.
+//            #if defined(DISP_DEBUG)
+//            sprintf ( txtbuffer, "No drawTexturePage\r\n" );
+//            writeLogFile ( txtbuffer );
+//            #endif // DISP_DEBUG
+//            return;
+//        }
+//    }
 
     int uploaded = 0;
     if ( !PSXDisplay.InterlacedTest &&
@@ -2727,30 +2735,13 @@ static void primBlkFill ( unsigned char * baseAddr )
                 #endif // DISP_DEBUG
 
                 // Clear all Screen
-                if ((sprtX + sprtW) >= 1023 && (sprtY + sprtH) >= 511)
+                if (iDrawnSomething > 0)
                 {
-                    unsigned char g, b, r;
-                    r = baseAddr[0];
-                    g = baseAddr[1];
-                    b = baseAddr[2];
-
-                    glClearColor2 ( r, g, b, 255 );
-                    glClear ( uiBufferBits );
+                    GX_DrawDone();
+                    // Use GX_CopyTex(Clear the EFB and Z-buffer) instead of glClear.
+                    CLEAR_EFB();
                 }
-                else
-                {
-                    bDrawTextured     = FALSE;
-                    bDrawSmoothShaded = FALSE;
-                    SetRenderState ( ( unsigned int ) 0x01000000 );
-                    SetRenderMode ( ( unsigned int ) 0x01000000, FALSE );
-                    vertex[0].c.lcol = gpuData[0] | 0xFF;
-                    SETCOL ( vertex[0] );
-                    glPRIMdrawQuad ( &vertex[0] );
-                }
-                if (isFirstPrim)
-                {
-                    gl_z = 0.0f;
-                }
+                gl_z = 0.0f;
             }
             else
             {
@@ -2996,6 +2987,7 @@ static void primMoveImage ( unsigned char * baseAddr )
             SRCPtr += LineOffset;
             DSTPtr += LineOffset;
         }
+        DCInvalidateRange(psxVuw + ( 1024 * imageY1 ), imageSX * 1024 * 2);
     }
     else
     {
@@ -3014,6 +3006,7 @@ static void primMoveImage ( unsigned char * baseAddr )
             SRCPtr += LineOffset;
             DSTPtr += LineOffset;
         }
+        DCInvalidateRange(psxVuw + ( 1024 * imageY1 ), imageSX * 1024 * 2);
     }
 
     if ( !PSXDisplay.RGB24 )
@@ -3096,7 +3089,7 @@ static void primMoveImage ( unsigned char * baseAddr )
             }
 
             #if defined(DISP_DEBUG)
-            sprintf ( txtbuffer, "MoveImage UploadedScreen\r\n" );
+            sprintf ( txtbuffer, "MoveImage UploadedScreen %d\r\n", uploaded);
             writeLogFile ( txtbuffer );
             #endif // DISP_DEBUG
         }
@@ -3168,12 +3161,20 @@ static void primMoveImage ( unsigned char * baseAddr )
     } \
 }
 
-static inline void TitleFillArea(short x0, short y0, short width, short height, unsigned int colInfo)
+static inline void TitleFillArea(short x0, short y0, short width, short height, unsigned short colInfo)
 {
-    if (!(dwActFixes & AUTO_FIX_NEED_SOFT_TITLE))
+    // special fix for pinball game... emu protection???
+    if (width == 1 && height == 1 && x0 == 1020 && y0 == 511)
     {
-        return;
+        static int iCheat = 0;
+        colInfo += iCheat;
+        iCheat ^= 1;
     }
+
+//    if (!(dwActFixes & AUTO_FIX_NEED_SOFT_TITLE))
+//    {
+//        return;
+//    }
 
     if ( width <= 0 ) return;
     if ( height <= 0 ) return;
@@ -3187,7 +3188,7 @@ static inline void TitleFillArea(short x0, short y0, short width, short height, 
     if ( (y0 + height) > 512 ) height = 512 - y0;
     if ( (x0 + width) > 1024 ) width = 1024 - x0;
 
-    unsigned short colTmp = GETLE16(&colInfo);
+    unsigned short colTmp = SWAP16_C(colInfo);
     // clear area
     int startY;
     int tmpWid;
@@ -3355,19 +3356,20 @@ static void primTile1 ( unsigned char * baseAddr )
     sprtY = (sprtY <= -512 ? 0 : sprtY);
     sprtW = 1;
     sprtH = 1;
-    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
-    logType = 1;
-    sprintf ( txtbuffer, "primTile1 %d %d 1 1\r\n", sprtX, sprtY);
-    DEBUG_print ( txtbuffer, DBG_SPU3 );
-    writeLogFile(txtbuffer);
-    #else
-    logType = 0;
-    #endif // DISP_DEBUG
 
     lx0 = sprtX;
     ly0 = sprtY;
 
     offsetST();
+
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    logType = 1;
+    sprintf ( txtbuffer, "primTile1 %d %d 1 1\r\n", lx0 + PSXDisplay.CumulOffset.x, ly0 + PSXDisplay.CumulOffset.y);
+    DEBUG_print ( txtbuffer, DBG_SPU3 );
+    writeLogFile(txtbuffer);
+    #else
+    logType = 0;
+    #endif // DISP_DEBUG
 
     bDrawTextured = FALSE;
     bDrawSmoothShaded = FALSE;
@@ -3397,6 +3399,10 @@ static void primTile1 ( unsigned char * baseAddr )
     //vertex[0].c.col.a = 0xFF;
     SETCOL ( vertex[0] );
 
+    if ((lx0 + PSXDisplay.CumulOffset.x) > 640 || (ly0 + PSXDisplay.CumulOffset.y) > 480)
+    {
+        return;
+    }
     glPRIMdrawQuad ( &vertex[0] );
 
     //iDrawnSomething |= 0x1;
@@ -4161,8 +4167,6 @@ static void primSprtS ( unsigned char * baseAddr )
 
 static void primPolyF4 ( unsigned char *baseAddr )
 {
-    checkFirstPrim(false, false, true);
-
     CheckFullScreenUpload();
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
@@ -4176,6 +4180,14 @@ static void primPolyF4 ( unsigned char *baseAddr )
     ly2 = GETLEs16 ( &sgpuData[7] );
     lx3 = GETLEs16 ( &sgpuData[8] );
     ly3 = GETLEs16 ( &sgpuData[9] );
+
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
+    sprintf ( txtbuffer, "primPolyF4 Bef %d %d %d %d %d %d %d %d\r\n", lx0, ly0, lx1, ly1, lx2, ly2, lx3, ly3);
+    DEBUG_print ( txtbuffer, DBG_CORE2 );
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
+
+    checkFirstPrim(false, false, true);
 
     if ( offset4() ) return;
 
@@ -4501,6 +4513,166 @@ static BOOL DoLineCheck ( unsigned int * gpuData )
     return TRUE;
 }
 
+// 0 = disabled
+// 1 = enabled (default mode)
+// 2 = enabled (aggressive mode)
+
+typedef struct
+{
+    short x, y;
+    short padding[2];
+}sourceVert;
+
+// Hack to deal with PS1 games rendering axis aligned lines using 1 pixel wide triangles with UVs that describe a line
+// Suitable for games like Soul Blade, Doom and Hexen
+BOOL Hack_FindLine(uint32_t *gpuData)
+{
+    int pxWidth = 1;    // width of a single pixel
+    unsigned short cornerIdx, shortIdx, longIdx;
+
+    sourceVert* pSourceVerts = (sourceVert*)&gpuData[1];
+
+    // find short side of triangle / end of line with 2 vertices (guess which vertex is the right angle)
+    if ((vertex[0].sow == vertex[1].sow) && (vertex[0].tow == vertex[1].tow))
+        cornerIdx = 0;
+    else if ((vertex[1].sow == vertex[2].sow) && (vertex[1].tow == vertex[2].tow))
+        cornerIdx = 1;
+    else if ((vertex[2].sow == vertex[0].sow) && (vertex[2].tow == vertex[0].tow))
+        cornerIdx = 2;
+    else
+        return FALSE;
+
+    // assign other indices to remaining vertices
+    shortIdx = (cornerIdx + 1) % 3;
+    longIdx = (shortIdx + 1) % 3;
+
+    // determine line orientation and check width
+    if ((vertex[cornerIdx].x == vertex[shortIdx].x) && (abs(pSourceVerts[cornerIdx].y - pSourceVerts[shortIdx].y) == pxWidth))
+    {
+        // line is horizontal
+        // determine which is truly the corner by checking against the long side, while making sure it is axis aligned
+        if (vertex[shortIdx].y == vertex[longIdx].y)
+        {
+            unsigned short tempIdx = shortIdx;
+            shortIdx = cornerIdx;
+            cornerIdx = tempIdx;
+        }
+        else if (vertex[cornerIdx].y != vertex[longIdx].y)
+            return FALSE;
+
+        // flip corner index to other side of quad
+        vertex[3] = vertex[longIdx];
+        vertex[3].y = vertex[shortIdx].y;
+    }
+    else if ((vertex[cornerIdx].y == vertex[shortIdx].y) && (abs(pSourceVerts[cornerIdx].x - pSourceVerts[shortIdx].x) == pxWidth))
+    {
+        // line is vertical
+        // determine which is truly the corner by checking against the long side, while making sure it is axis aligned
+        if (vertex[shortIdx].x == vertex[longIdx].x)
+        {
+            unsigned short tempIdx = shortIdx;
+            shortIdx = cornerIdx;
+            cornerIdx = tempIdx;
+        }
+        else if (vertex[cornerIdx].x != vertex[longIdx].x)
+            return FALSE;
+
+        // flip corner index to other side of quad
+        vertex[3] = vertex[longIdx];
+        vertex[3].x = vertex[shortIdx].x;
+    }
+    else
+        return FALSE;
+
+    // Draw Quad
+    glPRIMdrawTexturedQuad ( &vertex[0], 0 );
+
+    iDrawnSomething |= 0x1;
+
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
+    sprintf ( txtbuffer, "primPolyFT3 FindLine\r\n" );
+    DEBUG_print ( txtbuffer, DBG_CORE2 );
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
+
+    return TRUE;
+}
+
+// Hack to deal with PS1 games rendering axis aligned lines using 1 pixel wide triangles and force UVs to describe a line
+// Required for games like Dark Forces and Duke Nukem
+BOOL Hack_ForceLine(uint32_t *gpuData)
+{
+    int pxWidth = 1;    // width of a single pixel
+    unsigned short cornerIdx, shortIdx, longIdx;
+
+    sourceVert* pSourceVerts = (sourceVert*)&gpuData[1];
+
+    // find vertical AB
+    unsigned short A, B, C;
+    if (vertex[0].x == vertex[1].x)
+        A = 0;
+    else if (vertex[1].x == vertex[2].x)
+        A = 1;
+    else if (vertex[2].x == vertex[0].x)
+        A = 2;
+    else
+        return FALSE;
+
+    // assign other indices to remaining vertices
+    B = (A + 1) % 3;
+    C = (B + 1) % 3;
+
+    // find horizontal AC or BC
+    if (vertex[A].y == vertex[C].y)
+        cornerIdx = A;
+    else if (vertex[B].y == vertex[C].y)
+        cornerIdx = B;
+    else
+        return FALSE;
+
+    // determine lengths of sides
+    if (abs(pSourceVerts[A].y - pSourceVerts[B].y) == pxWidth)
+    {
+        // is Horizontal
+        shortIdx = (cornerIdx == A) ? B : A;
+        longIdx = C;
+
+        // flip corner index to other side of quad
+        vertex[3] = vertex[longIdx];
+        vertex[3].y = vertex[shortIdx].y;
+    }
+    else if (abs(pSourceVerts[A].x - pSourceVerts[C].x) == pxWidth)
+    {
+        // is Vertical
+        shortIdx = C;
+        longIdx = (cornerIdx == A) ? B : A;
+
+        // flip corner index to other side of quad
+        vertex[3] = vertex[longIdx];
+        vertex[3].x = vertex[shortIdx].x;
+    }
+    else
+        return FALSE;
+
+    // force UVs into a line along the upper or left most edge of the triangle
+    // Otherwise the wrong UVs will be sampled on second triangle and by hardware renderers
+    vertex[shortIdx].sow = vertex[cornerIdx].sow;
+    vertex[shortIdx].tow = vertex[cornerIdx].tow;
+
+    // Draw Quad
+    glPRIMdrawTexturedQuad ( &vertex[0], 0 );
+
+    iDrawnSomething |= 0x1;
+
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
+    sprintf ( txtbuffer, "primPolyFT3 ForceLine\r\n" );
+    DEBUG_print ( txtbuffer, DBG_CORE2 );
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
+
+    return TRUE;
+}
+
 ////////////////////////////////////////////////////////////////////////
 
 static void primPolyFT3 ( unsigned char * baseAddr )
@@ -4561,10 +4733,24 @@ static void primPolyFT3 ( unsigned char * baseAddr )
 
     assignTexture3();
 
-    if ( ! ( dwActFixes & 0x10 ) )
+    switch(0)
     {
-        if ( DoLineCheck ( gpuData ) ) return;
+        case 0:
+            break;    // disabled
+        case 1:
+            if (Hack_FindLine(gpuData))    // default mode
+            return;
+            break;
+        case 2:
+            if (Hack_ForceLine(gpuData))    // aggressive mode
+            return;
+            break;
     }
+
+//    if ( ! ( dwActFixes & 0x10 ) )
+//    {
+//        if ( DoLineCheck ( gpuData ) ) return;
+//    }
 
     glPRIMdrawTexturedTri ( &vertex[0] );
 

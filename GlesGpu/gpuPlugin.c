@@ -153,6 +153,8 @@ static unsigned short screenHeight = 240;
 static unsigned short canPrintFps = 1;
 static unsigned short canSwapBuf = 0;
 static unsigned short chkGPUupdateLace5 = 0;
+static unsigned short chkGPUupdateLace5_Dino2 = 0;
+static unsigned short hasVRamRead = 0;
 
 static BOOL    needUploadScreen = FALSE;
 static BOOL    uploadedScreen = FALSE;
@@ -444,10 +446,12 @@ if(PSXDisplay.Disabled)                               // display disabled?
   //LOGE("PSXDisplay.Disabled");
 
   // moved here
-  glDisable(GL_SCISSOR_TEST); glError();
-  glClearColor2(0,0,0,128); glError();                 // -> clear whole backbuffer
-  glClear(uiBufferBits); glError();
-  glEnable(GL_SCISSOR_TEST); glError();
+  //glDisable(GL_SCISSOR_TEST); glError();
+  //glClearColor2(0,0,0,128); glError();                 // -> clear whole backbuffer
+  //glClear(uiBufferBits); glError();
+  //glEnable(GL_SCISSOR_TEST); glError();
+  // Use GX_CopyTex(Clear the EFB and Z-buffer) instead of glClear.
+  CLEAR_EFB();
   gl_z=0.0f;
   bDisplayNotSet = TRUE;
   #ifdef DISP_DEBUG
@@ -533,13 +537,15 @@ if(lClearOnSwap)                                      // clear buffer after swap
    SetOGLDisplaySettings(1);
 
   // lClearOnSwapColor (BGR)
-  g=((unsigned char)GREEN(lClearOnSwapColor));      // -> get col
-  b=((unsigned char)BLUE(lClearOnSwapColor));
-  r=((unsigned char)RED(lClearOnSwapColor));
-  glDisable(GL_SCISSOR_TEST); glError();
-  glClearColor2(r,g,b,128); glError();                 // -> clear
-  glClear(uiBufferBits); glError();
-  glEnable(GL_SCISSOR_TEST); glError();
+//  g=((unsigned char)GREEN(lClearOnSwapColor));      // -> get col
+//  b=((unsigned char)BLUE(lClearOnSwapColor));
+//  r=((unsigned char)RED(lClearOnSwapColor));
+//  glDisable(GL_SCISSOR_TEST); glError();
+//  glClearColor2(r,g,b,128); glError();                 // -> clear
+//  glClear(uiBufferBits); glError();
+//  glEnable(GL_SCISSOR_TEST); glError();
+    // Use GX_CopyTex(Clear the EFB and Z-buffer) instead of glClear.
+    CLEAR_EFB();
 
   // use software blkFill
   BlkFillArea(nextClearX, nextClearY, nextClearWidth, nextClearHeight);
@@ -557,10 +563,18 @@ else
      //DEBUG_print(txtbuffer, DBG_CDR1);
      writeLogFile(txtbuffer);
      #endif // DISP_DEBUG
-     if (!isFlipEGL && iDrawnSomething)
+     if (!isFlipEGL)
      {
-         canSwapBuf = 1;
-         flipEGL();
+         if (iDrawnSomething)
+         {
+             canSwapBuf = 1;
+             flipEGL();
+         }
+         else
+         {
+             // Use GX_CopyTex(Clear the EFB and Z-buffer) instead of glClear.
+             CLEAR_EFB();
+         }
      }
 
     //glDisable(GL_SCISSOR_TEST); glError();
@@ -1069,6 +1083,7 @@ else if(usFirstPos==1)                                // initial updates (after 
      #endif // DISP_DEBUG
      GPUupdateLace5Flg = 0;
      chkGPUupdateLace5 = 0;
+     chkGPUupdateLace5_Dino2 = 0;
      if (CheckFullScreenUpload() || (needFlipEGL == TRUE && (iDrawnSomething & 0x1) == 0))
      {
          GPUupdateLace5Flg = 1;
@@ -1077,12 +1092,25 @@ else if(usFirstPos==1)                                // initial updates (after 
      }
      else
      {
-         // The title screen of Bugs Bunny does not have a corresponding fade-to-black effect
-         // after pressing the start button.
          if (iDrawnSomething == 1)
          {
+             // The title screen of Bugs Bunny does not have a corresponding fade-to-black effect
+             // after pressing the start button.
              chkGPUupdateLace5 = 1;
          }
+//         else if (iDrawnSomething == 6)
+//         {
+//             if (chkGPUupdateLace5_Dino2)
+//             {
+//                 canPrintFps = 1;
+//                 canSwapBuf = 1;
+//                 GPUupdateLace5Flg = 1;
+//                 flipEGL();
+//                 iDrawnSomething = 0;
+//             }
+//             // The issue of underwater characters not being displayed in Dino Crisis 2
+//             chkGPUupdateLace5_Dino2 = 1;
+//         }
 //         GPUupdateLace5Flg = 1;
 //         PrepareFullScreenUpload(-1);
 ////         xrUploadArea.x0 = PreviousPSXDisplay.DisplayPosition.x;
@@ -1319,7 +1347,7 @@ switch(lCommand)
 
    CHECK_SCREEN_INFO();
    #ifdef DISP_DEBUG
-     sprintf(txtbuffer, "setting width %d %d\r\n", screenWidth, screenHeight);
+     sprintf(txtbuffer, "settingDispInfo06 width %d %d\r\n", screenWidth, screenHeight);
      writeLogFile(txtbuffer);
      #endif // DISP_DEBUG
    ChangeDispOffsetsXGl();
@@ -1344,7 +1372,7 @@ switch(lCommand)
      ChangeDispOffsetsYGl();
 
      #ifdef DISP_DEBUG
-     sprintf(txtbuffer, "setting height %d %d\r\n", screenWidth, screenHeight);
+     sprintf(txtbuffer, "settingDispInfo07 height %d %d\r\n", screenWidth, screenHeight);
      writeLogFile(txtbuffer);
      #endif // DISP_DEBUG
      CHECK_SCREEN_INFO();
@@ -1367,7 +1395,7 @@ switch(lCommand)
 
    PSXDisplay.PAL           = (gdata & 0x08)?TRUE:FALSE; // if 1 - PAL mode, else NTSC
    PSXDisplay.RGB24New      = (gdata & 0x10)?TRUE:FALSE; // if 1 - TrueColor
-   PSXDisplay.InterlacedNew = ((gdata & 0x24) ^ 0x24)?FALSE:TRUE; // if 0 - Interlace
+   PSXDisplay.InterlacedNew = (gdata & 0x20)?TRUE:FALSE; // if 1 - Interlace
 
    STATUSREG&=~GPUSTATUS_WIDTHBITS;                   // clear the width bits
 
@@ -1408,7 +1436,7 @@ switch(lCommand)
 
      CHECK_SCREEN_INFO();
      #ifdef DISP_DEBUG
-     sprintf(txtbuffer, "settingDispInfo07 %d %d %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y, screenWidth, screenHeight);
+     sprintf(txtbuffer, "settingDispInfo08 %d %d %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y, screenWidth, screenHeight);
      writeLogFile(txtbuffer);
      #endif // DISP_DEBUG
 
@@ -1766,6 +1794,7 @@ static inline void CheckVRamRead(int x, int y, int dx, int dy)
 
  if(y<0) y=0; if((y+dy)>iResY) dy=iResY-y;
 
+ hasVRamRead = 1;
  #ifdef DISP_DEBUG
  sprintf(txtbuffer, "CheckVRamRead %d %d %d %d %d %d\r\n", x, y , dx, dy, udx, udy);
  DEBUG_print(txtbuffer, DBG_CORE1);
@@ -1787,31 +1816,31 @@ static inline void CheckVRamRead(int x, int y, int dx, int dy)
     ps = (unsigned char *)pGfxCardScreen;
 
     //glReadPixels(x,y,dx,dy,GL_RGB,GL_UNSIGNED_BYTE,ps);
-//    GX_SetViewport(x, y, dx, dy, 0.0f, 1.0f);
-//    GX_SetScissor(x, y, dx, dy);
-//    GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
-//    GX_SetTexCopySrc(x, y, dx, dy);
-//    GX_SetTexCopyDst(dx, dy, GX_TF_RGB5A3, GX_FALSE);
-//    GX_CopyTex(ps, GX_FALSE);
-//    GX_PixModeSync();
-//    GX_SetDrawDone();
-//    DCInvalidateRange(pGfxCardScreen, size);
-//    GX_WaitDrawDone();
-
-    GX_DrawDone();
-    GX_SetViewport(0, 0, vmode->fbWidth, vmode->efbHeight, 0.0f, 1.0f);
-    GX_SetScissor(0, 0, vmode->fbWidth, vmode->efbHeight);
+    GX_SetViewport(x, y, dx, dy, 0.0f, 1.0f);
+    GX_SetScissor(x, y, dx, dy);
     GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
-    //GX_SetDispCopyYScale(1.0f);
-    GX_SetDispCopySrc((x + 1) & 0xfffffffe, (y + 1) & 0xfffffffe, (dx + 1) & 0xfffffffe, (dy + 1) & 0xfffffffe);
-    GX_SetDispCopyDst((udx + 15) & 0xfffffff0, (udy + 1) & 0xfffffffe);
-
-    Mtx44 proj;
-    guOrtho(proj, 0, 479, 0, 639, 0, 100);
-    GX_LoadProjectionMtx(proj, GX_ORTHOGRAPHIC);
-    GX_SetZMode(GX_FALSE, GX_ALWAYS, GX_FALSE);
-    GX_CopyDisp(ps, GX_FALSE);
+    GX_SetTexCopySrc(x, y, dx, dy);
+    GX_SetTexCopyDst((udx + 15) & 0xfffffff0, (udy + 1) & 0xfffffffe, GX_TF_RGB5A3, GX_FALSE);
+    GX_CopyTex(ps, GX_FALSE);
+    GX_PixModeSync();
+    GX_SetDrawDone();
+    GX_WaitDrawDone();
     DCInvalidateRange(pGfxCardScreen, size);
+
+//    GX_DrawDone();
+//    GX_SetViewport(0, 0, vmode->fbWidth, vmode->efbHeight, 0.0f, 1.0f);
+//    GX_SetScissor(0, 0, vmode->fbWidth, vmode->efbHeight);
+//    GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
+//    //GX_SetDispCopyYScale(1.0f);
+//    GX_SetDispCopySrc((x + 1) & 0xfffffffe, (y + 1) & 0xfffffffe, (dx + 1) & 0xfffffffe, (dy + 1) & 0xfffffffe);
+//    GX_SetDispCopyDst((udx + 15) & 0xfffffff0, (udy + 1) & 0xfffffffe);
+
+//    Mtx44 proj;
+//    guOrtho(proj, 0, 479, 0, 639, 0, 100);
+//    GX_LoadProjectionMtx(proj, GX_ORTHOGRAPHIC);
+//    GX_SetZMode(GX_FALSE, GX_ALWAYS, GX_FALSE);
+//    GX_CopyDisp(ps, GX_FALSE);
+//    DCInvalidateRange(pGfxCardScreen, size);
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -1835,7 +1864,8 @@ static inline void CheckVRamRead(int x, int y, int dx, int dy)
        //px = ps + (2*((int)((float)x * XS))+ (2*dx)*((int)((float)y*YS)));
        sx = *(unsigned short *)ps;
        ps += 2;
-       *p = ((sx & 0xffc0) >> 1) | (sx & 0x1f);
+       *p = sx;
+//       *p = ((sx & 0xffc0) >> 1) | (sx & 0x1f);
 //       sx=(*px)>>3;px++;
 //       s=sx;
 //       sx=(*px)>>3;px++;
@@ -1874,9 +1904,10 @@ while(VRAMRead.ImagePtr<psxVuw)
 //     VRAMRead.y      == VRAMWrite.y     &&
 //     VRAMRead.Width  == VRAMWrite.Width &&
 //     VRAMRead.Height == VRAMWrite.Height))
-// CheckVRamRead(VRAMRead.x,VRAMRead.y,
-//               VRAMRead.x+VRAMRead.RowsRemaining,
-//               VRAMRead.y+VRAMRead.ColsRemaining);
+ if (iSize > 1)
+ CheckVRamRead(VRAMRead.x,VRAMRead.y,
+               VRAMRead.x+VRAMRead.RowsRemaining,
+               VRAMRead.y+VRAMRead.ColsRemaining);
 
 for(i=0;i<iSize;i++)
  {
@@ -2047,7 +2078,15 @@ if(iDataWriteMode==DR_VRAMTRANSFER)
 
        gdata=GETLE32(pMem); pMem++;
 
-       PUTLE16(VRAMWrite.ImagePtr, (unsigned short)gdata); VRAMWrite.ImagePtr++;
+       // Write odd pixel - Wrap from beginning to next index if going past GPU width
+       if (VRAMWrite.Width + VRAMWrite.x - VRAMWrite.RowsRemaining >= 1024)
+       {
+           PUTLE16(((VRAMWrite.ImagePtr++) - 1024), (unsigned short)gdata);
+       }
+       else
+       {
+           PUTLE16(VRAMWrite.ImagePtr++, (unsigned short)gdata);
+       }
       if(VRAMWrite.ImagePtr>=psxVuw_eom) VRAMWrite.ImagePtr-=iGPUHeight*1024;
       VRAMWrite.RowsRemaining --;
 
@@ -2064,7 +2103,15 @@ if(iDataWriteMode==DR_VRAMTRANSFER)
         VRAMWrite.ImagePtr += 1024 - VRAMWrite.Width;
        }
 
-       PUTLE16(VRAMWrite.ImagePtr, (unsigned short)(gdata>>16)); VRAMWrite.ImagePtr++;
+       // Write even pixel - Wrap from beginning to next index if going past GPU width
+       if (VRAMWrite.Width + VRAMWrite.x - VRAMWrite.RowsRemaining >= 1024)
+       {
+           PUTLE16(((VRAMWrite.ImagePtr++) - 1024), (unsigned short)(gdata>>16));
+       }
+       else
+       {
+           PUTLE16(VRAMWrite.ImagePtr++, (unsigned short)(gdata>>16));
+       }
       if(VRAMWrite.ImagePtr>=psxVuw_eom) VRAMWrite.ImagePtr-=iGPUHeight*1024;
       VRAMWrite.RowsRemaining --;
      }
@@ -2202,7 +2249,8 @@ do
 
    addr = GETLE32(&baseAddrL[addr>>2])&0xffffff;
   }
- while (addr != 0xffffff);
+ while (!(addr & 0x800000)); // contrary to some documentation, the end-of-linked-list marker is not actually 0xFF'FFFF
+                             // any pointer with bit 23 set will do.
 
  GPUIsIdle;
 
@@ -2353,6 +2401,8 @@ void flipEGL(void)
     otherPrimCmdExists = 0;
     canSwapBuf = 0;
     chkGPUupdateLace5 = 0;
+    chkGPUupdateLace5_Dino2 = 0;
+    hasVRamRead = 0;
 
     extern void resetTexCacheInfo(void);
     resetTexCacheInfo();
