@@ -42,10 +42,10 @@
 // defines
 ////////////////////////////////////////////////////////////////////////
 
-//#define CMD_LOG_3D
+#define CMD_LOG_3D
 #define CMD_LOG_2D
-//#define CMD_LOG_LINE
-//#define CMD_LOG_GT4FT4
+#define CMD_LOG_LINE
+#define CMD_LOG_GT4FT4
 
 static short logType = 0;
 
@@ -1445,25 +1445,6 @@ BOOL CheckAgainstFrontScreen ( short imageX0, short imageY0, short imageX1, shor
 }
 
 ////////////////////////////////////////////////////////////////////////
-//int CheckClearUploadArea ( short x0, short x1, short y0, short y1 )
-//{
-//    if (PSXDisplay.Disabled || PSXDisplay.RGB24)
-//    {
-//        return 0;
-//    }
-//
-//    if (needUploadScreen == TRUE && uploadedScreen == FALSE)
-//    {
-//        if ((uploadAreaX1 >= x0) && (uploadAreaX2 <= x1) && (uploadAreaY1 >= y0) && (uploadAreaY2 <= y1))
-//        {
-//            canSwapFrameBuf = TRUE;
-//            return 1;
-//        }
-//    }
-//
-//    return 0;
-//}
-
 int CheckFullScreenUpload ( void )
 {
     if (PSXDisplay.Disabled || PSXDisplay.RGB24)
@@ -1836,10 +1817,6 @@ static BOOL IsInsideNextScreen ( short x, short y, short xoff, short yoff )
 
 static inline void cmdSTP ( unsigned char * baseAddr )
 {
-    #if defined(DISP_DEBUG)
-    sprintf ( txtbuffer, "cmdSTP\r\n");
-    writeLogFile(txtbuffer);
-    #endif // DISP_DEBUG
     uint32_t gdata = GETLE32 ( ( uint32_t* ) baseAddr );
 
     STATUSREG &= ~0x1800;                                 // clear the necessary bits
@@ -1879,6 +1856,10 @@ static inline void cmdSTP ( unsigned char * baseAddr )
         glError();
         iDepthFunc = 1;
     }
+    #if defined(DISP_DEBUG)
+    sprintf ( txtbuffer, "cmdSTP %d %d\r\n", iSetMask, bCheckMask);
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2581,7 +2562,9 @@ static void primBlkFill ( unsigned char * baseAddr )
               PreviousPSXDisplay.Range.x0, PreviousPSXDisplay.Range.y0, PSXDisplay.CumulOffset.x, PSXDisplay.CumulOffset.y);
     writeLogFile(txtbuffer);
     logType = 1;
-    sprintf ( txtbuffer, "primBlkFill %d %d %d %d %08x %d %d\r\n", sprtX, sprtY, sprtW, sprtH, gpuData[0] ,DrawSemiTrans, GlobalTextABR);
+    sprintf ( txtbuffer, "primBlkFill %d %d %d %d %08x %d %d %d %d\r\n",
+             sprtX, sprtY, sprtW, sprtH, gpuData[0],
+             screenX, screenY, screenX1, screenY1);
     DEBUG_print ( txtbuffer, DBG_SPU3 );
     writeLogFile(txtbuffer);
     #else
@@ -3041,8 +3024,16 @@ static void primMoveImage ( unsigned char * baseAddr )
     } \
 }
 
-static inline void TitleFillArea(short x0, short y0, short width, short height, unsigned int colInfo)
+static inline void TitleFillArea(short x0, short y0, short width, short height, unsigned short colInfo)
 {
+    // special fix for pinball game... emu protection???
+    if (width == 1 && height == 1 && x0 == 1020 && y0 == 511)
+    {
+        static int iCheat = 0;
+        colInfo += iCheat;
+        iCheat ^= 1;
+    }
+
     if (!(dwActFixes & AUTO_FIX_NEED_SOFT_TITLE))
     {
         return;
@@ -3060,7 +3051,7 @@ static inline void TitleFillArea(short x0, short y0, short width, short height, 
     if ( (y0 + height) > 512 ) height = 512 - y0;
     if ( (x0 + width) > 1024 ) width = 1024 - x0;
 
-    unsigned short colTmp = GETLE16(&colInfo);
+    unsigned short colTmp = SWAP16_C(colInfo);
     // clear area
     int startY;
     int tmpWid;
@@ -3132,7 +3123,7 @@ static void primTileS ( unsigned char * baseAddr )
 
     offsetPSX4();
     TitleFillArea(lx0, ly0, sprtW, sprtH, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
-    //CheckClearUploadArea(lx0, ly0, lx0 + sprtW, ly0 + sprtH);
+
 //        if ( bDrawOffscreen4() )
 //        {
 //            if ( ! ( iTileCheat && sprtH == 32 && gpuData[0] == SWAP32_C(0x60ffffff) ) ) // special cheat for certain ZiNc games
@@ -3175,21 +3166,23 @@ static void primTileS ( unsigned char * baseAddr )
     SETCOL ( vertex[0] );
 
     // is clear screen?
-    clearLargeRange = 0;
-    if (DrawSemiTrans && (sprtX == 0 || sprtY == 0) && sprtW > 200 && sprtH > 200)
-    {
-        clearLargeRange = 1;
-        largeRangeX1 = sprtX;
-        largeRangeX2 = sprtX + sprtW;
-        largeRangeY1 = sprtY;
-        largeRangeY2 = sprtY + sprtH;
-    }
+//    clearLargeRange = 0;
+//    if (DrawSemiTrans && (sprtX == 0 || sprtY == 0) && sprtW > 200 && sprtH > 200)
+//    {
+//        clearLargeRange = 1;
+//        largeRangeX1 = sprtX;
+//        largeRangeX2 = sprtX + sprtW;
+//        largeRangeY1 = sprtY;
+//        largeRangeY2 = sprtY + sprtH;
+//    }
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     sprintf ( txtbuffer, "DrawOffset %d %d %d %d %d %d %d %d\r\n", PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y,
               PreviousPSXDisplay.Range.x0, PreviousPSXDisplay.Range.y0, PSXDisplay.CumulOffset.x, PSXDisplay.CumulOffset.y);
     writeLogFile(txtbuffer);
-    sprintf ( txtbuffer, "primTileS %d %d %d %d %08x\r\n", sprtX, sprtY, sprtW, sprtH, vertex[0].c.lcol);
+    sprintf ( txtbuffer, "primTileS %d %d %d %d %08x %d %d %d %d\r\n",
+             sprtX, sprtY, sprtW, sprtH, vertex[0].c.lcol,
+             screenX, screenY, screenX1, screenY1 );
     DEBUG_print ( txtbuffer, DBG_SPU3 );
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
@@ -3216,19 +3209,20 @@ static void primTile1 ( unsigned char * baseAddr )
     sprtY = (sprtY <= -512 ? 0 : sprtY);
     sprtW = 1;
     sprtH = 1;
-    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
-    logType = 1;
-    sprintf ( txtbuffer, "primTile1 %d %d 1 1\r\n", sprtX, sprtY);
-    DEBUG_print ( txtbuffer, DBG_SPU3 );
-    writeLogFile(txtbuffer);
-    #else
-    logType = 0;
-    #endif // DISP_DEBUG
 
     lx0 = sprtX;
     ly0 = sprtY;
 
     offsetST();
+
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+    logType = 1;
+    sprintf ( txtbuffer, "primTile1 %d %d 1 1\r\n", lx0 + PSXDisplay.CumulOffset.x, ly0 + PSXDisplay.CumulOffset.y);
+    DEBUG_print ( txtbuffer, DBG_SPU3 );
+    writeLogFile(txtbuffer);
+    #else
+    logType = 0;
+    #endif // DISP_DEBUG
 
     bDrawTextured = FALSE;
     bDrawSmoothShaded = FALSE;
@@ -3258,6 +3252,10 @@ static void primTile1 ( unsigned char * baseAddr )
     //vertex[0].c.col.a = 0xFF;
     SETCOL ( vertex[0] );
 
+    if ((lx0 + PSXDisplay.CumulOffset.x) > 640 || (ly0 + PSXDisplay.CumulOffset.y) > 480)
+    {
+        return;
+    }
     glPRIMdrawQuad ( &vertex[0] );
 
     //iDrawnSomething |= 0x1;
@@ -3972,11 +3970,11 @@ static void primSprtS ( unsigned char * baseAddr )
     assignTextureSprite();
 
     // is screen cleared?
-    if (clearLargeRange && INRANGE(sprtX, sprtX + sprtW, sprtY, sprtY + sprtH))
-    {
-        // Which game was this fix intended for? I can't recall.
-        //glSetVramClearedFlg();
-    }
+//    if (clearLargeRange && INRANGE(sprtX, sprtX + sprtW, sprtY, sprtY + sprtH))
+//    {
+//        // Which game was this fix intended for? I can't recall.
+//        //glSetVramClearedFlg();
+//    }
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     sprintf ( txtbuffer, "DrawOffset %d %d %d %d %d %d %d %d\r\n", PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y,
@@ -4033,6 +4031,12 @@ static void primPolyF4 ( unsigned char *baseAddr )
     ly2 = GETLEs16 ( &sgpuData[7] );
     lx3 = GETLEs16 ( &sgpuData[8] );
     ly3 = GETLEs16 ( &sgpuData[9] );
+
+    #if defined(DISP_DEBUG) && defined(CMD_LOG_3D)
+    sprintf ( txtbuffer, "primPolyF4 Bef %d %d %d %d %d %d %d %d\r\n", lx0, ly0, lx1, ly1, lx2, ly2, lx3, ly3);
+    DEBUG_print ( txtbuffer, DBG_CORE2 );
+    writeLogFile(txtbuffer);
+    #endif // DISP_DEBUG
 
     if ( offset4() ) return;
 

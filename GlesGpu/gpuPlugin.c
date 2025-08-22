@@ -1270,7 +1270,7 @@ switch(lCommand)
 
    CHECK_SCREEN_INFO();
    #ifdef DISP_DEBUG
-     sprintf(txtbuffer, "setting width %d %d\r\n", screenWidth, screenHeight);
+     sprintf(txtbuffer, "settingDispInfo06 width %d %d\r\n", screenWidth, screenHeight);
      writeLogFile(txtbuffer);
      #endif // DISP_DEBUG
    ChangeDispOffsetsXGl();
@@ -1295,7 +1295,7 @@ switch(lCommand)
      ChangeDispOffsetsYGl();
 
      #ifdef DISP_DEBUG
-     sprintf(txtbuffer, "setting height %d %d\r\n", screenWidth, screenHeight);
+     sprintf(txtbuffer, "settingDispInfo07 height %d %d\r\n", screenWidth, screenHeight);
      writeLogFile(txtbuffer);
      #endif // DISP_DEBUG
      CHECK_SCREEN_INFO();
@@ -1359,7 +1359,7 @@ switch(lCommand)
 
      CHECK_SCREEN_INFO();
      #ifdef DISP_DEBUG
-     sprintf(txtbuffer, "settingDispInfo07 %d %d %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y, screenWidth, screenHeight);
+     sprintf(txtbuffer, "settingDispInfo08 %d %d %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y, screenWidth, screenHeight);
      writeLogFile(txtbuffer);
      #endif // DISP_DEBUG
 
@@ -1943,7 +1943,15 @@ if(iDataWriteMode==DR_VRAMTRANSFER)
 
        gdata=GETLE32(pMem); pMem++;
 
-       PUTLE16(VRAMWrite.ImagePtr, (unsigned short)gdata); VRAMWrite.ImagePtr++;
+       // Write odd pixel - Wrap from beginning to next index if going past GPU width
+       if (VRAMWrite.Width + VRAMWrite.x - VRAMWrite.RowsRemaining >= 1024)
+       {
+           PUTLE16(((VRAMWrite.ImagePtr++) - 1024), (unsigned short)gdata);
+       }
+       else
+       {
+           PUTLE16(VRAMWrite.ImagePtr++, (unsigned short)gdata);
+       }
       if(VRAMWrite.ImagePtr>=psxVuw_eom) VRAMWrite.ImagePtr-=iGPUHeight*1024;
       VRAMWrite.RowsRemaining --;
 
@@ -1960,7 +1968,15 @@ if(iDataWriteMode==DR_VRAMTRANSFER)
         VRAMWrite.ImagePtr += 1024 - VRAMWrite.Width;
        }
 
-       PUTLE16(VRAMWrite.ImagePtr, (unsigned short)(gdata>>16)); VRAMWrite.ImagePtr++;
+       // Write even pixel - Wrap from beginning to next index if going past GPU width
+       if (VRAMWrite.Width + VRAMWrite.x - VRAMWrite.RowsRemaining >= 1024)
+       {
+           PUTLE16(((VRAMWrite.ImagePtr++) - 1024), (unsigned short)(gdata>>16));
+       }
+       else
+       {
+           PUTLE16(VRAMWrite.ImagePtr++, (unsigned short)(gdata>>16));
+       }
       if(VRAMWrite.ImagePtr>=psxVuw_eom) VRAMWrite.ImagePtr-=iGPUHeight*1024;
       VRAMWrite.RowsRemaining --;
      }
@@ -2098,7 +2114,8 @@ do
 
    addr = GETLE32(&baseAddrL[addr>>2])&0xffffff;
   }
- while (addr != 0xffffff);
+ while (!(addr & 0x800000)); // contrary to some documentation, the end-of-linked-list marker is not actually 0xFF'FFFF
+                             // any pointer with bit 23 set will do.
 
  GPUIsIdle;
 

@@ -106,6 +106,8 @@ static const char * const special_game_hack_need_soft_title[] =
     "SLPS01490", "SLPS01491", "SCPS45291", "SLUS00726", "SLUS90029",
     /* VAGRANT STORY */
     "SLPS02377", "SCPS45486", "SLPS91457", "SLPM87393", "SLUS01040",
+    /* PRO PINBALL - TIMESHOCK! */
+    "SLUS00639", "SLES00606",
 };
 
 static const char * const special_game_hack_chrono_cross[] =
