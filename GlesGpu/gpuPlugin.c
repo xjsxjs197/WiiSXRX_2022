@@ -155,6 +155,7 @@ static unsigned short canSwapBuf = 0;
 static unsigned short chkGPUupdateLace5 = 0;
 static unsigned short chkGPUupdateLace5_Dino2 = 0;
 static unsigned short hasVRamRead = 0;
+static unsigned short hasUploadScreen = 0;
 
 static BOOL    needUploadScreen = FALSE;
 static BOOL    uploadedScreen = FALSE;
@@ -188,11 +189,10 @@ static short   nextClearHeight;
 
 void BlkFillArea(short x0, short y0, short width, short height);
 
+extern u32* xfb[3];	/*** Framebuffers ***/
+
 #define CLEAR_EFB() { \
-    GX_SetTexCopySrc(0, 0, 4, 4); \
-    GX_SetTexCopyDst(4, 4, GX_TF_RGB5A3, GX_TRUE); \
-    static u8 dummyBuf[4 * 4 * 2] __attribute__((aligned(32))); \
-    GX_CopyTex(dummyBuf, GX_TRUE); \
+    GX_CopyDisp(xfb[0], GX_TRUE); \
 }
 
 void flipEGL(void);
@@ -452,6 +452,10 @@ if(PSXDisplay.Disabled)                               // display disabled?
   //glEnable(GL_SCISSOR_TEST); glError();
   // Use GX_CopyTex(Clear the EFB and Z-buffer) instead of glClear.
   CLEAR_EFB();
+  #if defined(DISP_DEBUG)
+  sprintf ( txtbuffer, "CLEAR_EFB \r\n");
+  writeLogFile(txtbuffer);
+  #endif
   gl_z=0.0f;
   bDisplayNotSet = TRUE;
   #ifdef DISP_DEBUG
@@ -546,6 +550,10 @@ if(lClearOnSwap)                                      // clear buffer after swap
 //  glEnable(GL_SCISSOR_TEST); glError();
     // Use GX_CopyTex(Clear the EFB and Z-buffer) instead of glClear.
     CLEAR_EFB();
+    #if defined(DISP_DEBUG)
+    sprintf ( txtbuffer, "CLEAR_EFB \r\n");
+    writeLogFile(txtbuffer);
+    #endif
 
   // use software blkFill
   BlkFillArea(nextClearX, nextClearY, nextClearWidth, nextClearHeight);
@@ -572,8 +580,9 @@ else
          }
          else
          {
+             // Not need do anything
              // Use GX_CopyTex(Clear the EFB and Z-buffer) instead of glClear.
-             CLEAR_EFB();
+             //CLEAR_EFB();
          }
      }
 
@@ -1078,7 +1087,7 @@ else if(usFirstPos==1)                                // initial updates (after 
  else
  {
      #ifdef DISP_DEBUG
-     sprintf ( txtbuffer, "GPUupdateLace5 %x %d %d %d %x\r\n", iDrawnSomething, PSXDisplay.Interlaced, PSXDisplay.Disabled, PSXDisplay.InterlacedTest, RGB24Uploaded);
+     sprintf ( txtbuffer, "GPUupdateLace5 %x %d %d %d %x %d\r\n", iDrawnSomething, PSXDisplay.Interlaced, PSXDisplay.Disabled, PSXDisplay.InterlacedTest, RGB24Uploaded, hasUploadScreen);
      writeLogFile ( txtbuffer );
      #endif // DISP_DEBUG
      GPUupdateLace5Flg = 0;
@@ -1098,6 +1107,14 @@ else if(usFirstPos==1)                                // initial updates (after 
              // after pressing the start button.
              chkGPUupdateLace5 = 1;
          }
+//         else if (iDrawnSomething == 2 && hasUploadScreen)
+//         {
+//             // Fix for the missing title in Crash Team Racing.
+//             GPUupdateLace5Flg = 1;
+//             canPrintFps = 1;
+//             flipEGL();
+//             iDrawnSomething = 0;
+//         }
 //         else if (iDrawnSomething == 6)
 //         {
 //             if (chkGPUupdateLace5_Dino2)
@@ -2403,6 +2420,7 @@ void flipEGL(void)
     chkGPUupdateLace5 = 0;
     chkGPUupdateLace5_Dino2 = 0;
     hasVRamRead = 0;
+    hasUploadScreen = 0;
 
     extern void resetTexCacheInfo(void);
     resetTexCacheInfo();

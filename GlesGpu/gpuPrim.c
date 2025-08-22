@@ -1653,6 +1653,9 @@ int UploadScreen ( int Position )
             // Therefore, such textures are deliberately skipped in this implementation.
             return 1;
         }
+
+        // Fix for the missing title in Crash Team Racing.
+        hasUploadScreen = 1;
     }
 
     iDrawnSomething |= 0x2;
@@ -2203,18 +2206,26 @@ static void checkFirstPrim(bool isScreenClean, bool loadImage, bool needChkGPUup
 //        return;
 //    }
 //
-    firstPrim = false;
     if (isScreenClean)
     {
         // The command is to clear the buffer (or play an animation),
         // performing a concise clearing operation, and the FPS can be displayed.
-        CLEAR_EFB();
+        if (firstPrim)
+        {
+            CLEAR_EFB();
+            #if defined(DISP_DEBUG)
+            sprintf ( txtbuffer, "CLEAR_EFB \r\n");
+            writeLogFile(txtbuffer);
+            #endif
+        }
+
         canPrintFps = 1;
     }
 //    else
 //    {
 //        canPrintFps = 0;
 //    }
+    firstPrim = false;
 
     // The title screen of Bugs Bunny does not have a corresponding fade-to-black effect
     // after pressing the start button.
@@ -2241,8 +2252,6 @@ static void primLoadImage ( unsigned char * baseAddr )
     // clear movie garbage
     if (PSXDisplay.RGB24)
     {
-        checkFirstPrim(true, true, false);
-
         #if defined(DISP_DEBUG)
         sprintf ( txtbuffer, "primLoadImage24 %d %d %d %d\r\n", VRAMWrite.x * 2 / 3, VRAMWrite.y, VRAMWrite.Width * 2 / 3, VRAMWrite.Height);
         DEBUG_print ( txtbuffer, DBG_SPU1 );
@@ -2274,9 +2283,6 @@ static void primLoadImage ( unsigned char * baseAddr )
 //            iDrawnSomething = 0;
 //        }
 
-        bool loadFullScreen = (VRAMWrite.Width == (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560) && VRAMWrite.Height == PSXDisplay.Height);
-        if (loadFullScreen) canSwapBuf = 1;
-        checkFirstPrim(loadFullScreen, true, false);
         #if defined(DISP_DEBUG)
         if (clearMovieGarbageFlg == 1)
         {
@@ -2334,6 +2340,9 @@ static void PrepareRGB24Upload ( void )
         }
         RGB24Uploaded |= 0x8;
     }
+
+    checkFirstPrim(true, true, false);
+
     #if defined(DISP_DEBUG)
     sprintf ( txtbuffer, "PrepareRGB24Upload %x\r\n", RGB24Uploaded);
     writeLogFile ( txtbuffer );
@@ -2403,6 +2412,10 @@ void CheckWriteUpdate()
             //bNeedUploadTest = TRUE;
             if (uploaded)
             {
+                bool loadFullScreen = (VRAMWrite.Width == (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560) && VRAMWrite.Height == PSXDisplay.Height);
+                if (loadFullScreen) canSwapBuf = 1;
+                checkFirstPrim(loadFullScreen, true, false);
+
                 needUploadScreen = FALSE;
                 uploadedScreen = FALSE;
             }
@@ -2735,11 +2748,15 @@ static void primBlkFill ( unsigned char * baseAddr )
                 #endif // DISP_DEBUG
 
                 // Clear all Screen
-                if (iDrawnSomething > 0)
+                //if (iDrawnSomething > 0)
                 {
                     GX_DrawDone();
                     // Use GX_CopyTex(Clear the EFB and Z-buffer) instead of glClear.
                     CLEAR_EFB();
+                    #if defined(DISP_DEBUG)
+                    sprintf ( txtbuffer, "CLEAR_EFB \r\n");
+                    writeLogFile(txtbuffer);
+                    #endif
                 }
                 gl_z = 0.0f;
             }
@@ -2950,6 +2967,7 @@ static void primMoveImage ( unsigned char * baseAddr )
     {
         iDrawnSomething &= ~0x8;
         canPrintFps = 1;
+        canSwapBuf = 1;
     }
     else
     {
@@ -3023,7 +3041,7 @@ static void primMoveImage ( unsigned char * baseAddr )
                 if (isFirstPrim)
                 {
                     checkFirstPrim(true, false, false);
-                    canSwapBuf = 1;
+                    //canSwapBuf = 1;
                 }
             }
 
@@ -3085,13 +3103,14 @@ static void primMoveImage ( unsigned char * baseAddr )
             uploaded = UploadScreen ( FALSE );
             if (uploaded)
             {
-                needFlipEGL = TRUE;
+                #if defined(DISP_DEBUG)
+                sprintf ( txtbuffer, "MoveImage UploadedScreen %d\r\n", uploaded);
+                writeLogFile ( txtbuffer );
+                #endif // DISP_DEBUG
+                flipEGL();
+                iDrawnSomething = 0;
+                //needFlipEGL = TRUE;
             }
-
-            #if defined(DISP_DEBUG)
-            sprintf ( txtbuffer, "MoveImage UploadedScreen %d\r\n", uploaded);
-            writeLogFile ( txtbuffer );
-            #endif // DISP_DEBUG
         }
 //        else if ( iOffscreenDrawing )
 //        {
@@ -3171,10 +3190,10 @@ static inline void TitleFillArea(short x0, short y0, short width, short height, 
         iCheat ^= 1;
     }
 
-//    if (!(dwActFixes & AUTO_FIX_NEED_SOFT_TITLE))
-//    {
-//        return;
-//    }
+    if (!(dwActFixes & AUTO_FIX_NEED_SOFT_TITLE))
+    {
+        return;
+    }
 
     if ( width <= 0 ) return;
     if ( height <= 0 ) return;
