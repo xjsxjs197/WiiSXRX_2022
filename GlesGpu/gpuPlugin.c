@@ -191,11 +191,12 @@ void BlkFillArea(short x0, short y0, short width, short height);
 
 extern u32* xfb[3];	/*** Framebuffers ***/
 
+void flipEGL(void);
+
 #define CLEAR_EFB() { \
+    /* gx_vout_render(0); */ \
     GX_CopyDisp(xfb[0], GX_TRUE); \
 }
-
-void flipEGL(void);
 
 #include "gpuDraw.c"
 #include "gpuTexture.c"
@@ -1342,6 +1343,8 @@ switch(lCommand)
          }
          else
          {
+             //bool upLoadFullScreen = (screenWidth == (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560) && screenHeight == PSXDisplay.Height);
+             //if (upLoadFullScreen) canSwapBuf = 1;
              updateDisplayGl();
          }
      }
@@ -1818,84 +1821,84 @@ static inline void CheckVRamRead(int x, int y, int dx, int dy)
  writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
 
-    int size = GX_GetTexBufferSize(dx, dy, GX_TF_RGB5A3, 0, GX_FALSE);
-    if (!pGfxCardScreen || cardTexBufSize < size)
-    {
-        if (pGfxCardScreen)
-        {
-            _mem2_free(pGfxCardScreen);
-            pGfxCardScreen = 0;
-        }
-        pGfxCardScreen = (unsigned char *)_mem2_malloc(size);
-        cardTexBufSize = size;
-    }
-
-    ps = (unsigned char *)pGfxCardScreen;
-
-    //glReadPixels(x,y,dx,dy,GL_RGB,GL_UNSIGNED_BYTE,ps);
-    GX_SetViewport(x, y, dx, dy, 0.0f, 1.0f);
-    GX_SetScissor(x, y, dx, dy);
-    GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
-    GX_SetTexCopySrc(x, y, dx, dy);
-    GX_SetTexCopyDst((udx + 15) & 0xfffffff0, (udy + 1) & 0xfffffffe, GX_TF_RGB5A3, GX_FALSE);
-    GX_CopyTex(ps, GX_FALSE);
-    GX_PixModeSync();
-    GX_SetDrawDone();
-    GX_WaitDrawDone();
-    DCInvalidateRange(pGfxCardScreen, size);
-
-//    GX_DrawDone();
-//    GX_SetViewport(0, 0, vmode->fbWidth, vmode->efbHeight, 0.0f, 1.0f);
-//    GX_SetScissor(0, 0, vmode->fbWidth, vmode->efbHeight);
+//    int size = GX_GetTexBufferSize(dx, dy, GX_TF_RGB5A3, 0, GX_FALSE);
+//    if (!pGfxCardScreen || cardTexBufSize < size)
+//    {
+//        if (pGfxCardScreen)
+//        {
+//            _mem2_free(pGfxCardScreen);
+//            pGfxCardScreen = 0;
+//        }
+//        pGfxCardScreen = (unsigned char *)_mem2_malloc(size);
+//        cardTexBufSize = size;
+//    }
+//
+//    ps = (unsigned char *)pGfxCardScreen;
+//
+//    //glReadPixels(x,y,dx,dy,GL_RGB,GL_UNSIGNED_BYTE,ps);
+//    GX_SetViewport(x, y, dx, dy, 0.0f, 1.0f);
+//    GX_SetScissor(x, y, dx, dy);
 //    GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
-//    //GX_SetDispCopyYScale(1.0f);
-//    GX_SetDispCopySrc((x + 1) & 0xfffffffe, (y + 1) & 0xfffffffe, (dx + 1) & 0xfffffffe, (dy + 1) & 0xfffffffe);
-//    GX_SetDispCopyDst((udx + 15) & 0xfffffff0, (udy + 1) & 0xfffffffe);
-
-//    Mtx44 proj;
-//    guOrtho(proj, 0, 479, 0, 639, 0, 100);
-//    GX_LoadProjectionMtx(proj, GX_ORTHOGRAPHIC);
-//    GX_SetZMode(GX_FALSE, GX_ALWAYS, GX_FALSE);
-//    GX_CopyDisp(ps, GX_FALSE);
+//    GX_SetTexCopySrc(x, y, dx, dy);
+//    GX_SetTexCopyDst((udx + 15) & 0xfffffff0, (udy + 1) & 0xfffffffe, GX_TF_RGB5A3, GX_FALSE);
+//    GX_CopyTex(ps, GX_FALSE);
+//    GX_PixModeSync();
+//    GX_SetDrawDone();
+//    GX_WaitDrawDone();
 //    DCInvalidateRange(pGfxCardScreen, size);
-
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0,PSXDisplay.DisplayModeNew.x,              // -> new psx resolution
-            PSXDisplay.DisplayModeNew.y, 0, -1, 1);
-    SetAspectRatio();
-    RestoreDispCopyInfo();
-
-// if(bFront) glReadBuffer(GL_BACK);
-
- XS=(float)dx/(float)(udx);
- YS=(float)dy/(float)(udy+1);
-
- for(y=0;y<udy;y++)
-  {
-   for(x=0;x<udx;x++)
-    {
-     if(p>=psxVuw && p<psxVuw_eom)
-      {
-         // *p = *ps++;
-       //px = ps + (2*((int)((float)x * XS))+ (2*dx)*((int)((float)y*YS)));
-       sx = *(unsigned short *)ps;
-       ps += 2;
-       *p = sx;
-//       *p = ((sx & 0xffc0) >> 1) | (sx & 0x1f);
-//       sx=(*px)>>3;px++;
-//       s=sx;
-//       sx=(*px)>>3;px++;
-//       s|=sx<<5;
-//       sx=(*px)>>3;
-//       s|=sx<<10;
-//       s&=~0x8000;
-//       *p=s;
-      }
-     p++;
-    }
-   p += 1024 - udx;
-  }
+//
+////    GX_DrawDone();
+////    GX_SetViewport(0, 0, vmode->fbWidth, vmode->efbHeight, 0.0f, 1.0f);
+////    GX_SetScissor(0, 0, vmode->fbWidth, vmode->efbHeight);
+////    GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
+////    //GX_SetDispCopyYScale(1.0f);
+////    GX_SetDispCopySrc((x + 1) & 0xfffffffe, (y + 1) & 0xfffffffe, (dx + 1) & 0xfffffffe, (dy + 1) & 0xfffffffe);
+////    GX_SetDispCopyDst((udx + 15) & 0xfffffff0, (udy + 1) & 0xfffffffe);
+//
+////    Mtx44 proj;
+////    guOrtho(proj, 0, 479, 0, 639, 0, 100);
+////    GX_LoadProjectionMtx(proj, GX_ORTHOGRAPHIC);
+////    GX_SetZMode(GX_FALSE, GX_ALWAYS, GX_FALSE);
+////    GX_CopyDisp(ps, GX_FALSE);
+////    DCInvalidateRange(pGfxCardScreen, size);
+//
+//    glMatrixMode(GL_PROJECTION);
+//    glLoadIdentity();
+//    glOrtho(0,PSXDisplay.DisplayModeNew.x,              // -> new psx resolution
+//            PSXDisplay.DisplayModeNew.y, 0, -1, 1);
+//    SetAspectRatio();
+//    RestoreDispCopyInfo();
+//
+//// if(bFront) glReadBuffer(GL_BACK);
+//
+// XS=(float)dx/(float)(udx);
+// YS=(float)dy/(float)(udy+1);
+//
+// for(y=0;y<udy;y++)
+//  {
+//   for(x=0;x<udx;x++)
+//    {
+//     if(p>=psxVuw && p<psxVuw_eom)
+//      {
+//         // *p = *ps++;
+//       //px = ps + (2*((int)((float)x * XS))+ (2*dx)*((int)((float)y*YS)));
+//       sx = *(unsigned short *)ps;
+//       ps += 2;
+//       *p = sx;
+////       *p = ((sx & 0xffc0) >> 1) | (sx & 0x1f);
+////       sx=(*px)>>3;px++;
+////       s=sx;
+////       sx=(*px)>>3;px++;
+////       s|=sx<<5;
+////       sx=(*px)>>3;
+////       s|=sx<<10;
+////       s&=~0x8000;
+////       *p=s;
+//      }
+//     p++;
+//    }
+//   p += 1024 - udx;
+//  }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2401,7 +2404,18 @@ void flipEGL(void)
         }
     }
 
-    gx_vout_render((PSXDisplay.RGB24 || isPlayingMovie || canSwapBuf) ? 1 : 0);
+    bool canClearEFB = (PSXDisplay.RGB24 || isPlayingMovie || canSwapBuf);
+    if (canClearEFB)
+    {
+        gx_vout_render(1);
+        canPrintFps = 1;
+    }
+    else
+    {
+        gx_vout_render(0);
+        canPrintFps = 0;
+
+    }
 
     //clearLargeRange = 0;
     if ((PSXDisplay.RGB24 || isPlayingMovie) && !PSXDisplay.Disabled)
@@ -2412,11 +2426,10 @@ void flipEGL(void)
     needFlipEGL = FALSE;
     RGB24Uploaded = 0;
     glSetLoadMtxFlg();
-    canPrintFps = 0;
+    canSwapBuf = 0;
     firstPrim = true;
     loadImageCnt = 0;
     otherPrimCmdExists = 0;
-    canSwapBuf = 0;
     chkGPUupdateLace5 = 0;
     chkGPUupdateLace5_Dino2 = 0;
     hasVRamRead = 0;

@@ -2854,8 +2854,8 @@ static void primBlkFill ( unsigned char * baseAddr )
                 nextClearWidth = sprtW;
                 nextClearHeight = sprtH;
 
-                canPrintFps = 1;
-                canSwapBuf = 1;
+                //canPrintFps = 1;
+                //canSwapBuf = 1;
             }
             else
             {
@@ -2966,8 +2966,8 @@ static void primMoveImage ( unsigned char * baseAddr )
     if (imageSX == 2 && imageSY == 1)
     {
         iDrawnSomething &= ~0x8;
-        canPrintFps = 1;
-        canSwapBuf = 1;
+        //canPrintFps = 1;
+        //canSwapBuf = 1;
     }
     else
     {
