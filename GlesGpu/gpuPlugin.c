@@ -151,7 +151,7 @@ static unsigned short screenY1 = 240;
 static unsigned short screenWidth = 320;
 static unsigned short screenHeight = 240;
 static unsigned short canPrintFps = 1;
-static unsigned short canSwapBuf = 0;
+static unsigned short canClearBuf = 0;
 static unsigned short chkGPUupdateLace5 = 0;
 static unsigned short chkGPUupdateLace5_Dino2 = 0;
 static unsigned short hasVRamRead = 0;
@@ -195,7 +195,9 @@ void flipEGL(void);
 
 #define CLEAR_EFB() { \
     /* gx_vout_render(0); */ \
-    GX_CopyDisp(xfb[0], GX_TRUE); \
+    /*GX_CopyDisp(xfb[0], GX_TRUE); */ \
+    glClearColor2 ( 0, 0, 0, 255 ); \
+    glClear ( uiBufferBits ); \
 }
 
 #include "gpuDraw.c"
@@ -451,19 +453,14 @@ if(PSXDisplay.Disabled)                               // display disabled?
   //glClearColor2(0,0,0,128); glError();                 // -> clear whole backbuffer
   //glClear(uiBufferBits); glError();
   //glEnable(GL_SCISSOR_TEST); glError();
-  // Use GX_CopyTex(Clear the EFB and Z-buffer) instead of glClear.
-  CLEAR_EFB();
-  #if defined(DISP_DEBUG)
-  sprintf ( txtbuffer, "CLEAR_EFB \r\n");
-  writeLogFile(txtbuffer);
-  #endif
-  gl_z=0.0f;
+
   bDisplayNotSet = TRUE;
   #ifdef DISP_DEBUG
   sprintf(txtbuffer, "updateDisplayGl Disabled\r\n");
   //DEBUG_print(txtbuffer, DBG_CDR1);
   writeLogFile(txtbuffer);
   #endif // DISP_DEBUG
+  return;
  }
 
 if(iSkipTwo)                                          // we are in skipping mood?
@@ -542,19 +539,13 @@ if(lClearOnSwap)                                      // clear buffer after swap
    SetOGLDisplaySettings(1);
 
   // lClearOnSwapColor (BGR)
-//  g=((unsigned char)GREEN(lClearOnSwapColor));      // -> get col
-//  b=((unsigned char)BLUE(lClearOnSwapColor));
-//  r=((unsigned char)RED(lClearOnSwapColor));
-//  glDisable(GL_SCISSOR_TEST); glError();
-//  glClearColor2(r,g,b,128); glError();                 // -> clear
-//  glClear(uiBufferBits); glError();
-//  glEnable(GL_SCISSOR_TEST); glError();
-    // Use GX_CopyTex(Clear the EFB and Z-buffer) instead of glClear.
-    CLEAR_EFB();
-    #if defined(DISP_DEBUG)
-    sprintf ( txtbuffer, "CLEAR_EFB \r\n");
-    writeLogFile(txtbuffer);
-    #endif
+  g=((unsigned char)GREEN(lClearOnSwapColor));      // -> get col
+  b=((unsigned char)BLUE(lClearOnSwapColor));
+  r=((unsigned char)RED(lClearOnSwapColor));
+  glDisable(GL_SCISSOR_TEST); glError();
+  glClearColor2(r,g,b,128); glError();                 // -> clear
+  glClear(uiBufferBits); glError();
+  glEnable(GL_SCISSOR_TEST); glError();
 
   // use software blkFill
   BlkFillArea(nextClearX, nextClearY, nextClearWidth, nextClearHeight);
@@ -572,20 +563,13 @@ else
      //DEBUG_print(txtbuffer, DBG_CDR1);
      writeLogFile(txtbuffer);
      #endif // DISP_DEBUG
-     if (!isFlipEGL)
-     {
-         if (iDrawnSomething)
-         {
-             canSwapBuf = 1;
-             flipEGL();
-         }
-         else
-         {
-             // Not need do anything
-             // Use GX_CopyTex(Clear the EFB and Z-buffer) instead of glClear.
-             //CLEAR_EFB();
-         }
-     }
+//     if (!isFlipEGL)
+//     {
+//         if (iDrawnSomething)
+//         {
+//             flipEGL();
+//         }
+//     }
 
     //glDisable(GL_SCISSOR_TEST); glError();
     //glClear(GL_DEPTH_BUFFER_BIT); glError();
@@ -1092,21 +1076,22 @@ else if(usFirstPos==1)                                // initial updates (after 
      writeLogFile ( txtbuffer );
      #endif // DISP_DEBUG
      GPUupdateLace5Flg = 0;
-     chkGPUupdateLace5 = 0;
-     chkGPUupdateLace5_Dino2 = 0;
-     if (CheckFullScreenUpload() || (needFlipEGL == TRUE && (iDrawnSomething & 0x1) == 0))
+//     chkGPUupdateLace5 = 0;
+//     chkGPUupdateLace5_Dino2 = 0;
+     if (iDrawnSomething == 2 && hasUploadScreen)
      {
+         // For Layman2 logo
          GPUupdateLace5Flg = 1;
          flipEGL();
          iDrawnSomething = 0;
      }
      else
      {
-         if (iDrawnSomething == 1)
+         //if (iDrawnSomething == 1)
          {
              // The title screen of Bugs Bunny does not have a corresponding fade-to-black effect
              // after pressing the start button.
-             chkGPUupdateLace5 = 1;
+             //chkGPUupdateLace5 = 1;
          }
 //         else if (iDrawnSomething == 2 && hasUploadScreen)
 //         {
@@ -1121,7 +1106,7 @@ else if(usFirstPos==1)                                // initial updates (after 
 //             if (chkGPUupdateLace5_Dino2)
 //             {
 //                 canPrintFps = 1;
-//                 canSwapBuf = 1;
+//                 canClearBuf = 1;
 //                 GPUupdateLace5Flg = 1;
 //                 flipEGL();
 //                 iDrawnSomething = 0;
@@ -1223,20 +1208,20 @@ switch(lCommand)
         STATUSREG|=GPUSTATUS_DISPLAYDISABLED;
    else STATUSREG&=~GPUSTATUS_DISPLAYDISABLED;
 
-   if (iOffscreenDrawing==4 &&
-        PreviousPSXDisplay.Disabled &&
+   if (PreviousPSXDisplay.Disabled &&
        !(PSXDisplay.Disabled))
     {
 
      if(!PSXDisplay.RGB24)
       {
-       PrepareFullScreenUpload(TRUE);
+       //PrepareFullScreenUpload(TRUE);
        #ifdef DISP_DEBUG
-       sprintf(txtbuffer, "dis/enable display %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
+       sprintf(txtbuffer, "dis/enable display %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1, xrUploadArea.y1);
        //DEBUG_print(txtbuffer, DBG_CDR2);
        writeLogFile(txtbuffer);
        #endif // DISP_DEBUG
-       UploadScreen(TRUE);
+       //UploadScreen(TRUE);
+       canPrintFps = 1;
        updateDisplayGl();
       }
     }
@@ -1344,7 +1329,8 @@ switch(lCommand)
          else
          {
              //bool upLoadFullScreen = (screenWidth == (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560) && screenHeight == PSXDisplay.Height);
-             //if (upLoadFullScreen) canSwapBuf = 1;
+             //if (upLoadFullScreen) canClearBuf = 1;
+             //if (iDrawnSomething > 0 && !PSXDisplay.Disabled) canClearBuf = 1;
              updateDisplayGl();
          }
      }
@@ -1924,10 +1910,10 @@ while(VRAMRead.ImagePtr<psxVuw)
 //     VRAMRead.y      == VRAMWrite.y     &&
 //     VRAMRead.Width  == VRAMWrite.Width &&
 //     VRAMRead.Height == VRAMWrite.Height))
- if (iSize > 1)
- CheckVRamRead(VRAMRead.x,VRAMRead.y,
-               VRAMRead.x+VRAMRead.RowsRemaining,
-               VRAMRead.y+VRAMRead.ColsRemaining);
+// if (iSize > 1)
+// CheckVRamRead(VRAMRead.x,VRAMRead.y,
+//               VRAMRead.x+VRAMRead.RowsRemaining,
+//               VRAMRead.y+VRAMRead.ColsRemaining);
 
 for(i=0;i<iSize;i++)
  {
@@ -2381,8 +2367,8 @@ void flipEGL(void)
     bool isPlayingMovie = (loadImageCnt >= 3 && !otherPrimCmdExists);
 
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "flipEGL %d %d \r\n", (canPrintFps || isPlayingMovie) ? 1 : 0,
-            (PSXDisplay.RGB24 || isPlayingMovie || canSwapBuf) ? 1 : 0);
+    sprintf(txtbuffer, "flipEGL %d %d %d %d %d %d \r\n", (canPrintFps || isPlayingMovie) ? 1 : 0,
+            (PSXDisplay.RGB24 || isPlayingMovie || canClearBuf) ? 1 : 0, PSXDisplay.RGB24, loadImageCnt, otherPrimCmdExists, canClearBuf);
     DEBUG_print(txtbuffer, DBG_SPU3);
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
@@ -2404,7 +2390,7 @@ void flipEGL(void)
         }
     }
 
-    bool canClearEFB = (PSXDisplay.RGB24 || isPlayingMovie || canSwapBuf);
+    bool canClearEFB = (PSXDisplay.RGB24 || isPlayingMovie || canClearBuf);
     if (canClearEFB)
     {
         gx_vout_render(1);
@@ -2426,7 +2412,7 @@ void flipEGL(void)
     needFlipEGL = FALSE;
     RGB24Uploaded = 0;
     glSetLoadMtxFlg();
-    canSwapBuf = 0;
+    canClearBuf = 0;
     firstPrim = true;
     loadImageCnt = 0;
     otherPrimCmdExists = 0;

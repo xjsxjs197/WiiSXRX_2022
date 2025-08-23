@@ -1447,50 +1447,50 @@ BOOL CheckAgainstFrontScreen ( short imageX0, short imageY0, short imageX1, shor
 ////////////////////////////////////////////////////////////////////////
 int CheckFullScreenUpload ( void )
 {
-    if (PSXDisplay.Disabled || PSXDisplay.RGB24)
-    {
-        return 0;
-    }
-
-    if (needUploadScreen == TRUE && uploadedScreen == FALSE)
-    {
-        if (screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
-            && (screenX1 - 4) <= PreviousPSXDisplay.DisplayEnd.x && (screenY1 - 4) <= PreviousPSXDisplay.DisplayEnd.y)
-        {
-            #if defined(DISP_DEBUG)
-            sprintf(txtbuffer, "Upload Full Screen Pre\r\n");
-            writeLogFile(txtbuffer);
-            #endif // DISP_DEBUG
-
-            uploadedScreen = TRUE;
-
-            xrUploadArea.x0 = screenX;
-            xrUploadArea.x1 = screenX1;
-            xrUploadArea.y0 = screenY;
-            xrUploadArea.y1 = screenY1;
-            UploadScreen(PSXDisplay.Interlaced);              // -> upload whole screen from psx vram
-
-            return 1;
-        }
-        else if (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
-                    && (screenX1 - 4) <= PSXDisplay.DisplayEnd.x && (screenY1 - 4) <= PSXDisplay.DisplayEnd.y)
-        {
-            #if defined(DISP_DEBUG)
-            sprintf(txtbuffer, "Upload Full Screen Cur\r\n");
-            writeLogFile(txtbuffer);
-            #endif // DISP_DEBUG
-
-            uploadedScreen = TRUE;
-
-            xrUploadArea.x0 = screenX;
-            xrUploadArea.x1 = screenX1;
-            xrUploadArea.y0 = screenY;
-            xrUploadArea.y1 = screenY1;
-            UploadScreen(PSXDisplay.Interlaced);              // -> upload whole screen from psx vram
-
-            return 1;
-        }
-    }
+//    if (PSXDisplay.Disabled || PSXDisplay.RGB24)
+//    {
+//        return 0;
+//    }
+//
+//    if (needUploadScreen == TRUE && uploadedScreen == FALSE)
+//    {
+//        if (screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
+//            && (screenX1 - 4) <= PreviousPSXDisplay.DisplayEnd.x && (screenY1 - 4) <= PreviousPSXDisplay.DisplayEnd.y)
+//        {
+//            #if defined(DISP_DEBUG)
+//            sprintf(txtbuffer, "Upload Full Screen Pre\r\n");
+//            writeLogFile(txtbuffer);
+//            #endif // DISP_DEBUG
+//
+//            uploadedScreen = TRUE;
+//
+//            xrUploadArea.x0 = screenX;
+//            xrUploadArea.x1 = screenX1;
+//            xrUploadArea.y0 = screenY;
+//            xrUploadArea.y1 = screenY1;
+//            UploadScreen(PSXDisplay.Interlaced);              // -> upload whole screen from psx vram
+//
+//            return 1;
+//        }
+//        else if (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
+//                    && (screenX1 - 4) <= PSXDisplay.DisplayEnd.x && (screenY1 - 4) <= PSXDisplay.DisplayEnd.y)
+//        {
+//            #if defined(DISP_DEBUG)
+//            sprintf(txtbuffer, "Upload Full Screen Cur\r\n");
+//            writeLogFile(txtbuffer);
+//            #endif // DISP_DEBUG
+//
+//            uploadedScreen = TRUE;
+//
+//            xrUploadArea.x0 = screenX;
+//            xrUploadArea.x1 = screenX1;
+//            xrUploadArea.y0 = screenY;
+//            xrUploadArea.y1 = screenY1;
+//            UploadScreen(PSXDisplay.Interlaced);              // -> upload whole screen from psx vram
+//
+//            return 1;
+//        }
+//    }
 
     return 0;
 }
@@ -1596,7 +1596,7 @@ int UploadScreen ( int Position )
         sprintf ( txtbuffer, "UploadScreen Dis %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0);
         writeLogFile ( txtbuffer );
         #endif // DISP_DEBUG
-        return 0;
+        //return 0;
     }
 
     iLastRGB24 = PSXDisplay.RGB24 + 1;
@@ -2277,7 +2277,7 @@ static void primLoadImage ( unsigned char * baseAddr )
 //        if (chkGPUupdateLace5_Dino2)
 //        {
 //            canPrintFps = 1;
-//            canSwapBuf = 1;
+//            canClearBuf = 1;
 //            chkGPUupdateLace5_Dino2 = 0;
 //            flipEGL();
 //            iDrawnSomething = 0;
@@ -2407,15 +2407,15 @@ void CheckWriteUpdate()
 //                updateFrontDisplayGl();
 //            }
 
+            bool loadFullScreen = (VRAMWrite.Width == (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560) && VRAMWrite.Height == PSXDisplay.Height);
+            //if (loadFullScreen) canClearBuf = 1;
+            checkFirstPrim(loadFullScreen, true, false);
+
             uploaded = UploadScreen ( FALSE );
 
             //bNeedUploadTest = TRUE;
             if (uploaded)
             {
-                bool loadFullScreen = (VRAMWrite.Width == (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560) && VRAMWrite.Height == PSXDisplay.Height);
-                if (loadFullScreen) canSwapBuf = 1;
-                checkFirstPrim(loadFullScreen, true, false);
-
                 needUploadScreen = FALSE;
                 uploadedScreen = FALSE;
             }
@@ -2737,7 +2737,7 @@ static void primBlkFill ( unsigned char * baseAddr )
                      sprtX + sprtW,
                      sprtY + sprtH))
             {
-                bool isFirstPrim = firstPrim;
+                //bool isFirstPrim = firstPrim;
                 checkFirstPrim(true, false, false);
 
                 needUploadScreen = FALSE;
@@ -2748,16 +2748,13 @@ static void primBlkFill ( unsigned char * baseAddr )
                 #endif // DISP_DEBUG
 
                 // Clear all Screen
-                //if (iDrawnSomething > 0)
-                {
-                    GX_DrawDone();
-                    // Use GX_CopyTex(Clear the EFB and Z-buffer) instead of glClear.
-                    CLEAR_EFB();
-                    #if defined(DISP_DEBUG)
-                    sprintf ( txtbuffer, "CLEAR_EFB \r\n");
-                    writeLogFile(txtbuffer);
-                    #endif
-                }
+                unsigned char g, b, r;
+                r = baseAddr[0];
+                g = baseAddr[1];
+                b = baseAddr[2];
+
+                glClearColor2 ( r, g, b, 255 );
+                glClear ( uiBufferBits );
                 gl_z = 0.0f;
             }
             else
@@ -2855,7 +2852,7 @@ static void primBlkFill ( unsigned char * baseAddr )
                 nextClearHeight = sprtH;
 
                 //canPrintFps = 1;
-                //canSwapBuf = 1;
+                //canClearBuf = 1;
             }
             else
             {
@@ -2967,7 +2964,7 @@ static void primMoveImage ( unsigned char * baseAddr )
     {
         iDrawnSomething &= ~0x8;
         //canPrintFps = 1;
-        //canSwapBuf = 1;
+        //canClearBuf = 1;
     }
     else
     {
@@ -3041,7 +3038,7 @@ static void primMoveImage ( unsigned char * baseAddr )
                 if (isFirstPrim)
                 {
                     checkFirstPrim(true, false, false);
-                    //canSwapBuf = 1;
+                    //canClearBuf = 1;
                 }
             }
 
@@ -3103,14 +3100,12 @@ static void primMoveImage ( unsigned char * baseAddr )
             uploaded = UploadScreen ( FALSE );
             if (uploaded)
             {
-                #if defined(DISP_DEBUG)
-                sprintf ( txtbuffer, "MoveImage UploadedScreen %d\r\n", uploaded);
-                writeLogFile ( txtbuffer );
-                #endif // DISP_DEBUG
-                flipEGL();
-                iDrawnSomething = 0;
-                //needFlipEGL = TRUE;
+                needFlipEGL = TRUE;
             }
+            #if defined(DISP_DEBUG)
+            sprintf ( txtbuffer, "MoveImage UploadedScreen %d\r\n", uploaded);
+            writeLogFile ( txtbuffer );
+            #endif // DISP_DEBUG
         }
 //        else if ( iOffscreenDrawing )
 //        {
@@ -3259,7 +3254,7 @@ static void primTileS ( unsigned char * baseAddr )
         sprintf(txtbuffer, "TileS CLEAR_SCREEN %d\r\n", firstPrim);
         writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
-        checkFirstPrim(true, false, false);
+        checkFirstPrim(false, false, false);
         needUploadScreen = FALSE;
         uploadedScreen = FALSE;
     }
