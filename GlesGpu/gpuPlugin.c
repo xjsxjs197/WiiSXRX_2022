@@ -1078,7 +1078,7 @@ else if(usFirstPos==1)                                // initial updates (after 
      GPUupdateLace5Flg = 0;
 //     chkGPUupdateLace5 = 0;
 //     chkGPUupdateLace5_Dino2 = 0;
-     if (iDrawnSomething == 2 && hasUploadScreen)
+     if (iDrawnSomething == 2 && hasUploadScreen && loadImageCnt == 0)
      {
          // For Layman2 logo
          GPUupdateLace5Flg = 1;
