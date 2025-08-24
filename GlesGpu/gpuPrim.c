@@ -3034,12 +3034,13 @@ static void primMoveImage ( unsigned char * baseAddr )
             // Check full screen image move for fps display and swap EFB (Bugs Bunny's Title Logo)
             if (imageSX >= screenWidth && imageSY >= screenHeight && !PSXDisplay.Disabled)
             {
+                // before upload full screen, clearEFB
                 canPrintFps = 1;
-                if (isFirstPrim)
-                {
-                    checkFirstPrim(true, false, false);
-                    //canClearBuf = 1;
-                }
+//                if (isFirstPrim)
+//                {
+//                    checkFirstPrim(true, false, false);
+//                    //canClearBuf = 1;
+//                }
             }
 
 //            if ((screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
