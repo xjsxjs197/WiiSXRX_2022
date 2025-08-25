@@ -158,7 +158,7 @@ static unsigned short chkGPUupdateLace5_Dino2 = 0;
 static unsigned short hasVRamRead = 0;
 static unsigned short hasUploadFullScreen = 0;
 static unsigned short dino2MovieStart = 0;
-static unsigned short chkDino2MovieLeftPadding = 0;
+static unsigned short chkMovieLeftPadding = 0;
 static unsigned short movieLeftPadding = 0;
 static unsigned short isLastPrimMoveImage21 = 0;
 
@@ -171,7 +171,7 @@ static unsigned short    GPUupdateLace5Flg = 0;
 static BOOL    drawTexturePage = FALSE;
 
 #define CHECK_SCREEN_INFO() { \
-    screenX = PSXDisplay.RGB24 ? (PSXDisplay.DisplayPosition.x * 2 / 3) : PSXDisplay.DisplayPosition.x; \
+    screenX = PSXDisplay.DisplayPosition.x; \
     screenY = PSXDisplay.DisplayPosition.y; \
     screenWidth = PSXDisplay.DisplayModeNew.x; \
     screenHeight = PSXDisplay.DisplayModeNew.y; \
@@ -631,9 +631,10 @@ void newUpdateDisplayGl(void)                               // UPDATE DISPLAY
     if (PSXDisplay.RGB24)          // (mdec) upload wanted?
     {
         if (isLastPrimMoveImage21 ||
-            (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= screenX1)
+            (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= (screenX1 * 2 / 3))
         {
             needFlipEGL = true;
+            canPrintFps = 1;
             canClearBuf = 1;
             PrepareFullScreenUpload(-1);
             UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
@@ -650,6 +651,7 @@ void newUpdateDisplayGl(void)                               // UPDATE DISPLAY
             if ((VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= screenX1)
             {
                 needFlipEGL = true;
+                canPrintFps = 1;
                 canClearBuf = 1;
                 PrepareFullScreenUpload(-1);
                 UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
@@ -2455,7 +2457,7 @@ void flipEGL(void)
     hasVRamRead = 0;
     hasUploadFullScreen = 0;
     dino2MovieStart = 0;
-    chkDino2MovieLeftPadding = 0;
+    chkMovieLeftPadding = 0;
     movieLeftPadding = 0;
     canPrintFps = canPrintFpsNext || isLastPrimMoveImage21;
     canPrintFpsNext = 0;

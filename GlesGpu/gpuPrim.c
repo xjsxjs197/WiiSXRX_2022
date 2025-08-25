@@ -2213,17 +2213,8 @@ static void checkFirstPrim(int screenClean, bool isMoveImage21, bool isUploadFul
         {
             canPrintFps = 1;
 
-            // check movie left padding
-            if (VRAMWrite.x >= screenWidth)
-            {
-                movieLeftPadding = (VRAMWrite.x - screenWidth) * 4;
-            }
-            else
-            {
-                movieLeftPadding = VRAMWrite.x * 4;
-            }
             #if defined(DISP_DEBUG)
-            sprintf ( txtbuffer, "Movie Start RGB24 %d \r\n", movieLeftPadding);
+            sprintf ( txtbuffer, "Movie Start RGB24 \r\n");
             writeLogFile(txtbuffer);
             #endif
         }
@@ -2233,7 +2224,6 @@ static void checkFirstPrim(int screenClean, bool isMoveImage21, bool isUploadFul
 
             // Dino2 Movie Start
             dino2MovieStart = 1;
-            chkDino2MovieLeftPadding = 1;
             #if defined(DISP_DEBUG)
             sprintf ( txtbuffer, "Movie Start Dino2 \r\n");
             writeLogFile(txtbuffer);
@@ -2249,6 +2239,9 @@ static void checkFirstPrim(int screenClean, bool isMoveImage21, bool isUploadFul
             canPrintFps = 1;
             CLEAR_EFB();
         }
+
+        // check movie left padding
+        chkMovieLeftPadding = 1;
 
         firstPrim = 0;
     }
@@ -2363,6 +2356,24 @@ static void PrepareRGB24Upload ( void )
         iDrawnSomething |= 0x10;
     }
 
+    // check movie left padding
+    if (chkMovieLeftPadding)
+    {
+        if (VRAMWrite.x >= (screenWidth * 2 / 3))
+        {
+            movieLeftPadding = (VRAMWrite.x - (screenWidth * 2 / 3)) * 4;
+        }
+        else
+        {
+            movieLeftPadding = VRAMWrite.x * 4;
+        }
+        chkMovieLeftPadding = 0;
+        #if defined(DISP_DEBUG)
+        sprintf ( txtbuffer, "chkMovieLeftPadding %d\r\n", movieLeftPadding);
+        writeLogFile ( txtbuffer );
+        #endif // DISP_DEBUG
+    }
+
     checkFirstPrim(0, 0, 0);
 
     #if defined(DISP_DEBUG)
@@ -2430,7 +2441,7 @@ void CheckWriteUpdate()
 //            }
 
             // check dino2 movie left padding
-            if (dino2MovieStart && chkDino2MovieLeftPadding)
+            if (dino2MovieStart && chkMovieLeftPadding)
             {
                 if (VRAMWrite.x >= screenWidth)
                 {
@@ -2440,7 +2451,7 @@ void CheckWriteUpdate()
                 {
                     movieLeftPadding = VRAMWrite.x * 4;
                 }
-                chkDino2MovieLeftPadding = 0;
+                chkMovieLeftPadding = 0;
             }
 
             bool loadFullScreen = (VRAMWrite.Width == (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560) && VRAMWrite.Height == PSXDisplay.Height);
@@ -2890,7 +2901,7 @@ static void primBlkFill ( unsigned char * baseAddr )
                 nextClearHeight = sprtH;
                 BlkFillArea(nextClearX, nextClearY, nextClearWidth, nextClearHeight);
 
-                canClearBuf = 1;
+                //canClearBuf = 1;
                 canPrintFpsNext = 1;
             }
             else
