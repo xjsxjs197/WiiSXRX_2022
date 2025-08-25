@@ -1655,7 +1655,7 @@ int UploadScreen ( int Position )
         }
 
         // Fix for the missing title in Crash Team Racing.
-        hasUploadScreen = 1;
+        hasUploadFullScreen = 1;
     }
 
     iDrawnSomething |= 0x2;
@@ -2183,57 +2183,77 @@ static void cmdDrawOffset ( unsigned char * baseAddr )
 }
 
 
-static void checkFirstPrim(bool isScreenClean, bool loadImage, bool needChkGPUupdateLace5)
+static void checkFirstPrim(int screenClean, bool isMoveImage21, bool isUploadFullScreen)
 {
-    // Check if all commands in the current frame are LoadImage (play animation) commands.
-    // If so, then the buffer can be cleared when swapping buffers.
-    if (!loadImage)
+    // Only check first command of the current frame
+    if (firstPrim)
     {
-        loadImageCnt = 0;
-        if (!isScreenClean)
+        if (screenClean == 1)
         {
-            otherPrimCmdExists = 1;
-        }
-    }
-    else
-    {
-        loadImageCnt++;
-    }
-
-//    // Only check first command of the current frame
-//    if (!firstPrim)
-//    {
-//        return;
-//    }
-//
-    if (isScreenClean)
-    {
-        // The command is to clear the buffer (or play an animation),
-        // performing a concise clearing operation, and the FPS can be displayed.
-        if (firstPrim)
-        {
+            // clear full screen by primBlkFill
+            canPrintFps = 1;
             CLEAR_EFB();
             #if defined(DISP_DEBUG)
             sprintf ( txtbuffer, "CLEAR_EFB \r\n");
             writeLogFile(txtbuffer);
             #endif
         }
+        else if (screenClean == 2)
+        {
+            // clear full screen by primTileS
+            canPrintFps = 1;
+            #if defined(DISP_DEBUG)
+            sprintf ( txtbuffer, "CLEAR_EFB By TileS \r\n");
+            writeLogFile(txtbuffer);
+            #endif
+        }
 
-        canPrintFps = 1;
-    }
-//    else
-//    {
-//        canPrintFps = 0;
-//    }
-    firstPrim = false;
+        // Check Movie Start
+        if (PSXDisplay.RGB24)
+        {
+            canPrintFps = 1;
 
-    // The title screen of Bugs Bunny does not have a corresponding fade-to-black effect
-    // after pressing the start button.
-    if (needChkGPUupdateLace5 && chkGPUupdateLace5)
-    {
-        chkGPUupdateLace5 = 0;
-        flipEGL();
+            // check movie left padding
+            if (VRAMWrite.x >= screenWidth)
+            {
+                movieLeftPadding = (VRAMWrite.x - screenWidth) * 4;
+            }
+            else
+            {
+                movieLeftPadding = VRAMWrite.x * 4;
+            }
+            #if defined(DISP_DEBUG)
+            sprintf ( txtbuffer, "Movie Start RGB24 %d \r\n", movieLeftPadding);
+            writeLogFile(txtbuffer);
+            #endif
+        }
+        else if (isMoveImage21)
+        {
+            canPrintFps = 1;
+
+            // Dino2 Movie Start
+            dino2MovieStart = 1;
+            chkDino2MovieLeftPadding = 1;
+            #if defined(DISP_DEBUG)
+            sprintf ( txtbuffer, "Movie Start Dino2 \r\n");
+            writeLogFile(txtbuffer);
+            #endif
+        }
+        else if (isUploadFullScreen)
+        {
+            // Full screen loadImage or moveImage
+            #if defined(DISP_DEBUG)
+            sprintf ( txtbuffer, "Full screen loadImage or moveImage \r\n");
+            writeLogFile(txtbuffer);
+            #endif
+            canPrintFps = 1;
+            CLEAR_EFB();
+        }
+
+        firstPrim = 0;
     }
+
+    isLastPrimMoveImage21 = isMoveImage21;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2327,6 +2347,7 @@ static void PrepareRGB24Upload ( void )
             RGB24Uploaded |= 0x1;
         }
         RGB24Uploaded |= 0x4;
+        iDrawnSomething |= 0x10;
     }
     else if ( CheckAgainstFrontScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
     {
@@ -2339,9 +2360,10 @@ static void PrepareRGB24Upload ( void )
             RGB24Uploaded |= 0x2;
         }
         RGB24Uploaded |= 0x8;
+        iDrawnSomething |= 0x10;
     }
 
-    checkFirstPrim(true, true, false);
+    checkFirstPrim(0, 0, 0);
 
     #if defined(DISP_DEBUG)
     sprintf ( txtbuffer, "PrepareRGB24Upload %x\r\n", RGB24Uploaded);
@@ -2407,11 +2429,28 @@ void CheckWriteUpdate()
 //                updateFrontDisplayGl();
 //            }
 
-            bool loadFullScreen = (VRAMWrite.Width == (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560) && VRAMWrite.Height == PSXDisplay.Height);
-            //if (loadFullScreen) canClearBuf = 1;
-            checkFirstPrim(loadFullScreen, true, false);
+            // check dino2 movie left padding
+            if (dino2MovieStart && chkDino2MovieLeftPadding)
+            {
+                if (VRAMWrite.x >= screenWidth)
+                {
+                    movieLeftPadding = (VRAMWrite.x - screenWidth) * 4;
+                }
+                else
+                {
+                    movieLeftPadding = VRAMWrite.x * 4;
+                }
+                chkDino2MovieLeftPadding = 0;
+            }
 
-            uploaded = UploadScreen ( FALSE );
+            bool loadFullScreen = (VRAMWrite.Width == (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560) && VRAMWrite.Height == PSXDisplay.Height);
+            checkFirstPrim(0, 0, loadFullScreen);
+
+            // When dino2 playing movie, no need upload screen
+            if (!dino2MovieStart)
+            {
+                uploaded = UploadScreen ( FALSE );
+            }
 
             //bNeedUploadTest = TRUE;
             if (uploaded)
@@ -2535,7 +2574,7 @@ void CheckWriteUpdate()
 
 static void primStoreImage ( unsigned char * baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     unsigned short *sgpuData = ( ( unsigned short * ) baseAddr );
 
@@ -2652,7 +2691,7 @@ static void primBlkFill ( unsigned char * baseAddr )
 //        lClearOnSwap = 1;
 //        //canPrintFps = 1;
 //
-//        checkFirstPrim(false, false, false);
+//        checkFirstPrim(0, 0, 0);
 //    }
 //    else
 //    {
@@ -2699,7 +2738,7 @@ static void primBlkFill ( unsigned char * baseAddr )
 //        }
 //        else
 //        {
-//            checkFirstPrim(false, false, false);
+//            checkFirstPrim(0, 0, 0);
 //
 //            CheckFullScreenUpload();
 //
@@ -2737,8 +2776,7 @@ static void primBlkFill ( unsigned char * baseAddr )
                      sprtX + sprtW,
                      sprtY + sprtH))
             {
-                //bool isFirstPrim = firstPrim;
-                checkFirstPrim(true, false, false);
+                checkFirstPrim(1, 0, 0);
 
                 needUploadScreen = FALSE;
                 uploadedScreen = FALSE;
@@ -2747,19 +2785,19 @@ static void primBlkFill ( unsigned char * baseAddr )
                 writeLogFile(txtbuffer);
                 #endif // DISP_DEBUG
 
-                // Clear all Screen
-                unsigned char g, b, r;
-                r = baseAddr[0];
-                g = baseAddr[1];
-                b = baseAddr[2];
-
-                glClearColor2 ( r, g, b, 255 );
-                glClear ( uiBufferBits );
-                gl_z = 0.0f;
+//                // Clear all Screen
+//                unsigned char g, b, r;
+//                r = baseAddr[0];
+//                g = baseAddr[1];
+//                b = baseAddr[2];
+//
+//                glClearColor2 ( r, g, b, 255 );
+//                glClear ( uiBufferBits );
+//                gl_z = 0.0f;
             }
             else
             {
-                checkFirstPrim(false, false, false);
+                checkFirstPrim(0, 0, 0);
 
                 CheckFullScreenUpload();
 
@@ -2850,13 +2888,14 @@ static void primBlkFill ( unsigned char * baseAddr )
                 nextClearY = sprtY;
                 nextClearWidth = sprtW;
                 nextClearHeight = sprtH;
+                BlkFillArea(nextClearX, nextClearY, nextClearWidth, nextClearHeight);
 
-                //canPrintFps = 1;
-                //canClearBuf = 1;
+                canClearBuf = 1;
+                canPrintFpsNext = 1;
             }
             else
             {
-                checkFirstPrim(false, false, false);
+                checkFirstPrim(0, 0, 0);
 
                 #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
                 sprintf(txtbuffer, "blkFill14 %d %d %d %d %d %d %d %d\r\n", lx0, ly0 , lx1, ly1, lx2, ly2, PSXDisplay.GDrawOffset.x, PSXDisplay.GDrawOffset.y);
@@ -2959,16 +2998,11 @@ static void primMoveImage ( unsigned char * baseAddr )
     logType = 0;
     #endif // DISP_DEBUG
 
-    bool isFirstPrim = firstPrim;
+    int isMoveImage21 = 0;
     if (imageSX == 2 && imageSY == 1)
     {
+        isMoveImage21 = 1;
         iDrawnSomething &= ~0x8;
-        //canPrintFps = 1;
-        //canClearBuf = 1;
-    }
-    else
-    {
-        checkFirstPrim(false, false, false);
     }
 
     if ( ( imageX0 == imageX1 ) && ( imageY0 == imageY1 ) ) return;
@@ -3032,15 +3066,14 @@ static void primMoveImage ( unsigned char * baseAddr )
         if ( CheckAgainstScreen ( imageX1, imageY1, imageSX, imageSY ) )
         {
             // Check full screen image move for fps display and swap EFB (Bugs Bunny's Title Logo)
-            if (imageSX >= screenWidth && imageSY >= screenHeight && !PSXDisplay.Disabled)
+            if (imageSX >= screenWidth && imageSY >= screenHeight)
             {
-                // before upload full screen, clearEFB
                 canPrintFps = 1;
-//                if (isFirstPrim)
-//                {
-//                    checkFirstPrim(true, false, false);
-//                    //canClearBuf = 1;
-//                }
+                checkFirstPrim(0, isMoveImage21, 1);
+            }
+            else
+            {
+                checkFirstPrim(0, isMoveImage21, 0);
             }
 
 //            if ((screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
@@ -3088,26 +3121,26 @@ static void primMoveImage ( unsigned char * baseAddr )
 //            bNeedUploadTest = TRUE;
         }
 
-        if (uploaded == 0 &&
-            ((imageY1 + imageSY) <= screenY1)
-            && (imageY1 >= screenY)
-            && ((imageX1 + imageSX) <= screenX1)
-            && (imageX1 >= screenX))
-        {
-            xrUploadArea.x0 = imageX1;
-            xrUploadArea.y0 = imageY1;
-            xrUploadArea.x1 = imageX1 + imageSX;
-            xrUploadArea.y1 = imageY1 + imageSY;
-            uploaded = UploadScreen ( FALSE );
-            if (uploaded)
-            {
-                needFlipEGL = TRUE;
-            }
-            #if defined(DISP_DEBUG)
-            sprintf ( txtbuffer, "MoveImage UploadedScreen %d\r\n", uploaded);
-            writeLogFile ( txtbuffer );
-            #endif // DISP_DEBUG
-        }
+//        if (uploaded == 0 &&
+//            ((imageY1 + imageSY) <= screenY1)
+//            && (imageY1 >= screenY)
+//            && ((imageX1 + imageSX) <= screenX1)
+//            && (imageX1 >= screenX))
+//        {
+//            xrUploadArea.x0 = imageX1;
+//            xrUploadArea.y0 = imageY1;
+//            xrUploadArea.x1 = imageX1 + imageSX;
+//            xrUploadArea.y1 = imageY1 + imageSY;
+//            uploaded = UploadScreen ( FALSE );
+//            if (uploaded)
+//            {
+//                needFlipEGL = TRUE;
+//            }
+//            #if defined(DISP_DEBUG)
+//            sprintf ( txtbuffer, "MoveImage UploadedScreen %d\r\n", uploaded);
+//            writeLogFile ( txtbuffer );
+//            #endif // DISP_DEBUG
+//        }
 //        else if ( iOffscreenDrawing )
 //        {
 //            if ( CheckAgainstFrontScreen ( imageX1, imageY1, imageSX, imageSY ) )
@@ -3255,13 +3288,13 @@ static void primTileS ( unsigned char * baseAddr )
         sprintf(txtbuffer, "TileS CLEAR_SCREEN %d\r\n", firstPrim);
         writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
-        checkFirstPrim(false, false, false);
+        checkFirstPrim(2, 0, 0);
         needUploadScreen = FALSE;
         uploadedScreen = FALSE;
     }
     else
     {
-        checkFirstPrim(false, false, false);
+        checkFirstPrim(0, 0, 0);
         CheckFullScreenUpload();
     }
 
@@ -3358,7 +3391,7 @@ static void primTileS ( unsigned char * baseAddr )
 
 static void primTile1 ( unsigned char * baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -3429,7 +3462,7 @@ static void primTile1 ( unsigned char * baseAddr )
 
 static void primTile8 ( unsigned char * baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -3494,7 +3527,7 @@ static void primTile8 ( unsigned char * baseAddr )
 
 static void primTile16 ( unsigned char * baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -3594,7 +3627,7 @@ static void primTile16 ( unsigned char * baseAddr )
 
 static void primSprt8 ( unsigned char * baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -3718,7 +3751,7 @@ static void primSprt8 ( unsigned char * baseAddr )
 
 static void primSprt16 ( unsigned char * baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -3841,7 +3874,7 @@ static void primSprt16 ( unsigned char * baseAddr )
 
 static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -4022,7 +4055,7 @@ static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
 
 static void primSprtS ( unsigned char * baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -4312,7 +4345,7 @@ BOOL bCheckFF9G4 ( unsigned char * baseAddr )
 
 static void primPolyG4 ( unsigned char * baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -4692,7 +4725,7 @@ BOOL Hack_ForceLine(uint32_t *gpuData)
 
 static void primPolyFT3 ( unsigned char * baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -5136,7 +5169,7 @@ static void RectTexAlign ( void )
 
 static void primPolyFT4 ( unsigned char * baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -5214,7 +5247,7 @@ static void primPolyFT4 ( unsigned char * baseAddr )
 
 static void primPolyGT3 ( unsigned char *baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -5307,7 +5340,7 @@ static void primPolyGT3 ( unsigned char *baseAddr )
 
 static void primPolyG3 ( unsigned char *baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -5365,7 +5398,7 @@ static void primPolyG3 ( unsigned char *baseAddr )
 
 static void primPolyGT4 ( unsigned char *baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -5472,7 +5505,7 @@ static void primPolyGT4 ( unsigned char *baseAddr )
 
 static void primPolyF3 ( unsigned char *baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -5530,7 +5563,7 @@ static void primPolyF3 ( unsigned char *baseAddr )
 
 static void primLineGSkip ( unsigned char *baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -5568,7 +5601,7 @@ static void primLineGSkip ( unsigned char *baseAddr )
 
 static void primLineGEx ( unsigned char *baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -5647,7 +5680,7 @@ static void primLineGEx ( unsigned char *baseAddr )
 
 static void primLineG2 ( unsigned char *baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -5705,7 +5738,7 @@ static void primLineG2 ( unsigned char *baseAddr )
 
 static void primLineFSkip ( unsigned char *baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -5738,7 +5771,7 @@ static void primLineFSkip ( unsigned char *baseAddr )
 
 static void primLineFEx ( unsigned char *baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 
@@ -5809,7 +5842,7 @@ static void primLineFEx ( unsigned char *baseAddr )
 
 static void primLineF2 ( unsigned char *baseAddr )
 {
-    checkFirstPrim(false, false, false);
+    checkFirstPrim(0, 0, 0);
 
     CheckFullScreenUpload();
 

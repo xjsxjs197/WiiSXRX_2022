@@ -151,11 +151,16 @@ static unsigned short screenY1 = 240;
 static unsigned short screenWidth = 320;
 static unsigned short screenHeight = 240;
 static unsigned short canPrintFps = 1;
+static unsigned short canPrintFpsNext = 0;
 static unsigned short canClearBuf = 0;
 static unsigned short chkGPUupdateLace5 = 0;
 static unsigned short chkGPUupdateLace5_Dino2 = 0;
 static unsigned short hasVRamRead = 0;
-static unsigned short hasUploadScreen = 0;
+static unsigned short hasUploadFullScreen = 0;
+static unsigned short dino2MovieStart = 0;
+static unsigned short chkDino2MovieLeftPadding = 0;
+static unsigned short movieLeftPadding = 0;
+static unsigned short isLastPrimMoveImage21 = 0;
 
 static BOOL    needUploadScreen = FALSE;
 static BOOL    uploadedScreen = FALSE;
@@ -166,7 +171,7 @@ static unsigned short    GPUupdateLace5Flg = 0;
 static BOOL    drawTexturePage = FALSE;
 
 #define CHECK_SCREEN_INFO() { \
-    screenX = PSXDisplay.DisplayPosition.x; \
+    screenX = PSXDisplay.RGB24 ? (PSXDisplay.DisplayPosition.x * 2 / 3) : PSXDisplay.DisplayPosition.x; \
     screenY = PSXDisplay.DisplayPosition.y; \
     screenWidth = PSXDisplay.DisplayModeNew.x; \
     screenHeight = PSXDisplay.DisplayModeNew.y; \
@@ -192,6 +197,7 @@ void BlkFillArea(short x0, short y0, short width, short height);
 extern u32* xfb[3];	/*** Framebuffers ***/
 
 void flipEGL(void);
+void newUpdateDisplayGl(void);
 
 #define CLEAR_EFB() { \
     /* gx_vout_render(0); */ \
@@ -429,12 +435,12 @@ if(PSXDisplay.RGB24)// && !bNeedUploadAfter)          // (mdec) upload wanted?
 else
 if(bNeedInterlaceUpdate)                              // smaller upload?
  {
-     #ifdef DISP_DEBUG
-     //sprintf(txtbuffer, "updateDisplayGl_2 %d %d %d %d %d %d %d %d %d\r\n", PSXDisplay.Disabled, lClearOnSwap, iZBufferDepth, PSXDisplay.Interlaced, bNeedRGB24Update, xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1);
-     //writeLogFile(txtbuffer);
-     #endif // DISP_DEBUG
   bNeedInterlaceUpdate=FALSE;
   xrUploadArea=xrUploadAreaIL;                        // -> upload this rect
+  #ifdef DISP_DEBUG
+  sprintf(txtbuffer, "NeedInterlaceUpdate %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1, xrUploadArea.y1);
+  writeLogFile(txtbuffer);
+  #endif // DISP_DEBUG
   UploadScreen(TRUE);
  }
 
@@ -615,38 +621,72 @@ if(bNeedUploadTest)
     UploadScreen(TRUE);
    }
  }
+}
 
-//----------------------------------------------------//
-// rumbling (main emu pad effect)
+void newUpdateDisplayGl(void)                               // UPDATE DISPLAY
+{
+    if (!iDrawnSomething) return;
 
-//if(iRumbleTime)                                       // shake screen by modifying view port
-// {
-//  int i1=0,i2=0,i3=0,i4=0;
-//
-//  iRumbleTime--;
-//  if(iRumbleTime)
-//   {
-//    i1=((rand()*iRumbleVal)/RAND_MAX)-(iRumbleVal/2);
-//    i2=((rand()*iRumbleVal)/RAND_MAX)-(iRumbleVal/2);
-//    i3=((rand()*iRumbleVal)/RAND_MAX)-(iRumbleVal/2);
-//    i4=((rand()*iRumbleVal)/RAND_MAX)-(iRumbleVal/2);
-//   }
-//
-//  #ifdef DISP_DEBUG
-//       sprintf(txtbuffer, "iRumbleTime\r\n");
-//       writeLogFile(txtbuffer);
-//       #endif // DISP_DEBUG
-//  glViewport(rRatioRect.left+i1,
-//             iResY-(rRatioRect.top+rRatioRect.bottom)+i2,
-//             rRatioRect.right+i3,
-//             rRatioRect.bottom+i4); glError();
-// }
+    bool needFlipEGL = false;
+    if (PSXDisplay.RGB24)          // (mdec) upload wanted?
+    {
+        if (isLastPrimMoveImage21 ||
+            (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= screenX1)
+        {
+            needFlipEGL = true;
+            canClearBuf = 1;
+            PrepareFullScreenUpload(-1);
+            UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
+            bNeedUploadTest=FALSE;
+            bNeedInterlaceUpdate=FALSE;
+            bNeedUploadAfter=FALSE;
+            bNeedRGB24Update=FALSE;
+        }
+    }
+    else
+    {
+        if (dino2MovieStart)
+        {
+            if ((VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= screenX1)
+            {
+                needFlipEGL = true;
+                canClearBuf = 1;
+                PrepareFullScreenUpload(-1);
+                UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
+                bNeedUploadTest=FALSE;
+                bNeedInterlaceUpdate=FALSE;
+                bNeedUploadAfter=FALSE;
+                bNeedRGB24Update=FALSE;
+            }
+        }
+        else
+        {
+            needFlipEGL = true;
+        }
+    }
 
-//----------------------------------------------------//
+    if (dwActFixes & AUTO_FIX_FF9) bCheckFF9G4(NULL);                 // special game fix for FF9
 
+    if (PreviousPSXDisplay.Range.x0 ||                      // paint black borders around display area, if needed
+        PreviousPSXDisplay.Range.y0)
+        PaintBlackBorders();
 
+    if (PSXDisplay.Disabled)                               // display disabled?
+    {
+        bDisplayNotSet = TRUE;
+        #ifdef DISP_DEBUG
+        sprintf(txtbuffer, "updateDisplayGl Disabled\r\n");
+        writeLogFile(txtbuffer);
+        #endif // DISP_DEBUG
+        return;
+    }
 
-// if(ulKeybits&KEY_RESETTEXSTORE) ResetStuff();         // reset on gpu mode changes? do it before next frame is filled
+    if (!needFlipEGL) return;
+
+    flipEGL();
+
+    iDrawnSomething = 0;
+    gl_z = 0.0f;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1029,7 +1069,7 @@ if(PSXDisplay.Interlaced)                             // interlaced mode?
        sprintf ( txtbuffer, "GPUupdateLace1 %d %x\r\n", iDrawnSomething, RGB24Uploaded);
        writeLogFile ( txtbuffer );
        #endif // DISP_DEBUG
-       updateDisplayGl();                                  // -> swap buffers (new frame)
+       newUpdateDisplayGl();                                  // -> swap buffers (new frame)
 
 //       if (iDrawnSomething == 0 && (RGB24Uploaded & 0x4))
 //       {
@@ -1072,20 +1112,21 @@ else if(usFirstPos==1)                                // initial updates (after 
  else
  {
      #ifdef DISP_DEBUG
-     sprintf ( txtbuffer, "GPUupdateLace5 %x %d %d %d %x %d\r\n", iDrawnSomething, PSXDisplay.Interlaced, PSXDisplay.Disabled, PSXDisplay.InterlacedTest, RGB24Uploaded, hasUploadScreen);
+     sprintf ( txtbuffer, "GPUupdateLace5 %x %d %d %d %x %d\r\n", iDrawnSomething, PSXDisplay.Interlaced, PSXDisplay.Disabled, PSXDisplay.InterlacedTest, RGB24Uploaded, hasUploadFullScreen);
      writeLogFile ( txtbuffer );
      #endif // DISP_DEBUG
-     GPUupdateLace5Flg = 0;
-//     chkGPUupdateLace5 = 0;
-//     chkGPUupdateLace5_Dino2 = 0;
-     if (iDrawnSomething == 2 && hasUploadScreen && loadImageCnt == 0)
-     {
-         // For Layman2 logo
-         GPUupdateLace5Flg = 1;
-         flipEGL();
-         iDrawnSomething = 0;
-     }
-     else
+     newUpdateDisplayGl();
+//     GPUupdateLace5Flg = 0;
+////     chkGPUupdateLace5 = 0;
+////     chkGPUupdateLace5_Dino2 = 0;
+//     if (iDrawnSomething == 2 && hasUploadFullScreen && loadImageCnt == 0)
+//     {
+//         // For Layman2 logo
+//         GPUupdateLace5Flg = 1;
+//         flipEGL();
+//         iDrawnSomething = 0;
+//     }
+//     else
      {
          //if (iDrawnSomething == 1)
          {
@@ -1093,7 +1134,7 @@ else if(usFirstPos==1)                                // initial updates (after 
              // after pressing the start button.
              //chkGPUupdateLace5 = 1;
          }
-//         else if (iDrawnSomething == 2 && hasUploadScreen)
+//         else if (iDrawnSomething == 2 && hasUploadFullScreen)
 //         {
 //             // Fix for the missing title in Crash Team Racing.
 //             GPUupdateLace5Flg = 1;
@@ -1322,17 +1363,17 @@ switch(lCommand)
          #endif // DISP_DEBUG
          CHECK_SCREEN_INFO();
 
-         if (GPUupdateLace5Flg && (iDrawnSomething & ~0x4) == 0)
-         {
-
-         }
-         else
-         {
-             //bool upLoadFullScreen = (screenWidth == (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560) && screenHeight == PSXDisplay.Height);
-             //if (upLoadFullScreen) canClearBuf = 1;
-             //if (iDrawnSomething > 0 && !PSXDisplay.Disabled) canClearBuf = 1;
-             updateDisplayGl();
-         }
+//         if (GPUupdateLace5Flg && (iDrawnSomething & ~0x4) == 0)
+//         {
+//
+//         }
+//         else
+//         {
+//             //bool upLoadFullScreen = (screenWidth == (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560) && screenHeight == PSXDisplay.Height);
+//             //if (upLoadFullScreen) canClearBuf = 1;
+//             //if (iDrawnSomething > 0 && !PSXDisplay.Disabled) canClearBuf = 1;
+//             updateDisplayGl();
+//         }
      }
     else
     if(PSXDisplay.InterlacedTest &&
@@ -2364,16 +2405,13 @@ void CALLBACK GL_GPUrearmedCallbacks(const struct rearmed_cbs *_cbs)
 
 void flipEGL(void)
 {
-    bool isPlayingMovie = (loadImageCnt >= 3 && !otherPrimCmdExists);
-
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "flipEGL %d %d %d %d %d %d \r\n", (canPrintFps || isPlayingMovie) ? 1 : 0,
-            (PSXDisplay.RGB24 || isPlayingMovie || canClearBuf) ? 1 : 0, PSXDisplay.RGB24, loadImageCnt, otherPrimCmdExists, canClearBuf);
+    sprintf(txtbuffer, "flipEGL %d %d\r\n", canPrintFps, canClearBuf);
     DEBUG_print(txtbuffer, DBG_SPU3);
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
-    if (canPrintFps || isPlayingMovie)
+    if (canPrintFps)
     {
         // Write menu/debug text on screen
         showFpsAndDebugInfo();
@@ -2390,36 +2428,38 @@ void flipEGL(void)
         }
     }
 
-    bool canClearEFB = (PSXDisplay.RGB24 || isPlayingMovie || canClearBuf);
-    if (canClearEFB)
+    if (canClearBuf)
     {
         gx_vout_render(1);
-        canPrintFps = 1;
     }
     else
     {
         gx_vout_render(0);
-        canPrintFps = 0;
-
     }
 
     //clearLargeRange = 0;
-    if ((PSXDisplay.RGB24 || isPlayingMovie) && !PSXDisplay.Disabled)
-    {
-        drawTexturePage = FALSE;
-    }
+//    if ((PSXDisplay.RGB24 || isPlayingMovie) && !PSXDisplay.Disabled)
+//    {
+//        drawTexturePage = FALSE;
+//    }
     uploadedScreen = FALSE;
     needFlipEGL = FALSE;
     RGB24Uploaded = 0;
     glSetLoadMtxFlg();
     canClearBuf = 0;
-    firstPrim = true;
+    firstPrim = 1;
     loadImageCnt = 0;
     otherPrimCmdExists = 0;
     chkGPUupdateLace5 = 0;
     chkGPUupdateLace5_Dino2 = 0;
     hasVRamRead = 0;
-    hasUploadScreen = 0;
+    hasUploadFullScreen = 0;
+    dino2MovieStart = 0;
+    chkDino2MovieLeftPadding = 0;
+    movieLeftPadding = 0;
+    canPrintFps = canPrintFpsNext || isLastPrimMoveImage21;
+    canPrintFpsNext = 0;
+    isLastPrimMoveImage21 = 0;
 
     extern void resetTexCacheInfo(void);
     resetTexCacheInfo();
