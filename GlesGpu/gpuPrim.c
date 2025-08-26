@@ -3134,6 +3134,7 @@ static void primMoveImage ( unsigned char * baseAddr )
     else
     {
         iDrawnSomething |= 0x8;
+        checkFirstPrim(0, isMoveImage21, 0);
         if (imageSX == screenWidth || imageSY == screenHeight)
         {
             RGB24Uploaded = TRUE;

@@ -1116,7 +1116,7 @@ if(PSXDisplay.Interlaced)                             // interlaced mode?
 // }
 else if(usFirstPos==1)                                // initial updates (after startup)
  {
-     #ifdef DISP_DEBUG
+    #ifdef DISP_DEBUG
     sprintf ( txtbuffer, "GPUupdateLace3\r\n");
     writeLogFile ( txtbuffer );
     #endif // DISP_DEBUG
@@ -1275,7 +1275,17 @@ switch(lCommand)
        writeLogFile(txtbuffer);
        #endif // DISP_DEBUG
        //UploadScreen(TRUE);
-       if (xrUploadArea.x0 == xrUploadArea.x1 || xrUploadArea.y0 == xrUploadArea.y1) return;
+       if (xrUploadArea.x0 == xrUploadArea.x1 || xrUploadArea.y0 == xrUploadArea.y1)
+       {
+           canPrintFps = 1;
+           CLEAR_EFB();
+           flipEGL();
+
+           iDrawnSomething = 0;
+           gl_z = 0.0f;
+           return;
+       }
+
        canPrintFps = 1;
        updateDisplayGl();
       }
