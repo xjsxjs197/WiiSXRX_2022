@@ -2135,7 +2135,7 @@ static void cmdDrawOffset ( unsigned char * baseAddr )
 }
 
 
-static void checkFirstPrim(int screenClean, bool isMoveImage21, bool isUploadFullScreen)
+static void checkFirstPrim(int screenClean, int isMoveImage21, int isUploadFullScreen)
 {
     // Only check first command of the current frame
     if (firstPrim)
@@ -2408,7 +2408,7 @@ void CheckWriteUpdate()
                 #endif // DISP_DEBUG
             }
 
-            bool loadFullScreen = (VRAMWrite.Width == tmpWidth && VRAMWrite.Height == PSXDisplay.Height);
+            int loadFullScreen = (VRAMWrite.Width == tmpWidth && VRAMWrite.Height == PSXDisplay.Height) ? 1 : 0;
             checkFirstPrim(0, 0, loadFullScreen);
 
             // When dino2 playing movie, no need upload screen
@@ -2960,7 +2960,12 @@ static void primMoveImage ( unsigned char * baseAddr )
         iDrawnSomething &= ~0x8;
     }
 
-    if ( ( imageX0 == imageX1 ) && ( imageY0 == imageY1 ) ) return;
+    if ( ( imageX0 == imageX1 ) && ( imageY0 == imageY1 ) )
+    {
+        checkFirstPrim(0, isMoveImage21, 0);
+        return;
+    }
+
     if ( imageSX <= 0 ) return;
     if ( imageSY <= 0 ) return;
 
@@ -3040,6 +3045,11 @@ static void primMoveImage ( unsigned char * baseAddr )
 
                 //bNeedUploadTest = TRUE;
             }
+        }
+        else
+        {
+            checkFirstPrim(0, isMoveImage21, 0);
+        }
 
 //            if ( imageX1 >= PreviousPSXDisplay.DisplayPosition.x &&
 //                    imageX1 < PreviousPSXDisplay.DisplayEnd.x &&
@@ -3073,7 +3083,6 @@ static void primMoveImage ( unsigned char * baseAddr )
 //            }
 //
 //            bNeedUploadTest = TRUE;
-        }
 
 //        if (uploaded == 0 &&
 //            ((imageY1 + imageSY) <= screenY1)
