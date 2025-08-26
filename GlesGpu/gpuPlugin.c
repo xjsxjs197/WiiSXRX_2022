@@ -133,17 +133,6 @@ unsigned int    ulGPUInfoVals[16];
 int             iRumbleVal    = 0;
 int             iRumbleTime   = 0;
 
-//static unsigned char clearLargeRange = 0;
-//static unsigned short largeRangeX1 = 0;
-//static unsigned short largeRangeX2 = 0;
-//static unsigned short largeRangeY1 = 0;
-//static unsigned short largeRangeY2 = 0;
-
-static unsigned short uploadAreaX1 = 0;
-static unsigned short uploadAreaX2 = 0;
-static unsigned short uploadAreaY1 = 0;
-static unsigned short uploadAreaY2 = 0;
-
 static unsigned short screenX = 0;
 static unsigned short screenY = 0;
 static unsigned short screenX1 = 320;
@@ -159,14 +148,13 @@ static unsigned short hasVRamRead = 0;
 static unsigned short hasUploadFullScreen = 0;
 static unsigned short dino2MovieStart = 0;
 static unsigned short chkMovieLeftPadding = 0;
-static unsigned short movieLeftPadding = 0;
+static   signed short movieLeftPadding = 0;
 static unsigned short isLastPrimMoveImage21 = 0;
+static unsigned short frameCmdCount = 0;
+static unsigned short loadImage16CmdCount = 0;
 
-static BOOL    needUploadScreen = FALSE;
-static BOOL    uploadedScreen = FALSE;
-static BOOL    needFlipEGL = FALSE;
 static unsigned short    RGB24Uploaded = 0;
-static unsigned short    GPUupdateLace5Flg = 0;
+//static unsigned short    GPUupdateLace5Flg = 0;
 // Use drawTexturePage flag to determine whether the data uploaded through command primLoadImage needs to be manually displayed on the screen
 static BOOL    drawTexturePage = FALSE;
 
@@ -630,13 +618,12 @@ void newUpdateDisplayGl(void)                               // UPDATE DISPLAY
     bool needFlipEGL = false;
     if (PSXDisplay.RGB24)          // (mdec) upload wanted?
     {
-        int tmpWidth = (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560);
         #if defined(DISP_DEBUG)
-        sprintf ( txtbuffer, "chkRGB24FrameEnd %d %d %d\r\n", (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding), tmpWidth, isLastPrimMoveImage21);
+        sprintf ( txtbuffer, "chkRGB24FrameEnd %d %d %d\r\n", (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding), screenX1 , isLastPrimMoveImage21);
         writeLogFile ( txtbuffer );
         #endif // DISP_DEBUG
         if (isLastPrimMoveImage21 ||
-            (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= tmpWidth)
+            (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= screenX1)
         {
             needFlipEGL = true;
             canPrintFps = 1;
@@ -664,6 +651,25 @@ void newUpdateDisplayGl(void)                               // UPDATE DISPLAY
                 bNeedInterlaceUpdate=FALSE;
                 bNeedUploadAfter=FALSE;
                 bNeedRGB24Update=FALSE;
+            }
+        }
+        else if (iDrawnSomething & 0x20)
+        {
+            bNeedInterlaceUpdate = FALSE;
+            xrUploadArea = xrUploadAreaIL;                        // -> upload this rect
+            #ifdef DISP_DEBUG
+            sprintf(txtbuffer, "NeedInterlaceUpdate %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1, xrUploadArea.y1);
+            writeLogFile(txtbuffer);
+            #endif // DISP_DEBUG
+            UploadScreen(TRUE);
+            needFlipEGL = true;
+        }
+        else if (frameCmdCount == loadImage16CmdCount)
+        {
+            if (drawTexturePage == TRUE)
+            {
+                // Current frame only primLoadImage16 exists, when cmdTexturePage also exists, display screen
+                needFlipEGL = true;
             }
         }
         else
@@ -1269,6 +1275,7 @@ switch(lCommand)
        writeLogFile(txtbuffer);
        #endif // DISP_DEBUG
        //UploadScreen(TRUE);
+       if (xrUploadArea.x0 == xrUploadArea.x1 || xrUploadArea.y0 == xrUploadArea.y1) return;
        canPrintFps = 1;
        updateDisplayGl();
       }
@@ -1369,18 +1376,6 @@ switch(lCommand)
          writeLogFile(txtbuffer);
          #endif // DISP_DEBUG
          CHECK_SCREEN_INFO();
-
-//         if (GPUupdateLace5Flg && (iDrawnSomething & ~0x4) == 0)
-//         {
-//
-//         }
-//         else
-//         {
-//             //bool upLoadFullScreen = (screenWidth == (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560) && screenHeight == PSXDisplay.Height);
-//             //if (upLoadFullScreen) canClearBuf = 1;
-//             //if (iDrawnSomething > 0 && !PSXDisplay.Disabled) canClearBuf = 1;
-//             updateDisplayGl();
-//         }
      }
     else
     if(PSXDisplay.InterlacedTest &&
@@ -2444,13 +2439,7 @@ void flipEGL(void)
         gx_vout_render(0);
     }
 
-    //clearLargeRange = 0;
-//    if ((PSXDisplay.RGB24 || isPlayingMovie) && !PSXDisplay.Disabled)
-//    {
-//        drawTexturePage = FALSE;
-//    }
-    uploadedScreen = FALSE;
-    needFlipEGL = FALSE;
+    drawTexturePage = FALSE;
     RGB24Uploaded = 0;
     glSetLoadMtxFlg();
     canClearBuf = 0;
@@ -2467,6 +2456,8 @@ void flipEGL(void)
     canPrintFps = canPrintFpsNext || isLastPrimMoveImage21;
     canPrintFpsNext = 0;
     isLastPrimMoveImage21 = 0;
+    frameCmdCount = 0;
+    loadImage16CmdCount = 0;
 
     extern void resetTexCacheInfo(void);
     resetTexCacheInfo();
