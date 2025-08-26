@@ -2240,9 +2240,6 @@ static void checkFirstPrim(int screenClean, bool isMoveImage21, bool isUploadFul
             CLEAR_EFB();
         }
 
-        // check movie left padding
-        chkMovieLeftPadding = 1;
-
         firstPrim = 0;
     }
 
@@ -2357,19 +2354,20 @@ static void PrepareRGB24Upload ( void )
     }
 
     // check movie left padding
-    if (chkMovieLeftPadding)
+    if (chkMovieLeftPadding == 0)
     {
-        if (VRAMWrite.x >= (screenWidth * 2 / 3))
+        int tmpWidth = (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560);
+        if (VRAMWrite.x >= tmpWidth)
         {
-            movieLeftPadding = (VRAMWrite.x - (screenWidth * 2 / 3)) * 4;
+            movieLeftPadding = (VRAMWrite.x - tmpWidth) * 4;
         }
         else
         {
             movieLeftPadding = VRAMWrite.x * 4;
         }
-        chkMovieLeftPadding = 0;
+        chkMovieLeftPadding = 1;
         #if defined(DISP_DEBUG)
-        sprintf ( txtbuffer, "chkMovieLeftPadding %d\r\n", movieLeftPadding);
+        sprintf ( txtbuffer, "chkMovieLeftPadding %d %d %d\r\n", movieLeftPadding, VRAMWrite.x, tmpWidth);
         writeLogFile ( txtbuffer );
         #endif // DISP_DEBUG
     }
@@ -2441,20 +2439,25 @@ void CheckWriteUpdate()
 //            }
 
             // check dino2 movie left padding
-            if (dino2MovieStart && chkMovieLeftPadding)
+            int tmpWidth = (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560);
+            if (dino2MovieStart && chkMovieLeftPadding == 0)
             {
-                if (VRAMWrite.x >= screenWidth)
+                if (VRAMWrite.x >= tmpWidth)
                 {
-                    movieLeftPadding = (VRAMWrite.x - screenWidth) * 4;
+                    movieLeftPadding = (VRAMWrite.x - tmpWidth) * 4;
                 }
                 else
                 {
                     movieLeftPadding = VRAMWrite.x * 4;
                 }
-                chkMovieLeftPadding = 0;
+                chkMovieLeftPadding = 1;
+                #if defined(DISP_DEBUG)
+                sprintf ( txtbuffer, "chkMovieLeftPadding %d %d %d\r\n", movieLeftPadding, VRAMWrite.x, tmpWidth);
+                writeLogFile ( txtbuffer );
+                #endif // DISP_DEBUG
             }
 
-            bool loadFullScreen = (VRAMWrite.Width == (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560) && VRAMWrite.Height == PSXDisplay.Height);
+            bool loadFullScreen = (VRAMWrite.Width == tmpWidth && VRAMWrite.Height == PSXDisplay.Height);
             checkFirstPrim(0, 0, loadFullScreen);
 
             // When dino2 playing movie, no need upload screen
@@ -2893,15 +2896,16 @@ static void primBlkFill ( unsigned char * baseAddr )
                 sprintf(txtbuffer, "clear Next Screen\r\n");
                 writeLogFile(txtbuffer);
                 #endif // DISP_DEBUG
-                lClearOnSwapColor = COLOR ( GETLE32 ( &gpuData[0] ) );
-                lClearOnSwap = 1;
-                nextClearX = sprtX;
-                nextClearY = sprtY;
-                nextClearWidth = sprtW;
-                nextClearHeight = sprtH;
-                BlkFillArea(nextClearX, nextClearY, nextClearWidth, nextClearHeight);
+//                lClearOnSwapColor = COLOR ( GETLE32 ( &gpuData[0] ) );
+//                lClearOnSwap = 1;
+//                nextClearX = sprtX;
+//                nextClearY = sprtY;
+//                nextClearWidth = sprtW;
+//                nextClearHeight = sprtH;
+//                BlkFillArea(nextClearX, nextClearY, nextClearWidth, nextClearHeight);
 
-                //canClearBuf = 1;
+                // When wii swap buffer, auto clear EFB, so no need Clear EFB On next frame.
+                canClearBuf = 1;
                 canPrintFpsNext = 1;
             }
             else
@@ -4246,7 +4250,7 @@ static void primPolyF4 ( unsigned char *baseAddr )
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
-    checkFirstPrim(false, false, true);
+    checkFirstPrim(0, 0, 0);
 
     if ( offset4() ) return;
 

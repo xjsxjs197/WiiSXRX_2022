@@ -630,8 +630,13 @@ void newUpdateDisplayGl(void)                               // UPDATE DISPLAY
     bool needFlipEGL = false;
     if (PSXDisplay.RGB24)          // (mdec) upload wanted?
     {
+        int tmpWidth = (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560);
+        #if defined(DISP_DEBUG)
+        sprintf ( txtbuffer, "chkRGB24FrameEnd %d %d %d\r\n", (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding), tmpWidth, isLastPrimMoveImage21);
+        writeLogFile ( txtbuffer );
+        #endif // DISP_DEBUG
         if (isLastPrimMoveImage21 ||
-            (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= (screenX1 * 2 / 3))
+            (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= tmpWidth)
         {
             needFlipEGL = true;
             canPrintFps = 1;
