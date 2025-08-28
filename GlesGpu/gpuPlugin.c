@@ -146,7 +146,7 @@ static unsigned short chkGPUupdateLace5 = 0;
 static unsigned short chkGPUupdateLace5_Dino2 = 0;
 static unsigned short hasVRamRead = 0;
 static unsigned short hasUploadFullScreen = 0;
-static unsigned short dino2MovieStart = 0;
+static unsigned short playMovieStart = 0;
 static unsigned short chkMovieLeftPadding = 0;
 static   signed short movieLeftPadding = 0;
 static unsigned short isLastPrimMoveImage21 = 0;
@@ -638,7 +638,7 @@ void newUpdateDisplayGl(void)                               // UPDATE DISPLAY
     }
     else
     {
-        if (dino2MovieStart)
+        if (playMovieStart)
         {
             if ((VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= screenX1)
             {
@@ -1381,8 +1381,12 @@ switch(lCommand)
     if (!(PSXDisplay.Interlaced))
      {
          #ifdef DISP_DEBUG
-         sprintf(txtbuffer, "settingDispInfo05 %d %d %d %d\r\n", PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y, PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560, PSXDisplay.Height);
-         //DEBUG_print(txtbuffer, DBG_CDR2);
+         sprintf(txtbuffer, "settingDispInfo05 %d %d %d %d %d\r\n",
+                 PSXDisplay.DisplayPosition.x,
+                 PSXDisplay.DisplayPosition.y,
+                 PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560,
+                 PSXDisplay.Height,
+                 PSXDisplay.RGB24);
          writeLogFile(txtbuffer);
          #endif // DISP_DEBUG
          CHECK_SCREEN_INFO();
@@ -2460,7 +2464,7 @@ void flipEGL(void)
     chkGPUupdateLace5_Dino2 = 0;
     hasVRamRead = 0;
     hasUploadFullScreen = 0;
-    dino2MovieStart = 0;
+    playMovieStart = 0;
     chkMovieLeftPadding = 0;
     movieLeftPadding = 0;
     canPrintFps = canPrintFpsNext || isLastPrimMoveImage21;

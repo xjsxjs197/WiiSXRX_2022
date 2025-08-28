@@ -2015,7 +2015,7 @@ static void cmdDrawAreaStart ( unsigned char * baseAddr )
     uint32_t gdata = GETLE32 ( ( uint32_t* ) baseAddr );
 
     drawX = gdata & 0x3ff;                                // for soft drawing
-    //if (PSXDisplay.RGB24) drawX = drawX * 2 / 3;
+
     if ( drawX >= 1024 ) drawX = 1023;
 
     if ( dwGPUVersion == 2 )
@@ -2083,6 +2083,10 @@ static void cmdDrawAreaEnd ( unsigned char * baseAddr )
     screenWidth = screenX1 - screenX;
     screenHeight = screenY1 - screenY;
 
+    // Special fix lots of position miss
+    PreviousPSXDisplay.DisplayPosition.x = screenX;
+    PreviousPSXDisplay.DisplayEnd.x = screenX1;
+
     ClampToPSXScreen ( &PSXDisplay.DrawArea.x0,           // clamp
                        &PSXDisplay.DrawArea.y0,
                        &PSXDisplay.DrawArea.x1,
@@ -2100,7 +2104,7 @@ static void cmdDrawOffset ( unsigned char * baseAddr )
     uint32_t gdata = GETLE32 ( ( uint32_t* ) baseAddr );
 
     short tmpOffset = ( short ) ( gdata & 0x7ff );
-    //if (PSXDisplay.RGB24) tmpOffset = tmpOffset * 2 / 3;
+
     PreviousPSXDisplay.DrawOffset.x = PSXDisplay.DrawOffset.x = tmpOffset;
 
     if ( dwGPUVersion == 2 )
@@ -2175,7 +2179,7 @@ static void checkFirstPrim(int screenClean, int isMoveImage21, int isUploadFullS
             canPrintFps = 1;
 
             // Dino2 Movie Start
-            dino2MovieStart = 1;
+            playMovieStart = 1;
             #if defined(DISP_DEBUG)
             sprintf ( txtbuffer, "Movie Start Dino2 \r\n");
             writeLogFile(txtbuffer);
@@ -2389,9 +2393,21 @@ void CheckWriteUpdate()
 //                updateFrontDisplayGl();
 //            }
 
+            // check play movie
+            if (playMovieStart == 0 && chkMovieLeftPadding == 0)
+            {
+                if ((PreviousPSXDisplay.DisplayEnd.x - PreviousPSXDisplay.DisplayPosition.x) ==
+                    (PSXDisplay.DisplayEnd.x - PSXDisplay.DisplayPosition.x) &&
+                    (PreviousPSXDisplay.DisplayEnd.y - PreviousPSXDisplay.DisplayPosition.y) ==
+                    (PSXDisplay.DisplayEnd.y - PSXDisplay.DisplayPosition.y))
+                {
+                    playMovieStart = 1;
+                }
+            }
+
             // check dino2 movie left padding
             int tmpWidth = (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560);
-            if (dino2MovieStart && chkMovieLeftPadding == 0)
+            if (playMovieStart && chkMovieLeftPadding == 0)
             {
                 if (VRAMWrite.x >= tmpWidth)
                 {
@@ -2412,7 +2428,7 @@ void CheckWriteUpdate()
             checkFirstPrim(0, 0, loadFullScreen);
 
             // When dino2 playing movie, no need upload screen
-            if (!dino2MovieStart)
+            if (!playMovieStart)
             {
                 uploaded = UploadScreen ( FALSE );
             }
