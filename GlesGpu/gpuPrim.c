@@ -2068,6 +2068,10 @@ static void cmdDrawAreaEnd ( unsigned char * baseAddr )
 
     if ( drawH >= iGPUHeight ) drawH = iGPUHeightMask;
 
+    // Special fix
+    if (drawW == 0) drawW = 1023;
+    if (drawH == 0) drawH = 511;
+
     PSXDisplay.DrawArea.y1 = ( short ) drawH;             // for OGL drawing
     PSXDisplay.DrawArea.x1 = ( short ) drawW;
 
@@ -2394,16 +2398,16 @@ void CheckWriteUpdate()
 //            }
 
             // check play movie
-            if (playMovieStart == 0 && chkMovieLeftPadding == 0)
-            {
-                if ((PreviousPSXDisplay.DisplayEnd.x - PreviousPSXDisplay.DisplayPosition.x) ==
-                    (PSXDisplay.DisplayEnd.x - PSXDisplay.DisplayPosition.x) &&
-                    (PreviousPSXDisplay.DisplayEnd.y - PreviousPSXDisplay.DisplayPosition.y) ==
-                    (PSXDisplay.DisplayEnd.y - PSXDisplay.DisplayPosition.y))
-                {
-                    playMovieStart = 1;
-                }
-            }
+//            if (playMovieStart == 0 && chkMovieLeftPadding == 0)
+//            {
+//                if ((PreviousPSXDisplay.DisplayEnd.x - PreviousPSXDisplay.DisplayPosition.x) ==
+//                    (PSXDisplay.DisplayEnd.x - PSXDisplay.DisplayPosition.x) &&
+//                    (PreviousPSXDisplay.DisplayEnd.y - PreviousPSXDisplay.DisplayPosition.y) ==
+//                    (PSXDisplay.DisplayEnd.y - PSXDisplay.DisplayPosition.y))
+//                {
+//                    playMovieStart = 1;
+//                }
+//            }
 
             // check dino2 movie left padding
             int tmpWidth = (PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560);
