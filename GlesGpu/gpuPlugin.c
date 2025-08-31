@@ -172,7 +172,7 @@ static BOOL    drawTexturePage = FALSE;
 //#define INRANGE(x1, x2, y1, y2) ((y2 <= largeRangeY2) && (y1 >= largeRangeY1) && (x2 <= largeRangeX2) && (x1 >= largeRangeX1))
 
 static short   texChgType = 0;
-static bool    firstPrim = true;
+static short   firstPrim = 1;
 static short   loadImageCnt = 0;
 static bool    otherPrimCmdExists = 0;
 static short   nextClearX;
@@ -618,23 +618,22 @@ void newUpdateDisplayGl(void)                               // UPDATE DISPLAY
     bool needFlipEGL = false;
     if (PSXDisplay.RGB24)          // (mdec) upload wanted?
     {
-        #if defined(DISP_DEBUG)
-        sprintf ( txtbuffer, "chkRGB24FrameEnd %d %d %d\r\n", (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding), screenX1 , isLastPrimMoveImage21);
-        writeLogFile ( txtbuffer );
-        #endif // DISP_DEBUG
-        if (isLastPrimMoveImage21 ||
-            (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= screenX1)
-        {
-            needFlipEGL = true;
-            canPrintFps = 1;
-            canClearBuf = 1;
-            PrepareFullScreenUpload(-1);
-            UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
-            bNeedUploadTest=FALSE;
-            bNeedInterlaceUpdate=FALSE;
-            bNeedUploadAfter=FALSE;
-            bNeedRGB24Update=FALSE;
-        }
+//        #if defined(DISP_DEBUG)
+//        sprintf ( txtbuffer, "chkRGB24FrameEnd %d %d %d %d\r\n", (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding), screenX1 , isLastPrimMoveImage21, frameCmdCount);
+//        writeLogFile ( txtbuffer );
+//        #endif // DISP_DEBUG
+//        if (isLastPrimMoveImage21 ||
+//            (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= screenX1)
+//        {
+//            needFlipEGL = true;
+//            canPrintFps = 1;
+//            canClearBuf = 1;
+//            UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
+//            bNeedUploadTest=FALSE;
+//            bNeedInterlaceUpdate=FALSE;
+//            bNeedUploadAfter=FALSE;
+//            bNeedRGB24Update=FALSE;
+//        }
     }
     else
     {
@@ -644,7 +643,7 @@ void newUpdateDisplayGl(void)                               // UPDATE DISPLAY
             {
                 needFlipEGL = true;
                 canPrintFps = 1;
-                canClearBuf = 1;
+                //canClearBuf = 1;
                 PrepareFullScreenUpload(-1);
                 UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
                 bNeedUploadTest=FALSE;
@@ -1389,7 +1388,34 @@ switch(lCommand)
                  PSXDisplay.RGB24);
          writeLogFile(txtbuffer);
          #endif // DISP_DEBUG
+         int tmpScreenX1 = screenX1;
          CHECK_SCREEN_INFO();
+
+         if (!iDrawnSomething || PSXDisplay.Disabled) return;
+         if (PSXDisplay.RGB24)          // (mdec) upload wanted?
+         {
+            #if defined(DISP_DEBUG)
+            sprintf ( txtbuffer, "chkRGB24FrameEnd %d %d %d %d\r\n", (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding), tmpScreenX1 , isLastPrimMoveImage21, frameCmdCount);
+            writeLogFile ( txtbuffer );
+            #endif // DISP_DEBUG
+            if (isLastPrimMoveImage21 ||
+                (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= tmpScreenX1)
+            {
+                canPrintFps = 1;
+                canClearBuf = 1;
+                PrepareFullScreenUpload(-1);
+                UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
+                bNeedUploadTest=FALSE;
+                bNeedInterlaceUpdate=FALSE;
+                bNeedUploadAfter=FALSE;
+                bNeedRGB24Update=FALSE;
+
+                flipEGL();
+
+                iDrawnSomething = 0;
+                gl_z = 0.0f;
+            }
+         }
      }
     else
     if(PSXDisplay.InterlacedTest &&
