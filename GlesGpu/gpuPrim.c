@@ -2088,8 +2088,8 @@ static void cmdDrawAreaEnd ( unsigned char * baseAddr )
     screenHeight = screenY1 - screenY;
 
     // Special fix lots of position miss
-    PreviousPSXDisplay.DisplayPosition.x = screenX;
-    PreviousPSXDisplay.DisplayEnd.x = screenX1;
+    //PreviousPSXDisplay.DisplayPosition.x = screenX;
+    //PreviousPSXDisplay.DisplayEnd.x = screenX1;
 
     ClampToPSXScreen ( &PSXDisplay.DrawArea.x0,           // clamp
                        &PSXDisplay.DrawArea.y0,
@@ -2422,6 +2422,7 @@ void CheckWriteUpdate()
                     movieLeftPadding = VRAMWrite.x * 4;
                 }
                 chkMovieLeftPadding = 1;
+                iDrawnSomething |= 0x2;
                 #if defined(DISP_DEBUG)
                 sprintf ( txtbuffer, "chkMovieLeftPadding %d %d %d\r\n", movieLeftPadding, VRAMWrite.x, tmpWidth);
                 writeLogFile ( txtbuffer );
@@ -2432,7 +2433,7 @@ void CheckWriteUpdate()
             checkFirstPrim(0, 0, loadFullScreen);
 
             // When dino2 playing movie, no need upload screen
-            if (!playMovieStart)
+            if (!playMovieStart && !((dwActFixes & AUTO_FIX_DINO_CRISIS2) && VRAMWrite.y == 280 && VRAMWrite.Width == 24))
             {
                 uploaded = UploadScreen ( FALSE );
             }

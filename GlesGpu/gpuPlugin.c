@@ -152,6 +152,7 @@ static   signed short movieLeftPadding = 0;
 static unsigned short isLastPrimMoveImage21 = 0;
 static unsigned short frameCmdCount = 0;
 static unsigned short loadImage16CmdCount = 0;
+static          short skipRGB24Frame = 0;
 
 static unsigned short    RGB24Uploaded = 0;
 //static unsigned short    GPUupdateLace5Flg = 0;
@@ -186,6 +187,7 @@ extern u32* xfb[3];	/*** Framebuffers ***/
 
 void flipEGL(void);
 void newUpdateDisplayGl(void);
+void resetAllFlg(void);
 
 #define CLEAR_EFB() { \
     /* gx_vout_render(0); */ \
@@ -639,11 +641,15 @@ void newUpdateDisplayGl(void)                               // UPDATE DISPLAY
     {
         if (playMovieStart)
         {
-            if ((VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= screenX1)
+            #if defined(DISP_DEBUG)
+            sprintf ( txtbuffer, "chkRGB16FrameEnd %d %d %d %d\r\n", (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding), PreviousPSXDisplay.DisplayEnd.x , isLastPrimMoveImage21, frameCmdCount);
+            writeLogFile ( txtbuffer );
+            #endif // DISP_DEBUG
+            if ((VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= PreviousPSXDisplay.DisplayEnd.x)
             {
                 needFlipEGL = true;
                 canPrintFps = 1;
-                //canClearBuf = 1;
+                canClearBuf = 1;
                 PrepareFullScreenUpload(-1);
                 UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
                 bNeedUploadTest=FALSE;
@@ -1388,18 +1394,18 @@ switch(lCommand)
                  PSXDisplay.RGB24);
          writeLogFile(txtbuffer);
          #endif // DISP_DEBUG
-         int tmpScreenX1 = screenX1;
          CHECK_SCREEN_INFO();
 
          if (!iDrawnSomething || PSXDisplay.Disabled) return;
          if (PSXDisplay.RGB24)          // (mdec) upload wanted?
          {
             #if defined(DISP_DEBUG)
-            sprintf ( txtbuffer, "chkRGB24FrameEnd %d %d %d %d\r\n", (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding), tmpScreenX1 , isLastPrimMoveImage21, frameCmdCount);
+            sprintf ( txtbuffer, "chkRGB24FrameEnd %d %d %d %d %d\r\n", (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding), PreviousPSXDisplay.DisplayEnd.x , isLastPrimMoveImage21, frameCmdCount, skipRGB24Frame);
             writeLogFile ( txtbuffer );
             #endif // DISP_DEBUG
-            if (isLastPrimMoveImage21 ||
-                (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= tmpScreenX1)
+            if ((isLastPrimMoveImage21 ||
+                (VRAMWrite.x + VRAMWrite.Width + movieLeftPadding) >= PreviousPSXDisplay.DisplayEnd.x)
+                && skipRGB24Frame == 0)
             {
                 canPrintFps = 1;
                 canClearBuf = 1;
@@ -1410,6 +1416,22 @@ switch(lCommand)
                 bNeedUploadAfter=FALSE;
                 bNeedRGB24Update=FALSE;
 
+                flipEGL();
+
+                iDrawnSomething = 0;
+                gl_z = 0.0f;
+            }
+
+            // skip three frames to avoid garbage of movie
+            if (skipRGB24Frame > 0)
+            {
+                skipRGB24Frame--;
+
+                CLEAR_EFB();
+                #if defined(DISP_DEBUG)
+                sprintf ( txtbuffer, "Skip movie frames \r\n");
+                writeLogFile(txtbuffer);
+                #endif
                 flipEGL();
 
                 iDrawnSomething = 0;
@@ -1485,6 +1507,12 @@ switch(lCommand)
    PSXDisplay.PAL           = (gdata & 0x08)?TRUE:FALSE; // if 1 - PAL mode, else NTSC
    PSXDisplay.RGB24New      = (gdata & 0x10)?TRUE:FALSE; // if 1 - TrueColor
    PSXDisplay.InterlacedNew = (gdata & 0x20)?TRUE:FALSE; // if 1 - Interlace
+
+   if (PSXDisplay.RGB24New && !PSXDisplay.RGB24)
+   {
+       // skip three frames to avoid garbage of movie
+       skipRGB24Frame = 3;
+   }
 
    STATUSREG&=~GPUSTATUS_WIDTHBITS;                   // clear the width bits
 
@@ -2445,6 +2473,32 @@ void CALLBACK GL_GPUrearmedCallbacks(const struct rearmed_cbs *_cbs)
   vout_set_config(_cbs);
 }
 
+void resetAllFlg(void)
+{
+    drawTexturePage = FALSE;
+    RGB24Uploaded = 0;
+    glSetLoadMtxFlg();
+    canClearBuf = 0;
+    firstPrim = 1;
+    loadImageCnt = 0;
+    otherPrimCmdExists = 0;
+    chkGPUupdateLace5 = 0;
+    chkGPUupdateLace5_Dino2 = 0;
+    hasVRamRead = 0;
+    hasUploadFullScreen = 0;
+    playMovieStart = 0;
+    chkMovieLeftPadding = 0;
+    movieLeftPadding = 0;
+    canPrintFps = canPrintFpsNext || isLastPrimMoveImage21;
+    canPrintFpsNext = 0;
+    isLastPrimMoveImage21 = 0;
+    frameCmdCount = 0;
+    loadImage16CmdCount = 0;
+
+    extern void resetTexCacheInfo(void);
+    resetTexCacheInfo();
+}
+
 void flipEGL(void)
 {
     #ifdef DISP_DEBUG
@@ -2479,28 +2533,7 @@ void flipEGL(void)
         gx_vout_render(0);
     }
 
-    drawTexturePage = FALSE;
-    RGB24Uploaded = 0;
-    glSetLoadMtxFlg();
-    canClearBuf = 0;
-    firstPrim = 1;
-    loadImageCnt = 0;
-    otherPrimCmdExists = 0;
-    chkGPUupdateLace5 = 0;
-    chkGPUupdateLace5_Dino2 = 0;
-    hasVRamRead = 0;
-    hasUploadFullScreen = 0;
-    playMovieStart = 0;
-    chkMovieLeftPadding = 0;
-    movieLeftPadding = 0;
-    canPrintFps = canPrintFpsNext || isLastPrimMoveImage21;
-    canPrintFpsNext = 0;
-    isLastPrimMoveImage21 = 0;
-    frameCmdCount = 0;
-    loadImage16CmdCount = 0;
-
-    extern void resetTexCacheInfo(void);
-    resetTexCacheInfo();
+    resetAllFlg();
 }
 
 #include "../Gamecube/wiiSXconfig.h"
