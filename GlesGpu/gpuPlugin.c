@@ -794,27 +794,27 @@ if ((PSXDisplay.DisplayMode.y == PSXDisplay.DisplayModeNew.y) &&
  }
 else                                                  // some res change?
  {
+    if (originalMode == ORIGINALMODE_ENABLE)
+	{
+		switchToTVMode(PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y, 0);
+	}
     // Check if TVMode needs to be changed (240 or 480 lines)
-//    if (displayModeChanged)
-//    {
-//        if (originalMode == ORIGINALMODE_ENABLE)
-//        {
-//            iResX = 320;
-//            iResY = 240;
-//        }
-//        else
-//        {
-//            iResX = 640;
-//            iResY = 480;
-//        }
-//        rRatioRect.right  = iResX;
-//        rRatioRect.bottom = iResY;
-//        displayModeChanged = 0;
-//    }
-//	if (originalMode == ORIGINALMODE_ENABLE)
-//	{
-//		switchToTVMode(PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y, 0);
-//	}
+    if (displayModeChanged)
+    {
+        if (originalMode == ORIGINALMODE_ENABLE && PSXDisplay.DisplayModeNew.y <= 288)
+        {
+            iResX = 320;
+            iResY = 240;
+        }
+        else
+        {
+            iResX = 640;
+            iResY = 480;
+        }
+        rRatioRect.right  = iResX;
+        rRatioRect.bottom = iResY;
+        displayModeChanged = 0;
+    }
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity(); glError();
@@ -828,7 +828,7 @@ else                                                  // some res change?
            rRatioRect.right,rRatioRect.bottom);
   writeLogFile(txtbuffer);
   #endif // DISP_DEBUG
-  if(bKeepRatio) SetAspectRatio();
+  if(bKeepRatio && originalMode != ORIGINALMODE_ENABLE) SetAspectRatio();
  }
 
 bDisplayNotSet = TRUE;                                // re-calc offsets/display area

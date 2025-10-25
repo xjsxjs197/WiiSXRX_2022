@@ -526,18 +526,14 @@ void DoBufferSwap(void)                                // SWAP BUFFERS
 		imgPtr+=PreviousPSXDisplay.Range.x0<<1;
 	}
 
-
-	GX_Flip(imgPtr, iResX_Max*2, PSXDisplay.RGB24 ? GX_TF_RGBA8 : GX_TF_RGB5A3, 0, 0, iDX, iDY);
-
-	// Check if TVMode needs to be changed (240 or 480 lines)
+    // Check if TVMode needs to be changed (240 or 480 lines)
 	if (originalMode == ORIGINALMODE_ENABLE)
 	{
-		if(backFromMenu)
-		{
-			backFromMenu = 0;
-			switchToTVMode(iDX, iDY, 0);
-		}
+		backFromMenu = 0;
+        switchToTVMode(iDX, iDY, 0);
 	}
+
+	GX_Flip(imgPtr, iResX_Max*2, PSXDisplay.RGB24 ? GX_TF_RGBA8 : GX_TF_RGB5A3, 0, 0, iDX, iDY);
 }
 
 // For old softGpu
