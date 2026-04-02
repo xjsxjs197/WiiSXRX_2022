@@ -3011,17 +3011,29 @@ static void primMoveImage ( unsigned char * baseAddr )
 // cmd: draw free-size Tile
 ////////////////////////////////////////////////////////////////////////
 
-#define clearTitleArea(x, y, wi, he) { \
-    startY = y; \
-    for (; startY < y + he; startY++) \
-    { \
-        unsigned short *ptr = psxVuw + (startY << 10) + x; \
-        tmpWid = wi; \
-        while (tmpWid-- > 0) \
-        { \
-            *ptr++ = colTmp; \
-        } \
-    } \
+static inline BOOL ShouldDoSoftTitleFill(short x0, short y0, short w, short h)
+{
+    if (!(dwActFixes & AUTO_FIX_NEED_SOFT_TITLE))
+        return FALSE;
+
+    if (w <= 0 || h <= 0)
+        return FALSE;
+
+    if (DrawSemiTrans || bCheckMask)
+        return FALSE;
+
+    if ((w == 1 && h == 1) || (w == 8 && h == 8) || (w == 16 && h == 16))
+        return FALSE;
+
+    if (w < 48 || h < 12)
+        return FALSE;
+
+    if (x0 >= PSXDisplay.DrawArea.x1 || y0 >= PSXDisplay.DrawArea.y1)
+        return FALSE;
+    if ((x0 + w) <= PSXDisplay.DrawArea.x0 || (y0 + h) <= PSXDisplay.DrawArea.y0)
+        return FALSE;
+
+    return TRUE;
 }
 
 static inline void TitleFillArea(short x0, short y0, short width, short height, unsigned short colInfo)
@@ -3034,31 +3046,37 @@ static inline void TitleFillArea(short x0, short y0, short width, short height, 
         iCheat ^= 1;
     }
 
-    if (!(dwActFixes & AUTO_FIX_NEED_SOFT_TITLE))
-    {
-        return;
-    }
+    int x1 = x0 + width;
+    int y1 = y0 + height;
 
-    if ( width <= 0 ) return;
-    if ( height <= 0 ) return;
-
-    if ( y0 >= 512 )   return;
-    if ( x0 >= 1024 )   return;
-
-    if (y0 < 0) y0 = 0;
     if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x1 > 1024) x1 = 1024;
+    if (y1 > 512)  y1 = 512;
 
-    if ( (y0 + height) > 512 ) height = 512 - y0;
-    if ( (x0 + width) > 1024 ) width = 1024 - x0;
+    // PS1 drawing area
+    if (x0 < PSXDisplay.DrawArea.x0) x0 = PSXDisplay.DrawArea.x0;
+    if (y0 < PSXDisplay.DrawArea.y0) y0 = PSXDisplay.DrawArea.y0;
+    if (x1 > PSXDisplay.DrawArea.x1) x1 = PSXDisplay.DrawArea.x1;
+    if (y1 > PSXDisplay.DrawArea.y1) y1 = PSXDisplay.DrawArea.y1;
 
-    unsigned short colTmp = SWAP16_C(colInfo);
-    // clear area
-    int startY;
-    int tmpWid;
+    width  = x1 - x0;
+    height = y1 - y0;
+
+    if (width <= 0 || height <= 0)
+        return;
+
     if (!bCheckMask && !DrawSemiTrans)
     {
+        unsigned short colTmp = SWAP16_C(colInfo);
         InvalidateTextureArea(x0, y0, width, height);
-        clearTitleArea(x0, y0, width, height);
+
+        for (int yy = y0; yy < y1; yy++)
+        {
+            unsigned short *ptr = psxVuw + (yy << 10) + x0;
+            for (int xx = 0; xx < width; xx++)
+                *ptr++ = colTmp;
+        }
     }
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     else
@@ -3122,7 +3140,10 @@ static void primTileS ( unsigned char * baseAddr )
 //        }
 
     offsetPSX4();
-    TitleFillArea(lx0, ly0, sprtW, sprtH, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
+    if (ShouldDoSoftTitleFill(lx0, ly0, sprtW, sprtH))
+    {
+        TitleFillArea(lx0, ly0, sprtW, sprtH, BGR24to16(GETLE32(&gpuData[0])));
+    }
 
 //        if ( bDrawOffscreen4() )
 //        {
@@ -3230,7 +3251,6 @@ static void primTile1 ( unsigned char * baseAddr )
     SetRenderState ( GETLE32 ( &gpuData[0] ) );
 
     offsetPSX4();
-    TitleFillArea(lx0, ly0, 1, 1, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
 
 //        if ( bDrawOffscreen4() )
 //        {
@@ -3297,7 +3317,6 @@ static void primTile8 ( unsigned char * baseAddr )
     SetRenderState ( GETLE32 ( &gpuData[0] ) );
 
     offsetPSX4();
-    TitleFillArea(lx0, ly0, 8, 8, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
 
 //        if ( bDrawOffscreen4() )
 //        {
@@ -3360,7 +3379,6 @@ static void primTile16 ( unsigned char * baseAddr )
     SetRenderState ( GETLE32 ( &gpuData[0] ) );
 
     offsetPSX4();
-    TitleFillArea(lx0, ly0, 16, 16, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
 
 //        if ( bDrawOffscreen4() )
 //        {
