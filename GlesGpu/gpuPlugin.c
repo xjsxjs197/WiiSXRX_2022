@@ -803,7 +803,7 @@ else                                                  // some res change?
     {
         if (originalMode == ORIGINALMODE_ENABLE && PSXDisplay.DisplayModeNew.y <= 288)
         {
-            iResX = 320;
+            iResX = (PSXDisplay.DisplayModeNew.x <= 320) ? 640 : PSXDisplay.DisplayModeNew.x;
             iResY = 240;
         }
         else
