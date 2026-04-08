@@ -141,6 +141,9 @@ void gx_vout_render(short canSwapFrameBuf)
 	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED, GX_CH_ALPHA);
 	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
 
+	//extern int CopyWholeFrameToSharedBuffer(void);
+	//CopyWholeFrameToSharedBuffer();
+
 	GX_DrawDone();
 	GX_CopyDisp(xfb[FB_BACK], canSwapFrameBuf ? GX_TRUE : GX_FALSE);
 	GX_Flush();

@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <gccore.h>
 
 #include "gpuExternals.h"
 #include "gpuPlugin.h"
@@ -123,6 +124,13 @@ GLuint          uiScanLine=0;
 //int             iUseScanLines=0;
 //int             lSelectedSlot=0;
 unsigned char * pGfxCardScreen=0;
+int              cardTexBufSize = 0;
+static unsigned char *pSharedFrameBuf = NULL;
+static int sharedFrameBufSize = 0;
+static int sharedFrameWidth = 0;
+static int sharedFrameHeight = 0;
+static int sharedFrameValid = 0;
+
 int             iBlurBuffer=0;
 int             iScanBlend=0;
 int             iRenderFVR=0;
@@ -177,6 +185,7 @@ static short   texChgType = 0;
 #include "gpuTexture.c"
 #include "gpuPrim.c"
 
+extern GXRModeObj *vmode;     /*** Graphics Mode Object ***/
 static void flipEGL(void);
 
 ////////////////////////////////////////////////////////////////////////
@@ -304,6 +313,12 @@ long CALLBACK GL_GPUshutdown()
 {
  //if(psxVSecure) free(psxVSecure);                      // kill emulated vram memory
  //psxVSecure=0;
+
+ if (pGfxCardScreen)
+      {
+          _mem2_free(pGfxCardScreen);
+          pGfxCardScreen = 0;
+      }
 
  vram_ptr_orig = NULL;
 
@@ -828,7 +843,7 @@ else                                                  // some res change?
            rRatioRect.right,rRatioRect.bottom);
   writeLogFile(txtbuffer);
   #endif // DISP_DEBUG
-  if(bKeepRatio && originalMode != ORIGINALMODE_ENABLE) SetAspectRatio();
+  if(bKeepRatio) SetAspectRatio();
  }
 
 bDisplayNotSet = TRUE;                                // re-calc offsets/display area
@@ -1454,150 +1469,6 @@ void CheckVRamReadEx(int x, int y, int dx, int dy)
     //sprintf(txtbuffer, "CheckVRamReadEx  \r\n");
     //DEBUG_print(txtbuffer, DBG_CORE2);
     #endif // DISP_DEBUG
-
-// unsigned short sArea;
-// int ux,uy,udx,udy,wx,wy;
-// unsigned short * p1, *p2;
-// float XS,YS;
-// unsigned char * ps;
-// unsigned char * px;
-// unsigned short s,sx;
-//
-// if(STATUSREG&GPUSTATUS_RGB24) return;
-//
-// if(((dx  > PSXDisplay.DisplayPosition.x) &&
-//     (x   < PSXDisplay.DisplayEnd.x) &&
-//     (dy  > PSXDisplay.DisplayPosition.y) &&
-//     (y   < PSXDisplay.DisplayEnd.y)))
-//  sArea=0;
-// else
-// if((!(PSXDisplay.InterlacedTest) &&
-//     (dx  > PreviousPSXDisplay.DisplayPosition.x) &&
-//     (x   < PreviousPSXDisplay.DisplayEnd.x) &&
-//     (dy  > PreviousPSXDisplay.DisplayPosition.y) &&
-//     (y   < PreviousPSXDisplay.DisplayEnd.y)))
-//  sArea=1;
-// else
-//  {
-//   return;
-//  }
-//
-// //////////////
-//
-// if(iRenderFVR)
-//  {
-//   bFullVRam=TRUE;iRenderFVR=2;return;
-//  }
-// bFullVRam=TRUE;iRenderFVR=2;
-//
-// //////////////
-//
-// p2=0;
-//
-// if(sArea==0)
-//  {
-//   ux=PSXDisplay.DisplayPosition.x;
-//   uy=PSXDisplay.DisplayPosition.y;
-//   udx=PSXDisplay.DisplayEnd.x-ux;
-//   udy=PSXDisplay.DisplayEnd.y-uy;
-//   if((PreviousPSXDisplay.DisplayEnd.x-
-//       PreviousPSXDisplay.DisplayPosition.x)==udx &&
-//      (PreviousPSXDisplay.DisplayEnd.y-
-//       PreviousPSXDisplay.DisplayPosition.y)==udy)
-//    p2=(psxVuw + (1024*PreviousPSXDisplay.DisplayPosition.y) +
-//        PreviousPSXDisplay.DisplayPosition.x);
-//  }
-// else
-//  {
-//   ux=PreviousPSXDisplay.DisplayPosition.x;
-//   uy=PreviousPSXDisplay.DisplayPosition.y;
-//   udx=PreviousPSXDisplay.DisplayEnd.x-ux;
-//   udy=PreviousPSXDisplay.DisplayEnd.y-uy;
-//   if((PSXDisplay.DisplayEnd.x-
-//       PSXDisplay.DisplayPosition.x)==udx &&
-//      (PSXDisplay.DisplayEnd.y-
-//       PSXDisplay.DisplayPosition.y)==udy)
-//    p2=(psxVuw + (1024*PSXDisplay.DisplayPosition.y) +
-//        PSXDisplay.DisplayPosition.x);
-//  }
-//
-// p1=(psxVuw + (1024*uy) + ux);
-// if(p1==p2) p2=0;
-//
-// x=0;y=0;
-// wx=dx=udx;wy=dy=udy;
-//
-// if(udx<=0) return;
-// if(udy<=0) return;
-// if(dx<=0)  return;
-// if(dy<=0)  return;
-// if(wx<=0)  return;
-// if(wy<=0)  return;
-//
-// XS=(float)rRatioRect.right/(float)wx;
-// YS=(float)rRatioRect.bottom/(float)wy;
-//
-// dx=(int)((float)(dx)*XS);
-// dy=(int)((float)(dy)*YS);
-//
-// if(dx>iResX) dx=iResX;
-// if(dy>iResY) dy=iResY;
-//
-// if(dx<=0) return;
-// if(dy<=0) return;
-//
-// // ogl y adjust
-// y=iResY-y-dy;
-//
-// x+=rRatioRect.left;
-// y-=rRatioRect.top;
-//
-// if(y<0) y=0; if((y+dy)>iResY) dy=iResY-y;
-//
-// if(!pGfxCardScreen)
-//  {
-//   glPixelStorei(GL_PACK_ALIGNMENT,1);
-//   pGfxCardScreen=(unsigned char *)malloc(iResX*iResY*4);
-//  }
-//
-// ps=pGfxCardScreen;
-//
-// //if(!sArea) glReadBuffer(GL_FRONT);
-//
-// glReadPixels(x,y,dx,dy,GL_RGB,GL_UNSIGNED_BYTE,ps);
-// //if(!sArea) glReadBuffer(GL_BACK);
-//
-// s=0;
-//
-// XS=(float)dx/(float)(udx);
-// YS=(float)dy/(float)(udy+1);
-//
-// for(y=udy;y>0;y--)
-//  {
-//   for(x=0;x<udx;x++)
-//    {
-//     if(p1>=psxVuw && p1<psxVuw_eom)
-//      {
-//       px=ps+(3*((int)((float)x * XS))+
-//             (3*dx)*((int)((float)y*YS)));
-//       sx=(*px)>>3;px++;
-//       s=sx;
-//       sx=(*px)>>3;px++;
-//       s|=sx<<5;
-//       sx=(*px)>>3;
-//       s|=sx<<10;
-//       s&=~0x8000;
-//       *p1=s;
-//      }
-//     if(p2>=psxVuw && p2<psxVuw_eom) *p2=s;
-//
-//     p1++;
-//     if(p2) p2++;
-//    }
-//
-//   p1 += 1024 - udx;
-//   if(p2) p2 += 1024 - udx;
-//  }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1610,15 +1481,133 @@ void CheckVRamReadEx(int x, int y, int dx, int dy)
 //{
 //}
 
-//void CheckVRamRead(int x, int y, int dx, int dy, bool bFront)
-//{
-// unsigned short sArea;unsigned short * p;
-// int ux,uy,udx,udy,wx,wy;float XS,YS;
-// unsigned char * ps, * px;
-// unsigned short s=0,sx;
-//
-// if(STATUSREG&GPUSTATUS_RGB24) return;
-//
+int CopyWholeFrameToSharedBuffer(void)
+{
+    int copyWidth, copyHeight;
+    int size;
+
+    copyWidth  = (iResX + 15) & ~15;
+    copyHeight = (iResY + 1) & ~1;
+    size = GX_GetTexBufferSize(copyWidth, copyHeight, GX_TF_RGB5A3, 0, GX_FALSE);
+
+    if (!pSharedFrameBuf || sharedFrameBufSize < size)
+    {
+        if (pSharedFrameBuf)
+        {
+            _mem2_free(pSharedFrameBuf);
+            pSharedFrameBuf = NULL;
+        }
+
+        pSharedFrameBuf = (unsigned char *)_mem2_malloc(size);
+        sharedFrameBufSize = size;
+    }
+
+    if (!pSharedFrameBuf)
+        return 0;
+
+    //GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
+    GX_SetTexCopySrc(0, 0, iResX, iResY);
+    GX_SetTexCopyDst(copyWidth, copyHeight, GX_TF_RGB5A3, GX_FALSE);
+    GX_CopyTex(MEM_K0_TO_K1(pSharedFrameBuf), GX_FALSE);
+    GX_PixModeSync();
+    GX_DrawDone();
+    DCInvalidateRange(pSharedFrameBuf, size);
+
+    sharedFrameWidth  = copyWidth;
+    sharedFrameHeight = copyHeight;
+    sharedFrameValid  = 1;
+
+    return 1;
+}
+
+void RestoreDispCopyInfo(void)
+{
+    float yscale = GX_GetYScaleFactor(vmode->efbHeight,vmode->xfbHeight);
+    int xfbHeight = GX_SetDispCopyYScale(yscale);
+    GX_SetScissor(0,0,vmode->fbWidth,vmode->efbHeight);
+    GX_SetDispCopySrc(0,0,vmode->fbWidth,vmode->efbHeight);
+    GX_SetDispCopyDst(vmode->fbWidth,xfbHeight);
+    GX_SetCopyFilter(vmode->aa,vmode->sample_pattern,GX_TRUE,vmode->vfilter);
+    GX_SetFieldMode(vmode->field_rendering,((vmode->viHeight==2*vmode->xfbHeight)?GX_ENABLE:GX_DISABLE));
+}
+
+static inline unsigned short ReadGXRGB5A3PixelRaw(const unsigned char* buf, int texWidth, int px, int py)
+{
+    int blocksPerRow = texWidth >> 2;
+    int blockIndex   = (py >> 2) * blocksPerRow + (px >> 2);
+    int blockOffset  = blockIndex << 5;
+    int pixelOffset  = (((py & 3) << 2) + (px & 3)) << 1;
+
+    const unsigned char* p = buf + blockOffset + pixelOffset;
+
+    return (unsigned short)(((unsigned short)p[0] << 8) | (unsigned short)p[1]);
+}
+
+static inline unsigned short GXRGB5A3ToPSX15(unsigned short gx)
+{
+    unsigned short psx;
+
+    if (gx & 0x8000)
+    {
+        psx = gx & 0x7FFF;
+    }
+    else
+    {
+        unsigned short r4 = (gx >> 8) & 0xF;
+        unsigned short g4 = (gx >> 4) & 0xF;
+        unsigned short b4 = (gx >> 0) & 0xF;
+
+        unsigned short r5 = (r4 << 1) | (r4 >> 3);
+        unsigned short g5 = (g4 << 1) | (g4 >> 3);
+        unsigned short b5 = (b4 << 1) | (b4 >> 3);
+
+
+        //psx = (unsigned short)(r5 | (g5 << 5) | (b5 << 10));
+        psx = (unsigned short)((r5 << 10) | (g5 << 5) | (b5));
+    }
+
+    return psx;
+}
+
+static inline unsigned short ConvertReadbackPixelToPSX(const unsigned char* buf, int texWidth, int px, int py, unsigned short oldPixel)
+{
+    unsigned short gx  = ReadGXRGB5A3PixelRaw(buf, texWidth, px, py);
+    unsigned short psx = GXRGB5A3ToPSX15(gx);
+
+//    if (bCheckMask && (oldPixel & 0x8000))
+//        return oldPixel;
+
+    if (iSetMask == 1 && (psx & 0x7FFF))
+        psx |= 0x8000;
+
+    return psx;
+}
+
+static inline void CheckVRamRead(int x, int y, int dx, int dy)
+{
+ unsigned short sArea;unsigned short * p;
+ int ux,uy,udx,udy,wx,wy;float XS,YS;
+ unsigned char * ps, * px;
+ unsigned short s=0,sx;
+
+ if(STATUSREG&GPUSTATUS_RGB24) return;
+
+ if((!(PSXDisplay.InterlacedTest) &&
+     (dx  > PreviousPSXDisplay.DisplayPosition.x) &&
+     (x   < PreviousPSXDisplay.DisplayEnd.x) &&
+     (dy  > PreviousPSXDisplay.DisplayPosition.y) &&
+     (y   < PreviousPSXDisplay.DisplayEnd.y)))
+  sArea=1;
+else if(((dx  > PSXDisplay.DisplayPosition.x) &&
+     (x   < PSXDisplay.DisplayEnd.x) &&
+     (dy  > PSXDisplay.DisplayPosition.y) &&
+     (y   < PSXDisplay.DisplayEnd.y)))
+  sArea=0;
+ else
+  {
+   return;
+  }
+
 // if(((dx  > PSXDisplay.DisplayPosition.x) &&
 //     (x   < PSXDisplay.DisplayEnd.x) &&
 //     (dy  > PSXDisplay.DisplayPosition.y) &&
@@ -1635,115 +1624,146 @@ void CheckVRamReadEx(int x, int y, int dx, int dy)
 //  {
 //   return;
 //  }
-//
-// if(dwActFixes&0x40)
-//  {
-//   if(iRenderFVR)
-//    {
-//     bFullVRam=TRUE;iRenderFVR=2;return;
-//    }
-//   bFullVRam=TRUE;iRenderFVR=2;
-//  }
-//
-// ux=x;uy=y;udx=dx;udy=dy;
-//
-// if(sArea==0)
-//  {
-//   x -=PSXDisplay.DisplayPosition.x;
-//   dx-=PSXDisplay.DisplayPosition.x;
-//   y -=PSXDisplay.DisplayPosition.y;
-//   dy-=PSXDisplay.DisplayPosition.y;
-//   wx=PSXDisplay.DisplayEnd.x-PSXDisplay.DisplayPosition.x;
-//   wy=PSXDisplay.DisplayEnd.y-PSXDisplay.DisplayPosition.y;
-//  }
-// else
-//  {
-//   x -=PreviousPSXDisplay.DisplayPosition.x;
-//   dx-=PreviousPSXDisplay.DisplayPosition.x;
-//   y -=PreviousPSXDisplay.DisplayPosition.y;
-//   dy-=PreviousPSXDisplay.DisplayPosition.y;
-//   wx=PreviousPSXDisplay.DisplayEnd.x-PreviousPSXDisplay.DisplayPosition.x;
-//   wy=PreviousPSXDisplay.DisplayEnd.y-PreviousPSXDisplay.DisplayPosition.y;
-//  }
-// if(x<0) {ux-=x;x=0;}
-// if(y<0) {uy-=y;y=0;}
-// if(dx>wx) {udx-=(dx-wx);dx=wx;}
-// if(dy>wy) {udy-=(dy-wy);dy=wy;}
-// udx-=ux;
-// udy-=uy;
-//
-// p=(psxVuw + (1024*uy) + ux);
-//
-// if(udx<=0) return;
-// if(udy<=0) return;
-// if(dx<=0)  return;
-// if(dy<=0)  return;
-// if(wx<=0)  return;
-// if(wy<=0)  return;
-//
-// XS=(float)rRatioRect.right/(float)wx;
-// YS=(float)rRatioRect.bottom/(float)wy;
-//
-// dx=(int)((float)(dx)*XS);
-// dy=(int)((float)(dy)*YS);
-// x=(int)((float)x*XS);
-// y=(int)((float)y*YS);
-//
-// dx-=x;
-// dy-=y;
-//
-// if(dx>iResX) dx=iResX;
-// if(dy>iResY) dy=iResY;
-//
-// if(dx<=0) return;
-// if(dy<=0) return;
-//
-// // ogl y adjust
-// y=iResY-y-dy;
-//
-// x+=rRatioRect.left;
-// y-=rRatioRect.top;
-//
-// if(y<0) y=0; if((y+dy)>iResY) dy=iResY-y;
-//
-// if(!pGfxCardScreen)
-//  {
-//   //glPixelStorei(GL_PACK_ALIGNMENT,1);
-//   pGfxCardScreen=(unsigned char *)malloc(iResX*iResY*4);
-//  }
-//
-// ps=pGfxCardScreen;
-//
-//// if(bFront) glReadBuffer(GL_FRONT);
-//
-// glReadPixels(x,y,dx,dy,GL_RGB,GL_UNSIGNED_BYTE,ps);
-//// if(bFront) glReadBuffer(GL_BACK);
-//
-// XS=(float)dx/(float)(udx);
-// YS=(float)dy/(float)(udy+1);
-//
-// for(y=udy;y>0;y--)
-//  {
-//   for(x=0;x<udx;x++)
-//    {
-//     if(p>=psxVuw && p<psxVuw_eom)
-//      {
-//       px=ps+(3*((int)((float)x * XS))+
-//             (3*dx)*((int)((float)y*YS)));
-//       sx=(*px)>>3;px++;
-//       s=sx;
-//       sx=(*px)>>3;px++;
-//       s|=sx<<5;
-//       sx=(*px)>>3;
-//       s|=sx<<10;
-//       s&=~0x8000;
-//       *p=s;
-//      }
-//     p++;
-//    }
-//   p += 1024 - udx;
-//  }
-//}
+
+ if(dwActFixes&0x40)
+  {
+   if(iRenderFVR)
+    {
+     bFullVRam=TRUE;iRenderFVR=2;return;
+    }
+   bFullVRam=TRUE;iRenderFVR=2;
+  }
+
+ ux=x;uy=y;udx=dx;udy=dy;
+
+ if(sArea==0)
+  {
+   x -=PSXDisplay.DisplayPosition.x;
+   dx-=PSXDisplay.DisplayPosition.x;
+   y -=PSXDisplay.DisplayPosition.y;
+   dy-=PSXDisplay.DisplayPosition.y;
+   wx=PSXDisplay.DisplayEnd.x-PSXDisplay.DisplayPosition.x;
+   wy=PSXDisplay.DisplayEnd.y-PSXDisplay.DisplayPosition.y;
+  }
+ else
+  {
+   x -=PreviousPSXDisplay.DisplayPosition.x;
+   dx-=PreviousPSXDisplay.DisplayPosition.x;
+   y -=PreviousPSXDisplay.DisplayPosition.y;
+   dy-=PreviousPSXDisplay.DisplayPosition.y;
+   wx=PreviousPSXDisplay.DisplayEnd.x-PreviousPSXDisplay.DisplayPosition.x;
+   wy=PreviousPSXDisplay.DisplayEnd.y-PreviousPSXDisplay.DisplayPosition.y;
+  }
+ if(x<0) {ux-=x;x=0;}
+ if(y<0) {uy-=y;y=0;}
+ if(dx>wx) {udx-=(dx-wx);dx=wx;}
+ if(dy>wy) {udy-=(dy-wy);dy=wy;}
+ udx-=ux;
+ udy-=uy;
+
+ p=(psxVuw + (1024*uy) + ux);
+
+ if(udx<=0) return;
+ if(udy<=0) return;
+ if(dx<=0)  return;
+ if(dy<=0)  return;
+ if(wx<=0)  return;
+ if(wy<=0)  return;
+
+ XS=(float)rRatioRect.right/(float)wx;
+ YS=(float)rRatioRect.bottom/(float)wy;
+
+ dx=(int)((float)(dx)*XS);
+ dy=(int)((float)(dy)*YS);
+ x=(int)((float)x*XS);
+ y=(int)((float)y*YS);
+
+ dx-=x;
+ dy-=y;
+
+ if(dx>iResX) dx=iResX;
+ if(dy>iResY) dy=iResY;
+
+ if(dx<=0) return;
+ if(dy<=0) return;
+
+ // ogl y adjust
+ y=iResY-y-dy;
+
+ x+=rRatioRect.left;
+ y-=rRatioRect.top;
+
+ if(y<0) y=0; if((y+dy)>iResY) dy=iResY-y;
+
+ #ifdef DISP_DEBUG
+ sprintf(txtbuffer, "CheckVRamRead %d %d %d %d %d %d %d\r\n", x, y , dx, dy, udx, udy, sArea);
+ DEBUG_print(txtbuffer, DBG_CORE1);
+ writeLogFile(txtbuffer);
+ #endif // DISP_DEBUG
+
+    int baseReadX, baseReadY;
+    int usePreviousBackup = (sArea == 1);
+
+    if (usePreviousBackup)
+    {
+        // sArea == 1 : use previously backed up whole frame
+        if (!sharedFrameValid || !pSharedFrameBuf)
+            return;
+    }
+    else
+    {
+        // sArea == 0 : overwrite same shared buffer with current whole frame
+        if (!CopyWholeFrameToSharedBuffer())
+            return;
+    }
+
+    baseReadX = x;
+    baseReadY = y;
+
+    if (baseReadX < 0) baseReadX = 0;
+    if (baseReadY < 0) baseReadY = 0;
+
+    if (baseReadX >= sharedFrameWidth)  return;
+    if (baseReadY >= sharedFrameHeight) return;
+
+    if ((baseReadX + dx) > sharedFrameWidth)
+        dx = sharedFrameWidth - baseReadX;
+    if ((baseReadY + dy) > sharedFrameHeight)
+        dy = sharedFrameHeight - baseReadY;
+
+    if (dx <= 0 || dy <= 0)
+        return;
+
+    XS = (float)dx / (float)udx;
+    YS = (float)dy / (float)udy;
+
+    for (y = 0; y < udy; y++)
+    {
+        int srcY = (int)((float)y * YS);
+        if (srcY >= dy) srcY = dy - 1;
+
+        for (x = 0; x < udx; x++)
+        {
+            int srcX = (int)((float)x * XS);
+            if (srcX >= dx) srcX = dx - 1;
+
+            if (p >= psxVuw && p < psxVuw_eom)
+            {
+                unsigned short gxPixel;
+                unsigned short psxPixel;
+                unsigned short oldPixel = GETLE16(p);
+
+                sx = ConvertReadbackPixelToPSX(pSharedFrameBuf, sharedFrameWidth, baseReadX + srcX, baseReadY + srcY, oldPixel);
+                PUTLE16(p, sx);
+            }
+
+            p++;
+        }
+
+        p += 1024 - udx;
+    }
+
+}
 
 ////////////////////////////////////////////////////////////////////////
 // core read from vram
@@ -1763,16 +1783,15 @@ while(VRAMRead.ImagePtr>=psxVuw_eom)
 while(VRAMRead.ImagePtr<psxVuw)
  VRAMRead.ImagePtr+=iGPUHeight*1024;
 
-//if((iFrameReadType&1 && iSize>1) &&
-//   !(iDrawnSomething==2 &&
-//     VRAMRead.x      == VRAMWrite.x     &&
+//if((iSize>1) &&
+//   !(VRAMRead.x      == VRAMWrite.x     &&
 //     VRAMRead.y      == VRAMWrite.y     &&
 //     VRAMRead.Width  == VRAMWrite.Width &&
 //     VRAMRead.Height == VRAMWrite.Height))
+// if (iSize > 1)
 // CheckVRamRead(VRAMRead.x,VRAMRead.y,
 //               VRAMRead.x+VRAMRead.RowsRemaining,
-//               VRAMRead.y+VRAMRead.ColsRemaining,
-//               TRUE);
+//               VRAMRead.y+VRAMRead.ColsRemaining);
 
 for(i=0;i<iSize;i++)
  {
