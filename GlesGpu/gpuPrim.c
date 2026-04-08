@@ -3013,8 +3013,8 @@ static void primMoveImage ( unsigned char * baseAddr )
 
 static inline BOOL ShouldDoSoftTitleFill(short x0, short y0, short w, short h)
 {
-    if (!(dwActFixes & AUTO_FIX_NEED_SOFT_TITLE))
-        return FALSE;
+    //if (!(dwActFixes & AUTO_FIX_NEED_SOFT_TITLE))
+    //    return FALSE;
 
     if (w <= 0 || h <= 0)
         return FALSE;
@@ -3022,11 +3022,11 @@ static inline BOOL ShouldDoSoftTitleFill(short x0, short y0, short w, short h)
     if (DrawSemiTrans || bCheckMask)
         return FALSE;
 
-    if ((w == 1 && h == 1) || (w == 8 && h == 8) || (w == 16 && h == 16))
+    if ((w == 1 && h == 1) || (w == 8 && h == 8))
         return FALSE;
 
-    if (w < 48 || h < 12)
-        return FALSE;
+    //if (w < 48 || h < 12)
+    //    return FALSE;
 
     if (x0 >= PSXDisplay.DrawArea.x1 || y0 >= PSXDisplay.DrawArea.y1)
         return FALSE;
