@@ -1655,10 +1655,10 @@ int UploadScreen ( int Position )
         }
 
         // VAGRANT STORY For GX gpu fix
-        if ((dwActFixes & AUTO_FIX_NO_SWAP_BUF) && (xrUploadArea.x1 - xrUploadArea.x0) == 511 && (xrUploadArea.y1 - xrUploadArea.y0) == 480)
-        {
-            canSwapFrameBuf = FALSE;
-        }
+//        if ((dwActFixes & AUTO_FIX_NO_SWAP_BUF) && (xrUploadArea.x1 - xrUploadArea.x0) == 511 && (xrUploadArea.y1 - xrUploadArea.y0) == 480)
+//        {
+//            canClearFrameBuf = FALSE;
+//        }
     }
 
     iDrawnSomething |= 0x2;
@@ -2281,6 +2281,8 @@ static void PrepareRGB24Upload ( void )
         }
         RGB24Uploaded |= 0x8;
     }
+
+    canShowFps = TRUE;
     #if defined(DISP_DEBUG)
     sprintf ( txtbuffer, "PrepareRGB24Upload %x\r\n", RGB24Uploaded);
     writeLogFile ( txtbuffer );
@@ -2586,7 +2588,8 @@ static void primBlkFill ( unsigned char * baseAddr )
         #endif // DISP_DEBUG
         lClearOnSwapColor = COLOR(GETLE32(&gpuData[0]));
         lClearOnSwap = 1;
-        canSwapFrameBuf = TRUE;
+        canClearFrameBuf = TRUE;
+        canShowFps = TRUE;
     }
 
     if (clearCurrent)
@@ -2598,7 +2601,8 @@ static void primBlkFill ( unsigned char * baseAddr )
 
         needUploadScreen = FALSE;
         uploadedScreen = FALSE;
-        canSwapFrameBuf = TRUE;
+        canShowFps = TRUE;
+        //canClearFrameBuf = TRUE;
 
         // Clear all Screen
         if ((sprtX + sprtW) >= 1023 && (sprtY + sprtH) >= 511)
@@ -3014,7 +3018,8 @@ static void primTileS ( unsigned char * baseAddr )
     {
         needUploadScreen = FALSE;
         uploadedScreen = FALSE;
-        canSwapFrameBuf = TRUE;
+        canShowFps = TRUE;
+        //canClearFrameBuf = TRUE;
     }
     else
     {
@@ -3789,14 +3794,14 @@ static void primSprtS ( unsigned char * baseAddr )
     }
 
     // TOMB RAIDER For GX gpu fix
-    if ((dwActFixes & AUTO_FIX_NO_SWAP_BUF) && sprtW == 256 && sprtH == 240)
-    {
-        canSwapFrameBuf = FALSE;
-        #if defined(DISP_DEBUG)
-        sprintf ( txtbuffer, "primSprtS TOMB RAIDER For GX gpu fix\r\n");
-        writeLogFile(txtbuffer);
-        #endif // DISP_DEBUG
-    }
+//    if ((dwActFixes & AUTO_FIX_NO_SWAP_BUF) && sprtW == 256 && sprtH == 240)
+//    {
+//        canClearFrameBuf = FALSE;
+//        #if defined(DISP_DEBUG)
+//        sprintf ( txtbuffer, "primSprtS TOMB RAIDER For GX gpu fix\r\n");
+//        writeLogFile(txtbuffer);
+//        #endif // DISP_DEBUG
+//    }
 
     iSpriteTex = 1;
 

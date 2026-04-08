@@ -156,7 +156,8 @@ static unsigned short screenX1 = 320;
 static unsigned short screenY1 = 240;
 static unsigned short screenWidth = 320;
 static unsigned short screenHeight = 240;
-BOOL    canSwapFrameBuf = TRUE;
+BOOL    canClearFrameBuf = FALSE;
+BOOL    canShowFps = FALSE;
 
 static BOOL    needUploadScreen = FALSE;
 static BOOL    uploadedScreen = FALSE;
@@ -437,6 +438,7 @@ if(PSXDisplay.Disabled)                               // display disabled?
   glEnable(GL_SCISSOR_TEST); glError();
   gl_z=0.0f;
   bDisplayNotSet = TRUE;
+  canClearFrameBuf = TRUE;
   #ifdef DISP_DEBUG
   sprintf(txtbuffer, "updateDisplayGl Disabled\r\n");
   //DEBUG_print(txtbuffer, DBG_CDR1);
@@ -497,46 +499,46 @@ iDrawnSomething=0;
 
 //----------------------------------------------------//
 
-if(lClearOnSwap)                                      // clear buffer after swap?
- {
-     #ifdef DISP_DEBUG
-     sprintf(txtbuffer, "updateDisplayGl lClearOnSwap\r\n");
-     //DEBUG_print(txtbuffer, DBG_CDR1);
-     writeLogFile(txtbuffer);
-     #endif // DISP_DEBUG
-
-  unsigned char g,b,r;
-
-  if(bDisplayNotSet)                                  // -> set new vals
-   SetOGLDisplaySettings(1);
-
-  // lClearOnSwapColor (BGR)
-  g=((unsigned char)GREEN(lClearOnSwapColor));      // -> get col
-  b=((unsigned char)BLUE(lClearOnSwapColor));
-  r=((unsigned char)RED(lClearOnSwapColor));
-  glDisable(GL_SCISSOR_TEST); glError();
-  glClearColor2(r,g,b,128); glError();                 // -> clear
-  glClear(uiBufferBits); glError();
-  glEnable(GL_SCISSOR_TEST); glError();
-  lClearOnSwap=0;                                     // -> done
- }
-else
- {
-//  if(bBlur) UnBlurBackBuffer();                       // unblur buff, if blurred before
-
-  if(iZBufferDepth)                                   // clear zbuffer as well (if activated)
-   {
-       #ifdef DISP_DEBUG
-     sprintf(txtbuffer, "Not lClearOnSwap\r\n");
-     //DEBUG_print(txtbuffer, DBG_CDR1);
-     writeLogFile(txtbuffer);
-     #endif // DISP_DEBUG
-
-    //glDisable(GL_SCISSOR_TEST); glError();
-    //glClear(GL_DEPTH_BUFFER_BIT); glError();
-    //glEnable(GL_SCISSOR_TEST); glError();
-   }
- }
+//if(lClearOnSwap)                                      // clear buffer after swap?
+// {
+//     #ifdef DISP_DEBUG
+//     sprintf(txtbuffer, "updateDisplayGl lClearOnSwap\r\n");
+//     //DEBUG_print(txtbuffer, DBG_CDR1);
+//     writeLogFile(txtbuffer);
+//     #endif // DISP_DEBUG
+//
+//  unsigned char g,b,r;
+//
+//  if(bDisplayNotSet)                                  // -> set new vals
+//   SetOGLDisplaySettings(1);
+//
+//  // lClearOnSwapColor (BGR)
+//  g=((unsigned char)GREEN(lClearOnSwapColor));      // -> get col
+//  b=((unsigned char)BLUE(lClearOnSwapColor));
+//  r=((unsigned char)RED(lClearOnSwapColor));
+//  glDisable(GL_SCISSOR_TEST); glError();
+//  glClearColor2(r,g,b,128); glError();                 // -> clear
+//  glClear(uiBufferBits); glError();
+//  glEnable(GL_SCISSOR_TEST); glError();
+//  lClearOnSwap=0;                                     // -> done
+// }
+//else
+// {
+////  if(bBlur) UnBlurBackBuffer();                       // unblur buff, if blurred before
+//
+//  if(iZBufferDepth)                                   // clear zbuffer as well (if activated)
+//   {
+//       #ifdef DISP_DEBUG
+//     sprintf(txtbuffer, "Not lClearOnSwap\r\n");
+//     //DEBUG_print(txtbuffer, DBG_CDR1);
+//     writeLogFile(txtbuffer);
+//     #endif // DISP_DEBUG
+//
+//    //glDisable(GL_SCISSOR_TEST); glError();
+//    //glClear(GL_DEPTH_BUFFER_BIT); glError();
+//    //glEnable(GL_SCISSOR_TEST); glError();
+//   }
+// }
 
 gl_z=0.0f;
 
@@ -885,6 +887,7 @@ if(bUp)
     sprintf(txtbuffer, "updateDisplayIfChangedGl swap buffer\r\n");
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
+    canClearFrameBuf = TRUE;
     updateDisplayGl();                              // yeah, real update (swap buffer)
 }
 }
@@ -1008,7 +1011,7 @@ if(PSXDisplay.Interlaced)                             // interlaced mode?
 //       }
 //       else
 //       {
-//           canSwapFrameBuf = (iDrawnSomething & 0x1) ? TRUE : FALSE;
+//           canClearFrameBuf = (iDrawnSomething & 0x1) ? TRUE : FALSE;
 //           updateDisplayGl();                                  // -> swap buffers (new frame)
 //       }
    }
@@ -1059,7 +1062,7 @@ else if(usFirstPos==1)                                // initial updates (after 
 //         sprintf(txtbuffer, "Upload Movie Screen %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1, xrUploadArea.y1, RGB24Uploaded);
 //         writeLogFile(txtbuffer);
 //         #endif // DISP_DEBUG
-//         canSwapFrameBuf = UploadScreen(-1);              // -> upload whole screen from psx vram
+//         canClearFrameBuf = UploadScreen(-1);              // -> upload whole screen from psx vram
 //         flipEGL();
 //         iDrawnSomething = 0;
      }
@@ -2243,12 +2246,12 @@ void CALLBACK GL_GPUrearmedCallbacks(const struct rearmed_cbs *_cbs)
 static void flipEGL(void)
 {
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "flipEGL %d \r\n", canSwapFrameBuf);
+    sprintf(txtbuffer, "flipEGL %d \r\n", canClearFrameBuf);
     DEBUG_print(txtbuffer, DBG_SPU3);
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
-    if (canSwapFrameBuf)
+    if (canShowFps)
     {
         // Write menu/debug text on screen
         showFpsAndDebugInfo();
@@ -2265,15 +2268,17 @@ static void flipEGL(void)
         }
     }
 
-    gx_vout_render(canSwapFrameBuf);
+    gx_vout_render(canClearFrameBuf);
 
     clearLargeRange = 0;
-    if (canSwapFrameBuf && !PSXDisplay.Disabled)
+    if (canClearFrameBuf && !PSXDisplay.Disabled)
     {
         drawTexturePage = FALSE;
     }
     uploadedScreen = FALSE;
     needFlipEGL = FALSE;
+    canClearFrameBuf = FALSE;
+    canShowFps = FALSE;
     RGB24Uploaded = 0;
     glSetLoadMtxFlg();
 
@@ -2309,7 +2314,7 @@ long GL_GPUopen()
  bDisplayNotSet = TRUE;
  bSetClip = TRUE;
  CSTEXTURE = CSVERTEX = CSCOLOR = 0;
- canSwapFrameBuf = FALSE;
+ canClearFrameBuf = FALSE;
 
  InitializeTextureStore();                             // init texture mem
 
