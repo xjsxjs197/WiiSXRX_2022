@@ -429,23 +429,21 @@ if(PreviousPSXDisplay.Range.x0||                      // paint black borders aro
 
 if(PSXDisplay.Disabled)                               // display disabled?
  {
-  //LOGE("PSXDisplay.Disabled");
-
   // moved here
-//  glDisable(GL_SCISSOR_TEST); glError();
-//  glClearColor2(0,0,0,128); glError();                 // -> clear whole backbuffer
-//  glClear(uiBufferBits); glError();
-//  glEnable(GL_SCISSOR_TEST); glError();
-//  gl_z=0.0f;
-//  bDisplayNotSet = TRUE;
+  glDisable(GL_SCISSOR_TEST); glError();
+  glClearColor2(0,0,0,128); glError();                 // -> clear whole backbuffer
+  glClear(uiBufferBits); glError();
+  glEnable(GL_SCISSOR_TEST); glError();
+  gl_z=0.0f;
+  bDisplayNotSet = TRUE;
   #ifdef DISP_DEBUG
   sprintf(txtbuffer, "updateDisplayGl Disabled\r\n");
   //DEBUG_print(txtbuffer, DBG_CDR1);
   writeLogFile(txtbuffer);
   #endif // DISP_DEBUG
 
-  gc_vout_disabled();
-  return;
+  //gc_vout_disabled();
+  //return;
  }
 
 if(iSkipTwo)                                          // we are in skipping mood?
