@@ -153,6 +153,15 @@ void gx_vout_render(short canSwapFrameBuf)
 	//new_frame = 1;
 }
 
+void gc_vout_disabled(void)
+{
+    extern GXRModeObj *vmode;     /*** Graphics Mode Object ***/
+    memset(MEM_K1_TO_K0(xfb[FB_BACK]), 0, VIDEO_PadFramebufferWidth(vmode->fbWidth) * vmode->xfbHeight * 2);
+
+	gc_vout_copydone();
+	gc_vout_vsync(0);
+}
+
 void showFpsAndDebugInfo(void)
 {
 	//Write menu/debug text on screen

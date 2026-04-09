@@ -2159,13 +2159,13 @@ static void cmdDrawOffset ( unsigned char * baseAddr )
 #define CHK_FPS_DISP1(x, y, w, h) { \
     if (showFPSonScreen == 1 && canShowFps == FALSE \
         && x <= 10 && y <= 35 && (x + w) >= 160 && (y + h) >= 50) \
-        canShowFps == TRUE; \
+        canShowFps = TRUE; \
 }
 
 #define CHK_FPS_DISP2(x0, y0, x1, y1) { \
     if (showFPSonScreen == 1 && canShowFps == FALSE \
         && x0 <= 10 && y0 <= 35 && x1 >= 160 && y1 >= 50) \
-        canShowFps == TRUE; \
+        canShowFps = TRUE; \
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2499,22 +2499,22 @@ static inline void BlkFillArea(short x0, short y0, short width, short height, un
     InvalidateTextureArea(x0, y0, width, height);
 
     // clear area
-    if (fillCol == 0)
+    //if (fillCol == 0)
     {
         for (y = y0; y < y0 + height; y++)
         {
             memset(psxVuw + (y << 10) + x0, 0, width * 2);
         }
     }
-    else
-    {
-        for (y = y0; y < y0 + height; y++)
-        {
-            unsigned short *ptr = psxVuw + (y << 10) + x0;
-            for (x = 0; x < width; x++)
-                PUTLE16(ptr++, fillCol);
-        }
-    }
+//    else
+//    {
+//        for (y = y0; y < y0 + height; y++)
+//        {
+//            unsigned short *ptr = psxVuw + (y << 10) + x0;
+//            for (x = 0; x < width; x++)
+//                PUTLE16(ptr++, fillCol);
+//        }
+//    }
 }
 
 static void primBlkFill ( unsigned char * baseAddr )
@@ -2560,7 +2560,7 @@ static void primBlkFill ( unsigned char * baseAddr )
     writeLogFile(txtbuffer);
     logType = 1;
     sprintf ( txtbuffer, "primBlkFill %d %d %d %d %08x %d %d %d %d\r\n",
-             sprtX, sprtY, sprtW, sprtH, gpuData[0],
+             sprtX, sprtY, sprtW, sprtH, gpuData[0] & ~0xFF,
              screenX, screenY, screenX1, screenY1);
     DEBUG_print ( txtbuffer, DBG_SPU3 );
     writeLogFile(txtbuffer);
@@ -2638,9 +2638,12 @@ static void primBlkFill ( unsigned char * baseAddr )
         glPRIMdrawQuad ( &vertex[0] );
     }
 
-    // use software blkFill
-    unsigned short fillCol = BGR24to16(GETLE32(&gpuData[0]));
-    BlkFillArea(sprtX, sprtY, sprtW, sprtH, fillCol);
+    if (!clearNext)
+    {
+        // use software blkFill
+        unsigned short fillCol = BGR24to16(GETLE32(&gpuData[0]));
+        BlkFillArea(sprtX, sprtY, sprtW, sprtH, fillCol);
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////
