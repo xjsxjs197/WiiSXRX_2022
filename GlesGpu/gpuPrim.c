@@ -864,15 +864,6 @@ void SetScanTrans ( void )                             // blending for scan line
 // Set several rendering stuff including blending
 ////////////////////////////////////////////////////////////////////////
 
-// For ubOpaqueDraw
-//static void SetZMask3O ( void )
-//{
-//    if ( iUseMask && DrawSemiTrans && !iSetMask )
-//    {
-//        vertex[0].z = vertex[1].z = vertex[2].z = gl_z;
-//        gl_z += 0.00004f;
-//    }
-//}
 
 // For PolyFT3 PolyGT3
 static void SetZMask3 ( void )
@@ -910,15 +901,6 @@ static void SetZMask3NT ( void )
 
 ////////////////////////////////////////////////////////////////////////
 
-// For ubOpaqueDraw
-//static void SetZMask4O ( void )
-//{
-//    if ( iUseMask && DrawSemiTrans && !iSetMask )
-//    {
-//        vertex[0].z = vertex[1].z = vertex[2].z = vertex[3].z = gl_z;
-//        gl_z += 0.00004f;
-//    }
-//}
 
 // For PolyFT4 PolyGT4
 static void SetZMask4 ( void )
@@ -1079,19 +1061,6 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
     }
 }
 
-////////////////////////////////////////////////////////////////////////
-// Set Opaque multipass color
-////////////////////////////////////////////////////////////////////////
-
-//static void SetOpaqueColor ( unsigned int DrawAttributes )
-//{
-//    if ( bDrawNonShaded ) return;                         // no shading? bye
-//
-//    DrawAttributes = DoubleBGR2RGB ( DrawAttributes );    // multipass is just half color, so double it on opaque pass
-////vertex[0].c.lcol=DrawAttributes|0xff000000;
-//    PUTLE32 ( &vertex[0].c.lcol, DrawAttributes | 0xff000000 );
-//    SETCOL ( vertex[0] );                                 // set color
-//}
 
 ////////////////////////////////////////////////////////////////////////
 // Fucking stupid screen coord checking
@@ -2187,6 +2156,18 @@ static void cmdDrawOffset ( unsigned char * baseAddr )
 #endif // DISP_DEBUG
 }
 
+#define CHK_FPS_DISP1(x, y, w, h) { \
+    if (showFPSonScreen == 1 && canShowFps == FALSE \
+        && x <= 10 && y <= 35 && (x + w) >= 160 && (y + h) >= 50) \
+        canShowFps == TRUE; \
+}
+
+#define CHK_FPS_DISP2(x0, y0, x1, y1) { \
+    if (showFPSonScreen == 1 && canShowFps == FALSE \
+        && x0 <= 10 && y0 <= 35 && x1 >= 160 && y1 >= 50) \
+        canShowFps == TRUE; \
+}
+
 ////////////////////////////////////////////////////////////////////////
 // cmd: load image to vram
 ////////////////////////////////////////////////////////////////////////
@@ -2318,6 +2299,8 @@ void CheckWriteUpdate()
         PrepareRGB24Upload();
         return;
     }
+
+    CHK_FPS_DISP1(VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height);
 
     // The current frame does not have the cmdTexturePage command,
     // so the data uploaded by command primLoadImage does not need to be manually displayed on the screen
@@ -2566,6 +2549,8 @@ static void primBlkFill ( unsigned char * baseAddr )
     ly2 = ly3 = ( sprtY + sprtH );
     lx0 = lx3 = sprtX;
     lx1 = lx2 = ( sprtX + sprtW );
+
+    CHK_FPS_DISP1(sprtX, sprtY, sprtW, sprtH);
 
     offsetBlk();
 
@@ -3021,11 +3006,12 @@ static void primTileS ( unsigned char * baseAddr )
 
     offsetST();
 
+    CHK_FPS_DISP2(lx0, ly0, lx0 + sprtW + PSXDisplay.CumulOffset.x, ly0 + sprtY + PSXDisplay.CumulOffset.y);
+
     if (CLEAR_SCREEN(sprtX, sprtY, sprtX + sprtW, sprtY + sprtH))
     {
         needUploadScreen = FALSE;
         uploadedScreen = FALSE;
-        canShowFps = TRUE;
     }
     else
     {
@@ -3318,36 +3304,6 @@ static void primTile16 ( unsigned char * baseAddr )
 
 #define   POFF 0.375f
 
-//void DrawMultiFilterSprite ( void )
-//{
-//    int lABR, lDST;
-//
-//    if ( bUseMultiPass || DrawSemiTrans || ubOpaqueDraw )
-//    {
-//        PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//        return;
-//    }
-//
-//    lABR = GlobalTextABR;
-//    lDST = DrawSemiTrans;
-//    vertex[0].c.col.a = ubGloAlpha / 2;                  // -> set color with
-//    SETCOL ( vertex[0] );                                 //    texture alpha
-//    PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//    vertex[0].x += POFF;
-//    vertex[1].x += POFF;
-//    vertex[2].x += POFF;
-//    vertex[3].x += POFF;
-//    vertex[0].y += POFF;
-//    vertex[1].y += POFF;
-//    vertex[2].y += POFF;
-//    vertex[3].y += POFF;
-//    GlobalTextABR = 0;
-//    DrawSemiTrans = 1;
-//    SetSemiTrans();
-//    PRIMdrawTexturedQuad ( &vertex[0], &vertex[1], &vertex[2], &vertex[3] );
-//    GlobalTextABR = lABR;
-//    DrawSemiTrans = lDST;
-//}
 
 ////////////////////////////////////////////////////////////////////////
 // cmd: small sprite (textured rect)
@@ -3711,6 +3667,8 @@ static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
 
     offsetST();
 
+    CHK_FPS_DISP2(lx0, ly0, lx0 + sprtW + PSXDisplay.CumulOffset.x, ly0 + sprtY + PSXDisplay.CumulOffset.y);
+
     ulClutID = GETLE16 ( &sgpuData[5] );
 
     bDrawTextured = TRUE;
@@ -3871,6 +3829,8 @@ static void primSprtS ( unsigned char * baseAddr )
 
     offsetST();
 
+    CHK_FPS_DISP2(lx0, ly0, lx0 + sprtW + PSXDisplay.CumulOffset.x, ly0 + sprtY + PSXDisplay.CumulOffset.y);
+
     ulClutID = GETLE16 ( &sgpuData[5] );
 
     bDrawTextured = TRUE;
@@ -3966,6 +3926,8 @@ static void primPolyF4 ( unsigned char *baseAddr )
     #endif // DISP_DEBUG
 
     if ( offset4() ) return;
+
+    CHK_FPS_DISP2(lx0, ly0, lx2 + PSXDisplay.CumulOffset.x, ly2 + PSXDisplay.CumulOffset.y);
 
     bDrawTextured = FALSE;
     bDrawSmoothShaded = FALSE;
@@ -4088,6 +4050,8 @@ static void primPolyG4 ( unsigned char * baseAddr )
     ly3 = GETLEs16 ( &sgpuData[15] );
 
     if ( offset4() ) return;
+
+    CHK_FPS_DISP2(lx0, ly0, lx2 + PSXDisplay.CumulOffset.x, ly2 + PSXDisplay.CumulOffset.y);
 
     bDrawTextured = FALSE;
     bDrawSmoothShaded = TRUE;
@@ -4735,6 +4699,8 @@ static void primPolyFT4 ( unsigned char * baseAddr )
 
     if ( offset4() ) return;
 
+    CHK_FPS_DISP2(lx0, ly0, lx2 + PSXDisplay.CumulOffset.x, ly2 + PSXDisplay.CumulOffset.y);
+
     gl_vy[0] = baseAddr[9]; //((gpuData[2]>>8)&0xff);
     gl_vy[1] = baseAddr[17]; //((gpuData[4]>>8)&0xff);
     gl_vy[2] = baseAddr[25]; //((gpuData[6]>>8)&0xff);
@@ -4963,6 +4929,8 @@ static void primPolyGT4 ( unsigned char *baseAddr )
     ly3 = GETLEs16 ( &sgpuData[21] );
 
     if ( offset4() ) return;
+
+    CHK_FPS_DISP2(lx0, ly0, lx2 + PSXDisplay.CumulOffset.x, ly2 + PSXDisplay.CumulOffset.y);
 
 // do texture stuff
     gl_ux[0] = baseAddr[8]; //gpuData[2]&0xff;
