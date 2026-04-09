@@ -2247,6 +2247,7 @@ static void PrepareRGB24Upload ( void )
         if (VRAMWrite.x + VRAMWrite.Width >= PreviousPSXDisplay.DisplayEnd.x)
         {
             RGB24Uploaded |= 0x1;
+            canClearFrameBuf = TRUE;
         }
         RGB24Uploaded |= 0x4;
     }
@@ -2259,6 +2260,7 @@ static void PrepareRGB24Upload ( void )
         if (VRAMWrite.x + VRAMWrite.Width >= PSXDisplay.DisplayEnd.x)
         {
             RGB24Uploaded |= 0x2;
+            canClearFrameBuf = TRUE;
         }
         RGB24Uploaded |= 0x8;
     }
@@ -2499,22 +2501,22 @@ static inline void BlkFillArea(short x0, short y0, short width, short height, un
     InvalidateTextureArea(x0, y0, width, height);
 
     // clear area
-    //if (fillCol == 0)
+    if (fillCol == 0)
     {
         for (y = y0; y < y0 + height; y++)
         {
             memset(psxVuw + (y << 10) + x0, 0, width * 2);
         }
     }
-//    else
-//    {
-//        for (y = y0; y < y0 + height; y++)
-//        {
-//            unsigned short *ptr = psxVuw + (y << 10) + x0;
-//            for (x = 0; x < width; x++)
-//                PUTLE16(ptr++, fillCol);
-//        }
-//    }
+    else
+    {
+        for (y = y0; y < y0 + height; y++)
+        {
+            unsigned short *ptr = psxVuw + (y << 10) + x0;
+            for (x = 0; x < width; x++)
+                PUTLE16(ptr++, fillCol);
+        }
+    }
 }
 
 static void primBlkFill ( unsigned char * baseAddr )
