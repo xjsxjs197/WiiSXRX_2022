@@ -2496,16 +2496,11 @@ static void primStoreImage ( unsigned char * baseAddr )
 // cmd: blkfill - NO primitive! Doesn't care about draw areas...
 ////////////////////////////////////////////////////////////////////////
 
-#define clearFillArea(x, y, wi, he) { \
-    startY = y; \
-    for (; startY < y + he; startY++) \
-    { \
-        memset(psxVuw + (startY << 10) + x, 0, wi * 2); \
-    } \
-}
 
-static inline void BlkFillArea(short x0, short y0, short width, short height)
+static inline void BlkFillArea(short x0, short y0, short width, short height, unsigned short fillCol)
 {
+    int x, y;
+
     if ( width <= 0 ) return;
     if ( height <= 0 ) return;
 
@@ -2518,10 +2513,25 @@ static inline void BlkFillArea(short x0, short y0, short width, short height)
     if ( (y0 + height) > 512 ) height = 512 - y0;
     if ( (x0 + width) > 1024 ) width = 1024 - x0;
 
-    // clear area
-    int startY;
     InvalidateTextureArea(x0, y0, width, height);
-    clearFillArea(x0, y0, width, height);
+
+    // clear area
+    if (fillCol == 0)
+    {
+        for (y = y0; y < y0 + height; y++)
+        {
+            memset(psxVuw + (y << 10) + x0, 0, width * 2);
+        }
+    }
+    else
+    {
+        for (y = y0; y < y0 + height; y++)
+        {
+            unsigned short *ptr = psxVuw + (y << 10) + x0;
+            for (x = 0; x < width; x++)
+                PUTLE16(ptr++, fillCol);
+        }
+    }
 }
 
 static void primBlkFill ( unsigned char * baseAddr )
@@ -2537,22 +2547,19 @@ static void primBlkFill ( unsigned char * baseAddr )
     sprtW = GETLEs16 ( &sgpuData[4] ) & 0x3ff;
     sprtH = GETLEs16 ( &sgpuData[5] ) & iGPUHeightMask;
 
-//    if (sprtW == 0 || sprtH == 0)
-//    {
-//        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
-//        logType = 1;
-//        sprintf ( txtbuffer, "primBlkFill0 %d %d %d %d\r\n", sprtX, sprtY, sprtW, sprtH);
-//        writeLogFile(txtbuffer);
-//        #else
-//        logType = 0;
-//        #endif // DISP_DEBUG
-//        return;
-//    }
+    if (sprtW == 0 || sprtH == 0)
+    {
+        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
+        logType = 1;
+        sprintf ( txtbuffer, "primBlkFill0 %d %d %d %d\r\n", sprtX, sprtY, sprtW, sprtH);
+        writeLogFile(txtbuffer);
+        #else
+        logType = 0;
+        #endif // DISP_DEBUG
+        return;
+    }
 
-    if (sprtW == 0) sprtW = 1024;
-    else sprtW = (sprtW + 0x0F) & ~0x0F;
-
-    if (sprtH == 0) sprtH = 512;
+    sprtW = (sprtW + 0x0F) & ~0x0F;
 
     // x and y of start
     ly0 = ly1 = sprtY;
@@ -2602,7 +2609,6 @@ static void primBlkFill ( unsigned char * baseAddr )
         needUploadScreen = FALSE;
         uploadedScreen = FALSE;
         canShowFps = TRUE;
-        //canClearFrameBuf = TRUE;
 
         // Clear all Screen
         if ((sprtX + sprtW) >= 1023 && (sprtY + sprtH) >= 511)
@@ -2648,7 +2654,8 @@ static void primBlkFill ( unsigned char * baseAddr )
     }
 
     // use software blkFill
-    BlkFillArea(sprtX, sprtY, sprtW, sprtH);
+    unsigned short fillCol = BGR24to16(GETLE32(&gpuData[0]));
+    BlkFillArea(sprtX, sprtY, sprtW, sprtH, fillCol);
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -3019,7 +3026,6 @@ static void primTileS ( unsigned char * baseAddr )
         needUploadScreen = FALSE;
         uploadedScreen = FALSE;
         canShowFps = TRUE;
-        //canClearFrameBuf = TRUE;
     }
     else
     {

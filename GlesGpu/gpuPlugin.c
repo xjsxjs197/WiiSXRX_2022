@@ -438,7 +438,6 @@ if(PSXDisplay.Disabled)                               // display disabled?
   glEnable(GL_SCISSOR_TEST); glError();
   gl_z=0.0f;
   bDisplayNotSet = TRUE;
-  canClearFrameBuf = TRUE;
   #ifdef DISP_DEBUG
   sprintf(txtbuffer, "updateDisplayGl Disabled\r\n");
   //DEBUG_print(txtbuffer, DBG_CDR1);
@@ -887,7 +886,6 @@ if(bUp)
     sprintf(txtbuffer, "updateDisplayIfChangedGl swap buffer\r\n");
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
-    canClearFrameBuf = TRUE;
     updateDisplayGl();                              // yeah, real update (swap buffer)
 }
 }
