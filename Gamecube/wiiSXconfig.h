@@ -276,6 +276,7 @@ extern char bilinearFilter;
 enum bilinearFilter
 {
 	BILINEARFILTER_DISABLE=0,
+	BILINEARFILTER_NEAR,
 	BILINEARFILTER_ENABLE
 };
 

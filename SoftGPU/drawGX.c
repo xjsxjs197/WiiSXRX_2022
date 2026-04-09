@@ -210,7 +210,7 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 		GX_InitTexObj(&GXtexobj, GXtexture, width, height, fmt, GX_CLAMP, GX_CLAMP, GX_FALSE);
 	}
 
-	if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_DISABLE)
+	if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter != BILINEARFILTER_ENABLE)
 		GX_InitTexObjFilterMode(&GXtexobj, GX_NEAR, GX_NEAR);
 	else
 		GX_InitTexObjFilterMode(&GXtexobj, GX_LINEAR, GX_LINEAR);

@@ -1347,7 +1347,7 @@ GLAPI void GLAPIENTRY glSetTextureMask( short mask );
 GLAPI void GLAPIENTRY glNoNeedMulConstColor( short noNeedMulConstColorFlg );
 GLAPI void GLAPIENTRY glSetVramClearedFlg( void );
 GLAPI void GLAPIENTRY glSetTextureType( short textureSemiType, short loadTextureType, short textureChgType );
-GLAPI void GLAPIENTRY glChgTextureFilter( void );
+GLAPI void GLAPIENTRY glChgTextureFilter( unsigned int gTexMovieName );
 GLAPI void GLAPIENTRY glSetLoadMtxFlg( void );
 GLAPI void GLAPIENTRY glCheckLoadTextureObj( int loadTextureType, int texChgType);
 GLAPI void GLAPIENTRY glResetCacheRegion( void );

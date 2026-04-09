@@ -619,3 +619,6 @@ msgstr "新软件渲染"
 
 msgid "OpenGX"
 msgstr "硬件渲染"
+
+msgid "Near"
+msgstr "临近采样"

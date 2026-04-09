@@ -307,6 +307,13 @@ static char GPU_PLUGIN_STRINGS[4][24] =
       "OpenGX"
       };
 
+// Texture Filters
+static char TEXTURE_FILTER_STRINGS[3][24] =
+    { "Default",
+      "Near",
+      "Bilinear"
+      };
+
 struct ButtonInfo
 {
 	menu::Button	*button;
@@ -357,7 +364,7 @@ struct ButtonInfo
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[30],	200.0,	340.0,	 75.0,	56.0,	22,	28,	27,	26,	Func_DitheringNone,		Func_ReturnFromSettingsFrame }, // Dithering: None
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[32],	295.0,	340.0,	110.0,	56.0,	23,	29,	25,	27,	Func_DitheringDefault,	Func_ReturnFromSettingsFrame }, // Dithering: Game Dependent
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[33],	425.0,	340.0,	110.0,	56.0,	23,	24,	26,	25,	Func_DitheringAlways,	Func_ReturnFromSettingsFrame }, // Dithering: Always
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[65],	200.0,	400.0,	100.0,	56.0,	25,	 1,	24,	29,	Func_BilinearFilter,	Func_ReturnFromSettingsFrame }, // Filters: Bilinear Filter
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[65],	200.0,	400.0,	100.0,	56.0,	25,	 1,	24,	29,	Func_BilinearFilter,	Func_ReturnFromSettingsFrame }, // Filters: Bilinear Filter
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[66],	320.0,	400.0,	100.0,	56.0,	26,	 1,	28,	24,	Func_TrapFilter,		Func_ReturnFromSettingsFrame }, // Filters: Trap Filter
 	//Buttons for Input Tab (starts at button[30])
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[34],	 90.0,	100.0,	220.0,	56.0,	 2,	32,	31,	31,	Func_ConfigureInput,	Func_ReturnFromSettingsFrame }, // Configure Input Assignment
@@ -603,7 +610,8 @@ void SettingsFrame::activateSubmenu(int submenu)
 			if (frameSkip == FRAMESKIP_ENABLE)	FRAME_BUTTONS[20].button->setSelected(true);
 			else								FRAME_BUTTONS[21].button->setSelected(true);
 			if (originalMode == ORIGINALMODE_ENABLE)FRAME_BUTTONS[57].button->setSelected(true);
-			if (bilinearFilter == BILINEARFILTER_ENABLE)FRAME_BUTTONS[28].button->setSelected(true);
+			//if (bilinearFilter == BILINEARFILTER_ENABLE)FRAME_BUTTONS[28].button->setSelected(true);
+			FRAME_BUTTONS[28].buttonString = TEXTURE_FILTER_STRINGS[bilinearFilter];
 			if (trapFilter == TRAPFILTER_ENABLE)FRAME_BUTTONS[29].button->setSelected(true);
 			if (interlacedMode == INTERLACED_ENABLE)FRAME_BUTTONS[23].button->setSelected(true);
 			if (deflickerFilter == DEFLICKER_ENABLE)FRAME_BUTTONS[24].button->setSelected(true);
@@ -1367,20 +1375,18 @@ void Func_DitheringAlways()
 
 void Func_BilinearFilter()
 {
-	if(bilinearFilter == BILINEARFILTER_ENABLE)
+    bilinearFilter++;
+	if(bilinearFilter > BILINEARFILTER_ENABLE)
 	{
-		FRAME_BUTTONS[28].button->setSelected(false);
 		bilinearFilter = BILINEARFILTER_DISABLE;
 	}
-	else
-	{
-		FRAME_BUTTONS[28].button->setSelected(true);
-		bilinearFilter = BILINEARFILTER_ENABLE;
-	}
+
+	FRAME_BUTTONS[28].buttonString = TEXTURE_FILTER_STRINGS[bilinearFilter];
 
 	if (gpuPlugin == OPEN_GX)
     {
-        glChgTextureFilter();
+        extern unsigned int gTexMovieName;
+        glChgTextureFilter(gTexMovieName);
     }
 }
 
