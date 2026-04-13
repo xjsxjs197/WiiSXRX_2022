@@ -164,8 +164,10 @@ static BOOL    uploadedScreen = FALSE;
 static BOOL    needFlipEGL = FALSE;
 static unsigned short    RGB24Uploaded = 0;
 static unsigned short    GPUupdateLace5Flg = 0;
-// Use drawTexturePage flag to determine whether the data uploaded through command primLoadImage needs to be manually displayed on the screen
-static BOOL    drawTexturePage = FALSE;
+
+// When display window / display mode has just changed, PreviousPSXDisplay may be stale.
+// Skip CheckAgainstScreen() once to avoid matching the wrong previous screen area.
+static BOOL    skipPreviousDisplayCheckOnce = FALSE;
 
 #define CHECK_SCREEN_INFO() { \
     screenX = PSXDisplay.DisplayPosition.x; \
@@ -992,37 +994,8 @@ if(PSXDisplay.Interlaced)                             // interlaced mode?
        writeLogFile ( txtbuffer );
        #endif // DISP_DEBUG
        updateDisplayGl();                                  // -> swap buffers (new frame)
-
-//       if (iDrawnSomething == 0 && (RGB24Uploaded & 0x4))
-//       {
-//         PrepareFullScreenUpload(-1);
-////         xrUploadArea.x0 = PreviousPSXDisplay.DisplayPosition.x;
-////         xrUploadArea.x1 = PreviousPSXDisplay.DisplayEnd.x;
-////         xrUploadArea.y0 = PreviousPSXDisplay.DisplayPosition.y;
-////         xrUploadArea.y1 = PreviousPSXDisplay.DisplayEnd.y;
-//         #if defined(DISP_DEBUG)
-//         sprintf(txtbuffer, "Upload Movie Screen %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1, xrUploadArea.y1, RGB24Uploaded);
-//         writeLogFile(txtbuffer);
-//         #endif // DISP_DEBUG
-//         UploadScreen(PSXDisplay.Interlaced);              // -> upload whole screen from psx vram
-//         flipEGL();
-//         iDrawnSomething = 0;
-//       }
-//       else
-//       {
-//           canClearFrameBuf = (iDrawnSomething & 0x1) ? TRUE : FALSE;
-//           updateDisplayGl();                                  // -> swap buffers (new frame)
-//       }
    }
  }
-//else if(bRenderFrontBuffer)                           // no interlace mode? and some stuff in front has changed?
-// {
-//     #ifdef DISP_DEBUG
-//    sprintf ( txtbuffer, "GPUupdateLace2 %d\r\n", iDrawnSomething);
-//    writeLogFile ( txtbuffer );
-//    #endif // DISP_DEBUG
-//  updateFrontDisplayGl();                               // -> update front buffer
-// }
 else if(usFirstPos==1)                                // initial updates (after startup)
  {
      #ifdef DISP_DEBUG
@@ -1043,27 +1016,6 @@ else if(usFirstPos==1)                                // initial updates (after 
          GPUupdateLace5Flg = 1;
          flipEGL();
          iDrawnSomething = 0;
-     }
-//     else if (iDrawnSomething && !PSXDisplay.RGB24)
-//     {
-//         updateDisplayGl();
-//     }
-//     //else if ((RGB24Uploaded & 0x3) || (drawTexturePage && RGB24Uploaded))
-     else if ((RGB24Uploaded & 0x3))
-     {
-//         GPUupdateLace5Flg = 1;
-//         PrepareFullScreenUpload(-1);
-////         xrUploadArea.x0 = PreviousPSXDisplay.DisplayPosition.x;
-////         xrUploadArea.x1 = PreviousPSXDisplay.DisplayEnd.x;
-////         xrUploadArea.y0 = PreviousPSXDisplay.DisplayPosition.y;
-////         xrUploadArea.y1 = PreviousPSXDisplay.DisplayEnd.y;
-//         #if defined(DISP_DEBUG)
-//         sprintf(txtbuffer, "Upload Movie Screen %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1, xrUploadArea.y1, RGB24Uploaded);
-//         writeLogFile(txtbuffer);
-//         #endif // DISP_DEBUG
-//         canClearFrameBuf = UploadScreen(-1);              // -> upload whole screen from psx vram
-//         flipEGL();
-//         iDrawnSomething = 0;
      }
  }
 }
@@ -1265,6 +1217,7 @@ switch(lCommand)
          }
          else
          {
+             skipPreviousDisplayCheckOnce = TRUE;
              updateDisplayGl();
          }
      }
@@ -1317,6 +1270,7 @@ switch(lCommand)
      #endif // DISP_DEBUG
      CHECK_SCREEN_INFO();
 
+     skipPreviousDisplayCheckOnce = TRUE;
      updateDisplayIfChangedGl();
     }
 
@@ -1380,6 +1334,7 @@ switch(lCommand)
      writeLogFile(txtbuffer);
      #endif // DISP_DEBUG
 
+   skipPreviousDisplayCheckOnce = TRUE;
    updateDisplayIfChangedGl();
 
 
@@ -2270,10 +2225,6 @@ static void flipEGL(void)
     gx_vout_render(canClearFrameBuf);
 
     clearLargeRange = 0;
-    if (canClearFrameBuf && !PSXDisplay.Disabled)
-    {
-        drawTexturePage = FALSE;
-    }
     uploadedScreen = FALSE;
     needFlipEGL = FALSE;
     canClearFrameBuf = FALSE;

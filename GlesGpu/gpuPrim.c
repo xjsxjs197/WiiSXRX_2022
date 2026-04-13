@@ -1842,7 +1842,6 @@ static void cmdTexturePage ( unsigned char * baseAddr )
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
     uint32_t gdata = GETLE32 ( ( uint32_t* ) baseAddr );
-    drawTexturePage = TRUE;
 
     usMirror = gdata & 0x3000;
     STATUSREG &= ~0x07ff;                                 // Clear the necessary bits
@@ -2304,57 +2303,41 @@ void CheckWriteUpdate()
 
     CHK_FPS_DISP1(VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height);
 
-    // The current frame does not have the cmdTexturePage command,
-    // so the data uploaded by command primLoadImage does not need to be manually displayed on the screen
-//    if (drawTexturePage == FALSE)
-//    {
-//        if ((VRAMWrite.Width != screenWidth || VRAMWrite.Height != screenHeight)
-//            && (VRAMWrite.y * 2 + VRAMWrite.Height) != screenHeight)
-//        {
-//            // Cancel all operations except during animation playback.
-//            #if defined(DISP_DEBUG)
-//            sprintf ( txtbuffer, "No drawTexturePage\r\n" );
-//            writeLogFile ( txtbuffer );
-//            #endif // DISP_DEBUG
-//            return;
-//        }
-//    }
-
     int uploaded = 0;
-    if ( !PSXDisplay.InterlacedTest &&
-            CheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ) )
+    #if defined(DISP_DEBUG)
+    if (skipPreviousDisplayCheckOnce)
     {
+        sprintf(txtbuffer, "Skip CheckAgainstScreen once\r\n");
+        writeLogFile(txtbuffer);
+    }
+    #endif // DISP_DEBUG
+
+    //if ( !PSXDisplay.InterlacedTest && ((skipPreviousDisplayCheckOnce == FALSE && CheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ))
+    //                                    || (skipPreviousDisplayCheckOnce == TRUE && CheckAgainstFrontScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ))) )
+    if ( !PSXDisplay.InterlacedTest && CheckAgainstScreen ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height ))
+    {
+        uploaded = UploadScreen ( FALSE );
+
+        if (uploaded)
         {
-            //if ( dwActFixes & 0x800 ) return;
-
-//            if ( bRenderFrontBuffer )
-//            {
-//                updateFrontDisplayGl();
-//            }
-
-            uploaded = UploadScreen ( FALSE );
-
-            //bNeedUploadTest = TRUE;
-            if (uploaded)
-            {
-                needUploadScreen = FALSE;
-                uploadedScreen = FALSE;
-            }
-            else
-            {
-                // need upload screen ?
-                needUploadScreen = TRUE;
-                uploadedScreen = FALSE;
-                uploadAreaX1 = xrUploadArea.x0;
-                uploadAreaX2 = xrUploadArea.x1;
-                uploadAreaY1 = xrUploadArea.y0;
-                uploadAreaY2 = xrUploadArea.y1;
-                #if defined(DISP_DEBUG)
-                sprintf ( txtbuffer, "needUploadScreen\r\n" );
-                writeLogFile ( txtbuffer );
-                #endif // DISP_DEBUG
-            }
+            needUploadScreen = FALSE;
+            uploadedScreen = FALSE;
         }
+        else
+        {
+            // need upload screen ?
+            needUploadScreen = TRUE;
+            uploadedScreen = FALSE;
+            uploadAreaX1 = xrUploadArea.x0;
+            uploadAreaX2 = xrUploadArea.x1;
+            uploadAreaY1 = xrUploadArea.y0;
+            uploadAreaY2 = xrUploadArea.y1;
+            #if defined(DISP_DEBUG)
+            sprintf ( txtbuffer, "needUploadScreen\r\n" );
+            writeLogFile ( txtbuffer );
+            #endif // DISP_DEBUG
+        }
+
     }
     //else if ( iOffscreenDrawing )
     else if ( 1 )
@@ -2433,6 +2416,8 @@ void CheckWriteUpdate()
 //            }
         }
     }
+
+    skipPreviousDisplayCheckOnce = FALSE;
 
 //    if (uploaded == 0 &&
 //        ((VRAMWrite.y + VRAMWrite.Height) <= screenY1)
