@@ -2900,6 +2900,9 @@ static inline BOOL ShouldDoSoftTitleFill(short x0, short y0, short w, short h)
     //if (!(dwActFixes & AUTO_FIX_NEED_SOFT_TITLE))
     //    return FALSE;
 
+    if (PSXDisplay.RGB24)
+        return FALSE;
+
     if (w <= 0 || h <= 0)
         return FALSE;
 
