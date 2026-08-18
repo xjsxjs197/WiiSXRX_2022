@@ -76,6 +76,7 @@
 //#include "plugins.h"
 #include "gpuExternals.h"
 #include "gpuTexture.h"
+#include "gpuVramRect.h"
 #include "gpuPlugin.h"
 #include "gpuPrim.h"
 
@@ -718,13 +719,35 @@ void InvalidateTextureAreaEx(void)
 
 ////////////////////////////////////////////////////////////////////////
 
+static void InvalidateVramRect(const VramRect *rect)
+{
+ int rw=rect->x1-rect->x0;
+ int rh=rect->y1-rect->y0;
+
+ if(iMaxTexWnds) InvalidateWndTextureArea(rect->x0,rect->y0,rw,rh);
+
+ InvalidateSubSTextureArea(rect->x0,rect->y0,rw,rh);
+}
+
+////////////////////////////////////////////////////////////////////////
+
 void InvalidateTextureArea(int X,int Y,int W, int H)
 {
- if(W==0 && H==0) return;
+ VramRect pieces[4];
+ int i,count;
 
- if(iMaxTexWnds) InvalidateWndTextureArea(X,Y,W,H);
+ if(W<=0 || H<=0) return;
 
- InvalidateSubSTextureArea(X,Y,W,H);
+ /* Negative origins come from clipped primitive bboxes; clip them here.
+    The split helper only handles right/bottom VRAM wrap. */
+ if(X<0) {W+=X;X=0;}
+ if(Y<0) {H+=Y;Y=0;}
+ if(W<=0 || H<=0) return;
+
+ count=SplitWrappedVramRect(X,Y,W,H,1024,iGPUHeight,pieces);
+
+ for(i=0;i<count;i++)
+  InvalidateVramRect(&pieces[i]);
 }
 
 

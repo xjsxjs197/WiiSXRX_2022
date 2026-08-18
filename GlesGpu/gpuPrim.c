@@ -2435,12 +2435,7 @@ static void PrepareRGB24Upload ( void )
 
 void CheckWriteUpdate()
 {
-    int iX = 0, iY = 0;
-
-    if ( VRAMWrite.Width )   iX = 1;
-    if ( VRAMWrite.Height )  iY = 1;
-
-    InvalidateTextureArea ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width - iX, VRAMWrite.Height - iY );
+    InvalidateTextureArea ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height );
 
     #if defined(DISP_DEBUG)
     sprintf ( txtbuffer, "CheckWriteUpdate %d %d %d %d %d %d %d %d %d %d %d %d\r\n",
@@ -2851,43 +2846,12 @@ static void MoveImageWrapped ( short imageX0, short imageY0,
                         short imageX1, short imageY1,
                         short imageSX, short imageSY )
 {
-    int i, j, imageXE, imageYE;
+    int i, j;
 
     for ( j = 0; j < imageSY; j++ )
         for ( i = 0; i < imageSX; i++ )
             psxVuw [ ( 1024 * ( ( imageY1 + j ) &iGPUHeightMask ) ) + ( ( imageX1 + i ) & 0x3ff )] =
                 psxVuw[ ( 1024 * ( ( imageY0 + j ) &iGPUHeightMask ) ) + ( ( imageX0 + i ) & 0x3ff )];
-
-    if ( !PSXDisplay.RGB24 )
-    {
-        imageXE = imageX1 + imageSX;
-        imageYE = imageY1 + imageSY;
-
-        if ( imageYE > iGPUHeight && imageXE > 1024 )
-        {
-            InvalidateTextureArea ( 0, 0,
-                                    ( imageXE & 0x3ff ) - 1,
-                                    ( imageYE & iGPUHeightMask ) - 1 );
-        }
-
-        if ( imageXE > 1024 )
-        {
-            InvalidateTextureArea ( 0, imageY1,
-                                    ( imageXE & 0x3ff ) - 1,
-                                    ( ( imageYE > iGPUHeight ) ? iGPUHeight : imageYE ) - imageY1 - 1 );
-        }
-
-        if ( imageYE > iGPUHeight )
-        {
-            InvalidateTextureArea ( imageX1, 0,
-                                    ( ( imageXE > 1024 ) ? 1024 : imageXE ) - imageX1 - 1,
-                                    ( imageYE & iGPUHeightMask ) - 1 );
-        }
-
-        InvalidateTextureArea ( imageX1, imageY1,
-                                ( ( imageXE > 1024 ) ? 1024 : imageXE ) - imageX1 - 1,
-                                ( ( imageYE > iGPUHeight ) ? iGPUHeight : imageYE ) - imageY1 - 1 );
-    }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2896,6 +2860,7 @@ static void primMoveImage ( unsigned char * baseAddr )
 {
     short *sgpuData = ( ( short * ) baseAddr );
     short imageY0, imageX0, imageY1, imageX1, imageSX, imageSY, i, j;
+    short copyWidth, copyHeight, clipSX, clipSY;
 
     long setMask32 = GETLEs32(&lSetMask);
     short setMask16 = GETLEs16(&sSetMask);
@@ -2930,6 +2895,12 @@ static void primMoveImage ( unsigned char * baseAddr )
     if ( imageSX <= 0 ) return;
     if ( imageSY <= 0 ) return;
 
+    /* Keep the original copy size immutable for cache invalidation; the
+     * wrap path below computes separate clipped sizes for ownership and
+     * upload checks. */
+    copyWidth = imageSX;
+    copyHeight = imageSY;
+
     /* Only DC2's five full-height strip copies are proven to consume GX-only
      * EFB content.  Applying the read barrier to unrelated 80h commands can
      * replace CPU-uploaded animation data with a pending EFB snapshot. */
@@ -2950,16 +2921,19 @@ static void primMoveImage ( unsigned char * baseAddr )
     }
 #endif
 
+    clipSX = imageSX;
+    clipSY = imageSY;
+
     if ( ( imageY0 + imageSY ) > iGPUHeight ||
             ( imageX0 + imageSX ) > 1024       ||
             ( imageY1 + imageSY ) > iGPUHeight ||
             ( imageX1 + imageSX ) > 1024 )
     {
         MoveImageWrapped ( imageX0, imageY0, imageX1, imageY1, imageSX, imageSY );
-        if ( ( imageY0 + imageSY ) > iGPUHeight ) imageSY = iGPUHeight - imageY0;
-        if ( ( imageX0 + imageSX ) > 1024 )       imageSX = 1024 - imageX0;
-        if ( ( imageY1 + imageSY ) > iGPUHeight ) imageSY = iGPUHeight - imageY1;
-        if ( ( imageX1 + imageSX ) > 1024 )       imageSX = 1024 - imageX1;
+        if ( ( imageY0 + clipSY ) > iGPUHeight ) clipSY = iGPUHeight - imageY0;
+        if ( ( imageX0 + clipSX ) > 1024 )       clipSX = 1024 - imageX0;
+        if ( ( imageY1 + clipSY ) > iGPUHeight ) clipSY = iGPUHeight - imageY1;
+        if ( ( imageX1 + clipSX ) > 1024 )       clipSX = 1024 - imageX1;
     }
     else if ( (imageSX | imageX0 | imageX1) & 1 ) // not dword aligned? slower func
     {
@@ -2997,7 +2971,7 @@ static void primMoveImage ( unsigned char * baseAddr )
         }
     }
 
-    MarkCpuVramWrite(imageX1, imageY1, imageSX, imageSY);
+    MarkCpuVramWrite(imageX1, imageY1, clipSX, clipSY);
 
 #ifdef DISP_DEBUG
     if (ReadbackEnabled() && imageSY >= 120)
@@ -3009,10 +2983,10 @@ static void primMoveImage ( unsigned char * baseAddr )
 
     if ( !PSXDisplay.RGB24 )
     {
-        InvalidateTextureArea ( imageX1, imageY1, imageSX - 1, imageSY - 1 );
+        InvalidateTextureArea ( imageX1, imageY1, copyWidth, copyHeight );
 
         int uploaded = 0;
-        if ( CheckAgainstScreen ( imageX1, imageY1, imageSX, imageSY ) )
+        if ( CheckAgainstScreen ( imageX1, imageY1, clipSX, clipSY ) )
         {
 //            if ((screenX == PreviousPSXDisplay.DisplayPosition.x && screenY == PreviousPSXDisplay.DisplayPosition.y
 //             && screenX1 == PreviousPSXDisplay.DisplayEnd.x && screenY1 == PreviousPSXDisplay.DisplayEnd.y)
@@ -3062,15 +3036,15 @@ static void primMoveImage ( unsigned char * baseAddr )
         }
 
         if (uploaded == 0 &&
-            ((imageY1 + imageSY) <= screenY1)
+            ((imageY1 + clipSY) <= screenY1)
             && (imageY1 >= screenY)
-            && ((imageX1 + imageSX) <= screenX1)
+            && ((imageX1 + clipSX) <= screenX1)
             && (imageX1 >= screenX))
         {
             xrUploadArea.x0 = imageX1;
             xrUploadArea.y0 = imageY1;
-            xrUploadArea.x1 = imageX1 + imageSX;
-            xrUploadArea.y1 = imageY1 + imageSY;
+            xrUploadArea.x1 = imageX1 + clipSX;
+            xrUploadArea.y1 = imageY1 + clipSY;
             uploaded = UploadScreen ( FALSE );
             if (uploaded &&
                 ResolveUploadMapId(FALSE) == g_activeMap.map_id)
@@ -3126,7 +3100,7 @@ static void primMoveImage ( unsigned char * baseAddr )
     else
     {
         iDrawnSomething |= 0x8;
-        if (imageSX == screenWidth || imageSY == screenHeight)
+        if (clipSX == screenWidth || clipSY == screenHeight)
         {
             RGB24Uploaded = TRUE;
         }
