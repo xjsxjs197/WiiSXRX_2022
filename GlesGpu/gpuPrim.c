@@ -3254,7 +3254,7 @@ static void primTileS ( unsigned char * baseAddr )
 //        {
 //            if ( ! ( iTileCheat && sprtH == 32 && gpuData[0] == SWAP32_C(0x60ffffff) ) ) // special cheat for certain ZiNc games
 //            {
-//                InvalidateTextureAreaEx();
+//                T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
 //                FillSoftwareAreaTrans ( lx0, ly0, lx2, ly2, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
 //            }
 //            #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
@@ -3360,7 +3360,7 @@ static void primTile1 ( unsigned char * baseAddr )
 
 //        if ( bDrawOffscreen4() )
 //        {
-//            InvalidateTextureAreaEx();
+//            T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
 //            FillSoftwareAreaTrans ( lx0, ly0, lx2, ly2, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
 //        }
 //        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
@@ -3427,7 +3427,7 @@ static void primTile8 ( unsigned char * baseAddr )
 
 //        if ( bDrawOffscreen4() )
 //        {
-//            InvalidateTextureAreaEx();
+//            T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
 //            FillSoftwareAreaTrans ( lx0, ly0, lx2, ly2, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
 //        }
 //        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
@@ -3490,7 +3490,7 @@ static void primTile16 ( unsigned char * baseAddr )
 
 //        if ( bDrawOffscreen4() )
 //        {
-//            InvalidateTextureAreaEx();
+//            T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
 //            FillSoftwareAreaTrans ( lx0, ly0, lx2, ly2, BGR24to16 ( GETLE32 ( &gpuData[0] ) ));
 //        }
 //        #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
@@ -3592,7 +3592,7 @@ static void primSprt8 ( unsigned char * baseAddr )
 
        if(bDrawOffscreen4())
         {
-         InvalidateTextureAreaEx();
+         // T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
          SetRenderColor(gpuData[0]);
          lx0-=PSXDisplay.DrawOffset.x;
          ly0-=PSXDisplay.DrawOffset.y;
@@ -3715,7 +3715,7 @@ static void primSprt16 ( unsigned char * baseAddr )
 
        if(bDrawOffscreen4())
         {
-         InvalidateTextureAreaEx();
+         // T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
          SetRenderColor(gpuData[0]);
          lx0-=PSXDisplay.DrawOffset.x;
          ly0-=PSXDisplay.DrawOffset.y;
@@ -3897,7 +3897,7 @@ static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
 
        if(bDrawOffscreen4())
         {
-         InvalidateTextureAreaEx();
+         // T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
          SetRenderColor(gpuData[0]);
          lx0-=PSXDisplay.DrawOffset.x;
          ly0-=PSXDisplay.DrawOffset.y;
@@ -4157,7 +4157,7 @@ static void primPolyF4 ( unsigned char *baseAddr )
        offsetPSX4();
        if(bDrawOffscreen4())
         {
-         InvalidateTextureAreaEx();
+         // T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
          drawPoly4F(gpuData[0]);
         }
       }
@@ -4285,7 +4285,7 @@ static void primPolyG4 ( unsigned char * baseAddr )
 
        if(bDrawOffscreen4())
         {
-         InvalidateTextureAreaEx();
+         // T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
          drawPoly4G(gpuData[0], gpuData[2], gpuData[4], gpuData[6]);
         }
       }
@@ -4520,7 +4520,7 @@ static void primPolyFT3 ( unsigned char * baseAddr )
        offsetPSX3();
        if(bDrawOffscreen3())
         {
-         InvalidateTextureAreaEx();
+         // T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
          SetRenderColor(gpuData[0]);
          drawPoly3FT(baseAddr);
         }
@@ -4946,7 +4946,7 @@ static void primPolyFT4 ( unsigned char * baseAddr )
        offsetPSX4();
        if(bDrawOffscreen4())
         {
-         InvalidateTextureAreaEx();
+         // T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
          SetRenderColor(gpuData[0]);
          drawPoly4FT(baseAddr);
         }
@@ -5028,7 +5028,7 @@ static void primPolyGT3 ( unsigned char *baseAddr )
        offsetPSX3();
        if(bDrawOffscreen3())
         {
-         InvalidateTextureAreaEx();
+         // T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
          drawPoly3GT(baseAddr);
         }
       }
@@ -5110,7 +5110,7 @@ static void primPolyG3 ( unsigned char *baseAddr )
        offsetPSX3();
        if(bDrawOffscreen3())
         {
-         InvalidateTextureAreaEx();
+         // T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
          drawPoly3G(gpuData[0], gpuData[2], gpuData[4]);
         }
       }
@@ -5181,7 +5181,7 @@ static void primPolyGT4 ( unsigned char *baseAddr )
        offsetPSX4();
        if(bDrawOffscreen4())
         {
-         InvalidateTextureAreaEx();
+         // T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
          drawPoly4GT(baseAddr);
         }
       }
@@ -5277,7 +5277,7 @@ static void primPolyF3 ( unsigned char *baseAddr )
        offsetPSX3();
        if(bDrawOffscreen3())
         {
-         InvalidateTextureAreaEx();
+         // T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
          drawPoly3F(gpuData[0]);
         }
       }
@@ -5392,7 +5392,7 @@ static void primLineGEx ( unsigned char *baseAddr )
                    offsetPSXLine();
                    if(bDrawOffscreen4())
                     {
-                     InvalidateTextureAreaEx();
+                     // T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
                      drawPoly4G(gpuData[i-3],gpuData[i-1],gpuData[i-3],gpuData[i-1]);
                     }
                    lx0=cx0;lx1=cx1;ly0=cy0;ly1=cy1;
@@ -5454,7 +5454,7 @@ static void primLineG2 ( unsigned char *baseAddr )
        offsetPSXLine();
        if(bDrawOffscreen4())
         {
-         InvalidateTextureAreaEx();
+         // T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
          drawPoly4G(gpuData[0],gpuData[2],gpuData[0],gpuData[2]);
         }
       }
@@ -5551,7 +5551,7 @@ static void primLineFEx ( unsigned char *baseAddr )
                    offsetPSXLine();
                    if(bDrawOffscreen4())
                     {
-                     InvalidateTextureAreaEx();
+                     // T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
                      drawPoly4F(gpuData[0]);
                     }
                    lx0=cx0;lx1=cx1;ly0=cy0;ly1=cy1;
@@ -5608,7 +5608,7 @@ static void primLineF2 ( unsigned char *baseAddr )
        offsetPSXLine();
        if(bDrawOffscreen4())
         {
-         InvalidateTextureAreaEx();
+         // T1-B: construct an explicit half-open invalidation rectangle before re-enabling.
          drawPoly4F(gpuData[0]);
         }
       }
