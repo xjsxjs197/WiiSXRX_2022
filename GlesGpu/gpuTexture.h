@@ -39,7 +39,6 @@ void           CleanupTextureStore();
 GLuint         LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId);
 GLuint         LoadTextureMovie(void);
 void           InvalidateTextureArea(int x,int y,int width,int height);
-void           InvalidateTextureAreaEx(void);
 void           LoadTexturePage(int pageid, int mode, short cx, short cy);
 void           ResetTextureArea(BOOL bDelTex);
 GLuint         SelectSubTextureS(int TextureMode, unsigned int GivenClutId);

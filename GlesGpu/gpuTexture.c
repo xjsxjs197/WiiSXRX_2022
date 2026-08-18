@@ -700,25 +700,6 @@ void InvalidateSubSTextureArea(int X,int Y,int W, int H)
   }
 }
 
-////////////////////////////////////////////////////////////////////////
-// Invalidate some parts of cache: main routine
-////////////////////////////////////////////////////////////////////////
-
-void InvalidateTextureAreaEx(void)
-{
- short W=sxmax-sxmin;
- short H=symax-symin;
-
- if(W==0 && H==0) return;
-
- if(iMaxTexWnds)
-  InvalidateWndTextureArea(sxmin,symin,W,H);
-
- InvalidateSubSTextureArea(sxmin,symin,W,H);
-}
-
-////////////////////////////////////////////////////////////////////////
-
 static void InvalidateVramRectCallback(void *user_data, const VramRect *rect)
 {
  int rw=rect->x1-rect->x0;
