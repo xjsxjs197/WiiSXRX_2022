@@ -48,6 +48,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "debug.h"
 #include "image_DXT.h"
 #include "opengx.h"
+#include "gxSemiPlane.h"
 #include "state.h"
 #include "utils.h"
 
@@ -1991,8 +1992,13 @@ int glTexSubImage2D(GLenum target, GLint level,
             }
             memcpy(currtex->semiTransData, semiTransBuf, currtex->w * currtex->h * 2);
         }
-        DCFlushRange(currtex->semiTransData , currtex->w * currtex->h * 2);
     }
+
+    /* A partial update can clear semi texels to zero even when this upload
+     * contains no TEX_TYPE_1 pixels; flush the retained semi plane whenever
+     * it was written directly. */
+    if (currtex->semiTransData != 0)
+        DCFlushRange(currtex->semiTransData, currtex->w * currtex->h * 2);
 
     return textureType;
 }
@@ -2057,12 +2063,12 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
         GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
     }
     // For Non transparent colors in transparent mode
-    if (textureType & TEX_TYPE_1)
+    if (GxSemiPlaneUpdateAction(currtex->semiTransData != 0,
+                                (textureType & TEX_TYPE_1) != 0) != GX_SEMI_ACTION_NONE)
     {
         if (currtex->semiTransData == 0)
         {
             currtex->semiTransData = _mem2_memalign(32, currtex->w * currtex->h * 2);
-            memcpy(currtex->semiTransData, semiTransBuf, currtex->w * currtex->h * 2);
 
             GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
                         currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
@@ -2071,6 +2077,10 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
                 GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
             }
         }
+
+        /* Same-size reuse must refresh the semi plane; allocation alone is
+         * not the only condition for a copy. */
+        memcpy(currtex->semiTransData, semiTransBuf, currtex->w * currtex->h * 2);
         DCFlushRange(currtex->semiTransData, currtex->w * currtex->h * 2);
     }
     //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
