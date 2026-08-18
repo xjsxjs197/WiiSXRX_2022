@@ -5,8 +5,10 @@
     invalidation paths.
  ***************************************************************************/
 
-#ifndef _GPU_VRAM_RECT_H_
-#define _GPU_VRAM_RECT_H_
+#ifndef GPU_VRAM_RECT_H
+#define GPU_VRAM_RECT_H
+
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -111,8 +113,52 @@ static inline int SplitWrappedVramRect(int x, int y, int width, int height,
     return count;
 }
 
+typedef void (*VramRectCallback)(void *user_data, const VramRect *rect);
+
+/*
+ * Clip negative origins, split right/bottom VRAM wrap, and invoke callback
+ * once per resulting half-open piece.  Returns the number of pieces.
+ * This is the same entry point used by InvalidateTextureArea(), so host
+ * tests can exercise the wrapper's clipping and piece dispatch directly.
+ */
+static inline int ForEachWrappedVramRect(int x, int y, int width, int height,
+                                         int vram_width, int vram_height,
+                                         VramRectCallback callback,
+                                         void *user_data)
+{
+    VramRect pieces[4];
+    int i, count;
+
+    if (width <= 0 || height <= 0)
+        return 0;
+
+    if (x < 0)
+    {
+        width += x;
+        x = 0;
+    }
+    if (y < 0)
+    {
+        height += y;
+        y = 0;
+    }
+    if (width <= 0 || height <= 0)
+        return 0;
+
+    count = SplitWrappedVramRect(x, y, width, height,
+                                 vram_width, vram_height, pieces);
+
+    if (callback != NULL)
+    {
+        for (i = 0; i < count; i++)
+            callback(user_data, &pieces[i]);
+    }
+
+    return count;
+}
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _GPU_VRAM_RECT_H_ */
+#endif /* GPU_VRAM_RECT_H */

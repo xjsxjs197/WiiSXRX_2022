@@ -38,7 +38,7 @@ void           InitializeTextureStore();
 void           CleanupTextureStore();
 GLuint         LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId);
 GLuint         LoadTextureMovie(void);
-void           InvalidateTextureArea(int imageX0,int imageY0,int imageX1,int imageY1);
+void           InvalidateTextureArea(int x,int y,int width,int height);
 void           InvalidateTextureAreaEx(void);
 void           LoadTexturePage(int pageid, int mode, short cx, short cy);
 void           ResetTextureArea(BOOL bDelTex);

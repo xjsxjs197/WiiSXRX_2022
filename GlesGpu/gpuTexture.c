@@ -719,10 +719,12 @@ void InvalidateTextureAreaEx(void)
 
 ////////////////////////////////////////////////////////////////////////
 
-static void InvalidateVramRect(const VramRect *rect)
+static void InvalidateVramRectCallback(void *user_data, const VramRect *rect)
 {
  int rw=rect->x1-rect->x0;
  int rh=rect->y1-rect->y0;
+
+ (void)user_data;
 
  if(iMaxTexWnds) InvalidateWndTextureArea(rect->x0,rect->y0,rw,rh);
 
@@ -733,21 +735,8 @@ static void InvalidateVramRect(const VramRect *rect)
 
 void InvalidateTextureArea(int X,int Y,int W, int H)
 {
- VramRect pieces[4];
- int i,count;
-
- if(W<=0 || H<=0) return;
-
- /* Negative origins come from clipped primitive bboxes; clip them here.
-    The split helper only handles right/bottom VRAM wrap. */
- if(X<0) {W+=X;X=0;}
- if(Y<0) {H+=Y;Y=0;}
- if(W<=0 || H<=0) return;
-
- count=SplitWrappedVramRect(X,Y,W,H,1024,iGPUHeight,pieces);
-
- for(i=0;i<count;i++)
-  InvalidateVramRect(&pieces[i]);
+ ForEachWrappedVramRect(X,Y,W,H,1024,iGPUHeight,
+                        InvalidateVramRectCallback,NULL);
 }
 
 
