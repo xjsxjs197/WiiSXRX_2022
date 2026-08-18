@@ -130,6 +130,15 @@ static const char * const special_game_hack_no_swap_framebuf[] =
     "SLPS02377", "SCPS45486", "SLPS91457", "SLPM87393", "SLUS01040",
 };
 
+static const char * const special_game_hack_vram_readback[] =
+{
+    /* Dino Crisis 2 */
+    "SLUS01279", "SLPM86627",
+    "SLES03221", "SLES03222", "SLES03223", "SLES03224", "SLES03225",
+    /* Vagrant Story */
+    "SLPS02377", "SCPS45486", "SLPS91457", "SLPM87393", "SLUS01040",
+};
+
 #define HACK_ENTRY(var, list) \
     { #var, &Config.hacks.var, list, ARRAY_SIZE(list) }
 
@@ -361,6 +370,13 @@ void Apply_Hacks_Cdrom()
         if (strcmp(CdromId, special_game_hack_no_swap_framebuf[i]) == 0)
         {
             Config.hacks.dwActFixes |= AUTO_FIX_NO_SWAP_BUF;
+            break;
+        }
+    }
+    for (i = 0; i < ARRAY_SIZE(special_game_hack_vram_readback); i++) {
+        if (strcmp(CdromId, special_game_hack_vram_readback[i]) == 0)
+        {
+            Config.hacks.dwActFixes |= AUTO_FIX_VRAM_READBACK;
             break;
         }
     }

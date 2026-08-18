@@ -84,6 +84,23 @@ void switchToTVMode(short dWidth, short dHeight, bool retMenu);
 static int vsync_enable;
 static int new_frame;
 
+static void gx_prepare_efb_pixel_state(void)
+{
+	extern GXRModeObj *vmode;
+
+	if (vmode && vmode->aa)
+		GX_SetPixelFmt(GX_PF_RGB565_Z16, GX_ZC_LINEAR);
+	else
+		GX_SetPixelFmt(GX_PF_RGB8_Z24, GX_ZC_LINEAR);
+	GX_SetZCompLoc(GX_FALSE);
+	GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
+	GX_SetZMode(GX_ENABLE, GX_ALWAYS, GX_TRUE);
+	GX_SetBlendMode(GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_COPY);
+	GX_SetColorUpdate(GX_ENABLE);
+	GX_SetAlphaUpdate(GX_ENABLE);
+	GX_SetDstAlpha(GX_DISABLE, 0xff);
+}
+
 enum {
 	FB_BACK,
 	FB_NEXT,
@@ -329,7 +346,7 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 	GX_LoadPosMtxImm(GXmodelIdent,GX_PNMTX0);
 
 	GX_SetCullMode(GX_CULL_NONE);
-	GX_SetZMode(GX_ENABLE,GX_ALWAYS,GX_TRUE);
+	gx_prepare_efb_pixel_state();
 
 	GX_InvalidateTexAll();
 	GX_SetTevOp(GX_TEVSTAGE0, GX_REPLACE);

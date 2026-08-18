@@ -52,6 +52,7 @@
 
 #include "../gpulib/stdafx.h"
 
+#include "../database.h"
 #include "../Gamecube/DEBUG.h"
 #include "../Gamecube/MEM2.h"
 
@@ -184,12 +185,20 @@ static BOOL    skipPreviousDisplayCheckOnce = FALSE;
 
 static short   texChgType = 0;
 
+static void ResetVramReadbackState(void);
+static void BuildActiveMapFromDisplay(void);
+static inline unsigned short ReadGXRGB5A3PixelRaw(
+    const unsigned char *buf, int texWidth, int px, int py);
+static inline unsigned short GXRGB5A3ToPSX15(unsigned short gx);
+extern GXRModeObj *vmode;     /*** Graphics Mode Object ***/
+
 #include "gpuDraw.c"
 #include "gpuTexture.c"
+#include "gpuVramReadback.inc"
 #include "gpuPrim.c"
 
-extern GXRModeObj *vmode;     /*** Graphics Mode Object ***/
 static void flipEGL(void);
+extern void (*ogx_draw_submitted_cb)(void);
 
 ////////////////////////////////////////////////////////////////////////
 // stuff to make this a true PDK module
@@ -803,6 +812,8 @@ glViewport(rRatioRect.left,
 void updateDisplayIfChangedGl(void)
 {
 BOOL bUp;
+int txStarted = 0;
+GXDisplayMap proposed;
 
 if ((PSXDisplay.DisplayMode.y == PSXDisplay.DisplayModeNew.y) &&
     (PSXDisplay.DisplayMode.x == PSXDisplay.DisplayModeNew.x))
@@ -810,9 +821,22 @@ if ((PSXDisplay.DisplayMode.y == PSXDisplay.DisplayModeNew.y) &&
   if((PSXDisplay.RGB24      == PSXDisplay.RGB24New) &&
      (PSXDisplay.Interlaced == PSXDisplay.InterlacedNew))
      return;                                          // nothing has changed? fine, no swap buffer needed
+
+  if (PSXDisplay.RGB24 != PSXDisplay.RGB24New)
+   {
+    GetProposedActiveMap(&proposed);
+    proposed.rgb24 = PSXDisplay.RGB24New;
+    txStarted = OnDisplayMappingWillChange(&proposed);
+   }
  }
 else                                                  // some res change?
  {
+    GetProposedActiveMap(&proposed);
+    proposed.vram_x1 = PSXDisplay.DisplayPosition.x + PSXDisplay.DisplayModeNew.x;
+    proposed.vram_y1 = PSXDisplay.DisplayPosition.y + PSXDisplay.DisplayModeNew.y + PreviousPSXDisplay.DisplayModeNew.y;
+    proposed.rgb24 = PSXDisplay.RGB24New;
+    txStarted = OnDisplayMappingWillChange(&proposed);
+
     if (originalMode == ORIGINALMODE_ENABLE)
 	{
 		switchToTVMode(PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y, 0);
@@ -883,7 +907,7 @@ ChangeDispOffsetsXGl();
 
 if(iFrameLimit==2) SetAutoFrameCap();                 // set new fps limit vals (depends on interlace)
 
-if(bUp)
+ if(bUp)
 {
     #ifdef DISP_DEBUG
     sprintf(txtbuffer, "updateDisplayIfChangedGl swap buffer\r\n");
@@ -891,6 +915,9 @@ if(bUp)
     #endif // DISP_DEBUG
     updateDisplayGl();                              // yeah, real update (swap buffer)
 }
+
+if (txStarted)
+    OnDisplayMappingChanged();
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1135,6 +1162,8 @@ switch(lCommand)
    {
     short sx=(short)(gdata & 0x3ff);
     short sy;
+    GXDisplayMap proposed;
+    int txStarted = 0;
 
     if(iGPUHeight==1024)
      {
@@ -1159,10 +1188,21 @@ switch(lCommand)
       usFirstPos--;
       if(usFirstPos)
        {
+        GetProposedActiveMap(&proposed);
+        proposed.vram_x0 = sx;
+        proposed.vram_y0 = sy;
+        proposed.vram_x1 = sx + PSXDisplay.DisplayMode.x;
+        proposed.vram_y1 = sy + PSXDisplay.DisplayMode.y + PreviousPSXDisplay.DisplayModeNew.y;
+        txStarted = OnDisplayMappingWillChange(&proposed);
+
         PreviousPSXDisplay.DisplayPosition.x = sx;
         PreviousPSXDisplay.DisplayPosition.y = sy;
         PSXDisplay.DisplayPosition.x = sx;
         PSXDisplay.DisplayPosition.y = sy;
+
+        if (txStarted)
+            OnDisplayMappingChanged();
+        txStarted = 0;
        }
      }
 
@@ -1172,6 +1212,13 @@ switch(lCommand)
          PreviousPSXDisplay.DisplayPosition.x == sx  &&
          PreviousPSXDisplay.DisplayPosition.y == sy)
        return;
+
+      GetProposedActiveMap(&proposed);
+      proposed.vram_x0 = PreviousPSXDisplay.DisplayPosition.x;
+      proposed.vram_y0 = PreviousPSXDisplay.DisplayPosition.y;
+      proposed.vram_x1 = proposed.vram_x0 + PSXDisplay.DisplayMode.x;
+      proposed.vram_y1 = proposed.vram_y0 + PSXDisplay.DisplayMode.y + PreviousPSXDisplay.DisplayModeNew.y;
+      txStarted = OnDisplayMappingWillChange(&proposed);
 
       PSXDisplay.DisplayPosition.x = PreviousPSXDisplay.DisplayPosition.x;
       PSXDisplay.DisplayPosition.y = PreviousPSXDisplay.DisplayPosition.y;
@@ -1184,6 +1231,13 @@ switch(lCommand)
          PSXDisplay.DisplayPosition.x == sx  &&
          PSXDisplay.DisplayPosition.y == sy)
        return;
+      GetProposedActiveMap(&proposed);
+      proposed.vram_x0 = sx;
+      proposed.vram_y0 = sy;
+      proposed.vram_x1 = sx + PSXDisplay.DisplayMode.x;
+      proposed.vram_y1 = sy + PSXDisplay.DisplayMode.y + PreviousPSXDisplay.DisplayModeNew.y;
+      txStarted = OnDisplayMappingWillChange(&proposed);
+
       PreviousPSXDisplay.DisplayPosition.x = PSXDisplay.DisplayPosition.x;
       PreviousPSXDisplay.DisplayPosition.y = PSXDisplay.DisplayPosition.y;
       PSXDisplay.DisplayPosition.x = sx;
@@ -1199,6 +1253,9 @@ switch(lCommand)
      PreviousPSXDisplay.DisplayPosition.x+ PSXDisplay.DisplayMode.x;
     PreviousPSXDisplay.DisplayEnd.y=
      PreviousPSXDisplay.DisplayPosition.y+ PSXDisplay.DisplayMode.y+PreviousPSXDisplay.DisplayModeNew.y;
+
+    if (txStarted)
+        OnDisplayMappingChanged();
 
     bDisplayNotSet = TRUE;
 
@@ -1232,54 +1289,86 @@ switch(lCommand)
 
   // setting width
   case 0x06:
+   {
+    short oldRangeX0 = PSXDisplay.Range.x0;
+    short oldRangeX1 = PSXDisplay.Range.x1;
+    int txStarted = 0;
 
-   PSXDisplay.Range.x0=gdata & 0x7ff;      //0x3ff;
-   PSXDisplay.Range.x1=(gdata>>12) & 0xfff;//0x7ff;
+    PSXDisplay.Range.x0=gdata & 0x7ff;      //0x3ff;
+    PSXDisplay.Range.x1=(gdata>>12) & 0xfff;//0x7ff;
 
-   PSXDisplay.Range.x1-=PSXDisplay.Range.x0;
+    PSXDisplay.Range.x1-=PSXDisplay.Range.x0;
 
-   CHECK_SCREEN_INFO();
-   #ifdef DISP_DEBUG
-     sprintf(txtbuffer, "settingDispInfo06 width %d %d\r\n", screenWidth, screenHeight);
-     writeLogFile(txtbuffer);
-     #endif // DISP_DEBUG
-   ChangeDispOffsetsXGl();
+    if (oldRangeX0 != PSXDisplay.Range.x0 ||
+        oldRangeX1 != PSXDisplay.Range.x1)
+        txStarted = OnDisplayMappingWillChange(NULL);
 
-   return;
+    CHECK_SCREEN_INFO();
+    #ifdef DISP_DEBUG
+      sprintf(txtbuffer, "settingDispInfo06 width %d %d\r\n", screenWidth, screenHeight);
+      writeLogFile(txtbuffer);
+      #endif // DISP_DEBUG
+    ChangeDispOffsetsXGl();
+
+    if (txStarted)
+        OnDisplayMappingChanged();
+
+    return;
+   }
 
   // setting height
   case 0x07:
+   {
+    int txStarted = 0;
 
-   PreviousPSXDisplay.Height = PSXDisplay.Height;
+    PreviousPSXDisplay.Height = PSXDisplay.Height;
 
-   PSXDisplay.Range.y0=gdata & 0x3ff;
-   PSXDisplay.Range.y1=(gdata>>10) & 0x3ff;
+    PSXDisplay.Range.y0=gdata & 0x3ff;
+    PSXDisplay.Range.y1=(gdata>>10) & 0x3ff;
 
-   PSXDisplay.Height = PSXDisplay.Range.y1 -
-                       PSXDisplay.Range.y0 +
-                       PreviousPSXDisplay.DisplayModeNew.y;
+    PSXDisplay.Height = PSXDisplay.Range.y1 -
+                        PSXDisplay.Range.y0 +
+                        PreviousPSXDisplay.DisplayModeNew.y;
 
-   if (PreviousPSXDisplay.Height != PSXDisplay.Height)
-    {
-     PSXDisplay.DisplayModeNew.y=PSXDisplay.Height*PSXDisplay.Double;
-     ChangeDispOffsetsYGl();
+    if (PreviousPSXDisplay.Height != PSXDisplay.Height)
+     {
+      txStarted = OnDisplayMappingWillChange(NULL);
 
-     #ifdef DISP_DEBUG
-     sprintf(txtbuffer, "settingDispInfo07 height %d %d\r\n", screenWidth, screenHeight);
-     writeLogFile(txtbuffer);
-     #endif // DISP_DEBUG
-     CHECK_SCREEN_INFO();
+      PSXDisplay.DisplayModeNew.y=PSXDisplay.Height*PSXDisplay.Double;
+      ChangeDispOffsetsYGl();
 
-     skipPreviousDisplayCheckOnce = TRUE;
-     updateDisplayIfChangedGl();
-    }
+      #ifdef DISP_DEBUG
+      sprintf(txtbuffer, "settingDispInfo07 height %d %d\r\n", screenWidth, screenHeight);
+      writeLogFile(txtbuffer);
+      #endif // DISP_DEBUG
+      CHECK_SCREEN_INFO();
 
-   return;
+      skipPreviousDisplayCheckOnce = TRUE;
+      updateDisplayIfChangedGl();
+
+      if (txStarted)
+          OnDisplayMappingChanged();
+     }
+
+    return;
+   }
 
   // setting display infos
   case 0x08:
+   {
+    GXDisplayMap proposed;
+    int txStarted;
 
-   PSXDisplay.DisplayModeNew.x = dispWidths[(gdata & 0x03) | ((gdata & 0x40) >> 4)];
+    GetProposedActiveMap(&proposed);
+    proposed.rgb24 = (gdata & 0x10) ? TRUE : FALSE;
+    proposed.vram_x1 = PSXDisplay.DisplayPosition.x +
+                       dispWidths[(gdata & 0x03) | ((gdata & 0x40) >> 4)];
+    proposed.vram_y1 = PSXDisplay.DisplayPosition.y +
+                       PSXDisplay.Height * ((gdata & 0x04) ? 2 : 1) +
+                       PreviousPSXDisplay.DisplayModeNew.y;
+    txStarted = OnDisplayMappingWillChange(&proposed);
+
+    PSXDisplay.DisplayModeNew.x = dispWidths[(gdata & 0x03) | ((gdata & 0x40) >> 4)];
 
    if (gdata&0x04) PSXDisplay.Double=2;
    else            PSXDisplay.Double=1;
@@ -1337,9 +1426,11 @@ switch(lCommand)
    skipPreviousDisplayCheckOnce = TRUE;
    updateDisplayIfChangedGl();
 
-
+   if (txStarted)
+       OnDisplayMappingChanged();
 
    return;
+   }
 
   //--------------------------------------------------//
   // ask about GPU version and other stuff
@@ -1385,6 +1476,17 @@ BOOL bNeedWriteUpload=FALSE;
 
 __inline void FinishedVRAMWrite(void)
 {
+ if (ReadbackEnabled())
+ {
+  MarkCpuVramWrite(VRAMWrite.x, VRAMWrite.y,
+                   VRAMWrite.Width, VRAMWrite.Height);
+#ifdef DISP_DEBUG
+  if (VRAMWrite.Height >= 120)
+   DebugLogVramHalf("A0Done", VRAMWrite.x, VRAMWrite.y,
+                    VRAMWrite.Width, VRAMWrite.Height);
+#endif
+ }
+
  if(bNeedWriteUpload)
   {
    bNeedWriteUpload=FALSE;
@@ -1401,6 +1503,8 @@ __inline void FinishedVRAMWrite(void)
 
 __inline void FinishedVRAMRead(void)
 {
+ g_readbackState = READBACK_IDLE;
+
  // set register to NORMAL operation
  iDataReadMode = DR_NORMAL;
  // reset transfer values, to prevent mis-transfer of data
@@ -1462,13 +1566,16 @@ int CopyWholeFrameToSharedBuffer(void)
     if (!pSharedFrameBuf)
         return 0;
 
-    //GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
+    GX_SetCopyFilter(vmode ? vmode->aa : GX_FALSE,
+                     (vmode && vmode->aa) ? vmode->sample_pattern : NULL,
+                     GX_FALSE, NULL);
     GX_SetTexCopySrc(0, 0, iResX, iResY);
     GX_SetTexCopyDst(copyWidth, copyHeight, GX_TF_RGB5A3, GX_FALSE);
     GX_CopyTex(MEM_K0_TO_K1(pSharedFrameBuf), GX_FALSE);
     GX_PixModeSync();
     GX_DrawDone();
     DCInvalidateRange(pSharedFrameBuf, size);
+    RestoreDispCopyInfo();
 
     sharedFrameWidth  = copyWidth;
     sharedFrameHeight = copyHeight;
@@ -1526,200 +1633,10 @@ static inline unsigned short GXRGB5A3ToPSX15(unsigned short gx)
     return psx;
 }
 
-static inline unsigned short ConvertReadbackPixelToPSX(const unsigned char* buf, int texWidth, int px, int py, unsigned short oldPixel)
-{
-    unsigned short gx  = ReadGXRGB5A3PixelRaw(buf, texWidth, px, py);
-    unsigned short psx = GXRGB5A3ToPSX15(gx);
-
-//    if (bCheckMask && (oldPixel & 0x8000))
-//        return oldPixel;
-
-    if (iSetMask == 1 && (psx & 0x7FFF))
-        psx |= 0x8000;
-
-    return psx;
-}
-
 static inline void CheckVRamRead(int x, int y, int dx, int dy)
 {
- unsigned short sArea;unsigned short * p;
- int ux,uy,udx,udy,wx,wy;float XS,YS;
- unsigned char * ps, * px;
- unsigned short s=0,sx;
-
- if(STATUSREG&GPUSTATUS_RGB24) return;
-
- if((!(PSXDisplay.InterlacedTest) &&
-     (dx  > PreviousPSXDisplay.DisplayPosition.x) &&
-     (x   < PreviousPSXDisplay.DisplayEnd.x) &&
-     (dy  > PreviousPSXDisplay.DisplayPosition.y) &&
-     (y   < PreviousPSXDisplay.DisplayEnd.y)))
-  sArea=1;
-else if(((dx  > PSXDisplay.DisplayPosition.x) &&
-     (x   < PSXDisplay.DisplayEnd.x) &&
-     (dy  > PSXDisplay.DisplayPosition.y) &&
-     (y   < PSXDisplay.DisplayEnd.y)))
-  sArea=0;
- else
-  {
-   return;
-  }
-
-// if(((dx  > PSXDisplay.DisplayPosition.x) &&
-//     (x   < PSXDisplay.DisplayEnd.x) &&
-//     (dy  > PSXDisplay.DisplayPosition.y) &&
-//     (y   < PSXDisplay.DisplayEnd.y)))
-//  sArea=0;
-// else
-// if((!(PSXDisplay.InterlacedTest) &&
-//     (dx  > PreviousPSXDisplay.DisplayPosition.x) &&
-//     (x   < PreviousPSXDisplay.DisplayEnd.x) &&
-//     (dy  > PreviousPSXDisplay.DisplayPosition.y) &&
-//     (y   < PreviousPSXDisplay.DisplayEnd.y)))
-//  sArea=1;
-// else
-//  {
-//   return;
-//  }
-
- if(dwActFixes&0x40)
-  {
-   if(iRenderFVR)
-    {
-     bFullVRam=TRUE;iRenderFVR=2;return;
-    }
-   bFullVRam=TRUE;iRenderFVR=2;
-  }
-
- ux=x;uy=y;udx=dx;udy=dy;
-
- if(sArea==0)
-  {
-   x -=PSXDisplay.DisplayPosition.x;
-   dx-=PSXDisplay.DisplayPosition.x;
-   y -=PSXDisplay.DisplayPosition.y;
-   dy-=PSXDisplay.DisplayPosition.y;
-   wx=PSXDisplay.DisplayEnd.x-PSXDisplay.DisplayPosition.x;
-   wy=PSXDisplay.DisplayEnd.y-PSXDisplay.DisplayPosition.y;
-  }
- else
-  {
-   x -=PreviousPSXDisplay.DisplayPosition.x;
-   dx-=PreviousPSXDisplay.DisplayPosition.x;
-   y -=PreviousPSXDisplay.DisplayPosition.y;
-   dy-=PreviousPSXDisplay.DisplayPosition.y;
-   wx=PreviousPSXDisplay.DisplayEnd.x-PreviousPSXDisplay.DisplayPosition.x;
-   wy=PreviousPSXDisplay.DisplayEnd.y-PreviousPSXDisplay.DisplayPosition.y;
-  }
- if(x<0) {ux-=x;x=0;}
- if(y<0) {uy-=y;y=0;}
- if(dx>wx) {udx-=(dx-wx);dx=wx;}
- if(dy>wy) {udy-=(dy-wy);dy=wy;}
- udx-=ux;
- udy-=uy;
-
- p=(psxVuw + (1024*uy) + ux);
-
- if(udx<=0) return;
- if(udy<=0) return;
- if(dx<=0)  return;
- if(dy<=0)  return;
- if(wx<=0)  return;
- if(wy<=0)  return;
-
- XS=(float)rRatioRect.right/(float)wx;
- YS=(float)rRatioRect.bottom/(float)wy;
-
- dx=(int)((float)(dx)*XS);
- dy=(int)((float)(dy)*YS);
- x=(int)((float)x*XS);
- y=(int)((float)y*YS);
-
- dx-=x;
- dy-=y;
-
- if(dx>iResX) dx=iResX;
- if(dy>iResY) dy=iResY;
-
- if(dx<=0) return;
- if(dy<=0) return;
-
- // ogl y adjust
- y=iResY-y-dy;
-
- x+=rRatioRect.left;
- y-=rRatioRect.top;
-
- if(y<0) y=0; if((y+dy)>iResY) dy=iResY-y;
-
- #ifdef DISP_DEBUG
- sprintf(txtbuffer, "CheckVRamRead %d %d %d %d %d %d %d\r\n", x, y , dx, dy, udx, udy, sArea);
- DEBUG_print(txtbuffer, DBG_CORE1);
- writeLogFile(txtbuffer);
- #endif // DISP_DEBUG
-
-    int baseReadX, baseReadY;
-    int usePreviousBackup = (sArea == 1);
-
-    if (usePreviousBackup)
-    {
-        // sArea == 1 : use previously backed up whole frame
-        if (!sharedFrameValid || !pSharedFrameBuf)
-            return;
-    }
-    else
-    {
-        // sArea == 0 : overwrite same shared buffer with current whole frame
-        if (!CopyWholeFrameToSharedBuffer())
-            return;
-    }
-
-    baseReadX = x;
-    baseReadY = y;
-
-    if (baseReadX < 0) baseReadX = 0;
-    if (baseReadY < 0) baseReadY = 0;
-
-    if (baseReadX >= sharedFrameWidth)  return;
-    if (baseReadY >= sharedFrameHeight) return;
-
-    if ((baseReadX + dx) > sharedFrameWidth)
-        dx = sharedFrameWidth - baseReadX;
-    if ((baseReadY + dy) > sharedFrameHeight)
-        dy = sharedFrameHeight - baseReadY;
-
-    if (dx <= 0 || dy <= 0)
-        return;
-
-    XS = (float)dx / (float)udx;
-    YS = (float)dy / (float)udy;
-
-    for (y = 0; y < udy; y++)
-    {
-        int srcY = (int)((float)y * YS);
-        if (srcY >= dy) srcY = dy - 1;
-
-        for (x = 0; x < udx; x++)
-        {
-            int srcX = (int)((float)x * XS);
-            if (srcX >= dx) srcX = dx - 1;
-
-            if (p >= psxVuw && p < psxVuw_eom)
-            {
-                unsigned short gxPixel;
-                unsigned short psxPixel;
-                unsigned short oldPixel = GETLE16(p);
-
-                sx = ConvertReadbackPixelToPSX(pSharedFrameBuf, sharedFrameWidth, baseReadX + srcX, baseReadY + srcY, oldPixel);
-                PUTLE16(p, sx);
-            }
-
-            p++;
-        }
-
-        p += 1024 - udx;
-    }
-
+ if (!ReadbackEnabled()) return;
+ MergeReadbackToPsxVuw(x, y, dx - x, dy - y);
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1730,9 +1647,69 @@ void CALLBACK GL_GPUreadDataMem(unsigned long * pMem, int iSize)
 {
 int i;
 
+#ifdef DISP_DEBUG
+static unsigned int readCallCount;
+readCallCount++;
+if (readCallCount <= 4 || iDataReadMode == DR_VRAMTRANSFER ||
+    g_readbackState == READBACK_PENDING)
+ {
+  sprintf(txtbuffer,
+          "VRB READ call=%u size=%d mode=%d state=%d enabled=%d "
+          "rect=%d,%d %dx%d\r\n",
+          readCallCount, iSize, iDataReadMode, g_readbackState,
+          ReadbackEnabled(), VRAMRead.x, VRAMRead.y,
+          VRAMRead.Width, VRAMRead.Height);
+  writeLogFile(txtbuffer);
+ }
+#endif
+
 if(iDataReadMode!=DR_VRAMTRANSFER) return;
 
 GPUIsBusy;
+
+if (g_readbackState == READBACK_PENDING)
+ {
+  g_lastReadMapping = ClassifyReadMapping(VRAMRead.x, VRAMRead.y,
+                                          VRAMRead.Width, VRAMRead.Height);
+  if (g_lastReadMapping == MAPPING_CURRENT)
+   TryCaptureLiveFrame();
+  else if (g_lastReadMapping == MAPPING_PREVIOUS &&
+           TryCapturePreviousReadRect(VRAMRead.x, VRAMRead.y,
+                                      VRAMRead.Width, VRAMRead.Height))
+   g_lastCaptureResult = 3;
+  else
+   g_lastCaptureResult = (g_lastReadMapping == MAPPING_PREVIOUS) ? -5 : -6;
+  MergeReadbackToPsxVuw(VRAMRead.x, VRAMRead.y,
+                        VRAMRead.Width, VRAMRead.Height);
+#ifdef DISP_DEBUG
+  sprintf(txtbuffer,
+          "VRB RESULT kind=%d capture=%d merged=%u src=%u/%u/%u "
+          "changed=%u old=%08X new=%08X "
+          "maskOnly=%u rgbChanged=%u mask=%u/%u "
+          "full=%d partial=%d "
+          "map=%u mv=%d cv=%d dirty=%d contam=%d mixed=%d untracked=%d "
+          "live=%d/%u/%d/%d prev=%d/%u/%d/%d\r\n",
+          g_lastReadMapping, g_lastCaptureResult, g_lastMergedPixels,
+          g_lastMergedCurrentPixels, g_lastMergedPresentedPixels,
+          g_lastMergedRebuildPixels,
+          g_lastMergedChangedPixels,
+          g_lastMergeOldHash, g_lastMergeNewHash,
+          g_lastMergedMaskOnlyPixels,
+          g_lastMergedRgbChangedPixels,
+          g_lastMergeOldMaskPixels, g_lastMergeNewMaskPixels,
+          CountEfbTiles(EFB_TILE_FULL),
+          CountEfbTiles(EFB_TILE_PARTIAL),
+          g_activeMap.map_id, g_activeMap.map_valid,
+          g_activeMap.content_valid, g_activeMap.content_dirty,
+          g_efbContaminated, g_mixedMappingSeen, g_untrackedEfbWrite,
+          LIVE_SNAP()->valid, LIVE_SNAP()->map_id, LIVE_SNAP()->source,
+          CountSnapshotTiles(LIVE_SNAP(), EFB_TILE_FULL),
+          PREV_SNAP()->valid, PREV_SNAP()->map_id, PREV_SNAP()->source,
+          CountSnapshotTiles(PREV_SNAP(), EFB_TILE_FULL));
+  writeLogFile(txtbuffer);
+#endif
+  g_readbackState = READBACK_DONE;
+ }
 
 // adjust read ptr, if necessary
 while(VRAMRead.ImagePtr>=psxVuw_eom)
@@ -2015,7 +1992,9 @@ if(iDataWriteMode==DR_NORMAL)
     if(gpuDataP == gpuDataC)
      {
       gpuDataC=gpuDataP=0;
+      BeginEfbDrawContext();
       primFunc[gpuCommand]((unsigned char *)gpuDataM);
+      EndEfbDrawContext();
 
        if (dwActFixes & AUTO_FIX_GPU_BUSY)      // hack for emulating "gpu busy" in some games
        iFakePrimBusy=4;
@@ -2205,10 +2184,13 @@ static void flipEGL(void)
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
+    CapturePresentedEfbSnapshot();
+
     if (canShowFps)
     {
         // Write menu/debug text on screen
         showFpsAndDebugInfo();
+        g_efbContaminated = TRUE;
     }
 
     // Check if TVMode needs to be changed (240 or 480 lines)
@@ -2223,6 +2205,9 @@ static void flipEGL(void)
     }
 
     gx_vout_render(canClearFrameBuf);
+
+    if (canClearFrameBuf)
+        EfbDiscardedAfterPresent();
 
     clearLargeRange = 0;
     uploadedScreen = FALSE;
@@ -2272,11 +2257,15 @@ long GL_GPUopen()
 
  gx_vout_open();
 
+ ogx_draw_submitted_cb = OnEfbDrawSubmitted;
+
  return ret;
 }
 
 long GL_GPUclose(void)
 {
+ ogx_draw_submitted_cb = NULL;
+ ResetVramReadbackState();
  GLcleanup();                                          // close OGL
  return 0;
 }

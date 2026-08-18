@@ -1550,6 +1550,10 @@ int UploadScreen ( int Position )
 {
     short x, y, YStep, XStep, U, s, UStep, ux[4], vy[4];
     short xa, xb, ya, yb;
+    uint32_t uploadMapId;
+    int drawnBeforeUpload;
+    int externalRebuildUpload;
+    int externalRebuildComplete;
 
     if ( xrUploadArea.x0 > 1023 ) xrUploadArea.x0 = 1023;
     if ( xrUploadArea.x1 > 1024 ) xrUploadArea.x1 = 1024;
@@ -1558,6 +1562,34 @@ int UploadScreen ( int Position )
 
     if ( xrUploadArea.x0 == xrUploadArea.x1 ) return 0;
     if ( xrUploadArea.y0 == xrUploadArea.y1 ) return 0;
+
+    uploadMapId = ResolveUploadMapId(Position);
+    drawnBeforeUpload = iDrawnSomething;
+    externalRebuildComplete = FALSE;
+    externalRebuildUpload =
+        ReadbackEnabled() && Position == FALSE &&
+        !PSXDisplay.RGB24 && !(STATUSREG & GPUSTATUS_RGB24) &&
+        uploadMapId != INVALID_MAP_ID &&
+        uploadMapId != g_activeMap.map_id;
+#ifdef DISP_DEBUG
+    sprintf(txtbuffer,
+            "VRB UP pos=%d rgb=%d ext=%d uploadMap=%u active=%u prevId=%u "
+            "prevRect=%d,%d-%d,%d activeRect=%d,%d-%d,%d\r\n",
+            Position, PSXDisplay.RGB24, externalRebuildUpload,
+            uploadMapId, g_activeMap.map_id, g_prevMapId,
+            PreviousPSXDisplay.DisplayPosition.x,
+            PreviousPSXDisplay.DisplayPosition.y,
+            PreviousPSXDisplay.DisplayEnd.x,
+            PreviousPSXDisplay.DisplayEnd.y,
+            g_activeMap.vram_x0, g_activeMap.vram_y0,
+            g_activeMap.vram_x1, g_activeMap.vram_y1);
+    writeLogFile(txtbuffer);
+#endif
+    if (uploadMapId == INVALID_MAP_ID)
+    {
+        g_untrackedEfbWrite = TRUE;
+        SetEfbHazard();
+    }
 
     if (PSXDisplay.Disabled && iOffscreenDrawing < 4)
     {
@@ -1667,6 +1699,37 @@ int UploadScreen ( int Position )
     xa = xrUploadArea.x0;
     xb = xrUploadArea.x1;
 
+#ifdef DISP_DEBUG
+    {
+        unsigned int sourceNonZero = 0;
+        unsigned int sourceHash = 2166136261u;
+        int sourceBytesPerRow = (xb - xa) * (PSXDisplay.RGB24 ? 3 : 2);
+        int sourceY;
+
+        for (sourceY = ya; sourceY < yb; sourceY++)
+        {
+            const unsigned char *source =
+                (const unsigned char *)&psxVuw[(sourceY << 10) + xa];
+            int sourceIndex;
+
+            for (sourceIndex = 0; sourceIndex < sourceBytesPerRow; sourceIndex++)
+            {
+                unsigned int value = source[sourceIndex];
+
+                if (value != 0)
+                    sourceNonZero++;
+                sourceHash = (sourceHash ^ value) * 16777619u;
+            }
+        }
+        sprintf(txtbuffer, "UpSrc rgb=%d rect=%d,%d-%d,%d nz=%u hash=%08X\r\n",
+                PSXDisplay.RGB24, xa, ya, xb, yb,
+                sourceNonZero, sourceHash);
+        writeLogFile(txtbuffer);
+        if (!PSXDisplay.RGB24)
+            DebugLogVramHalf("Upload", xa, ya, xb - xa, yb - ya);
+    }
+#endif
+
     for ( y = ya; y <= yb; y += YStep )                   // loop y
     {
         U = 0;
@@ -1715,7 +1778,83 @@ int UploadScreen ( int Position )
             offsetScreenUpload ( Position );
             assignTextureVRAMWrite();
 
+#ifdef DISP_DEBUG
+            {
+                const unsigned char *textureBytes = texturepart;
+                unsigned int textureNonZero = 0;
+                unsigned int textureHash = 2166136261u;
+                int textureWidth = xrMovieArea.x1 - xrMovieArea.x0;
+                int textureHeight = xrMovieArea.y1 - xrMovieArea.y0;
+                int textureSize = textureWidth * textureHeight * 4;
+                int textureIndex;
+
+                for (textureIndex = 0; textureIndex < textureSize; textureIndex++)
+                {
+                    unsigned int value = textureBytes[textureIndex];
+
+                    if (value != 0)
+                        textureNonZero++;
+                    textureHash = (textureHash ^ value) * 16777619u;
+                }
+                sprintf(txtbuffer,
+                        "UpTex part=%d,%d-%d,%d id=%u type=%d dim=%dx%d nz=%u hash=%08X\r\n",
+                        lx0, ly0, lx2, ly2, gTexName, gl_ux[8],
+                        textureWidth, textureHeight,
+                        textureNonZero, textureHash);
+                writeLogFile(txtbuffer);
+            }
+#endif
+
+            {
+                int ctxOk = BeginEfbDrawContext();
+                if (ctxOk && externalRebuildUpload)
+                {
+                    PreparePreviousRebuildCandidate(uploadMapId);
+                    TopEfbContext()->externalRebuild = 1;
+                }
+                SetEfbDrawContextRect(xrMovieArea.x0, xrMovieArea.y0,
+                                      xrMovieArea.x1, xrMovieArea.y1,
+                                      uploadMapId);
+                if (ctxOk)
+                    TopEfbContext()->coverage = EFB_TILE_PARTIAL;
+            }
             glPRIMdrawTexturedQuad ( &vertex[0], 1 );
+            {
+                EfbDrawContext *uploadCtx = TopEfbContext();
+                if (uploadCtx && uploadCtx->rectSet &&
+                    uploadCtx->lastSeq != 0)
+                {
+                    if (uploadCtx->externalRebuild)
+                    {
+                        int completed = FinishPreviousRebuildChunk(
+                            uploadCtx->lastSeq,
+                            xrMovieArea.x0, xrMovieArea.y0,
+                            xrMovieArea.x1, xrMovieArea.y1);
+                        if (completed)
+                            externalRebuildComplete = TRUE;
+#ifdef DISP_DEBUG
+                        if (completed)
+                        {
+                            sprintf(txtbuffer,
+                                    "VRB REBUILD ready map=%u rect=%d,%d-%d,%d\r\n",
+                                    uploadMapId,
+                                    PreviousPSXDisplay.DisplayPosition.x,
+                                    PreviousPSXDisplay.DisplayPosition.y,
+                                    PreviousPSXDisplay.DisplayEnd.x,
+                                    PreviousPSXDisplay.DisplayEnd.y);
+                            writeLogFile(txtbuffer);
+                        }
+#endif
+                    }
+                    else if (uploadMapId == g_activeMap.map_id)
+                    {
+                        MarkEfbTilesUpload(uploadCtx->lastSeq,
+                                           xrMovieArea.x0, xrMovieArea.y0,
+                                           xrMovieArea.x1, xrMovieArea.y1);
+                    }
+                }
+                EndEfbDrawContext();
+            }
 
             U += UStep;
         }
@@ -1725,6 +1864,27 @@ int UploadScreen ( int Position )
     bDisplayNotSet = TRUE;
     noNeedMulConstColor &= ~0x2;
     glNoNeedMulConstColor( noNeedMulConstColor );
+
+    /* Do not present a partially reconstructed page.  Once the A0 chunks
+     * cover the complete display map, however, this is also a valid visible
+     * frame and must retain the upload draw bit for the following page flip. */
+    if (externalRebuildUpload)
+    {
+        iDrawnSomething = drawnBeforeUpload;
+        if (externalRebuildComplete ||
+            (g_rebuildCandidate.valid && g_rebuildCandidate.complete))
+            iDrawnSomething |= 0x2;
+#ifdef DISP_DEBUG
+        sprintf(txtbuffer,
+                "VRB REBUILD %s map=%u complete=%d drawn=%x\r\n",
+                (g_rebuildCandidate.valid && g_rebuildCandidate.complete) ?
+                    "visible" : "hidden",
+                uploadMapId,
+                g_rebuildCandidate.valid && g_rebuildCandidate.complete,
+                iDrawnSomething);
+        writeLogFile(txtbuffer);
+#endif
+    }
 
     #if defined(DISP_DEBUG)
     sprintf ( txtbuffer, "UploadScreen end\r\n");
@@ -2442,6 +2602,7 @@ void CheckWriteUpdate()
 static void primStoreImage ( unsigned char * baseAddr )
 {
     unsigned short *sgpuData = ( ( unsigned short * ) baseAddr );
+    MappingKind readMapping;
 
     VRAMRead.x      = GETLEs16 ( &sgpuData[2] ) & 0x03ff;
     VRAMRead.y      = GETLEs16 ( &sgpuData[3] ) &iGPUHeightMask;
@@ -2458,6 +2619,29 @@ static void primStoreImage ( unsigned char * baseAddr )
     VRAMRead.ColsRemaining = VRAMRead.Height;
 
     iDataReadMode = DR_VRAMTRANSFER;
+    g_readbackState = READBACK_PENDING;
+
+    readMapping = ClassifyReadMapping(VRAMRead.x, VRAMRead.y,
+                                      VRAMRead.Width, VRAMRead.Height);
+    if (readMapping == MAPPING_PREVIOUS)
+        ResolveCompletedRebuildForRead(VRAMRead.x, VRAMRead.y,
+                                       VRAMRead.Width, VRAMRead.Height);
+
+    #ifdef DISP_DEBUG
+    DebugLogC0Selection(VRAMRead.x, VRAMRead.y,
+                        VRAMRead.Width, VRAMRead.Height,
+                        readMapping);
+    sprintf(txtbuffer,
+            "VRB C0 kind=%d enabled=%d fixes=%08x rect=%d,%d %dx%d "
+            "map=%u mv=%d cv=%d dirty=%d full=%d partial=%d\r\n",
+            readMapping, ReadbackEnabled(), dwActFixes,
+            VRAMRead.x, VRAMRead.y, VRAMRead.Width, VRAMRead.Height,
+            g_activeMap.map_id, g_activeMap.map_valid,
+            g_activeMap.content_valid, g_activeMap.content_dirty,
+            CountEfbTiles(EFB_TILE_FULL),
+            CountEfbTiles(EFB_TILE_PARTIAL));
+    writeLogFile(txtbuffer);
+    #endif
 
     STATUSREG |= GPUSTATUS_READYFORVRAM;
 }
@@ -2510,6 +2694,8 @@ static void primBlkFill ( unsigned char * baseAddr )
     short *sgpuData = ( ( short * ) baseAddr );
 
     iDrawnSomething |= 0x4;
+    uint64_t seq = BeginCommandWrite();
+    int ctxOk;
 
     // https://psx-spx.consoledev.net/graphicsprocessingunitgpu/#masking-and-rounding-for-fill-command-parameters
     sprtX = GETLEs16 ( &sgpuData[2] ) & 0x3f0;
@@ -2559,6 +2745,22 @@ static void primBlkFill ( unsigned char * baseAddr )
     BOOL clearNext = IsCompleteInsideNextScreen(sprtX, sprtY, sprtW, sprtH);
     BOOL clearCurrent = CLEAR_SCREEN(sprtX, sprtY, sprtX + sprtW, sprtY + sprtH);
 
+    ctxOk = BeginEfbDrawContext();
+    if (ctxOk)
+    {
+        TopEfbContext()->fixedSeq = seq;
+        SetEfbDrawContextRect(sprtX, sprtY,
+                              sprtX + sprtW, sprtY + sprtH,
+                              g_activeMap.map_id);
+        if (clearCurrent)
+        {
+            TopEfbContext()->coverage = EFB_TILE_FULL;
+            TopEfbContext()->presentationRebuild = 1;
+        }
+        else
+            TopEfbContext()->coverage = EFB_TILE_PARTIAL;
+    }
+
     if (clearNext)
     {
         #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
@@ -2592,6 +2794,7 @@ static void primBlkFill ( unsigned char * baseAddr )
 
             glClearColor2 ( r, g, b, 255 );
             glClear ( uiBufferBits );
+            OnEfbClearSubmitted();
         }
         else
         {
@@ -2630,7 +2833,14 @@ static void primBlkFill ( unsigned char * baseAddr )
         // use software blkFill
         unsigned short fillCol = BGR24to16(GETLE32(&gpuData[0]));
         BlkFillArea(sprtX, sprtY, sprtW, sprtH, fillCol);
+        MarkCpuVramWriteWithSeq(seq, sprtX, sprtY, sprtW, sprtH);
+#ifdef DISP_DEBUG
+        if (sprtH >= 120)
+            DebugLogVramHalf("BlkFill", sprtX, sprtY, sprtW, sprtH);
+#endif
     }
+
+    EndEfbDrawContext();
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2720,6 +2930,26 @@ static void primMoveImage ( unsigned char * baseAddr )
     if ( imageSX <= 0 ) return;
     if ( imageSY <= 0 ) return;
 
+    /* Only DC2's five full-height strip copies are proven to consume GX-only
+     * EFB content.  Applying the read barrier to unrelated 80h commands can
+     * replace CPU-uploaded animation data with a pending EFB snapshot. */
+    if ((dwActFixes & AUTO_FIX_DINO_CRISIS2) &&
+        imageSX == 64 && imageSY == 240 &&
+        imageX1 == 448 && imageY1 == 256 &&
+        imageX0 <= 256 && (imageX0 & 63) == 0 &&
+        (imageY0 == 0 || imageY0 == 256))
+    {
+        MaterializeEfbForVramMove(imageX0, imageY0, imageSX, imageSY);
+    }
+
+#ifdef DISP_DEBUG
+    if (ReadbackEnabled() && imageSY >= 120)
+    {
+        DebugLogVramHalf("MoveSrcPre", imageX0, imageY0, imageSX, imageSY);
+        DebugLogVramHalf("MoveDstPre", imageX1, imageY1, imageSX, imageSY);
+    }
+#endif
+
     if ( ( imageY0 + imageSY ) > iGPUHeight ||
             ( imageX0 + imageSX ) > 1024       ||
             ( imageY1 + imageSY ) > iGPUHeight ||
@@ -2767,6 +2997,16 @@ static void primMoveImage ( unsigned char * baseAddr )
         }
     }
 
+    MarkCpuVramWrite(imageX1, imageY1, imageSX, imageSY);
+
+#ifdef DISP_DEBUG
+    if (ReadbackEnabled() && imageSY >= 120)
+    {
+        DebugLogVramHalf("MoveSrcPost", imageX0, imageY0, imageSX, imageSY);
+        DebugLogVramHalf("MoveDstPost", imageX1, imageY1, imageSX, imageSY);
+    }
+#endif
+
     if ( !PSXDisplay.RGB24 )
     {
         InvalidateTextureArea ( imageX1, imageY1, imageSX - 1, imageSY - 1 );
@@ -2779,8 +3019,10 @@ static void primMoveImage ( unsigned char * baseAddr )
 //            || (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
 //                && screenX1 == PSXDisplay.DisplayEnd.x && screenY1 == PSXDisplay.DisplayEnd.y))
             {
-                needFlipEGL = TRUE;
                 uploaded = UploadScreen ( FALSE );
+                if (uploaded &&
+                    ResolveUploadMapId(FALSE) == g_activeMap.map_id)
+                    needFlipEGL = TRUE;
 
                 //bNeedUploadTest = TRUE;
             }
@@ -2830,7 +3072,8 @@ static void primMoveImage ( unsigned char * baseAddr )
             xrUploadArea.x1 = imageX1 + imageSX;
             xrUploadArea.y1 = imageY1 + imageSY;
             uploaded = UploadScreen ( FALSE );
-            if (uploaded)
+            if (uploaded &&
+                ResolveUploadMapId(FALSE) == g_activeMap.map_id)
             {
                 needFlipEGL = TRUE;
             }
@@ -3096,6 +3339,7 @@ static void primTileS ( unsigned char * baseAddr )
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
+    SetEfbDrawContextFromVertices(4, 0);
     glPRIMdrawQuad ( &vertex[0] );
 
     //iDrawnSomething |= 0x1;
@@ -3164,6 +3408,7 @@ static void primTile1 ( unsigned char * baseAddr )
     {
         return;
     }
+    SetEfbDrawContextFromVertices(4, 0);
     glPRIMdrawQuad ( &vertex[0] );
 
     //iDrawnSomething |= 0x1;
@@ -3226,6 +3471,7 @@ static void primTile8 ( unsigned char * baseAddr )
     //vertex[0].c.col.a = 0xFF;
     SETCOL ( vertex[0] );
 
+    SetEfbDrawContextFromVertices(4, 0);
     glPRIMdrawQuad ( &vertex[0] );
 
     //iDrawnSomething |= 0x1;
@@ -3288,6 +3534,7 @@ static void primTile16 ( unsigned char * baseAddr )
     //vertex[0].c.col.a = 0xFF;
     SETCOL ( vertex[0] );
 
+    SetEfbDrawContextFromVertices(4, 0);
     glPRIMdrawQuad ( &vertex[0] );
 
     //iDrawnSomething |= 0x1;
@@ -3414,6 +3661,7 @@ static void primSprt8 ( unsigned char * baseAddr )
 //    if ( iFilterType > 4 )
 //        DrawMultiFilterSprite();
 //    else
+        SetEfbDrawContextFromVertices(4, 1);
         glPRIMdrawTexturedQuad ( &vertex[0], 1 );
 
     iSpriteTex = 0;
@@ -3535,6 +3783,7 @@ static void primSprt16 ( unsigned char * baseAddr )
 //    if ( iFilterType > 4 )
 //        DrawMultiFilterSprite();
 //    else
+        SetEfbDrawContextFromVertices(4, 1);
         glPRIMdrawTexturedQuad ( &vertex[0], 1 );
 
     iSpriteTex = 0;
@@ -3716,6 +3965,7 @@ static void primSprtSRest ( unsigned char * baseAddr, unsigned short type )
 //    if ( iFilterType > 4 )
 //        DrawMultiFilterSprite();
 //    else
+        SetEfbDrawContextFromVertices(4, 1);
         glPRIMdrawTexturedQuad ( &vertex[0], 1 );
 
     if ( sTypeRest && type < 4 )
@@ -3744,8 +3994,9 @@ static void primSprtS ( unsigned char * baseAddr )
     if ( !sprtH ) return;
     if ( !sprtW ) return;
 
-    // Dino Crisis2 For GX gpu fix
-    if ((dwActFixes & AUTO_FIX_DINO_CRISIS2) && sprtW == 64 && sprtH == 48)
+    // Dino Crisis 2 uploads this 64x48 block as VRAM work data, not a sprite.
+    if ((dwActFixes & AUTO_FIX_DINO_CRISIS2) &&
+        sprtW == 64 && sprtH == 48)
     {
         return;
     }
@@ -3879,6 +4130,7 @@ static void primSprtS ( unsigned char * baseAddr )
 //    if ( iFilterType > 4 )
 //        DrawMultiFilterSprite();
 //    else
+        SetEfbDrawContextFromVertices(4, 1);
         glPRIMdrawTexturedQuad ( &vertex[0], 1 );
 
     if ( sTypeRest )
@@ -3953,6 +4205,7 @@ static void primPolyF4 ( unsigned char *baseAddr )
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
+    SetEfbDrawContextFromVertices(4, 1);
     glPRIMdrawTri2 ( &vertex[0] );
 
     iDrawnSomething |= 0x1;
@@ -4086,6 +4339,7 @@ static void primPolyG4 ( unsigned char * baseAddr )
     //vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = vertex[3].c.col.a = 0xFF;
 
 
+    SetEfbDrawContextFromVertices(4, 1);
     glPRIMdrawGouraudTri2Color ( &vertex[0] );
 
     iDrawnSomething |= 0x1;
@@ -4237,6 +4491,7 @@ static BOOL DoLineCheck ( unsigned int * gpuData )
 
     if ( !bQuad ) return FALSE;
 
+    SetEfbDrawContextFromVertices(3, 1);
     glPRIMdrawTexturedQuad ( &vertex[0], 0 );
 
     iDrawnSomething |= 0x1;
@@ -4307,6 +4562,7 @@ static void primPolyFT3 ( unsigned char * baseAddr )
         if ( DoLineCheck ( gpuData ) ) return;
     }
 
+    SetEfbDrawContextFromVertices(3, 1);
     glPRIMdrawTexturedTri ( &vertex[0] );
 
     iDrawnSomething |= 0x1;
@@ -4743,6 +4999,7 @@ static void primPolyFT4 ( unsigned char * baseAddr )
 
     RectTexAlign();
 
+    SetEfbDrawContextFromVertices(4, 1);
     glPRIMdrawTexturedQuad ( &vertex[0], 0 );
 
     iDrawnSomething |= 0x1;
@@ -4815,6 +5072,7 @@ static void primPolyGT3 ( unsigned char *baseAddr )
         //vertex[0].c.col.a = 0xFF;
         SETCOL ( vertex[0] );
 
+        SetEfbDrawContextFromVertices(3, 1);
         glPRIMdrawTexturedTri ( &vertex[0] );
 
 //        if ( ubOpaqueDraw )
@@ -4834,6 +5092,7 @@ static void primPolyGT3 ( unsigned char *baseAddr )
     vertex[2].c.lcol = gpuData[6] | 0xFF; // DoubleBGR2RGB
     //vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = 0xFF;
 
+    SetEfbDrawContextFromVertices(3, 1);
     glPRIMdrawTexGouraudTriColor ( &vertex[0] );
 
     iDrawnSomething |= 0x1;
@@ -4890,6 +5149,7 @@ static void primPolyG3 ( unsigned char *baseAddr )
     vertex[2].c.lcol = gpuData[4] | 0xFF;
     //vertex[0].c.col.a = vertex[1].c.col.a = vertex[2].c.col.a = 0xFF;
 
+    SetEfbDrawContextFromVertices(3, 1);
     glPRIMdrawGouraudTriColor ( &vertex[0] );
 
     iDrawnSomething |= 0x1;
@@ -4971,6 +5231,7 @@ static void primPolyGT4 ( unsigned char *baseAddr )
         sprintf ( txtbuffer, "primPolyGT4 1 \r\n" );
         writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
+        SetEfbDrawContextFromVertices(4, 1);
         glPRIMdrawTexturedQuad ( &vertex[0], 0 );
 
 //        if ( ubOpaqueDraw )
@@ -4997,6 +5258,7 @@ static void primPolyGT4 ( unsigned char *baseAddr )
     sprintf ( txtbuffer, "primPolyGT4 2 \r\n" );
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
+    SetEfbDrawContextFromVertices(4, 1);
     glPRIMdrawTexGouraudTriColorQuad ( &vertex[0] );
 
     iDrawnSomething |= 0x1;
@@ -5053,6 +5315,7 @@ static void primPolyF3 ( unsigned char *baseAddr )
     //vertex[0].c.col.a = 0xFF;
     SETCOL ( vertex[0] );
 
+    SetEfbDrawContextFromVertices(3, 1);
     glPRIMdrawTri ( &vertex[0] );
 
     iDrawnSomething |= 0x1;
@@ -5161,6 +5424,7 @@ static void primLineGEx ( unsigned char *baseAddr )
                    lx0=cx0;lx1=cx1;ly0=cy0;ly1=cy1;
                   }*/
 
+            SetEfbDrawContextFromVertices(2, 1);
             glPRIMdrawGouraudLine ( &vertex[0] );
         }
         i++;
@@ -5222,6 +5486,7 @@ static void primLineG2 ( unsigned char *baseAddr )
       }
     */
 //if(ClipVertexList4())
+    SetEfbDrawContextFromVertices(2, 1);
     glPRIMdrawGouraudLine ( &vertex[0] );
 
     iDrawnSomething |= 0x1;
@@ -5317,6 +5582,7 @@ static void primLineFEx ( unsigned char *baseAddr )
                     }
                    lx0=cx0;lx1=cx1;ly0=cy0;ly1=cy1;
                   }*/
+            SetEfbDrawContextFromVertices(2, 1);
             glPRIMdrawFlatLine ( &vertex[0] );
         }
 
@@ -5374,6 +5640,7 @@ static void primLineF2 ( unsigned char *baseAddr )
       }
     */
 //if(ClipVertexList4())
+    SetEfbDrawContextFromVertices(2, 1);
     glPRIMdrawFlatLine ( &vertex[0] );
 
     iDrawnSomething |= 0x1;
