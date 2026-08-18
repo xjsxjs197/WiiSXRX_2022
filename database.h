@@ -12,6 +12,7 @@ extern "C" {
 #define AUTO_FIX_NEED_SOFT_TITLE     0x1000
 #define AUTO_FIX_CHRONO_CROSS        0x2000
 #define AUTO_FIX_NO_SWAP_BUF         0x4000
+#define AUTO_FIX_VRAM_READBACK       0x8000
 
 void Apply_Hacks_Cdrom(void);
 int check_unsatisfied_libcrypt(void);
