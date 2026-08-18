@@ -526,56 +526,35 @@ void ResetTextureArea(BOOL bDelTex)
 
 void InvalidateWndTextureArea(int X,int Y,int W, int H)
 {
- int i,px1,px2,py1,py2,iYM=1;
- textureWndCacheEntry * tsw=wcWndtexStore;
+ VramRect invalid;
+ textureWndCacheEntry * tsw;
+ int i;
 
- W+=X-1;
- H+=Y-1;
- if(X<0) X=0;if(X>1023) X=1023;
- if(W<0) W=0;if(W>1023) W=1023;
- if(Y<0) Y=0;if(Y>iGPUHeightMask)  Y=iGPUHeightMask;
- if(H<0) H=0;if(H>iGPUHeightMask)  H=iGPUHeightMask;
- W++;H++;
+ if(W<=0 || H<=0) return;
 
- if(iGPUHeight==1024) iYM=3;
+ invalid.x0=X;
+ invalid.y0=Y;
+ invalid.x1=X+W;
+ invalid.y1=Y+H;
+ if(invalid.x0<0) invalid.x0=0;
+ if(invalid.y0<0) invalid.y0=0;
+ if(invalid.x1>1024) invalid.x1=1024;
+ if(invalid.y1>iGPUHeight) invalid.y1=iGPUHeight;
+ if(VramRectIsEmpty(&invalid)) return;
 
- py1=min(iYM,Y>>8);
- py2=min(iYM,H>>8);                                    // y: 0 or 1
-
- px1=max(0,(X>>6));
- px2=min(15,(W>>6));
-
- if(py1==py2)
+ tsw=wcWndtexStore;
+ for(i=0;i<iMaxTexWnds;i++,tsw++)
   {
-   py1=py1<<4;px1+=py1;px2+=py1;                       // change to 0-31
-   for(i=0;i<iMaxTexWnds;i++,tsw++)
-    {
-     if(tsw->used)
-      {
-       if(tsw->pageid>=px1 && tsw->pageid<=px2)
-        {
-         tsw->used=0;
-        }
-      }
-    }
-  }
- else
-  {
-   py1=px1+16;py2=px2+16;
-   for(i=0;i<iMaxTexWnds;i++,tsw++)
-    {
-     if(tsw->used)
-      {
-       if((tsw->pageid>=px1 && tsw->pageid<=px2) ||
-          (tsw->pageid>=py1 && tsw->pageid<=py2))
-        {
-         tsw->used=0;
-        }
-      }
-    }
+   if(!tsw->used) continue;
+
+   if(TextureWindowEntryDependsOnRect(tsw->ClutID,
+                                      tsw->pageid,tsw->textureMode,
+                                      CLUTMASK,CLUTYMASK,
+                                      1024,iGPUHeight,&invalid))
+    tsw->used=0;
   }
 
- // adjust tex window count
+ /* adjust tex window count */
  tsw=wcWndtexStore+iMaxTexWnds-1;
  while(iMaxTexWnds && !tsw->used) {iMaxTexWnds--;tsw--;}
 }
