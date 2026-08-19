@@ -1613,7 +1613,13 @@ static inline unsigned short GXRGB5A3ToPSX15(unsigned short gx)
 
     if (gx & 0x8000)
     {
-        psx = gx & 0x7FFF;
+        unsigned short r5 = (gx >> 10) & 0x1F;
+        unsigned short g5 = (gx >> 5) & 0x1F;
+        unsigned short b5 = gx & 0x1F;
+
+        /* GX RGB5A3 stores RGB from high to low bits, while PS1 VRAM
+         * stores red in bits 0-4 and blue in bits 10-14. */
+        psx = (unsigned short)(r5 | (g5 << 5) | (b5 << 10));
     }
     else
     {
@@ -1625,9 +1631,7 @@ static inline unsigned short GXRGB5A3ToPSX15(unsigned short gx)
         unsigned short g5 = (g4 << 1) | (g4 >> 3);
         unsigned short b5 = (b4 << 1) | (b4 >> 3);
 
-
-        //psx = (unsigned short)(r5 | (g5 << 5) | (b5 << 10));
-        psx = (unsigned short)((r5 << 10) | (g5 << 5) | (b5));
+        psx = (unsigned short)(r5 | (g5 << 5) | (b5 << 10));
     }
 
     return psx;
