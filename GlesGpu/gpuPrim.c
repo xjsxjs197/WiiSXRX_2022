@@ -88,6 +88,10 @@ short          sSprite_vy2;                            //
 unsigned int   ulOLDCOL = 0;                           // active color
 unsigned int   ulClutID;                               // clut
 
+#ifdef DISP_DEBUG
+static unsigned int g_moveImageRgb24InvalidationCount = 0;
+#endif
+
 //unsigned int  dwActFixes=0;
 //unsigned int  dwEmuFixes=0;
 BOOL          bUseFixes;
@@ -2972,6 +2976,22 @@ static void primMoveImage ( unsigned char * baseAddr )
     }
 
     MarkCpuVramWrite(imageX1, imageY1, clipSX, clipSY);
+    InvalidateTextureArea(imageX1, imageY1, copyWidth, copyHeight);
+
+#ifdef DISP_DEBUG
+    if (PSXDisplay.RGB24)
+    {
+        g_moveImageRgb24InvalidationCount++;
+        if (g_moveImageRgb24InvalidationCount <= 8)
+        {
+            sprintf(txtbuffer,
+                    "MoveImage RGB24 invalidation %u rect=%d,%d %dx%d\r\n",
+                    g_moveImageRgb24InvalidationCount,
+                    imageX1, imageY1, copyWidth, copyHeight);
+            writeLogFile(txtbuffer);
+        }
+    }
+#endif
 
 #ifdef DISP_DEBUG
     if (ReadbackEnabled() && imageSY >= 120)
@@ -2983,8 +3003,6 @@ static void primMoveImage ( unsigned char * baseAddr )
 
     if ( !PSXDisplay.RGB24 )
     {
-        InvalidateTextureArea ( imageX1, imageY1, copyWidth, copyHeight );
-
         int uploaded = 0;
         if ( CheckAgainstScreen ( imageX1, imageY1, clipSX, clipSY ) )
         {

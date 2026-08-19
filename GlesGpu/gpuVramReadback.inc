@@ -1854,12 +1854,18 @@ static int SnapshotPixelDiffers(const GXFrameSnapshot *current,
     return currentRaw != baselineRaw;
 }
 
+static void InvalidateTileRunRect(void *user, int x0, int y0, int x1, int y1)
+{
+    (void)user;
+    InvalidateTextureArea(x0, y0, x1 - x0, y1 - y0);
+}
+
 static void MergeReadbackToPsxVuwFiltered(
     int x, int y, int w, int h,
     const GXFrameSnapshot *requiredSnapshot,
     const GXFrameSnapshot *baseline)
 {
-    BOOL writtenTile[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
+    unsigned char writtenTile[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
     MappingKind mapping;
     uint32_t mapId;
     int yy, xx, ty, tx;
@@ -2002,10 +2008,12 @@ static void MergeReadbackToPsxVuwFiltered(
     writeLogFile(txtbuffer);
 #endif
 
-    for (ty = 0; ty < VRAM_READBACK_TILE_Y; ty++)
-        for (tx = 0; tx < VRAM_READBACK_TILE_X; tx++)
-            if (writtenTile[ty][tx])
-                InvalidateTextureArea(tx * 16, ty * 16, 16, 16);
+    /* T5 first pass: coalesce horizontal written-tile runs so a full-width
+     * readback emits one invalidation per row instead of one per 16x16 tile.
+     * Pixel merge, mask selection, and snapshot ownership are unchanged. */
+    ForEachHorizontalTileRun(&writtenTile[0][0],
+                             VRAM_READBACK_TILE_X, VRAM_READBACK_TILE_Y, 16,
+                             InvalidateTileRunRect, NULL);
 }
 
 static void MergeReadbackToPsxVuw(int x, int y, int w, int h)

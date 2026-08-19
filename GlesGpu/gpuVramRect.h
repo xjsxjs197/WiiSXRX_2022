@@ -367,6 +367,86 @@ static inline int TextureWindowEntryDependsOnRect(unsigned int storedClutId,
     return 0;
 }
 
+/*
+ * Standard subtexture palette dependency used by InvalidateSubSTextureArea().
+ * The entry's texture page is irrelevant here: a palette can live in any
+ * VRAM page, so this predicate is checked while scanning the whole
+ * pscSubtexStore table.  storedClutId is the full 32-bit entry ClutID; the
+ * original CLUT coordinate bits are extracted with clut_mask.  Both the
+ * hardware row-local palette range and the current linear loader range are
+ * checked, matching the texture-window dependency decision.
+ */
+static inline int StandardSubTexturePaletteDependsOnRect(
+    unsigned int storedClutId, int textureMode,
+    unsigned int clut_mask, int clut_y_mask,
+    int vram_width, int vram_height, const VramRect *rect)
+{
+    VramRect pieces[4];
+    int i, n;
+
+    if (rect == NULL || VramRectIsEmpty(rect) ||
+        textureMode < 0 || textureMode > 1)
+        return 0;
+
+    n = TextureWindowPaletteRects(storedClutId & clut_mask, textureMode,
+                                  clut_y_mask, vram_width, vram_height, pieces);
+    for (i = 0; i < n; i++)
+        if (VramRectIntersects(rect, &pieces[i]))
+            return 1;
+
+    n = TextureWindowPaletteLinearRects(storedClutId & clut_mask, textureMode,
+                                        clut_y_mask, vram_width, vram_height,
+                                        pieces);
+    for (i = 0; i < n; i++)
+        if (VramRectIntersects(rect, &pieces[i]))
+            return 1;
+
+    return 0;
+}
+
+typedef void (*VramTileRunCallback)(void *user, int x0, int y0, int x1, int y1);
+
+/*
+ * Enumerate horizontal runs of set tiles in a row-major byte grid.  Each run
+ * is reported as a half-open pixel rectangle.  Returns the number of runs.
+ */
+static inline int ForEachHorizontalTileRun(
+    const unsigned char *written, int cols, int rows, int tileSize,
+    VramTileRunCallback callback, void *user)
+{
+    int count = 0;
+    int ty, tx;
+
+    if (written == NULL || cols <= 0 || rows <= 0 || tileSize <= 0)
+        return 0;
+
+    for (ty = 0; ty < rows; ty++)
+    {
+        tx = 0;
+        while (tx < cols)
+        {
+            int runStart;
+
+            if (!written[ty * cols + tx])
+            {
+                tx++;
+                continue;
+            }
+
+            runStart = tx;
+            while (tx < cols && written[ty * cols + tx])
+                tx++;
+
+            if (callback != NULL)
+                callback(user, runStart * tileSize, ty * tileSize,
+                         tx * tileSize, (ty + 1) * tileSize);
+            count++;
+        }
+    }
+
+    return count;
+}
+
 #ifdef __cplusplus
 }
 #endif

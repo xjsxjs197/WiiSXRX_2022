@@ -38,6 +38,7 @@
 
 #include "gpuExternals.h"
 #include "gpuPlugin.h"
+#include "gpuVramRect.h"
 //#include "gpuDraw.h"
 //#include "gpuTexture.h"
 //#include "gpuPrim.h"

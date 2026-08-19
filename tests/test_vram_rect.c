@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "../GlesGpu/gpuVramRect.h"
+#include "../GlesGpu/gpuSubTextureCache.h"
 
 static int s_failures = 0;
 
@@ -57,6 +58,70 @@ static void expect_depends(int expected, unsigned int storedClutId,
         printf("FAIL depends got %d expected %d\n", got, expected);
         s_failures++;
     }
+}
+
+static void expect_sub_palette_depends(int expected, unsigned int storedClutId,
+                                       int textureMode, const VramRect *rect)
+{
+    int got = StandardSubTexturePaletteDependsOnRect(storedClutId, textureMode,
+                                                     0x7FFF, 0x1FF,
+                                                     1024, 512, rect);
+
+    if (got != expected)
+    {
+        printf("FAIL sub palette depends got %d expected %d\n",
+               got, expected);
+        s_failures++;
+    }
+}
+
+static void expect_u32(unsigned int got, unsigned int expected, const char *what)
+{
+    if (got != expected)
+    {
+        printf("FAIL %s got %u expected %u\n", what, got, expected);
+        s_failures++;
+    }
+}
+
+static void expect_bool(int got, int expected, const char *what)
+{
+    if (got != expected)
+    {
+        printf("FAIL %s got %d expected %d\n", what, got, expected);
+        s_failures++;
+    }
+}
+
+static unsigned int build_standard_clut_id(unsigned int low, unsigned int checksum)
+{
+    return (low & 0x7FFFu) | (checksum << 16) | 0x80000000u;
+}
+
+static int lookup_hits(const unsigned int *entries, int count,
+                       unsigned int clutId)
+{
+    int i;
+
+    for (i = 0; i < count; i++)
+        if (entries[i] == clutId)
+            return 1;
+
+    return 0;
+}
+
+typedef struct InvalidateObserve
+{
+    int calls;
+    unsigned int *target;
+} InvalidateObserve;
+
+static void observe_invalidate(void *user, void *entry)
+{
+    InvalidateObserve *obs = (InvalidateObserve *)user;
+
+    obs->calls++;
+    obs->target = (unsigned int *)entry;
 }
 
 static void test_basic(void)
@@ -383,6 +448,308 @@ static void test_window_palette_right_edge(void)
         expect_intersects(0, &write, &pal[1]);
 }
 
+static void test_subtexture_palette(void)
+{
+    VramRect write;
+    unsigned int clutA;
+    unsigned int clutB;
+
+    /* 4-bit CLUT at x=0, y=0: words [0,16) on row 0. */
+    write = (VramRect){ 0, 0, 1, 1 };
+    expect_sub_palette_depends(1, 0, 0, &write);
+    write = (VramRect){ 15, 0, 16, 1 };
+    expect_sub_palette_depends(1, 0, 0, &write);
+    write = (VramRect){ 16, 0, 17, 1 };
+    expect_sub_palette_depends(0, 0, 0, &write);
+
+    /* 8-bit CLUT at x=0, y=0: words [0,256) on row 0. */
+    write = (VramRect){ 255, 0, 256, 1 };
+    expect_sub_palette_depends(1, 0, 1, &write);
+    write = (VramRect){ 256, 0, 257, 1 };
+    expect_sub_palette_depends(0, 0, 1, &write);
+
+    /* 8-bit CLUT starting at x=1008 wraps to [0,240) on the same row. */
+    write = (VramRect){ 1008, 0, 1009, 1 };
+    expect_sub_palette_depends(1, 0x3F, 1, &write);
+    write = (VramRect){ 0, 0, 16, 1 };
+    expect_sub_palette_depends(1, 0x3F, 1, &write);
+    write = (VramRect){ 240, 0, 256, 1 };
+    expect_sub_palette_depends(0, 0x3F, 1, &write);
+
+    /* A CLUT on row 1 is only invalidated by writes to row 1. */
+    write = (VramRect){ 0, 1, 16, 2 };
+    expect_sub_palette_depends(1, 64, 0, &write);
+    write = (VramRect){ 0, 0, 16, 1 };
+    expect_sub_palette_depends(0, 64, 0, &write);
+
+    /* Mode 2 has no CLUT, so no palette dependency. */
+    write = (VramRect){ 0, 0, 256, 1 };
+    expect_sub_palette_depends(0, 0, 2, &write);
+
+    /* The checksum/semi-transparency bits are not part of the dependency. */
+    clutA = 0x20u;
+    clutB = 0x80000000u | (0x3ABCu << 16) | 0x20u;
+    write = (VramRect){ 512, 0, 513, 1 };
+    expect_sub_palette_depends(1, clutA, 0, &write);
+    expect_sub_palette_depends(1, clutB, 0, &write);
+    write = (VramRect){ 528, 0, 529, 1 };
+    expect_sub_palette_depends(0, clutA, 0, &write);
+    expect_sub_palette_depends(0, clutB, 0, &write);
+}
+
+static void test_checksum_collision(void)
+{
+    uint16_t pal4a[16] = {0};
+    uint16_t pal4b[16] = {0};
+    uint16_t pal8a[256] = {0};
+    uint16_t pal8b[256] = {0};
+    unsigned int c4a, c4b, c8a, c8b;
+
+    pal4b[15] = 64;
+    c4a = SubTexturePaletteChecksum14(pal4a, 0);
+    c4b = SubTexturePaletteChecksum14(pal4b, 0);
+    expect_u32(c4b, c4a, "4bit checksum collision");
+
+    pal8b[255] = 128;
+    c8a = SubTexturePaletteChecksum14(pal8a, 1);
+    c8b = SubTexturePaletteChecksum14(pal8b, 1);
+    expect_u32(c8b, c8a, "8bit checksum collision");
+}
+
+static void test_palette_invalidation_lookup(void)
+{
+    uint16_t palA[16] = {0};
+    uint16_t palB[16] = {0};
+    unsigned int entries[2];
+    InvalidateObserve obs;
+    VramRect write;
+    unsigned int targetClut;
+    unsigned int unrelatedClut;
+    unsigned int checksum;
+    int invalidated;
+
+    palB[15] = 64;
+    checksum = SubTexturePaletteChecksum14(palA, 0);
+    expect_u32(SubTexturePaletteChecksum14(palB, 0), checksum,
+               "lookup collision checksum");
+    targetClut = build_standard_clut_id(0x00, checksum);
+    unrelatedClut = build_standard_clut_id(0x40, 1000);
+
+    /* Writing the first CLUT word clears the dependent entry. */
+    memset(&entries, 0, sizeof(entries));
+    entries[0] = targetClut;
+    entries[1] = unrelatedClut;
+    write = (VramRect){ 0, 0, 1, 1 };
+    memset(&obs, 0, sizeof(obs));
+    invalidated = SubTexturePaletteInvalidateEntries(
+        entries, 2, sizeof(entries[0]), 0, 0x7FFF, 0x1FF, 1024, 512,
+        &write, 1, observe_invalidate, &obs);
+    expect_count(invalidated, 1);
+    expect_count(obs.calls, 1);
+    expect_bool(obs.target == &entries[0], 1, "target first-word callback");
+    expect_bool(entries[0] == 0, 1, "target first-word cleared");
+    expect_bool(entries[1] == unrelatedClut, 1,
+                "unrelated first-word kept");
+
+    /* Writing the last CLUT word clears it as well. */
+    memset(&entries, 0, sizeof(entries));
+    entries[0] = targetClut;
+    entries[1] = unrelatedClut;
+    write = (VramRect){ 15, 0, 16, 1 };
+    memset(&obs, 0, sizeof(obs));
+    invalidated = SubTexturePaletteInvalidateEntries(
+        entries, 2, sizeof(entries[0]), 0, 0x7FFF, 0x1FF, 1024, 512,
+        &write, 1, observe_invalidate, &obs);
+    expect_count(invalidated, 1);
+    expect_bool(entries[0] == 0, 1, "target last-word cleared");
+    expect_bool(entries[1] == unrelatedClut, 1,
+                "unrelated last-word kept");
+
+    /* A cleared entry no longer matches a lookup; the unrelated one still does. */
+    memset(&entries, 0, sizeof(entries));
+    entries[0] = targetClut;
+    entries[1] = unrelatedClut;
+    write = (VramRect){ 0, 0, 16, 1 };
+    memset(&obs, 0, sizeof(obs));
+    invalidated = SubTexturePaletteInvalidateEntries(
+        entries, 2, sizeof(entries[0]), 0, 0x7FFF, 0x1FF, 1024, 512,
+        &write, 1, observe_invalidate, &obs);
+
+    expect_count(invalidated, 1);
+    expect_bool(lookup_hits(entries, 2, targetClut) == 0, 1,
+                "target lookup miss");
+    expect_bool(lookup_hits(entries, 2, unrelatedClut) == 1, 1,
+                "unrelated lookup hit");
+}
+
+static void test_palette_invalidation_8bit_wrap(void)
+{
+    unsigned int entry;
+    InvalidateObserve obs;
+    VramRect write;
+    int invalidated;
+
+    entry = build_standard_clut_id(0x3F, 8127);
+    write = (VramRect){ 0, 0, 16, 1 };
+    memset(&obs, 0, sizeof(obs));
+    invalidated = SubTexturePaletteInvalidateEntries(
+        &entry, 1, sizeof(entry), 1, 0x7FFF, 0x1FF, 1024, 512,
+        &write, 1, observe_invalidate, &obs);
+    expect_count(invalidated, 1);
+    expect_bool(entry == 0, 1, "8bit row-local wrap cleared");
+
+    entry = build_standard_clut_id(0x3F, 8127);
+    write = (VramRect){ 0, 1, 16, 2 };
+    memset(&obs, 0, sizeof(obs));
+    invalidated = SubTexturePaletteInvalidateEntries(
+        &entry, 1, sizeof(entry), 1, 0x7FFF, 0x1FF, 1024, 512,
+        &write, 1, observe_invalidate, &obs);
+    expect_count(invalidated, 1);
+    expect_bool(entry == 0, 1, "8bit linear spill cleared");
+
+    entry = build_standard_clut_id(0x3F, 8127);
+    write = (VramRect){ 240, 0, 256, 1 };
+    memset(&obs, 0, sizeof(obs));
+    invalidated = SubTexturePaletteInvalidateEntries(
+        &entry, 1, sizeof(entry), 1, 0x7FFF, 0x1FF, 1024, 512,
+        &write, 1, observe_invalidate, &obs);
+    expect_count(invalidated, 0);
+    expect_bool(entry != 0, 1, "8bit non-dependency kept");
+}
+
+typedef struct PaddedEntry
+{
+    unsigned int clut;
+    unsigned int canary;
+    unsigned char pad[16];
+} PaddedEntry;
+
+static void test_palette_invalidation_padded_stride(void)
+{
+    PaddedEntry entries[2];
+    InvalidateObserve obs;
+    VramRect write;
+    unsigned int targetClut;
+    unsigned int unrelatedClut;
+    int invalidated;
+
+    memset(&entries, 0xCC, sizeof(entries));
+
+    targetClut = build_standard_clut_id(0x00, 15873);
+    unrelatedClut = build_standard_clut_id(0x40, 1000);
+
+    entries[0].clut = targetClut;
+    entries[0].canary = 0xA5A5A5A5u;
+    entries[1].clut = unrelatedClut;
+    entries[1].canary = 0x5A5A5A5Au;
+
+    write = (VramRect){ 0, 0, 16, 1 };
+    memset(&obs, 0, sizeof(obs));
+    invalidated = SubTexturePaletteInvalidateEntries(
+        entries, 2, sizeof(entries[0]), 0, 0x7FFF, 0x1FF, 1024, 512,
+        &write, 1, observe_invalidate, &obs);
+
+    expect_count(invalidated, 1);
+    expect_count(obs.calls, 1);
+    expect_bool(obs.target == &entries[0].clut, 1, "padded target callback");
+    expect_bool(entries[0].clut == 0, 1, "padded target cleared");
+    expect_bool(entries[0].canary == 0xA5A5A5A5u, 1, "padded canary kept");
+    expect_bool(entries[1].clut == unrelatedClut, 1, "padded unrelated kept");
+    expect_bool(entries[1].canary == 0x5A5A5A5Au, 1,
+                "padded unrelated canary kept");
+}
+
+static void test_palette_invalidation_reject_stride(void)
+{
+    unsigned int entry = build_standard_clut_id(0x00, 15873);
+    VramRect write = (VramRect){ 0, 0, 16, 1 };
+    int invalidated;
+
+    invalidated = SubTexturePaletteInvalidateEntries(
+        &entry, 1, sizeof(unsigned int) - 1, 0, 0x7FFF, 0x1FF, 1024, 512,
+        &write, 1, NULL, NULL);
+
+    expect_count(invalidated, 0);
+    expect_bool(entry != 0, 1, "invalid stride entry kept");
+}
+
+typedef struct TileRunRecord
+{
+    VramRect rects[16];
+    int count;
+} TileRunRecord;
+
+static void record_tile_run(void *user, int x0, int y0, int x1, int y1)
+{
+    TileRunRecord *rec = (TileRunRecord *)user;
+
+    if (rec->count < 16)
+    {
+        rec->rects[rec->count].x0 = x0;
+        rec->rects[rec->count].y0 = y0;
+        rec->rects[rec->count].x1 = x1;
+        rec->rects[rec->count].y1 = y1;
+        rec->count++;
+    }
+}
+
+static void test_tile_run_merge(void)
+{
+    unsigned char grid[32][64];
+    TileRunRecord rec;
+    int n, ty, tx;
+
+    memset(grid, 0, sizeof(grid));
+    for (ty = 0; ty < 15; ty++)
+        for (tx = 0; tx < 20; tx++)
+            grid[ty][tx] = 1;
+    memset(&rec, 0, sizeof(rec));
+    n = ForEachHorizontalTileRun(&grid[0][0], 64, 32, 16,
+                                 record_tile_run, &rec);
+    expect_count(n, 15);
+    expect_count(rec.count, 15);
+    if (rec.count > 0)
+        expect_rect(&rec.rects[0], 0, 0, 320, 16);
+    if (rec.count > 14)
+        expect_rect(&rec.rects[14], 0, 224, 320, 240);
+
+    memset(grid, 0, sizeof(grid));
+    grid[0][0] = 1;
+    grid[0][1] = 1;
+    grid[0][3] = 1;
+    memset(&rec, 0, sizeof(rec));
+    n = ForEachHorizontalTileRun(&grid[0][0], 64, 32, 16,
+                                 record_tile_run, &rec);
+    expect_count(n, 2);
+    expect_count(rec.count, 2);
+    if (rec.count >= 2)
+    {
+        expect_rect(&rec.rects[0], 0, 0, 32, 16);
+        expect_rect(&rec.rects[1], 48, 0, 64, 16);
+    }
+
+    memset(grid, 0, sizeof(grid));
+    memset(&rec, 0, sizeof(rec));
+    n = ForEachHorizontalTileRun(&grid[0][0], 64, 32, 16,
+                                 record_tile_run, &rec);
+    expect_count(n, 0);
+    expect_count(rec.count, 0);
+
+    memset(grid, 0, sizeof(grid));
+    grid[0][63] = 1;
+    grid[0][0] = 1;
+    memset(&rec, 0, sizeof(rec));
+    n = ForEachHorizontalTileRun(&grid[0][0], 64, 32, 16,
+                                 record_tile_run, &rec);
+    expect_count(n, 2);
+    expect_count(rec.count, 2);
+    if (rec.count >= 2)
+    {
+        expect_rect(&rec.rects[0], 0, 0, 16, 16);
+        expect_rect(&rec.rects[1], 1008, 0, 1024, 16);
+    }
+}
+
 static void test_entry_dependency(void)
 {
     VramRect write;
@@ -485,6 +852,13 @@ int main(void)
     test_window_palette();
     test_window_source_right_edge();
     test_window_palette_right_edge();
+    test_subtexture_palette();
+    test_checksum_collision();
+    test_palette_invalidation_lookup();
+    test_palette_invalidation_8bit_wrap();
+    test_palette_invalidation_padded_stride();
+    test_palette_invalidation_reject_stride();
+    test_tile_run_merge();
     test_entry_dependency();
     test_dispatch();
     test_reject();

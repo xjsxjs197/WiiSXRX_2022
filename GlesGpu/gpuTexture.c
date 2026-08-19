@@ -77,6 +77,7 @@
 #include "gpuExternals.h"
 #include "gpuTexture.h"
 #include "gpuVramRect.h"
+#include "gpuSubTextureCache.h"
 #include "gpuPlugin.h"
 #include "gpuPrim.h"
 
@@ -594,11 +595,40 @@ void MarkFree(textureSubCacheEntryS * tsx)
   }
 }
 
+static void SubTextureInvalidateMarkFree(void *user, void *entry)
+{
+ (void)user;
+ MarkFree((textureSubCacheEntryS *)entry);
+}
+
+static void InvalidateSubTexturePaletteArea(const VramRect *invalid)
+{
+ int k,j,off;
+ textureSubCacheEntryS *head;
+ int iMax;
+
+ if(invalid == NULL || VramRectIsEmpty(invalid)) return;
+
+ for(k=0;k<2;k++)
+  for(j=0;j<MAXTPAGES;j++)
+   for(off=0;off<4;off++)
+    {
+     head=pscSubtexStore[k][j]+off*SOFFB;
+     iMax=GETLE32((char *)head + 4);
+     SubTexturePaletteInvalidateEntries((void *)(head+1),
+                                        iMax,sizeof(textureSubCacheEntryS),
+                                        k,CLUTMASK,CLUTYMASK,
+                                        1024,iGPUHeight,invalid,1,
+                                        SubTextureInvalidateMarkFree,NULL);
+    }
+}
+
 void InvalidateSubSTextureArea(int X,int Y,int W, int H)
 {
  int i,j,k,iMax,px,py,px1,px2,py1,py2,iYM=1;
  EXLong npos;textureSubCacheEntryS * tsb;
  int x1,x2,y1,y2,xa,sw;
+ VramRect invalid;
 
  W+=X-1;
  H+=Y-1;
@@ -609,6 +639,11 @@ void InvalidateSubSTextureArea(int X,int Y,int W, int H)
  W++;H++;
 
  if(iGPUHeight==1024) iYM=3;
+
+ invalid.x0=X;
+ invalid.y0=Y;
+ invalid.x1=W;
+ invalid.y1=H;
 
  py1=min(iYM,Y>>8);
  py2=min(iYM,H>>8);                                    // y: 0 or 1
@@ -677,6 +712,8 @@ void InvalidateSubSTextureArea(int X,int Y,int W, int H)
       }
     }
   }
+
+ InvalidateSubTexturePaletteArea(&invalid);
 }
 
 static void InvalidateVramRectCallback(void *user_data, const VramRect *rect)
