@@ -10,6 +10,9 @@
 #define GPU_VRAM_READBACK_INC
 
 #include <string.h>
+#ifdef DISP_DEBUG
+#include <ogc/lwp_watchdog.h>
+#endif
 
 #define EFB_DRAW_CONTEXT_DEPTH 8
 #define VRAM_READBACK_TILE_X 64
@@ -159,6 +162,10 @@ static unsigned int g_lastMergeNewHash;
 static unsigned int g_lastMergedCurrentPixels;
 static unsigned int g_lastMergedPresentedPixels;
 static unsigned int g_lastMergedRebuildPixels;
+static unsigned int g_lastReadbackInvalidateRuns;
+static unsigned int g_lastReadbackPaletteEntryChecks;
+static unsigned int g_lastReadbackTotalInvalidated;
+static unsigned int g_lastReadbackInvalidateUs;
 #endif
 
 static int g_displayMapTxDepth;
@@ -1877,6 +1884,10 @@ static void MergeReadbackToPsxVuwFiltered(
     unsigned int oldHash[2] = {2166136261u, 2166136261u};
     unsigned int snapHash[2] = {2166136261u, 2166136261u};
     unsigned int newHash[2] = {2166136261u, 2166136261u};
+    unsigned int paletteChecksBefore;
+    unsigned int totalInvalidatedBefore;
+    uint64_t invalTicksStart;
+    uint64_t invalTicksEnd;
 #endif
 
 #ifdef DISP_DEBUG
@@ -1891,6 +1902,10 @@ static void MergeReadbackToPsxVuwFiltered(
     g_lastMergedCurrentPixels = 0;
     g_lastMergedPresentedPixels = 0;
     g_lastMergedRebuildPixels = 0;
+    g_lastReadbackInvalidateRuns = 0;
+    g_lastReadbackPaletteEntryChecks = 0;
+    g_lastReadbackTotalInvalidated = 0;
+    g_lastReadbackInvalidateUs = 0;
 #endif
 
     if (!ReadbackEnabled())
@@ -2011,9 +2026,42 @@ static void MergeReadbackToPsxVuwFiltered(
     /* T5 first pass: coalesce horizontal written-tile runs so a full-width
      * readback emits one invalidation per row instead of one per 16x16 tile.
      * Pixel merge, mask selection, and snapshot ownership are unchanged. */
-    ForEachHorizontalTileRun(&writtenTile[0][0],
-                             VRAM_READBACK_TILE_X, VRAM_READBACK_TILE_Y, 16,
-                             InvalidateTileRunRect, NULL);
+#ifdef DISP_DEBUG
+    paletteChecksBefore = g_texturePaletteEntryChecks;
+    totalInvalidatedBefore = g_textureTotalInvalidatedEntries;
+    invalTicksStart = (uint64_t)gettime();
+#endif
+    {
+        int runs = ForEachHorizontalTileRun(&writtenTile[0][0],
+                                            VRAM_READBACK_TILE_X,
+                                            VRAM_READBACK_TILE_Y, 16,
+                                            InvalidateTileRunRect, NULL);
+#ifdef DISP_DEBUG
+        invalTicksEnd = (uint64_t)gettime();
+        g_lastReadbackInvalidateRuns = (unsigned int)runs;
+        g_lastReadbackPaletteEntryChecks =
+            g_texturePaletteEntryChecks - paletteChecksBefore;
+        g_lastReadbackTotalInvalidated =
+            g_textureTotalInvalidatedEntries - totalInvalidatedBefore;
+        g_lastReadbackInvalidateUs =
+            (unsigned int)ticks_to_microsecs(invalTicksEnd - invalTicksStart);
+#else
+        (void)runs;
+#endif
+    }
+
+#ifdef DISP_DEBUG
+    sprintf(txtbuffer,
+            "VRH INVAL runs=%u palChecks=%u totalInvalidated=%u us=%u "
+            "stdUp=%u wndUp=%u\r\n",
+            g_lastReadbackInvalidateRuns,
+            g_lastReadbackPaletteEntryChecks,
+            g_lastReadbackTotalInvalidated,
+            g_lastReadbackInvalidateUs,
+            g_textureStandardUploads,
+            g_textureWindowUploads);
+    writeLogFile(txtbuffer);
+#endif
 }
 
 static void MergeReadbackToPsxVuw(int x, int y, int w, int h)

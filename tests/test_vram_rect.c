@@ -675,7 +675,7 @@ static void test_palette_invalidation_reject_stride(void)
 
 typedef struct TileRunRecord
 {
-    VramRect rects[16];
+    VramRect rects[32];
     int count;
 } TileRunRecord;
 
@@ -683,7 +683,7 @@ static void record_tile_run(void *user, int x0, int y0, int x1, int y1)
 {
     TileRunRecord *rec = (TileRunRecord *)user;
 
-    if (rec->count < 16)
+    if (rec->count < 32)
     {
         rec->rects[rec->count].x0 = x0;
         rec->rects[rec->count].y0 = y0;
@@ -748,6 +748,132 @@ static void test_tile_run_merge(void)
         expect_rect(&rec.rects[0], 0, 0, 16, 16);
         expect_rect(&rec.rects[1], 1008, 0, 1024, 16);
     }
+
+    /* 640x480 full: 40x30 tiles -> 30 runs. */
+    memset(grid, 0, sizeof(grid));
+    for (ty = 0; ty < 30; ty++)
+        for (tx = 0; tx < 40; tx++)
+            grid[ty][tx] = 1;
+    memset(&rec, 0, sizeof(rec));
+    n = ForEachHorizontalTileRun(&grid[0][0], 64, 32, 16,
+                                 record_tile_run, &rec);
+    expect_count(n, 30);
+    expect_count(rec.count, 30);
+    if (rec.count > 0)
+        expect_rect(&rec.rects[0], 0, 0, 640, 16);
+    if (rec.count > 29)
+        expect_rect(&rec.rects[29], 0, 464, 640, 480);
+
+    /* Single tile. */
+    memset(grid, 0, sizeof(grid));
+    grid[0][0] = 1;
+    memset(&rec, 0, sizeof(rec));
+    n = ForEachHorizontalTileRun(&grid[0][0], 64, 32, 16,
+                                 record_tile_run, &rec);
+    expect_count(n, 1);
+    expect_count(rec.count, 1);
+    if (rec.count > 0)
+        expect_rect(&rec.rects[0], 0, 0, 16, 16);
+
+    /* Small continuous run. */
+    memset(grid, 0, sizeof(grid));
+    grid[0][1] = 1;
+    grid[0][2] = 1;
+    memset(&rec, 0, sizeof(rec));
+    n = ForEachHorizontalTileRun(&grid[0][0], 64, 32, 16,
+                                 record_tile_run, &rec);
+    expect_count(n, 1);
+    expect_count(rec.count, 1);
+    if (rec.count > 0)
+        expect_rect(&rec.rects[0], 16, 0, 48, 16);
+
+    /* Sparse hole across rows. */
+    memset(grid, 0, sizeof(grid));
+    grid[0][0] = 1;
+    grid[0][5] = 1;
+    grid[1][3] = 1;
+    memset(&rec, 0, sizeof(rec));
+    n = ForEachHorizontalTileRun(&grid[0][0], 64, 32, 16,
+                                 record_tile_run, &rec);
+    expect_count(n, 3);
+    expect_count(rec.count, 3);
+    if (rec.count >= 3)
+    {
+        expect_rect(&rec.rects[0], 0, 0, 16, 16);
+        expect_rect(&rec.rects[1], 80, 0, 96, 16);
+        expect_rect(&rec.rects[2], 48, 16, 64, 32);
+    }
+}
+
+static void fill_tile_coverage(const TileRunRecord *rec,
+                               unsigned char cover[32][64])
+{
+    int i, ty, tx;
+
+    memset(cover, 0, 32 * 64);
+    for (i = 0; i < rec->count; i++)
+    {
+        int x0 = rec->rects[i].x0 / 16;
+        int x1 = rec->rects[i].x1 / 16;
+        int y0 = rec->rects[i].y0 / 16;
+        int y1 = rec->rects[i].y1 / 16;
+
+        for (ty = y0; ty < y1; ty++)
+            for (tx = x0; tx < x1; tx++)
+                cover[ty][tx] = 1;
+    }
+}
+
+static void test_tile_run_coverage(void)
+{
+    unsigned char grid[32][64];
+    unsigned char cover[32][64];
+    TileRunRecord rec;
+    int ty, tx;
+    int ok;
+
+    memset(grid, 0, sizeof(grid));
+    for (ty = 0; ty < 15; ty++)
+        for (tx = 0; tx < 20; tx++)
+            grid[ty][tx] = 1;
+    memset(&rec, 0, sizeof(rec));
+    ForEachHorizontalTileRun(&grid[0][0], 64, 32, 16,
+                             record_tile_run, &rec);
+    fill_tile_coverage(&rec, cover);
+    ok = memcmp(grid, cover, sizeof(grid)) == 0;
+    expect_bool(ok, 1, "full run coverage equivalence");
+
+    memset(grid, 0, sizeof(grid));
+    grid[0][0] = 1;
+    grid[0][1] = 1;
+    grid[0][3] = 1;
+    memset(&rec, 0, sizeof(rec));
+    ForEachHorizontalTileRun(&grid[0][0], 64, 32, 16,
+                             record_tile_run, &rec);
+    fill_tile_coverage(&rec, cover);
+    ok = memcmp(grid, cover, sizeof(grid)) == 0;
+    expect_bool(ok, 1, "hole run coverage equivalence");
+
+    memset(grid, 0, sizeof(grid));
+    grid[0][63] = 1;
+    grid[0][0] = 1;
+    memset(&rec, 0, sizeof(rec));
+    ForEachHorizontalTileRun(&grid[0][0], 64, 32, 16,
+                             record_tile_run, &rec);
+    fill_tile_coverage(&rec, cover);
+    ok = memcmp(grid, cover, sizeof(grid)) == 0;
+    expect_bool(ok, 1, "boundary run coverage equivalence");
+
+    memset(grid, 0, sizeof(grid));
+    for (ty = 0; ty < 30; ty++)
+        for (tx = 0; tx < 40; tx++)
+            grid[ty][tx] = 1;
+    memset(&rec, 0, sizeof(rec));
+    ForEachHorizontalTileRun(&grid[0][0], 64, 32, 16,
+                             record_tile_run, &rec);
+    fill_tile_coverage(&rec, cover);
+    ok = memcmp(grid, cover, sizeof(grid)) == 0;
+    expect_bool(ok, 1, "640x480 run coverage equivalence");
 }
 
 static void test_entry_dependency(void)
@@ -859,6 +985,7 @@ int main(void)
     test_palette_invalidation_padded_stride();
     test_palette_invalidation_reject_stride();
     test_tile_run_merge();
+    test_tile_run_coverage();
     test_entry_dependency();
     test_dispatch();
     test_reject();

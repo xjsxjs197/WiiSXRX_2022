@@ -219,6 +219,13 @@ unsigned short CLUTMASK      = 0x7fff;
 unsigned short CLUTYMASK     = 0x1ff;
 unsigned short MAXSORTTEX    = MAXSORTTEX_MAX;
 
+#ifdef DISP_DEBUG
+unsigned int g_texturePaletteEntryChecks = 0;
+unsigned int g_textureTotalInvalidatedEntries = 0;
+unsigned int g_textureStandardUploads = 0;
+unsigned int g_textureWindowUploads = 0;
+#endif
+
 static textureSubCacheEntryS *curTsx;
 
 ////////////////////////////////////////////////////////////////////////
@@ -552,7 +559,12 @@ void InvalidateWndTextureArea(int X,int Y,int W, int H)
                                       tsw->pageid,tsw->textureMode,
                                       CLUTMASK,CLUTYMASK,
                                       1024,iGPUHeight,&invalid))
-    tsw->used=0;
+    {
+#ifdef DISP_DEBUG
+     g_textureTotalInvalidatedEntries++;
+#endif
+     tsw->used=0;
+    }
   }
 
  /* adjust tex window count */
@@ -595,10 +607,19 @@ void MarkFree(textureSubCacheEntryS * tsx)
   }
 }
 
+static void InvalidateSubTextureEntry(textureSubCacheEntryS *tsb)
+{
+#ifdef DISP_DEBUG
+ g_textureTotalInvalidatedEntries++;
+#endif
+ tsb->ClutID=0;
+ MarkFree(tsb);
+}
+
 static void SubTextureInvalidateMarkFree(void *user, void *entry)
 {
  (void)user;
- MarkFree((textureSubCacheEntryS *)entry);
+ InvalidateSubTextureEntry((textureSubCacheEntryS *)entry);
 }
 
 static void InvalidateSubTexturePaletteArea(const VramRect *invalid)
@@ -615,6 +636,9 @@ static void InvalidateSubTexturePaletteArea(const VramRect *invalid)
     {
      head=pscSubtexStore[k][j]+off*SOFFB;
      iMax=GETLE32((char *)head + 4);
+#ifdef DISP_DEBUG
+     g_texturePaletteEntryChecks += (unsigned int)iMax;
+#endif
      SubTexturePaletteInvalidateEntries((void *)(head+1),
                                         iMax,sizeof(textureSubCacheEntryS),
                                         k,CLUTMASK,CLUTYMASK,
@@ -686,27 +710,27 @@ void InvalidateSubSTextureArea(int X,int Y,int W, int H)
         {
          tsb=pscSubtexStore[k][j]+SOFFA;iMax=GETLE32((char *)tsb + 4);tsb++;
          for(i=0;i<iMax;i++,tsb++)
-          if(tsb->ClutID && XCHECK(tsb->pos,npos)) {tsb->ClutID=0;MarkFree(tsb);}
+          if(tsb->ClutID && XCHECK(tsb->pos,npos)) InvalidateSubTextureEntry(tsb);
 
 //         if(npos.l & 0x00800000)
           {
            tsb=pscSubtexStore[k][j]+SOFFB;iMax=GETLE32((char *)tsb + 4);tsb++;
            for(i=0;i<iMax;i++,tsb++)
-            if(tsb->ClutID && XCHECK(tsb->pos,npos)) {tsb->ClutID=0;MarkFree(tsb);}
+            if(tsb->ClutID && XCHECK(tsb->pos,npos)) InvalidateSubTextureEntry(tsb);
           }
 
 //         if(npos.l & 0x00000080)
           {
            tsb=pscSubtexStore[k][j]+SOFFC;iMax=GETLE32((char *)tsb + 4);tsb++;
            for(i=0;i<iMax;i++,tsb++)
-            if(tsb->ClutID && XCHECK(tsb->pos,npos)) {tsb->ClutID=0;MarkFree(tsb);}
+            if(tsb->ClutID && XCHECK(tsb->pos,npos)) InvalidateSubTextureEntry(tsb);
           }
 
 //         if(npos.l & 0x00800080)
           {
            tsb=pscSubtexStore[k][j]+SOFFD;iMax=GETLE32((char *)tsb + 4);tsb++;
            for(i=0;i<iMax;i++,tsb++)
-            if(tsb->ClutID && XCHECK(tsb->pos,npos)) {tsb->ClutID=0;MarkFree(tsb);}
+            if(tsb->ClutID && XCHECK(tsb->pos,npos)) InvalidateSubTextureEntry(tsb);
           }
         }
       }
@@ -1237,6 +1261,9 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
  texChgType = 1;
  //GX_Flush();
  //GX_SetDrawDone();
+#ifdef DISP_DEBUG
+ g_textureWindowUploads++;
+#endif
 
  if(TWin.OPosition.y1==TWin.Position.y1 &&
     TWin.OPosition.x1==TWin.Position.x1)
@@ -3193,6 +3220,10 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
 //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
  if(!OPtr) return uiStexturePage[iCache];
+
+#ifdef DISP_DEBUG
+  g_textureStandardUploads++;
+#endif
 
   texChgType = 3;
   //GX_Flush();
