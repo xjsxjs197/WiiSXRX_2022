@@ -13,6 +13,7 @@
 #ifdef DISP_DEBUG
 #include <ogc/lwp_watchdog.h>
 #endif
+#include "gpuTextureReadBarrier.h"
 
 #define EFB_DRAW_CONTEXT_DEPTH 8
 #define VRAM_READBACK_TILE_X 64
