@@ -648,6 +648,962 @@ static void test_capacity_injection(void)
     expect_count((int)dep.count, 0);
 }
 
+static void test_t6_materialize_decision(void)
+{
+    VramTileFreshnessInput in;
+
+    memset(&in, 0, sizeof(in));
+    in.efbCoverFull = 1;
+    in.hasValidSnapshot = 1;
+    in.cpuWriteEpoch = 10;
+    in.materializedColorEpoch = 0;
+    in.efbSeq = 11;
+    in.snapshotSeq = 11;
+    expect_count((int)EvaluateVramMaterializeTile(&in),
+                 (int)VRAM_FRESH_MATERIALIZED);
+
+    /* Repeated barrier for the same sequence is NO_ACTION. */
+    in.materializedColorEpoch = 11;
+    expect_count((int)EvaluateVramMaterializeTile(&in),
+                 (int)VRAM_FRESH_NO_ACTION);
+
+    memset(&in, 0, sizeof(in));
+    in.efbCoverFull = 1;
+    in.hasValidSnapshot = 1;
+    in.cpuWriteEpoch = 12;
+    in.efbSeq = 11;
+    in.snapshotSeq = 11;
+    expect_count((int)EvaluateVramMaterializeTile(&in),
+                 (int)VRAM_FRESH_NO_ACTION);
+
+    memset(&in, 0, sizeof(in));
+    in.hasValidSnapshot = 1;
+    in.cpuWriteEpoch = 10;
+    in.efbSeq = 13;
+    in.snapshotSeq = 13;
+    in.efbCoverFull = 0;
+    expect_count((int)EvaluateVramMaterializeTile(&in),
+                 (int)VRAM_FRESH_UNRESOLVED);
+
+    in.efbCoverFull = 1;
+    in.rgb24 = 1;
+    expect_count((int)EvaluateVramMaterializeTile(&in),
+                 (int)VRAM_FRESH_UNRESOLVED);
+
+    memset(&in, 0, sizeof(in));
+    in.efbCoverFull = 1;
+    in.hasValidSnapshot = 1;
+    in.cpuWriteEpoch = 10;
+    in.efbSeq = 13;
+    in.snapshotSeq = 12;
+    expect_count((int)EvaluateVramMaterializeTile(&in),
+                 (int)VRAM_FRESH_UNRESOLVED);
+
+    in.hasValidSnapshot = 0;
+    in.snapshotSeq = 0;
+    expect_count((int)EvaluateVramMaterializeTile(&in),
+                 (int)VRAM_FRESH_UNRESOLVED);
+
+    /* Stale baseline must not write; absent baseline keeps FULL fallback. */
+    memset(&in, 0, sizeof(in));
+    in.efbCoverFull = 1;
+    in.hasValidSnapshot = 1;
+    in.cpuWriteEpoch = 12;
+    in.efbSeq = 13;
+    in.snapshotSeq = 13;
+    in.baselinePresentForSnapshot = 1;
+    in.baselineUsable = 0;
+    expect_count((int)EvaluateVramMaterializeTile(&in),
+                 (int)VRAM_FRESH_UNRESOLVED);
+
+    in.baselinePresentForSnapshot = 0;
+    in.baselineUsable = 0;
+    expect_count((int)EvaluateVramMaterializeTile(&in),
+                 (int)VRAM_FRESH_MATERIALIZED);
+}
+
+static void test_t6_snapshot_selection(void)
+{
+    T6SnapshotCandidate c[2];
+    uint64_t best = 0;
+
+    memset(c, 0, sizeof(c));
+    c[0].qualified = 1;
+    c[0].seq = 11;
+    c[0].sourcePriority = 30;
+    c[0].captureOrder = 9;
+    c[1].qualified = 1;
+    c[1].seq = 13;
+    c[1].sourcePriority = 10;
+    c[1].captureOrder = 2;
+    expect_count(T6SelectBestSnapshotTile(c, 2, &best), 2);
+    expect_u64(best, 13, "newer snapshot wins");
+
+    memset(c, 0, sizeof(c));
+    c[0].qualified = 1;
+    c[0].seq = 11;
+    c[0].sourcePriority = 20;
+    c[0].captureOrder = 9;
+    c[1].qualified = 1;
+    c[1].seq = 11;
+    c[1].sourcePriority = 30;
+    c[1].captureOrder = 2;
+    expect_count(T6SelectBestSnapshotTile(c, 2, &best), 2);
+    expect_u64(best, 11, "source priority tie-break");
+
+    memset(c, 0, sizeof(c));
+    c[0].qualified = 1;
+    c[0].seq = 11;
+    c[0].sourcePriority = 30;
+    c[0].captureOrder = 5;
+    c[1].qualified = 1;
+    c[1].seq = 11;
+    c[1].sourcePriority = 30;
+    c[1].captureOrder = 3;
+    expect_count(T6SelectBestSnapshotTile(c, 2, &best), 1);
+    expect_u64(best, 11, "capture order tie-break");
+
+    c[1].qualified = 0;
+    expect_count(T6SelectBestSnapshotTile(c, 2, &best), 1);
+    expect_u64(best, 11, "only one qualified");
+
+    c[0].qualified = 0;
+    expect_count(T6SelectBestSnapshotTile(c, 2, &best), 0);
+}
+
+static void test_t6_merge_pixel(void)
+{
+    expect_u64(T6MergePixelColor(0xFFFF, 0x1234), 0x9234,
+               "mask bit preserved");
+    expect_u64(T6MergePixelColor(0x7FFF, 0x8000u | 0x4321u), 0x4321,
+               "RGB5A3 alpha never becomes mask");
+    expect_u64(T6MergePixelColor(0x0000, 0x7ABC), 0x7ABC,
+               "plain color write");
+}
+
+static uint64_t simulate_c0_tile(uint64_t materialized,
+                                 uint64_t snapshotSeq,
+                                 int fullRect, int *changed)
+{
+    uint16_t old[16][16];
+    unsigned int pixelsWritten = 0;
+    int y, x, diff = 0;
+
+    for (y = 0; y < 16; y++)
+        for (x = 0; x < 16; x++)
+            old[y][x] = 0x9000;
+
+    for (y = 0; y < (fullRect ? 16 : 8); y++)
+        for (x = 0; x < 16; x++)
+        {
+            uint16_t psx;
+
+            if (!T6C0ColorCommitAllowed(snapshotSeq, materialized))
+                continue;
+            psx = T6MergePixelColor(old[y][x], 0x4321);
+            if (psx != old[y][x])
+                diff++;
+            old[y][x] = psx;
+            pixelsWritten++;
+        }
+
+    *changed = diff;
+    return T6C0FullTilePromotionEpoch((int)pixelsWritten, 1,
+                                      snapshotSeq, materialized);
+}
+
+static void test_t6_c0_cross(void)
+{
+    int changed;
+    uint64_t epoch;
+
+    expect_bool(T6C0ColorCommitAllowed(11, 12), 0,
+                "older C0 snapshot blocked");
+    expect_bool(T6C0ColorCommitAllowed(13, 12), 1,
+                "newer C0 snapshot allowed");
+    expect_bool(T6C0ColorCommitAllowed(12, 12), 1,
+                "equal sequence allowed");
+
+    epoch = simulate_c0_tile(12, 11, 1, &changed);
+    expect_count(changed, 0);
+    expect_u64(epoch, 12, "blocked C0 keeps epoch");
+
+    epoch = simulate_c0_tile(12, 13, 1, &changed);
+    expect_count(changed, 256);
+    expect_u64(epoch, 13, "full C0 tile promotes");
+
+    epoch = simulate_c0_tile(12, 13, 0, &changed);
+    expect_count(changed, 128);
+    expect_u64(epoch, 12, "partial C0 never promotes whole tile");
+}
+
+typedef struct T6RunCount
+{
+    int runs;
+} T6RunCount;
+
+static void count_t6_run(void *user, int x0, int y0, int x1, int y1)
+{
+    T6RunCount *rc = (T6RunCount *)user;
+
+    (void)x0;
+    (void)y0;
+    (void)x1;
+    (void)y1;
+    rc->runs++;
+}
+
+static void test_t6_plan(void)
+{
+    VramMaterializePlan plan;
+    T6RunCount rc;
+
+    T6MaterializePlanReset(&plan);
+    expect_count(plan.hazardCount, 0);
+    expect_count(plan.resolvedCount, 0);
+    expect_count(plan.changedCount, 0);
+    expect_bool(T6MaterializePlanAllResolved(&plan), 1, "empty plan resolved");
+
+    T6MaterializePlanMarkHazard(&plan, 1, 0);
+    T6MaterializePlanMarkHazard(&plan, 2, 0);
+    T6MaterializePlanMarkHazard(&plan, 1, 1);
+    expect_count(plan.hazardCount, 3);
+    expect_bool(T6MaterializePlanAllResolved(&plan), 0, "unresolved batch");
+
+    T6MaterializePlanMarkResolved(&plan, 1, 0);
+    T6MaterializePlanMarkResolved(&plan, 2, 0);
+    expect_bool(T6MaterializePlanAllResolved(&plan), 0, "still unresolved");
+    T6MaterializePlanMarkResolved(&plan, 1, 1);
+    expect_bool(T6MaterializePlanAllResolved(&plan), 1, "all resolved");
+
+    T6MaterializePlanMarkChanged(&plan, 1, 0);
+    T6MaterializePlanMarkChanged(&plan, 2, 0);
+    T6MaterializePlanMarkChanged(&plan, 1, 1);
+    T6MaterializePlanMarkChanged(&plan, 1, 0);
+    expect_count(plan.changedCount, 3);
+
+    memset(&rc, 0, sizeof(rc));
+    expect_count(ForEachHorizontalTileRun(
+                     &plan.changed[0][0], T6_VRAM_TILE_X, T6_VRAM_TILE_Y,
+                     T6_VRAM_TILE_SIZE, count_t6_run, &rc),
+                 2);
+    expect_count(rc.runs, 2);
+}
+
+typedef struct T6Harness
+{
+    uint16_t vram[1024 * 512];
+    uint64_t cpuEpoch[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    uint64_t matEpoch[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    uint64_t snapshotSeq[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    int snapshotPresent[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    int snapshotFull[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    int snapshotSlot[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    int physPresent[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    uint64_t physSeq[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    int baselinePresent[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    int baselineUsable[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    int mapKind[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    uint32_t tileMapId[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    int rgb24;
+    int contaminated;
+    int mixedMapping;
+    int untrackedEfb;
+    int captureSucceed;
+    int overwriteRequiredSlot;
+    int captures;
+    int writes;
+    int invalidateRuns;
+    int touchedCount;
+    int overflow;
+    int validateIterations;
+    int writeIterations;
+    int commitIterations;
+    uint32_t mapId;
+} T6Harness;
+
+static T6Harness s_harness;
+static VramMaterializeWorkspace s_ws;
+
+static void harness_reset(T6Harness *h)
+{
+    int ty, tx;
+
+    memset(h, 0, sizeof(*h));
+    for (ty = 0; ty < T6_VRAM_TILE_Y; ty++)
+        for (tx = 0; tx < T6_VRAM_TILE_X; tx++)
+        {
+            h->snapshotSlot[ty][tx] = -1;
+            h->mapKind[ty][tx] = T6_MAP_CURRENT;
+            h->tileMapId[ty][tx] = 1;
+        }
+    for (tx = 0; tx < 1024 * 512; tx++)
+        h->vram[tx] = 0x8000;
+    h->captureSucceed = 1;
+    h->mapId = 1;
+}
+
+static uint16_t harness_color(int tx, int ty, int px, int py)
+{
+    return (uint16_t)(0x1000 +
+                      ((tx * 7 + ty * 3 + px + py * 5) & 0x0FFF));
+}
+
+typedef struct T6HarnessRun
+{
+    T6Harness *h;
+    VramMaterializeSession *session;
+    unsigned char seen[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+} T6HarnessRun;
+
+static void harness_observe(void *user, int tx, int ty)
+{
+    T6HarnessRun *run = (T6HarnessRun *)user;
+    T6Harness *h = run->h;
+    uint64_t psxColor, snapSeq, efbSeq;
+    int ttx = tx & 63;
+    int tty = ty & 31;
+    int slot = -1;
+
+    if (run->seen[tty][ttx])
+        return;
+    run->seen[tty][ttx] = 1;
+
+    snapSeq = h->snapshotPresent[tty][ttx] ?
+              h->snapshotSeq[tty][ttx] : 0;
+    psxColor = h->cpuEpoch[tty][ttx] > h->matEpoch[tty][ttx] ?
+               h->cpuEpoch[tty][ttx] : h->matEpoch[tty][ttx];
+    efbSeq = h->physPresent[tty][ttx] &&
+             h->physSeq[tty][ttx] > snapSeq ?
+             h->physSeq[tty][ttx] : snapSeq;
+
+    if (h->snapshotPresent[tty][ttx] && snapSeq >= efbSeq)
+        slot = h->snapshotSlot[tty][ttx];
+
+    T6MaterializeSessionObserveTile(
+        run->session, tx, ty, psxColor, efbSeq, snapSeq,
+        h->tileMapId[tty][ttx], slot, h->mapKind[tty][ttx],
+        h->physPresent[tty][ttx], h->physSeq[tty][ttx]);
+}
+
+static int harness_validate(void *user, int tx, int ty,
+                            uint64_t requiredSeq,
+                            VramTileFreshnessInput *in)
+{
+    T6HarnessRun *run = (T6HarnessRun *)user;
+    T6Harness *h = run->h;
+    int ttx = tx & 63;
+    int tty = ty & 31;
+
+    in->cpuWriteEpoch = h->cpuEpoch[tty][ttx];
+    in->materializedColorEpoch = h->matEpoch[tty][ttx];
+    in->snapshotSeq = h->snapshotPresent[tty][ttx] ?
+                      h->snapshotSeq[tty][ttx] : 0;
+    in->rgb24 = h->rgb24;
+    in->contaminated = h->contaminated;
+    in->mixedMapping = h->mixedMapping;
+    in->untrackedEfb = h->untrackedEfb;
+    if (h->mapKind[tty][ttx] == T6_MAP_UNKNOWN)
+        in->untrackedEfb = 1;
+    in->hasValidSnapshot =
+        h->snapshotPresent[tty][ttx] &&
+        h->snapshotFull[tty][ttx] &&
+        in->snapshotSeq >= requiredSeq;
+    in->baselinePresentForSnapshot = h->baselinePresent[tty][ttx];
+    in->baselineUsable = h->baselineUsable[tty][ttx];
+    in->efbCoverFull = h->snapshotFull[tty][ttx];
+    return 1;
+}
+
+static void harness_write(void *user, VramMaterializePlan *plan,
+                          int tx, int ty, uint64_t requiredSeq)
+{
+    T6HarnessRun *run = (T6HarnessRun *)user;
+    T6Harness *h = run->h;
+    int ttx = tx & 63;
+    int tty = ty & 31;
+    int px, py;
+    int baselineDelta =
+        h->baselinePresent[tty][ttx] && h->baselineUsable[tty][ttx];
+
+    (void)requiredSeq;
+    for (py = ty << 4; py < (ty << 4) + T6_VRAM_TILE_SIZE; py++)
+        for (px = tx << 4; px < (tx << 4) + T6_VRAM_TILE_SIZE; px++)
+        {
+            uint16_t old = h->vram[py * 1024 + px];
+            uint16_t color;
+            uint16_t psx;
+
+            if (baselineDelta && ((px & 3) != 0 || (py & 3) != 0))
+                continue;
+
+            color = harness_color(tx, ty, px, py);
+            psx = T6MergePixelColor(old, color);
+            if (psx == old)
+                continue;
+
+            h->vram[py * 1024 + px] = psx;
+            h->writes++;
+            T6MaterializePlanMarkChanged(plan, tx, ty);
+        }
+}
+
+static uint64_t harness_seq(void *user, int tx, int ty)
+{
+    T6HarnessRun *run = (T6HarnessRun *)user;
+    T6Harness *h = run->h;
+    int ttx = tx & 63;
+    int tty = ty & 31;
+
+    return h->snapshotPresent[tty][ttx] ?
+           h->snapshotSeq[tty][ttx] : 0;
+}
+
+static void harness_apply_epoch(void *user, int tx, int ty, uint64_t seq)
+{
+    T6HarnessRun *run = (T6HarnessRun *)user;
+    T6Harness *h = run->h;
+    int ttx = tx & 63;
+    int tty = ty & 31;
+
+    if (seq > h->matEpoch[tty][ttx])
+        h->matEpoch[tty][ttx] = seq;
+}
+
+static void harness_invalidate(void *user, int x0, int y0,
+                               int x1, int y1)
+{
+    T6Harness *h = (T6Harness *)user;
+
+    (void)x0;
+    (void)y0;
+    (void)x1;
+    (void)y1;
+    h->invalidateRuns++;
+}
+
+static VramFreshResult harness_run(T6Harness *h,
+                                   const VramReadDependency *dep)
+{
+    VramMaterializeSession session;
+    T6HarnessRun run;
+    int slot;
+    int ty, tx;
+
+    memset(&run, 0, sizeof(run));
+    run.h = h;
+    run.session = &session;
+    T6MaterializeSessionInit(&session, &s_ws);
+    ForEachVramReadDependencyTile(dep, 1024, 512,
+                                  harness_observe, &run);
+
+    if (session.captureRequired)
+    {
+        if (session.captureConflict ||
+            !T6MaterializeSessionSelectCaptureSlot(&session, 0, &slot))
+            return VRAM_FRESH_UNRESOLVED;
+        if (!h->captureSucceed)
+            return VRAM_FRESH_UNRESOLVED;
+
+        h->captures++;
+        {
+            int cx = session.captureTileX & 63;
+            int cy = session.captureTileY & 31;
+
+            h->snapshotPresent[cy][cx] = 1;
+            h->snapshotFull[cy][cx] = 1;
+            h->snapshotSeq[cy][cx] = h->physSeq[cy][cx];
+            h->snapshotSlot[cy][cx] = slot;
+
+            if (h->overwriteRequiredSlot)
+            {
+                int other = 1 - slot;
+
+                for (ty = 0; ty < T6_VRAM_TILE_Y; ty++)
+                    for (tx = 0; tx < T6_VRAM_TILE_X; tx++)
+                        if (session.plan.hazard[ty][tx] &&
+                            T6MaterializeSessionRequiredSlot(
+                                &session, tx, ty) == other)
+                            h->snapshotPresent[ty][tx] = 0;
+            }
+        }
+    }
+
+    if (session.plan.hazardCount == 0)
+    {
+        h->touchedCount = session.touchedCount;
+        h->overflow = session.overflow;
+        h->validateIterations = session.validateIterations;
+        h->writeIterations = session.writeIterations;
+        h->commitIterations = session.commitIterations;
+        return VRAM_FRESH_NO_ACTION;
+    }
+
+    if (!T6MaterializeSessionValidate(&session,
+                                      harness_validate, &run))
+        return VRAM_FRESH_UNRESOLVED;
+
+    T6MaterializeSessionWrite(&session, harness_write, &run);
+    T6MaterializeSessionCommitEpoch(&session, harness_seq,
+                                    harness_apply_epoch, &run);
+
+    if (session.plan.changedCount > 0)
+        (void)T6MaterializeSessionInvalidateChanged(
+            &session, harness_invalidate, h);
+
+    h->touchedCount = session.touchedCount;
+    h->overflow = session.overflow;
+    h->validateIterations = session.validateIterations;
+    h->writeIterations = session.writeIterations;
+    h->commitIterations = session.commitIterations;
+
+    return VRAM_FRESH_MATERIALIZED;
+}
+
+static uint32_t tile_hash(const T6Harness *h, int tx, int ty)
+{
+    uint32_t hash = 2166136261u;
+    int px, py;
+
+    for (py = ty << 4; py < (ty << 4) + T6_VRAM_TILE_SIZE; py++)
+        for (px = tx << 4; px < (tx << 4) + T6_VRAM_TILE_SIZE; px++)
+            hash = (hash ^ h->vram[py * 1024 + px]) * 16777619u;
+    return hash;
+}
+
+static void append_tile_dep(VramReadDependency *dep, int tx, int ty)
+{
+    VramRect r;
+
+    r.x0 = tx << 4;
+    r.y0 = ty << 4;
+    r.x1 = r.x0 + T6_VRAM_TILE_SIZE;
+    r.y1 = r.y0 + T6_VRAM_TILE_SIZE;
+    VramReadDependencyAppend(dep, &r);
+}
+
+static void test_materialize_core_repeat(void)
+{
+    T6Harness *h = &s_harness;
+    VramReadDependency dep;
+    uint32_t before, after;
+
+    harness_reset(h);
+    memset(&dep, 0, sizeof(dep));
+    append_tile_dep(&dep, 0, 0);
+
+    h->cpuEpoch[0][0] = 10;
+    h->physPresent[0][0] = 1;
+    h->physSeq[0][0] = 11;
+    h->snapshotPresent[0][0] = 1;
+    h->snapshotFull[0][0] = 1;
+    h->snapshotSeq[0][0] = 11;
+    h->snapshotSlot[0][0] = 0;
+
+    expect_count((int)harness_run(h, &dep),
+                 (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->captures, 0);
+    expect_count(h->writes, 256);
+    expect_count(h->invalidateRuns, 1);
+    expect_count(h->touchedCount, 1);
+    expect_count(h->validateIterations, 1);
+    expect_count(h->writeIterations, 1);
+    expect_count(h->commitIterations, 1);
+    expect_u64(h->matEpoch[0][0], 11, "core epoch committed");
+    expect_u64((uint64_t)(h->vram[0] & 0x8000), 0x8000,
+               "core preserves mask bit");
+
+    before = tile_hash(h, 0, 0);
+    expect_count((int)harness_run(h, &dep),
+                 (int)VRAM_FRESH_NO_ACTION);
+    expect_count(h->captures, 0);
+    expect_count(h->writes, 256);
+    after = tile_hash(h, 0, 0);
+    expect_bool(before == after, 1,
+                "second call leaves vram unchanged");
+}
+
+static void test_materialize_core_fail_no_change(void)
+{
+    T6Harness *h = &s_harness;
+    VramReadDependency dep;
+    uint32_t before;
+
+    harness_reset(h);
+    memset(&dep, 0, sizeof(dep));
+    append_tile_dep(&dep, 0, 0);
+    before = tile_hash(h, 0, 0);
+
+    h->cpuEpoch[0][0] = 12;
+    h->physPresent[0][0] = 1;
+    h->physSeq[0][0] = 11;
+    h->snapshotPresent[0][0] = 1;
+    h->snapshotFull[0][0] = 1;
+    h->snapshotSeq[0][0] = 11;
+    h->snapshotSlot[0][0] = 0;
+    expect_count((int)harness_run(h, &dep),
+                 (int)VRAM_FRESH_NO_ACTION);
+    expect_count(h->writes, 0);
+    expect_u64(h->matEpoch[0][0], 0, "cpu newer no epoch");
+    expect_bool(tile_hash(h, 0, 0) == before, 1,
+                "cpu newer hash unchanged");
+
+    harness_reset(h);
+    h->snapshotPresent[0][0] = 1;
+    h->snapshotFull[0][0] = 0;
+    h->snapshotSeq[0][0] = 13;
+    h->snapshotSlot[0][0] = 0;
+    before = tile_hash(h, 0, 0);
+    expect_count((int)harness_run(h, &dep),
+                 (int)VRAM_FRESH_UNRESOLVED);
+    expect_count(h->writes, 0);
+    expect_u64(h->matEpoch[0][0], 0, "partial no epoch");
+    expect_bool(tile_hash(h, 0, 0) == before, 1,
+                "partial hash unchanged");
+
+    harness_reset(h);
+    h->rgb24 = 1;
+    h->physPresent[0][0] = 1;
+    h->physSeq[0][0] = 13;
+    h->snapshotPresent[0][0] = 1;
+    h->snapshotFull[0][0] = 1;
+    h->snapshotSeq[0][0] = 13;
+    h->snapshotSlot[0][0] = 0;
+    before = tile_hash(h, 0, 0);
+    expect_count((int)harness_run(h, &dep),
+                 (int)VRAM_FRESH_UNRESOLVED);
+    expect_count(h->writes, 0);
+    expect_u64(h->matEpoch[0][0], 0, "rgb24 no epoch");
+    expect_bool(tile_hash(h, 0, 0) == before, 1,
+                "rgb24 hash unchanged");
+
+    harness_reset(h);
+    h->captureSucceed = 0;
+    h->physPresent[0][0] = 1;
+    h->physSeq[0][0] = 13;
+    h->snapshotPresent[0][0] = 1;
+    h->snapshotFull[0][0] = 1;
+    h->snapshotSeq[0][0] = 11;
+    h->snapshotSlot[0][0] = 0;
+    before = tile_hash(h, 0, 0);
+    expect_count((int)harness_run(h, &dep),
+                 (int)VRAM_FRESH_UNRESOLVED);
+    expect_count(h->captures, 0);
+    expect_count(h->writes, 0);
+    expect_u64(h->matEpoch[0][0], 0, "capture fail no epoch");
+    expect_bool(tile_hash(h, 0, 0) == before, 1,
+                "capture fail hash unchanged");
+}
+
+static void test_materialize_core_slot_replacement(void)
+{
+    T6Harness *h = &s_harness;
+    VramReadDependency dep;
+
+    harness_reset(h);
+    memset(&dep, 0, sizeof(dep));
+    append_tile_dep(&dep, 0, 0);
+    append_tile_dep(&dep, 1, 0);
+
+    h->mapKind[0][0] = T6_MAP_CURRENT;
+    h->tileMapId[0][0] = 1;
+    h->physPresent[0][0] = 1;
+    h->physSeq[0][0] = 13;
+
+    h->mapKind[0][1] = T6_MAP_PREVIOUS;
+    h->tileMapId[0][1] = 2;
+    h->snapshotPresent[0][1] = 1;
+    h->snapshotFull[0][1] = 1;
+    h->snapshotSeq[0][1] = 12;
+    h->snapshotSlot[0][1] = 0;
+
+    expect_count((int)harness_run(h, &dep),
+                 (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->captures, 1);
+    expect_count(h->writes, 512);
+    expect_u64(h->matEpoch[0][0], 13, "captured tile epoch");
+    expect_u64(h->matEpoch[0][1], 12, "previous snapshot epoch kept");
+
+    harness_reset(h);
+    memset(&dep, 0, sizeof(dep));
+    append_tile_dep(&dep, 0, 0);
+    append_tile_dep(&dep, 1, 0);
+    append_tile_dep(&dep, 2, 0);
+
+    h->physPresent[0][0] = 1;
+    h->physSeq[0][0] = 13;
+    h->snapshotPresent[0][1] = 1;
+    h->snapshotFull[0][1] = 1;
+    h->snapshotSeq[0][1] = 12;
+    h->snapshotSlot[0][1] = 0;
+    h->mapKind[0][1] = T6_MAP_PREVIOUS;
+    h->tileMapId[0][1] = 2;
+    h->snapshotPresent[0][2] = 1;
+    h->snapshotFull[0][2] = 1;
+    h->snapshotSeq[0][2] = 12;
+    h->snapshotSlot[0][2] = 1;
+    h->mapKind[0][2] = T6_MAP_PREVIOUS;
+    h->tileMapId[0][2] = 3;
+    expect_count((int)harness_run(h, &dep),
+                 (int)VRAM_FRESH_UNRESOLVED);
+    expect_count(h->captures, 0);
+    expect_count(h->writes, 0);
+    expect_u64(h->matEpoch[0][0], 0, "both slots required no epoch");
+    expect_u64(h->matEpoch[0][1], 0, "previous epoch not committed");
+
+    harness_reset(h);
+    memset(&dep, 0, sizeof(dep));
+    append_tile_dep(&dep, 0, 0);
+    append_tile_dep(&dep, 1, 0);
+    h->physPresent[0][0] = 1;
+    h->physSeq[0][0] = 13;
+    h->snapshotPresent[0][1] = 1;
+    h->snapshotFull[0][1] = 1;
+    h->snapshotSeq[0][1] = 12;
+    h->snapshotSlot[0][1] = 0;
+    h->mapKind[0][1] = T6_MAP_PREVIOUS;
+    h->tileMapId[0][1] = 2;
+    h->overwriteRequiredSlot = 1;
+    expect_count((int)harness_run(h, &dep),
+                 (int)VRAM_FRESH_UNRESOLVED);
+    expect_count(h->captures, 1);
+    expect_count(h->writes, 0);
+    expect_u64(h->matEpoch[0][0], 0, "overwritten evidence no epoch");
+    expect_u64(h->matEpoch[0][1], 0, "lost previous hazard no epoch");
+}
+
+static void test_materialize_core_baseline(void)
+{
+    T6Harness *h = &s_harness;
+    VramReadDependency dep;
+
+    harness_reset(h);
+    memset(&dep, 0, sizeof(dep));
+    append_tile_dep(&dep, 0, 0);
+
+    h->physPresent[0][0] = 1;
+    h->physSeq[0][0] = 13;
+    h->snapshotPresent[0][0] = 1;
+    h->snapshotFull[0][0] = 1;
+    h->snapshotSeq[0][0] = 13;
+    h->snapshotSlot[0][0] = 0;
+    h->baselinePresent[0][0] = 1;
+    h->baselineUsable[0][0] = 1;
+    expect_count((int)harness_run(h, &dep),
+                 (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->writes, 16);
+    expect_u64(h->matEpoch[0][0], 13, "baseline delta commits epoch");
+
+    harness_reset(h);
+    h->physPresent[0][0] = 1;
+    h->physSeq[0][0] = 13;
+    h->snapshotPresent[0][0] = 1;
+    h->snapshotFull[0][0] = 1;
+    h->snapshotSeq[0][0] = 13;
+    h->snapshotSlot[0][0] = 0;
+    h->baselinePresent[0][0] = 1;
+    h->baselineUsable[0][0] = 0;
+    expect_count((int)harness_run(h, &dep),
+                 (int)VRAM_FRESH_UNRESOLVED);
+    expect_count(h->writes, 0);
+    expect_u64(h->matEpoch[0][0], 0, "stale baseline no write");
+
+    harness_reset(h);
+    h->physPresent[0][0] = 1;
+    h->physSeq[0][0] = 13;
+    h->snapshotPresent[0][0] = 1;
+    h->snapshotFull[0][0] = 1;
+    h->snapshotSeq[0][0] = 13;
+    h->snapshotSlot[0][0] = 0;
+    expect_count((int)harness_run(h, &dep),
+                 (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->writes, 256);
+}
+
+static void test_materialize_core_changed_runs(void)
+{
+    T6Harness *h = &s_harness;
+    VramReadDependency dep;
+
+    harness_reset(h);
+    memset(&dep, 0, sizeof(dep));
+    append_tile_dep(&dep, 0, 0);
+    append_tile_dep(&dep, 1, 0);
+
+    h->physPresent[0][0] = 1;
+    h->physSeq[0][0] = 11;
+    h->snapshotPresent[0][0] = 1;
+    h->snapshotFull[0][0] = 1;
+    h->snapshotSeq[0][0] = 11;
+    h->snapshotSlot[0][0] = 0;
+    h->physPresent[0][1] = 1;
+    h->physSeq[0][1] = 11;
+    h->snapshotPresent[0][1] = 1;
+    h->snapshotFull[0][1] = 1;
+    h->snapshotSeq[0][1] = 11;
+    h->snapshotSlot[0][1] = 1;
+
+    expect_count((int)harness_run(h, &dep),
+                 (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->writes, 512);
+    expect_count(h->invalidateRuns, 1);
+}
+
+static void test_map_classification(void)
+{
+    expect_count(T6ClassifyTileMap(0, 0, 0, 0, 320, 240,
+                                   320, 0, 640, 240, 1),
+                 T6_MAP_CURRENT);
+    expect_count(T6ClassifyTileMap(19, 0, 0, 0, 320, 240,
+                                   320, 0, 640, 240, 1),
+                 T6_MAP_CURRENT);
+    expect_count(T6ClassifyTileMap(20, 0, 0, 0, 320, 240,
+                                   320, 0, 640, 240, 1),
+                 T6_MAP_PREVIOUS);
+    expect_count(T6ClassifyTileMap(20, 0, 0, 0, 336, 240,
+                                   320, 0, 640, 240, 1),
+                 T6_MAP_UNKNOWN);
+    expect_count(T6ClassifyTileMap(0, 0, 0, 0, 320, 240,
+                                   0, 0, 320, 240, 1),
+                 T6_MAP_UNKNOWN);
+    expect_count(T6ClassifyTileMap(20, 0, 0, 0, 320, 240,
+                                   320, 0, 640, 240, 0),
+                 T6_MAP_UNKNOWN);
+}
+
+static void test_physical_ownership(void)
+{
+    expect_bool(T6PhysicalOwnsTargetMap(1, T6_MAP_CURRENT, 1, 2), 1,
+                "current owns target");
+    expect_bool(T6PhysicalOwnsTargetMap(2, T6_MAP_CURRENT, 1, 2), 0,
+                "current foreign rejected");
+    expect_bool(T6PhysicalOwnsTargetMap(0, T6_MAP_PREVIOUS, 2, 2), 1,
+                "pending owns previous");
+    expect_bool(T6PhysicalOwnsTargetMap(0, T6_MAP_PREVIOUS, 3, 2), 0,
+                "pending wrong previous rejected");
+    expect_bool(T6PhysicalOwnsTargetMap(1, T6_MAP_PREVIOUS, 2, 2), 0,
+                "active buffer not previous");
+}
+
+static void test_c0_hash_equivalence(void)
+{
+    uint16_t old[16][16];
+    uint32_t before, after;
+    int y, x;
+
+    for (y = 0; y < 16; y++)
+        for (x = 0; x < 16; x++)
+            old[y][x] = 0x9000;
+
+    before = 2166136261u;
+    for (y = 0; y < 16; y++)
+        for (x = 0; x < 16; x++)
+            before = (before ^ old[y][x]) * 16777619u;
+
+    for (y = 0; y < 16; y++)
+        for (x = 0; x < 16; x++)
+        {
+            if (T6C0ColorCommitAllowed(11, 12))
+                old[y][x] = T6MergePixelColor(old[y][x], 0x4321);
+        }
+    after = 2166136261u;
+    for (y = 0; y < 16; y++)
+        for (x = 0; x < 16; x++)
+            after = (after ^ old[y][x]) * 16777619u;
+    expect_bool(before == after, 1,
+                "blocked C0 keeps hash");
+
+    for (y = 0; y < 16; y++)
+        for (x = 0; x < 16; x++)
+            old[y][x] = 0x9000;
+    for (y = 0; y < 16; y++)
+        for (x = 0; x < 16; x++)
+        {
+            if (T6C0ColorCommitAllowed(13, 12))
+                old[y][x] = T6MergePixelColor(old[y][x], 0x4321);
+        }
+    after = 2166136261u;
+    for (y = 0; y < 16; y++)
+        for (x = 0; x < 16; x++)
+            after = (after ^ old[y][x]) * 16777619u;
+    expect_bool(before != after, 1,
+                "allowed C0 changes hash");
+}
+
+static void test_rebuild_baseline_gate(void)
+{
+    expect_bool(T6UploadAreaCoversMap(0, 0, 320, 240,
+                                      0, 0, 320, 240), 1,
+                "full-screen upload covers map");
+    expect_bool(T6UploadAreaCoversMap(100, 100, 220, 180,
+                                      0, 0, 320, 240), 0,
+                "partial A0 never covers map");
+    expect_bool(T6UploadAreaCoversMap(0, 0, 336, 240,
+                                      0, 0, 320, 240), 1,
+                "oversized upload still covers");
+
+    expect_bool(T6RebuildCandidateEstablishes(1, 0, 1), 1,
+                "candidate completion establishes");
+    expect_bool(T6RebuildCandidateEstablishes(1, 1, 1), 0,
+                "complete candidate not re-established");
+    expect_bool(T6RebuildCandidateEstablishes(1, 0, 0), 0,
+                "GX/clear FULL without A0 coverage rejected");
+    expect_bool(T6RebuildCandidateEstablishes(0, 0, 1), 0,
+                "invalid candidate rejected");
+}
+
+static void test_session_compact_gates(void)
+{
+    VramMaterializeSession s1;
+    VramMaterializeSession s2;
+    VramMaterializeWorkspace ws;
+    VramReadDependency dep;
+    int depth = 0;
+    int ty, tx;
+
+    memset(&ws, 0, sizeof(ws));
+    expect_bool(sizeof(VramMaterializeSession) <= 16384, 1,
+                "session size bounded");
+    expect_bool(sizeof(VramMaterializeWorkspace) <= 65536, 1,
+                "workspace size bounded");
+
+    T6MaterializeSessionInit(&s1, &ws);
+    T6MaterializeSessionObserveTile(&s1, 0, 0, 0, 11, 11, 1, 0,
+                                    T6_MAP_CURRENT, 0, 0);
+    expect_bool(T6MaterializeSessionHasEntry(&s1, 0, 0), 1,
+                "entry recorded");
+    T6MaterializeSessionInit(&s2, &ws);
+    expect_bool(T6MaterializeSessionHasEntry(&s2, 0, 0), 0,
+                "generation isolates sessions");
+
+    expect_bool(T6WorkspaceBegin(&depth), 1, "workspace begin");
+    expect_bool(T6WorkspaceBegin(&depth), 0, "reentrant rejected");
+    T6WorkspaceEnd(&depth);
+    expect_bool(T6WorkspaceBegin(&depth), 1, "workspace reusable");
+
+    harness_reset(&s_harness);
+    memset(&dep, 0, sizeof(dep));
+    for (tx = 0; tx < 12; tx++)
+    {
+        VramRect r = { 0, 0, 1024, 512 };
+
+        VramReadDependencyAppend(&dep, &r);
+    }
+    for (ty = 0; ty < T6_VRAM_TILE_Y; ty++)
+        for (tx = 0; tx < T6_VRAM_TILE_X; tx++)
+        {
+            s_harness.snapshotPresent[ty][tx] = 1;
+            s_harness.snapshotFull[ty][tx] = 1;
+            s_harness.snapshotSeq[ty][tx] = 11;
+            s_harness.snapshotSlot[ty][tx] = (tx + ty) & 1;
+        }
+    expect_count((int)harness_run(&s_harness, &dep),
+                 (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(s_harness.touchedCount, 2048);
+    expect_bool(s_harness.overflow == 0, 1,
+                "max dependency no overflow");
+}
+
 int main(void)
 {
     test_epoch();
@@ -664,6 +1620,21 @@ int main(void)
     test_clut_boundary();
     test_builder_invalid();
     test_capacity_injection();
+    test_t6_materialize_decision();
+    test_t6_snapshot_selection();
+    test_t6_merge_pixel();
+    test_t6_c0_cross();
+    test_t6_plan();
+    test_materialize_core_repeat();
+    test_materialize_core_fail_no_change();
+    test_materialize_core_slot_replacement();
+    test_materialize_core_baseline();
+    test_materialize_core_changed_runs();
+    test_map_classification();
+    test_physical_ownership();
+    test_c0_hash_equivalence();
+    test_rebuild_baseline_gate();
+    test_session_compact_gates();
 
     if (s_failures == 0)
         printf("PASS t6_barrier\n");

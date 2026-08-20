@@ -2,6 +2,7 @@
 #define GPU_TEXTURE_READ_BARRIER_H
 
 #include <stdint.h>
+#include <string.h>
 
 #include "gpuVramRect.h"
 
@@ -22,7 +23,10 @@ enum
     T6_SOURCE_LINEAR_MAX = 2,
     T6_PALETTE_WRAP_MAX = 4,
     T6_PALETTE_LINEAR_MAX = 2,
-    T6_DEP_RECT_CAPACITY = 12
+    T6_DEP_RECT_CAPACITY = 12,
+    T6_VRAM_TILE_X = 64,
+    T6_VRAM_TILE_Y = 32,
+    T6_VRAM_TILE_SIZE = 16
 };
 
 typedef struct VramReadDependency
@@ -44,13 +48,128 @@ typedef struct VramTileFreshnessInput
     uint64_t cpuWriteEpoch;
     uint64_t materializedColorEpoch;
     uint64_t efbSeq;
+    /* Highest sequence proven present in the selected snapshot.  The
+     * materialize path requires this to be at least the effective EFB
+     * sequence; a missing/stale snapshot means capture failed. */
+    uint64_t snapshotSeq;
     int efbCoverFull;
     int rgb24;
     int contaminated;
     int mixedMapping;
     int untrackedEfb;
     int hasValidSnapshot;
+    /* Baseline delta availability.  When a matching rebuild baseline exists
+     * for the snapshot but is stale/partial, the tile must not be written at
+     * all: a newer CPU write means even the untouched EFB background cannot
+     * be trusted as a full-tile source. */
+    int baselinePresentForSnapshot;
+    int baselineUsable;
 } VramTileFreshnessInput;
+
+typedef struct T6SnapshotCandidate
+{
+    uint64_t seq;
+    int sourcePriority;
+    uint64_t captureOrder;
+    int qualified;
+} T6SnapshotCandidate;
+
+/*
+ * Select the unique snapshot for one full tile.  Returns 1-based candidate
+ * index (0 when none qualified).  Newer tile sequence wins; equal sequences
+ * fall back to source priority and then capture order, mirroring the C0
+ * per-pixel tie-break so a tile can never mix two snapshots.
+ */
+static inline int T6SelectBestSnapshotTile(const T6SnapshotCandidate *cands,
+                                           int count, uint64_t *bestSeq)
+{
+    int best = -1;
+    int i;
+
+    if (cands == NULL || count <= 0)
+        return 0;
+
+    for (i = 0; i < count; i++)
+    {
+        const T6SnapshotCandidate *c = &cands[i];
+
+        if (!c->qualified)
+            continue;
+        if (best < 0 ||
+            c->seq > cands[best].seq ||
+            (c->seq == cands[best].seq &&
+             c->sourcePriority > cands[best].sourcePriority) ||
+            (c->seq == cands[best].seq &&
+             c->sourcePriority == cands[best].sourcePriority &&
+             c->captureOrder > cands[best].captureOrder))
+            best = i;
+    }
+
+    if (best < 0)
+        return 0;
+    if (bestSeq != NULL)
+        *bestSeq = cands[best].seq;
+    return best + 1;
+}
+
+/*
+ * Materialize plan state.  hazard/resolved/changed are per-tile bitmaps and
+ * the counters let the two-phase core prove the whole batch before writing.
+ */
+typedef struct VramMaterializePlan
+{
+    unsigned char hazard[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    unsigned char resolved[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    unsigned char changed[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    int hazardCount;
+    int resolvedCount;
+    int changedCount;
+} VramMaterializePlan;
+
+static inline void T6MaterializePlanReset(VramMaterializePlan *plan)
+{
+    if (plan != NULL)
+        memset(plan, 0, sizeof(*plan));
+}
+
+static inline void T6MaterializePlanMarkHazard(VramMaterializePlan *plan,
+                                               int tx, int ty)
+{
+    if (plan == NULL || tx < 0 || tx >= T6_VRAM_TILE_X ||
+        ty < 0 || ty >= T6_VRAM_TILE_Y)
+        return;
+    if (!plan->hazard[ty][tx])
+        plan->hazardCount++;
+    plan->hazard[ty][tx] = 1;
+}
+
+static inline void T6MaterializePlanMarkResolved(VramMaterializePlan *plan,
+                                                 int tx, int ty)
+{
+    if (plan == NULL || tx < 0 || tx >= T6_VRAM_TILE_X ||
+        ty < 0 || ty >= T6_VRAM_TILE_Y)
+        return;
+    if (!plan->resolved[ty][tx])
+        plan->resolvedCount++;
+    plan->resolved[ty][tx] = 1;
+}
+
+static inline void T6MaterializePlanMarkChanged(VramMaterializePlan *plan,
+                                                int tx, int ty)
+{
+    if (plan == NULL || tx < 0 || tx >= T6_VRAM_TILE_X ||
+        ty < 0 || ty >= T6_VRAM_TILE_Y)
+        return;
+    if (!plan->changed[ty][tx])
+        plan->changedCount++;
+    plan->changed[ty][tx] = 1;
+}
+
+static inline int T6MaterializePlanAllResolved(const VramMaterializePlan *plan)
+{
+    return plan != NULL &&
+           (plan->hazardCount == 0 || plan->hazardCount == plan->resolvedCount);
+}
 
 typedef char T6DepCapacityCheck[
     (T6_SOURCE_WRAP_MAX + T6_SOURCE_LINEAR_MAX +
@@ -428,6 +547,459 @@ static inline VramFreshResult EvaluateVramTileFreshness(
         return VRAM_FRESH_UNRESOLVED;
 
     return VRAM_FRESH_MATERIALIZED;
+}
+
+/*
+ * Materialize-core freshness decision.  In addition to the T6-A tile
+ * contract, the selected snapshot must actually cover the effective EFB
+ * sequence, and a present-but-unusable baseline makes the tile unresolved
+ * instead of falling back to a full-tile overwrite.
+ */
+static inline VramFreshResult EvaluateVramMaterializeTile(
+    const VramTileFreshnessInput *in)
+{
+    VramFreshResult base;
+
+    if (in == NULL)
+        return VRAM_FRESH_UNRESOLVED;
+
+    base = EvaluateVramTileFreshness(in);
+    if (base != VRAM_FRESH_MATERIALIZED)
+        return base;
+
+    if (in->snapshotSeq == 0 || in->snapshotSeq < in->efbSeq)
+        return VRAM_FRESH_UNRESOLVED;
+
+    if (in->baselinePresentForSnapshot && !in->baselineUsable)
+        return VRAM_FRESH_UNRESOLVED;
+
+    return VRAM_FRESH_MATERIALIZED;
+}
+
+/*
+ * PS1 writeback keeps the old mask bit; RGB5A3 bit15/alpha never becomes the
+ * PS1 mask.  This is the only pixel formula used by materialize.
+ */
+static inline uint16_t T6MergePixelColor(uint16_t oldPsx, uint16_t gxColor)
+{
+    return (uint16_t)((gxColor & 0x7FFFu) | (oldPsx & 0x8000u));
+}
+
+/*
+ * C0/T6 cross guard: a C0 snapshot whose tile sequence is older than the
+ * materialized color epoch must not overwrite the low 15 bits.  Equal
+ * sequences are allowed per the design review note.
+ */
+static inline int T6C0ColorCommitAllowed(uint64_t snapshotSeq,
+                                         uint64_t materializedColorEpoch)
+{
+    return snapshotSeq >= materializedColorEpoch;
+}
+
+/*
+ * Only a C0 read that wrote all 256 pixels of a tile from one snapshot may
+ * promote the materialized color epoch; partial C0 reads never claim a whole
+ * tile.
+ */
+static inline uint64_t T6C0FullTilePromotionEpoch(
+    int pixelsWritten, int allSameSnapshot, uint64_t snapshotSeq,
+    uint64_t materializedColorEpoch)
+{
+    if (pixelsWritten != T6_VRAM_TILE_SIZE * T6_VRAM_TILE_SIZE ||
+        !allSameSnapshot || snapshotSeq <= materializedColorEpoch)
+        return materializedColorEpoch;
+    return snapshotSeq;
+}
+
+/*
+ * T6-B materialize session.  The session is the injectable core contract:
+ * observe freezes the original hazard/required sequence before any capture
+ * can replace a snapshot slot, validate re-proves only those original
+ * hazards, and write/commit/invalidate run after the whole batch is safe.
+ *
+ * The session is intentionally compact: it stores only a touched-tile index
+ * list plus the bitmap plan.  Per-tile sequences/map ids/slots live in a
+ * reusable VramMaterializeWorkspace guarded by generation stamps, so a
+ * single-tile dependency never allocates or scans the full 64x32 grid.
+ */
+enum
+{
+    T6_MAX_TOUCHED_TILES = T6_VRAM_TILE_X * T6_VRAM_TILE_Y
+};
+
+typedef struct VramMaterializeWorkspace
+{
+    uint64_t requiredSeq[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    uint32_t requiredMapId[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    int8_t requiredSlot[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    unsigned int stamp[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    unsigned int generation;
+} VramMaterializeWorkspace;
+
+typedef struct VramMaterializeSession
+{
+    VramMaterializePlan plan;
+    VramMaterializeWorkspace *ws;
+    uint16_t touched[T6_MAX_TOUCHED_TILES];
+    int touchedCount;
+    int overflow;
+    int captureRequired;
+    int captureConflict;
+    int captureMappingKind;
+    uint32_t captureMapId;
+    int captureTileX;
+    int captureTileY;
+    int validateIterations;
+    int writeIterations;
+    int commitIterations;
+} VramMaterializeSession;
+
+/* Keep the hot-path stack object bounded; workspace is reusable/static. */
+typedef char T6MaterializeSessionSizeGate[
+    sizeof(VramMaterializeSession) <= 16384 ? 1 : -1];
+typedef char T6MaterializeWorkspaceSizeGate[
+    sizeof(VramMaterializeWorkspace) <= 65536 ? 1 : -1];
+
+static inline void T6MaterializeSessionInit(VramMaterializeSession *s,
+                                            VramMaterializeWorkspace *ws)
+{
+    if (s == NULL)
+        return;
+    memset(s, 0, sizeof(*s));
+    T6MaterializePlanReset(&s->plan);
+    s->ws = ws;
+    if (ws != NULL)
+    {
+        if (++ws->generation == 0)
+        {
+            memset(ws->stamp, 0, sizeof(ws->stamp));
+            ws->generation = 1;
+        }
+    }
+}
+
+static inline int T6MaterializeSessionHasEntry(
+    const VramMaterializeSession *s, int tx, int ty)
+{
+    return s != NULL && s->ws != NULL &&
+           s->ws->stamp[ty & 31][tx & 63] == s->ws->generation;
+}
+
+static inline uint64_t T6MaterializeSessionRequiredSeq(
+    const VramMaterializeSession *s, int tx, int ty)
+{
+    return s->ws->requiredSeq[ty & 31][tx & 63];
+}
+
+static inline uint32_t T6MaterializeSessionRequiredMapId(
+    const VramMaterializeSession *s, int tx, int ty)
+{
+    return s->ws->requiredMapId[ty & 31][tx & 63];
+}
+
+static inline int T6MaterializeSessionRequiredSlot(
+    const VramMaterializeSession *s, int tx, int ty)
+{
+    return (int)s->ws->requiredSlot[ty & 31][tx & 63];
+}
+
+/*
+ * Record one dependency tile.  The caller passes the effective EFB sequence
+ * and snapshot sequence; when the tile is a hazard the required sequence is
+ * frozen so a later capture cannot silently erase it.
+ */
+static inline void T6MaterializeSessionObserveTile(
+    VramMaterializeSession *s, int tx, int ty,
+    uint64_t psxColorSeq, uint64_t efbSeq, uint64_t snapshotSeq,
+    uint32_t mapId, int snapshotSlot, int mappingKind,
+    int physicalPresent, uint64_t physicalSeq)
+{
+    if (s == NULL || s->ws == NULL || tx < 0 || tx >= T6_VRAM_TILE_X ||
+        ty < 0 || ty >= T6_VRAM_TILE_Y || s->plan.hazard[ty][tx])
+        return;
+
+    if (efbSeq == 0 || efbSeq <= psxColorSeq)
+        return;
+
+    if (s->touchedCount >= T6_MAX_TOUCHED_TILES)
+    {
+        s->overflow = 1;
+        return;
+    }
+
+    T6MaterializePlanMarkHazard(&s->plan, tx, ty);
+    s->ws->requiredSeq[ty][tx] = efbSeq;
+    s->ws->requiredMapId[ty][tx] = mapId;
+    s->ws->requiredSlot[ty][tx] = (int8_t)snapshotSlot;
+    s->ws->stamp[ty][tx] = s->ws->generation;
+    s->touched[s->touchedCount++] =
+        (uint16_t)(ty * T6_VRAM_TILE_X + tx);
+
+    if (physicalPresent && physicalSeq > snapshotSeq)
+    {
+        s->captureRequired = 1;
+        if (s->captureMapId == 0)
+        {
+            s->captureMappingKind = mappingKind;
+            s->captureMapId = mapId;
+            s->captureTileX = tx;
+            s->captureTileY = ty;
+        }
+        else if (s->captureMapId != mapId)
+            s->captureConflict = 1;
+    }
+}
+
+static inline int T6MaterializeSessionRequiresSlot(
+    const VramMaterializeSession *s, int slot)
+{
+    int i;
+
+    if (s == NULL)
+        return 0;
+    for (i = 0; i < s->touchedCount; i++)
+    {
+        int idx = s->touched[i];
+        int tx = idx % T6_VRAM_TILE_X;
+        int ty = idx / T6_VRAM_TILE_X;
+
+        if (s->plan.hazard[ty][tx] &&
+            T6MaterializeSessionRequiredSlot(s, tx, ty) == slot)
+            return 1;
+    }
+    return 0;
+}
+
+/*
+ * Pick a snapshot slot whose replacement cannot destroy evidence required by
+ * the original hazard batch.  Returns 0 (fail closed) when both slots are
+ * required, otherwise stores the safe slot in *outSlot.
+ */
+static inline int T6MaterializeSessionSelectCaptureSlot(
+    const VramMaterializeSession *s, int oldestSlot, int *outSlot)
+{
+    int other;
+
+    if (s == NULL || !s->captureRequired || outSlot == NULL)
+        return 0;
+
+    other = 1 - oldestSlot;
+    if (T6MaterializeSessionRequiresSlot(s, oldestSlot) &&
+        T6MaterializeSessionRequiresSlot(s, other))
+        return 0;
+
+    *outSlot = T6MaterializeSessionRequiresSlot(s, oldestSlot) ?
+               other : oldestSlot;
+    return 1;
+}
+
+/*
+ * Validation callback fills the per-tile freshness input.  efbSeq is pinned
+ * to the original required sequence by the core; the callback supplies the
+ * current CPU/materialized epochs, snapshot sequence, hazards and baseline
+ * state so EvaluateVramMaterializeTile can re-prove the original hazard.
+ */
+typedef int (*VramMaterializeValidateFn)(
+    void *user, int tx, int ty, uint64_t requiredSeq,
+    VramTileFreshnessInput *in);
+
+static inline int T6MaterializeSessionValidate(
+    VramMaterializeSession *s, VramMaterializeValidateFn validate,
+    void *user)
+{
+    int i;
+
+    if (s == NULL || s->ws == NULL || validate == NULL)
+        return 0;
+
+    for (i = 0; i < s->touchedCount; i++)
+    {
+        int idx = s->touched[i];
+        int tx = idx % T6_VRAM_TILE_X;
+        int ty = idx / T6_VRAM_TILE_X;
+        VramTileFreshnessInput in;
+        uint64_t requiredSeq;
+
+        if (!s->plan.hazard[ty][tx])
+            continue;
+        s->validateIterations++;
+
+        requiredSeq = T6MaterializeSessionRequiredSeq(s, tx, ty);
+        memset(&in, 0, sizeof(in));
+        in.efbSeq = requiredSeq;
+        if (!validate(user, tx, ty, requiredSeq, &in))
+            return 0;
+        in.efbSeq = requiredSeq;
+
+        if (EvaluateVramMaterializeTile(&in) != VRAM_FRESH_MATERIALIZED)
+            return 0;
+        T6MaterializePlanMarkResolved(&s->plan, tx, ty);
+    }
+
+    return T6MaterializePlanAllResolved(&s->plan);
+}
+
+/*
+ * Write callback writes one resolved tile and marks changed tiles through the
+ * plan.  It runs only after T6MaterializeSessionValidate returned 1.
+ */
+typedef void (*VramMaterializeWriteFn)(
+    void *user, VramMaterializePlan *plan,
+    int tx, int ty, uint64_t requiredSeq);
+
+static inline int T6MaterializeSessionWrite(
+    VramMaterializeSession *s, VramMaterializeWriteFn write, void *user)
+{
+    int i;
+
+    if (s == NULL || write == NULL)
+        return 0;
+
+    for (i = 0; i < s->touchedCount; i++)
+    {
+        int idx = s->touched[i];
+        int tx = idx % T6_VRAM_TILE_X;
+        int ty = idx / T6_VRAM_TILE_X;
+
+        if (!s->plan.resolved[ty][tx])
+            continue;
+        s->writeIterations++;
+        write(user, &s->plan, tx, ty,
+              T6MaterializeSessionRequiredSeq(s, tx, ty));
+    }
+
+    return 1;
+}
+
+/*
+ * Commit callbacks: getSeq returns the snapshot sequence that proved the
+ * tile and applyEpoch commits it directly to production/test epoch state.
+ */
+typedef uint64_t (*VramMaterializeSeqFn)(void *user, int tx, int ty);
+typedef void (*VramMaterializeEpochFn)(void *user, int tx, int ty,
+                                       uint64_t seq);
+
+static inline void T6MaterializeSessionCommitEpoch(
+    VramMaterializeSession *s, VramMaterializeSeqFn getSeq,
+    VramMaterializeEpochFn applyEpoch, void *user)
+{
+    int i;
+
+    if (s == NULL || getSeq == NULL || applyEpoch == NULL)
+        return;
+
+    for (i = 0; i < s->touchedCount; i++)
+    {
+        int idx = s->touched[i];
+        int tx = idx % T6_VRAM_TILE_X;
+        int ty = idx / T6_VRAM_TILE_X;
+
+        if (!s->plan.resolved[ty][tx])
+            continue;
+        s->commitIterations++;
+        applyEpoch(user, tx, ty, getSeq(user, tx, ty));
+    }
+}
+
+static inline int T6MaterializeSessionInvalidateChanged(
+    const VramMaterializeSession *s, VramTileRunCallback callback,
+    void *user)
+{
+    if (s == NULL)
+        return 0;
+    return ForEachHorizontalTileRun(
+        &s->plan.changed[0][0], T6_VRAM_TILE_X, T6_VRAM_TILE_Y,
+        T6_VRAM_TILE_SIZE, callback, user);
+}
+
+/* Reusable workspace guard: a second, nested materialize attempt fails
+ * closed instead of clobbering the in-flight session's generation data. */
+static inline int T6WorkspaceBegin(int *depth)
+{
+    if (depth == NULL || *depth > 0)
+        return 0;
+    *depth = 1;
+    return 1;
+}
+
+static inline void T6WorkspaceEnd(int *depth)
+{
+    if (depth != NULL && *depth > 0)
+        *depth = 0;
+}
+
+enum
+{
+    T6_MAP_UNKNOWN = 0,
+    T6_MAP_CURRENT = 1,
+    T6_MAP_PREVIOUS = 2
+};
+
+static inline int T6TileIntersectsRect(int tx, int ty,
+                                       int x0, int y0, int x1, int y1)
+{
+    int px0 = tx << 4;
+    int py0 = ty << 4;
+
+    return x0 < px0 + T6_VRAM_TILE_SIZE && px0 < x1 &&
+           y0 < py0 + T6_VRAM_TILE_SIZE && py0 < y1;
+}
+
+/*
+ * Per-tile map classification.  A tile intersecting both current and
+ * previous rects is UNKNOWN; neither map may silently win the ownership.
+ */
+static inline int T6ClassifyTileMap(
+    int tx, int ty,
+    int activeX0, int activeY0, int activeX1, int activeY1,
+    int prevX0, int prevY0, int prevX1, int prevY1,
+    int previousValid)
+{
+    int inActive =
+        activeX1 > activeX0 && activeY1 > activeY0 &&
+        T6TileIntersectsRect(tx, ty, activeX0, activeY0,
+                             activeX1, activeY1);
+    int inPrevious =
+        previousValid &&
+        T6TileIntersectsRect(tx, ty, prevX0, prevY0, prevX1, prevY1);
+
+    if (inActive && !inPrevious)
+        return T6_MAP_CURRENT;
+    if (inPrevious && !inActive)
+        return T6_MAP_PREVIOUS;
+    return T6_MAP_UNKNOWN;
+}
+
+/* Physical EFB ownership predicate.  INVALID_MAP_ID (0) represents the
+ * pending-presented buffer that is captured under the previous map id. */
+static inline int T6PhysicalOwnsTargetMap(int physMapId, int mappingKind,
+                                          uint32_t targetMapId,
+                                          uint32_t previousMapId)
+{
+    if (mappingKind == T6_MAP_CURRENT)
+        return (uint32_t)physMapId == targetMapId;
+    if (mappingKind == T6_MAP_PREVIOUS)
+        return physMapId == 0 && targetMapId == previousMapId;
+    return 0;
+}
+
+/* Only an UploadScreen transaction whose area covers the whole active map may
+ * feed the active rebuild candidate; GX/clear already-FULL tiles plus a small
+ * A0 patch must never qualify. */
+static inline int T6UploadAreaCoversMap(int uploadX0, int uploadY0,
+                                        int uploadX1, int uploadY1,
+                                        int mapX0, int mapY0,
+                                        int mapX1, int mapY1)
+{
+    return uploadX0 <= mapX0 && uploadY0 <= mapY0 &&
+           uploadX1 >= mapX1 && uploadY1 >= mapY1;
+}
+
+static inline int T6RebuildCandidateEstablishes(int candidateValid,
+                                                int candidateComplete,
+                                                int coversMap)
+{
+    return candidateValid && !candidateComplete && coversMap;
 }
 
 typedef void (*VramReadTileCallback)(void *user, int tx, int ty);

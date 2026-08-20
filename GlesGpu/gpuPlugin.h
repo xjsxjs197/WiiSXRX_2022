@@ -83,6 +83,7 @@ void           SetAutoFrameCap(void);
 void           SetAspectRatio(void);
 void           CheckVRamReadEx(int x, int y, int dx, int dy);
 void           SetFixes(void);
+void           T6_MaterializeVramReadForTest(int x, int y, int w, int h);
 
 void PaintPicDot(unsigned char * p,unsigned char c);
 //void DrawNumBorPic(unsigned char *pMem, int lSelectedSlot);

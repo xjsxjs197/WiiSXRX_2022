@@ -1558,6 +1558,7 @@ int UploadScreen ( int Position )
     int drawnBeforeUpload;
     int externalRebuildUpload;
     int externalRebuildComplete;
+    int activeFullUpload;
 
     if ( xrUploadArea.x0 > 1023 ) xrUploadArea.x0 = 1023;
     if ( xrUploadArea.x1 > 1024 ) xrUploadArea.x1 = 1024;
@@ -1703,6 +1704,19 @@ int UploadScreen ( int Position )
     xa = xrUploadArea.x0;
     xb = xrUploadArea.x1;
 
+    activeFullUpload =
+        !externalRebuildUpload &&
+        uploadMapId == g_activeMap.map_id &&
+        g_activeMap.map_valid &&
+        T6UploadAreaCoversMap(
+            xrUploadArea.x0, xrUploadArea.y0,
+            xrUploadArea.x1, xrUploadArea.y1,
+            g_activeMap.vram_x0, g_activeMap.vram_y0,
+            g_activeMap.vram_x1, g_activeMap.vram_y1);
+    if (!externalRebuildUpload && uploadMapId == g_activeMap.map_id &&
+        !activeFullUpload)
+        ResetActiveRebuildCandidate();
+
 #ifdef DISP_DEBUG
     {
         unsigned int sourceNonZero = 0;
@@ -1820,7 +1834,12 @@ int UploadScreen ( int Position )
                                       xrMovieArea.x1, xrMovieArea.y1,
                                       uploadMapId);
                 if (ctxOk)
+                {
                     TopEfbContext()->coverage = EFB_TILE_PARTIAL;
+                    if (!externalRebuildUpload &&
+                        uploadMapId == g_activeMap.map_id)
+                        TopEfbContext()->rebuildUpload = 1;
+                }
             }
             glPRIMdrawTexturedQuad ( &vertex[0], 1 );
             {
@@ -1855,6 +1874,14 @@ int UploadScreen ( int Position )
                         MarkEfbTilesUpload(uploadCtx->lastSeq,
                                            xrMovieArea.x0, xrMovieArea.y0,
                                            xrMovieArea.x1, xrMovieArea.y1);
+                        if (activeFullUpload)
+                        {
+                            MarkActiveRebuildTileUpload(
+                                uploadCtx->lastSeq,
+                                xrMovieArea.x0, xrMovieArea.y0,
+                                xrMovieArea.x1, xrMovieArea.y1);
+                            MaybeEstablishActiveRebuildBaseline();
+                        }
                     }
                 }
                 EndEfbDrawContext();
@@ -2833,6 +2860,9 @@ static void primBlkFill ( unsigned char * baseAddr )
         unsigned short fillCol = BGR24to16(GETLE32(&gpuData[0]));
         BlkFillArea(sprtX, sprtY, sprtW, sprtH, fillCol);
         MarkCpuVramWriteWithSeq(seq, sprtX, sprtY, sprtW, sprtH);
+        if (clearCurrent && (sprtX + sprtW) >= 1023 &&
+            (sprtY + sprtH) >= 511)
+            MaybeEstablishBlkFillBaseline();
 #ifdef DISP_DEBUG
         if (sprtH >= 120)
             DebugLogVramHalf("BlkFill", sprtX, sprtY, sprtW, sprtH);

@@ -64,6 +64,7 @@ typedef struct {
     int externalRebuild;
     int presentationRebuild;
     int pendingRender;
+    int rebuildUpload;
 } EfbDrawContext;
 
 typedef struct {
@@ -123,13 +124,14 @@ static GXFrameSnapshot g_snapshot[2];
 static int g_liveSlot = 0;
 static int g_prevSlot = 1;
 
-/* DC2 rebuilds the software background in EFB, draws the character with GX,
- * then reads the result through five MoveImage strips.  Keep the pre-draw EFB
- * image so materialization can copy only pixels changed by the GX draws. */
-static GXFrameSnapshot g_moveBaseline;
+/* Single CPU-authoritative rebuild baseline for T6 delta merges.  It is
+ * captured when a complete map has been rebuilt from psxVuw, so materialize
+ * can copy only the pixels changed by later GX draws. */
+static GXFrameSnapshot g_rebuildBaseline;
 
 static GXDisplayMap g_activeMap;
 static EfbRebuildCandidate g_rebuildCandidate;
+static EfbRebuildCandidate g_activeRebuildCandidate;
 static GXDisplayMap g_pendingPresentedMap;
 static int g_pendingPresentedReady;
 static uint64_t g_pendingPresentedCaptureOrder;
@@ -140,6 +142,9 @@ static uint64_t g_writeSeq;
 static uint64_t g_captureOrder;
 
 static uint64_t g_psxWriteTileEpoch[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
+static uint64_t g_psxMaterializedColorTileEpoch[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
+static VramMaterializeWorkspace g_t6Workspace;
+static int g_t6WorkspaceDepth;
 static EfbTileState g_efbTileState[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
 static EfbTileState g_pendingPresentedTile[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
 
@@ -186,6 +191,9 @@ static uint64_t g_diagLastExternalLogSeq;
 
 extern void RestoreDispCopyInfo(void);
 static inline unsigned short GXRGB5A3ToPSX15(unsigned short gx);
+static int SnapshotSourcePriority(const GXFrameSnapshot *snap,
+                                  MappingKind mapping);
+static int ContainsPixel(const GXFrameSnapshot *snap, int px, int py);
 #ifdef DISP_DEBUG
 static void DebugComparePresentedToBaseline(const GXFrameSnapshot *snap);
 #endif
@@ -551,6 +559,11 @@ static void ResetRebuildCandidate(void)
     memset(&g_rebuildCandidate, 0, sizeof(g_rebuildCandidate));
 }
 
+static void ResetActiveRebuildCandidate(void)
+{
+    memset(&g_activeRebuildCandidate, 0, sizeof(g_activeRebuildCandidate));
+}
+
 static void PreparePreviousRebuildCandidate(uint32_t mapId)
 {
     int same = g_rebuildCandidate.valid &&
@@ -647,6 +660,60 @@ static int SnapshotOwnsTile(const GXFrameSnapshot *snap,
     return 0;
 }
 
+static int SnapshotCoversTile(const GXFrameSnapshot *snap, int tx, int ty)
+{
+    int px0 = tx << 4;
+    int py0 = ty << 4;
+    int px, py;
+
+    if (snap == NULL || !snap->valid)
+        return 0;
+
+    for (py = py0; py < py0 + VRAM_READBACK_TILE_SIZE; py++)
+        for (px = px0; px < px0 + VRAM_READBACK_TILE_SIZE; px++)
+            if (!ContainsPixel(snap, px, py))
+                return 0;
+
+    return 1;
+}
+
+static int SnapshotExactRectCoversTile(const GXFrameSnapshot *snap,
+                                       int tx, int ty)
+{
+    int px0 = tx << 4;
+    int py0 = ty << 4;
+
+    if (snap == NULL)
+        return 0;
+    if (!snap->exactRectValid)
+        return 1;
+
+    return snap->exact_x0 <= px0 &&
+           snap->exact_y0 <= py0 &&
+           snap->exact_x1 >= px0 + VRAM_READBACK_TILE_SIZE &&
+           snap->exact_y1 >= py0 + VRAM_READBACK_TILE_SIZE;
+}
+
+/* T6-only color ownership: compares against the combined CPU/materialized
+ * color epoch.  C0 helpers above keep comparing only the CPU epoch. */
+static int SnapshotOwnsColorTileForBarrier(const GXFrameSnapshot *snap,
+                                           int tx, int ty)
+{
+    const EfbTileState *efb;
+    uint64_t psxColor;
+
+    if (snap == NULL || !snap->valid)
+        return 0;
+
+    efb = &snap->efbTile[ty & 31][tx & 63];
+    psxColor = PsxVuwColorTileEpoch(
+        g_psxWriteTileEpoch[ty & 31][tx & 63],
+        g_psxMaterializedColorTileEpoch[ty & 31][tx & 63]);
+
+    return efb->cover == EFB_TILE_FULL && efb->seq != 0 &&
+           efb->seq > psxColor;
+}
+
 static int ContainsPixel(const GXFrameSnapshot *snap, int px, int py)
 {
     unsigned int relX, relY;
@@ -678,17 +745,20 @@ static void InvalidateSnapshotsForMap(uint32_t mapId)
 
 static void SetEfbHazard(void)
 {
+    ResetActiveRebuildCandidate();
     InvalidateSnapshotsForMap(g_activeMap.map_id);
 }
 
 static void SetEfbMixedHazard(uint32_t otherMapId)
 {
+    ResetActiveRebuildCandidate();
     InvalidateSnapshotsForMap(g_activeMap.map_id);
     InvalidateSnapshotsForMap(otherMapId);
 }
 
 static void EfbDiscardedAfterPresent(void)
 {
+    ResetActiveRebuildCandidate();
     g_activeMap.content_valid = 0;
     g_activeMap.content_dirty = 0;
     memset(g_efbTileState, 0, sizeof(g_efbTileState));
@@ -740,6 +810,9 @@ static void OnEfbDrawSubmitted(void)
         return;
     }
 
+    if (!ctx->externalRebuild && !ctx->rebuildUpload)
+        ResetActiveRebuildCandidate();
+
     if (!ctx->active)
         return;
 
@@ -757,6 +830,7 @@ static void OnEfbDrawSubmitted(void)
 
     if (ctx->externalRebuild)
     {
+        ResetActiveRebuildCandidate();
 #ifdef DISP_DEBUG
         if (g_diagLastActiveWriteSeq != 0 &&
             g_diagLastActiveWriteSeq != g_diagLastExternalLogSeq)
@@ -865,6 +939,8 @@ static void OnEfbClearSubmitted(void)
 
     if (!ReadbackEnabled())
         return;
+
+    ResetActiveRebuildCandidate();
 
     if (g_efbOverflowDepth > 0)
     {
@@ -1018,6 +1094,82 @@ static int CaptureEfbSnapshot(GXFrameSnapshot *snap,
         return 0;
 
     return CaptureEfbSnapshotWithTiles(snap, map, g_efbTileState, source);
+}
+
+static void EstablishRebuildBaseline(
+    const GXDisplayMap *map,
+    EfbTileState tile[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X],
+    SnapshotSource source)
+{
+    uint64_t savedCaptureOrder = g_captureOrder;
+
+    if (!CaptureEfbSnapshotWithTiles(&g_rebuildBaseline, map, tile, source))
+        g_rebuildBaseline.valid = 0;
+
+    /* The baseline is not a selectable timeline snapshot. */
+    g_captureOrder = savedCaptureOrder;
+}
+
+/* Active-map rebuild provenance.  Only UploadScreen chunks of a full-map CPU
+ * rebuild write this candidate; g_efbTileState also records GX/clear sources
+ * and must never be used to prove CPU ownership. */
+static void MarkActiveRebuildTileUpload(uint64_t seq,
+                                        int x0, int y0, int x1, int y1)
+{
+    if (!ReadbackEnabled() || !g_activeMap.map_valid || seq == 0)
+        return;
+
+    if (!g_activeRebuildCandidate.valid)
+    {
+        g_activeRebuildCandidate.valid = 1;
+        g_activeRebuildCandidate.map = g_activeMap;
+        g_activeRebuildCandidate.map.content_valid = 1;
+        g_activeRebuildCandidate.map.content_dirty = 1;
+        g_activeRebuildCandidate.map.contentWriteSeq = 0;
+    }
+
+    if (g_activeRebuildCandidate.complete ||
+        g_activeRebuildCandidate.map.map_id != g_activeMap.map_id)
+        return;
+
+    MarkTileArrayFull(g_activeRebuildCandidate.tile, seq, x0, y0, x1, y1);
+    g_activeRebuildCandidate.map.contentWriteSeq = seq;
+}
+
+/* Establish the single baseline only when the upload provenance candidate
+ * itself becomes complete.  A mixed-source g_efbTileState never qualifies. */
+static void MaybeEstablishActiveRebuildBaseline(void)
+{
+    if (!ReadbackEnabled() ||
+        !T6RebuildCandidateEstablishes(
+            g_activeRebuildCandidate.valid,
+            g_activeRebuildCandidate.complete,
+            TileArrayCoversMap(g_activeRebuildCandidate.tile,
+                               &g_activeRebuildCandidate.map)))
+        return;
+
+    g_activeRebuildCandidate.complete = 1;
+    EstablishRebuildBaseline(&g_activeRebuildCandidate.map,
+                             g_activeRebuildCandidate.tile,
+                             SNAPSHOT_SOURCE_UPLOAD_REBUILD);
+}
+
+/* Full-screen BlkFill writes EFB and psxVuw with the same fixed sequence and
+ * explicitly covers the whole active map, so it is its own CPU-authoritative
+ * rebuild source independent of the upload candidate. */
+static void MaybeEstablishBlkFillBaseline(void)
+{
+    if (!ReadbackEnabled() || !g_activeMap.map_valid ||
+        !TileArrayCoversMap(g_efbTileState, &g_activeMap))
+        return;
+
+    if (g_rebuildBaseline.valid &&
+        g_rebuildBaseline.map_id == g_activeMap.map_id &&
+        g_rebuildBaseline.capturedContentSeq == g_activeMap.contentWriteSeq)
+        return;
+
+    EstablishRebuildBaseline(&g_activeMap, g_efbTileState,
+                             SNAPSHOT_SOURCE_UPLOAD_REBUILD);
 }
 
 static GXFrameSnapshot *OldestSnapshotSlot(void)
@@ -1218,19 +1370,9 @@ static int FinishPreviousRebuildChunk(uint64_t seq,
         g_pendingPresentedMap.contentWriteSeq = seq;
     }
 
-    if (dwActFixes & AUTO_FIX_DINO_CRISIS2)
-    {
-        uint64_t savedCaptureOrder = g_captureOrder;
-
-        if (!CaptureEfbSnapshotWithTiles(
-                &g_moveBaseline, &g_rebuildCandidate.map,
-                g_rebuildCandidate.tile,
-                SNAPSHOT_SOURCE_UPLOAD_REBUILD))
-            g_moveBaseline.valid = 0;
-
-        /* The baseline is not a selectable timeline snapshot. */
-        g_captureOrder = savedCaptureOrder;
-    }
+    EstablishRebuildBaseline(&g_rebuildCandidate.map,
+                             g_rebuildCandidate.tile,
+                             SNAPSHOT_SOURCE_UPLOAD_REBUILD);
     return 1;
 }
 
@@ -1428,6 +1570,7 @@ static void BuildActiveMapFromDisplay(void)
 
     memset(g_efbTileState, 0, sizeof(g_efbTileState));
     ResetRebuildCandidate();
+    ResetActiveRebuildCandidate();
 }
 
 static int OnDisplayMappingWillChange(const GXDisplayMap *proposed)
@@ -1485,10 +1628,13 @@ static void ResetVramReadbackState(void)
 #endif
 
     memset(g_psxWriteTileEpoch, 0, sizeof(g_psxWriteTileEpoch));
+    memset(g_psxMaterializedColorTileEpoch, 0,
+           sizeof(g_psxMaterializedColorTileEpoch));
     memset(g_efbTileState, 0, sizeof(g_efbTileState));
     memset(&g_pendingPresentedMap, 0, sizeof(g_pendingPresentedMap));
     memset(g_pendingPresentedTile, 0, sizeof(g_pendingPresentedTile));
     ResetRebuildCandidate();
+    ResetActiveRebuildCandidate();
 
     g_efbContaminated  = FALSE;
     g_mixedMappingSeen = FALSE;
@@ -1527,9 +1673,9 @@ static void ResetVramReadbackState(void)
         g_snapshot[i].size   = 0;
     }
 
-    if (g_moveBaseline.pixels)
-        _mem2_free(g_moveBaseline.pixels);
-    memset(&g_moveBaseline, 0, sizeof(g_moveBaseline));
+    if (g_rebuildBaseline.pixels)
+        _mem2_free(g_rebuildBaseline.pixels);
+    memset(&g_rebuildBaseline, 0, sizeof(g_rebuildBaseline));
 
 #ifdef DISP_DEBUG
     if (g_diagBaseline.pixels)
@@ -1719,6 +1865,38 @@ static int SnapshotSourcePriority(const GXFrameSnapshot *snap,
     return 0;
 }
 
+/* Tile-level T6 selection: one snapshot must cover the whole 16x16 tile with
+ * a FULL tile and a sequence strictly newer than the combined psxVuw color
+ * epoch.  Tie-break matches the C0 source priority/capture order rules. */
+static GXFrameSnapshot *BestOwningSnapshotForTile(int tx, int ty,
+                                                  MappingKind mapping,
+                                                  uint32_t mapId)
+{
+    T6SnapshotCandidate cands[2];
+    int i, selected;
+
+    memset(cands, 0, sizeof(cands));
+    for (i = 0; i < 2; i++)
+    {
+        GXFrameSnapshot *snap = &g_snapshot[i];
+
+        cands[i].qualified = 0;
+        if (snap->valid && snap->map_id == mapId &&
+            SnapshotCoversTile(snap, tx, ty) &&
+            SnapshotExactRectCoversTile(snap, tx, ty) &&
+            SnapshotOwnsColorTileForBarrier(snap, tx, ty))
+        {
+            cands[i].seq = snap->efbTile[ty & 31][tx & 63].seq;
+            cands[i].sourcePriority = SnapshotSourcePriority(snap, mapping);
+            cands[i].captureOrder = snap->captureOrder;
+            cands[i].qualified = 1;
+        }
+    }
+
+    selected = T6SelectBestSnapshotTile(cands, 2, NULL);
+    return selected > 0 ? &g_snapshot[selected - 1] : NULL;
+}
+
 static int SnapshotOwnsPixelForMapping(const GXFrameSnapshot *snap,
                                        int px, int py)
 {
@@ -1874,6 +2052,9 @@ static void MergeReadbackToPsxVuwFiltered(
     const GXFrameSnapshot *baseline)
 {
     unsigned char writtenTile[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
+    unsigned int tilePixels[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
+    uint64_t tileSnapSeq[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
+    unsigned char tileMixed[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
     MappingKind mapping;
     uint32_t mapId;
     int yy, xx, ty, tx;
@@ -1922,6 +2103,9 @@ static void MergeReadbackToPsxVuwFiltered(
         return;
 
     memset(writtenTile, 0, sizeof(writtenTile));
+    memset(tilePixels, 0, sizeof(tilePixels));
+    memset(tileSnapSeq, 0, sizeof(tileSnapSeq));
+    memset(tileMixed, 0, sizeof(tileMixed));
 
     for (yy = 0; yy < h; yy++)
     {
@@ -1969,6 +2153,21 @@ static void MergeReadbackToPsxVuwFiltered(
 
             uint16_t color = ReadSnapshotPixelToPSX(snap, px, py);
             uint16_t psx = (color & 0x7FFF) | (old & 0x8000);
+            {
+                int ttx = (px >> 4) & 63;
+                int tty = (py >> 4) & 31;
+                uint64_t snapTileSeq = snap->efbTile[tty][ttx].seq;
+
+                if (!T6C0ColorCommitAllowed(
+                        snapTileSeq,
+                        g_psxMaterializedColorTileEpoch[tty][ttx]))
+                    continue;
+                tilePixels[tty][ttx]++;
+                if (tilePixels[tty][ttx] == 1)
+                    tileSnapSeq[tty][ttx] = snapTileSeq;
+                else if (tileSnapSeq[tty][ttx] != snapTileSeq)
+                    tileMixed[tty][ttx] = 1;
+            }
 
 #ifdef DISP_DEBUG
             snapPixels[half]++;
@@ -2024,6 +2223,21 @@ static void MergeReadbackToPsxVuwFiltered(
     writeLogFile(txtbuffer);
 #endif
 
+    /* A C0 merge that fully coordinated a whole tile from one snapshot may
+     * promote the materialized color epoch; partial reads never claim a tile.
+     * This runs after pixel writeback and before cache invalidation. */
+    {
+        int ty, tx;
+
+        for (ty = 0; ty < VRAM_READBACK_TILE_Y; ty++)
+            for (tx = 0; tx < VRAM_READBACK_TILE_X; tx++)
+                g_psxMaterializedColorTileEpoch[ty][tx] =
+                    T6C0FullTilePromotionEpoch(
+                        (int)tilePixels[ty][tx], !tileMixed[ty][tx],
+                        tileSnapSeq[ty][tx],
+                        g_psxMaterializedColorTileEpoch[ty][tx]);
+    }
+
     /* T5 first pass: coalesce horizontal written-tile runs so a full-width
      * readback emits one invalidation per row instead of one per 16x16 tile.
      * Pixel merge, mask selection, and snapshot ownership are unchanged. */
@@ -2068,6 +2282,448 @@ static void MergeReadbackToPsxVuwFiltered(
 static void MergeReadbackToPsxVuw(int x, int y, int w, int h)
 {
     MergeReadbackToPsxVuwFiltered(x, y, w, h, NULL, NULL);
+}
+
+static int RectIntersectsTile(int x0, int y0, int x1, int y1,
+                              int tx, int ty)
+{
+    int px0 = tx << 4;
+    int py0 = ty << 4;
+
+    return x0 < px0 + VRAM_READBACK_TILE_SIZE &&
+           px0 < x1 &&
+           y0 < py0 + VRAM_READBACK_TILE_SIZE &&
+           py0 < y1;
+}
+
+static MappingKind ClassifyTileMapping(int tx, int ty)
+{
+    int kind = T6ClassifyTileMap(
+        tx, ty,
+        g_activeMap.map_valid ? g_activeMap.vram_x0 : 0,
+        g_activeMap.map_valid ? g_activeMap.vram_y0 : 0,
+        g_activeMap.map_valid ? g_activeMap.vram_x1 : 0,
+        g_activeMap.map_valid ? g_activeMap.vram_y1 : 0,
+        PreviousPSXDisplay.DisplayPosition.x,
+        PreviousPSXDisplay.DisplayPosition.y,
+        PreviousPSXDisplay.DisplayEnd.x,
+        PreviousPSXDisplay.DisplayEnd.y,
+        !PSXDisplay.InterlacedTest && g_prevMapId != INVALID_MAP_ID);
+
+    return kind == T6_MAP_CURRENT ? MAPPING_CURRENT :
+           (kind == T6_MAP_PREVIOUS ? MAPPING_PREVIOUS :
+                                      MAPPING_UNKNOWN);
+}
+
+typedef struct {
+    uint64_t seq;
+    EfbTileCover cover;
+    int present;
+    uint32_t mapId;
+    const GXDisplayMap *map;
+    EfbTileState (*tiles)[VRAM_READBACK_TILE_X];
+} T6PhysicalTileState;
+
+static int TilePhysicalEfbState(int tx, int ty, MappingKind mapping,
+                                uint32_t targetMapId,
+                                T6PhysicalTileState *out)
+{
+    const GXDisplayMap *map = NULL;
+    EfbTileState (*tiles)[VRAM_READBACK_TILE_X] = NULL;
+    const EfbTileState *st;
+
+    memset(out, 0, sizeof(*out));
+
+    if (mapping == MAPPING_CURRENT)
+    {
+        map = &g_activeMap;
+        tiles = g_efbTileState;
+        if (!map->map_valid || map->map_id != targetMapId)
+            return 0;
+    }
+    else if (mapping == MAPPING_PREVIOUS)
+    {
+        if (g_pendingPresentedReady &&
+            (g_pendingPresentedMap.vram_x0 != g_activeMap.vram_x0 ||
+             g_pendingPresentedMap.vram_y0 != g_activeMap.vram_y0 ||
+             g_pendingPresentedMap.vram_x1 != g_activeMap.vram_x1 ||
+             g_pendingPresentedMap.vram_y1 != g_activeMap.vram_y1) &&
+            RectIntersectsTile(g_pendingPresentedMap.vram_x0,
+                               g_pendingPresentedMap.vram_y0,
+                               g_pendingPresentedMap.vram_x1,
+                               g_pendingPresentedMap.vram_y1,
+                               tx, ty))
+        {
+            map = &g_pendingPresentedMap;
+            tiles = g_pendingPresentedTile;
+        }
+        else
+            return 0;
+    }
+    else
+        return 0;
+
+    if (map == NULL || !map->map_valid || !map->content_valid)
+        return 0;
+
+    st = &tiles[ty & 31][tx & 63];
+    out->seq = st->seq;
+    out->cover = st->cover;
+    out->present = 1;
+    out->mapId = map->map_id;
+    out->map = map;
+    out->tiles = tiles;
+    return 1;
+}
+
+/* Physical EFB ownership: current must carry the active map id; previous is
+ * only accepted through the pending-presented buffer (INVALID_MAP_ID) that
+ * will be captured under the target previous map id. */
+static int TilePhysicalOwnsTargetMap(const T6PhysicalTileState *phys,
+                                     MappingKind mapping,
+                                     uint32_t targetMapId)
+{
+    int kind;
+
+    if (phys == NULL || !phys->present)
+        return 0;
+
+    kind = mapping == MAPPING_CURRENT ? T6_MAP_CURRENT :
+           (mapping == MAPPING_PREVIOUS ? T6_MAP_PREVIOUS :
+                                          T6_MAP_UNKNOWN);
+    return T6PhysicalOwnsTargetMap((int)phys->mapId, kind,
+                                   targetMapId, g_prevMapId);
+}
+
+static int RebuildBaselineMatchesSnapshot(const GXFrameSnapshot *snap)
+{
+    return g_rebuildBaseline.valid && snap != NULL &&
+           g_rebuildBaseline.map_id == snap->map_id &&
+           SnapshotsShareSamplingMap(snap, &g_rebuildBaseline);
+}
+
+static int RebuildBaselineUsableForTile(const GXFrameSnapshot *snap,
+                                        int tx, int ty)
+{
+    const EfbTileState *base;
+
+    if (!RebuildBaselineMatchesSnapshot(snap))
+        return 0;
+
+    base = &g_rebuildBaseline.efbTile[ty & 31][tx & 63];
+    return base->cover == EFB_TILE_FULL && base->seq != 0 &&
+           base->seq >= g_psxWriteTileEpoch[ty & 31][tx & 63];
+}
+
+static int CaptureEfbForMaterialize(GXFrameSnapshot *slot,
+                                    MappingKind mapping,
+                                    uint32_t targetMapId,
+                                    int tx, int ty)
+{
+    GXDisplayMap map;
+    EfbTileState (*tiles)[VRAM_READBACK_TILE_X];
+
+    if (mapping == MAPPING_CURRENT)
+    {
+        if (!CanCaptureActiveEfb())
+            return 0;
+        map = g_activeMap;
+        tiles = g_efbTileState;
+    }
+    else if (mapping == MAPPING_PREVIOUS)
+    {
+        if (!g_pendingPresentedReady ||
+            targetMapId != g_prevMapId ||
+            !RectIntersectsTile(g_pendingPresentedMap.vram_x0,
+                                g_pendingPresentedMap.vram_y0,
+                                g_pendingPresentedMap.vram_x1,
+                                g_pendingPresentedMap.vram_y1,
+                                tx, ty))
+            return 0;
+        map = g_pendingPresentedMap;
+        tiles = g_pendingPresentedTile;
+
+        if ((STATUSREG & GPUSTATUS_RGB24) || PSXDisplay.RGB24 ||
+            g_efbContaminated || g_mixedMappingSeen || g_untrackedEfbWrite)
+            return 0;
+
+        map.map_id = targetMapId;
+        map.map_valid = 1;
+        map.content_valid = 1;
+        map.content_dirty = 1;
+    }
+    else
+        return 0;
+
+    return CaptureEfbSnapshotWithTiles(
+        slot, &map, tiles,
+        mapping == MAPPING_CURRENT ? SNAPSHOT_SOURCE_CURRENT_EFB :
+                                     SNAPSHOT_SOURCE_PRESENTED);
+}
+
+typedef struct {
+    VramMaterializeSession *session;
+    unsigned char seen[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+} T6MaterializeObserve;
+
+static void ObserveMaterializeTile(void *user, int tx, int ty)
+{
+    T6MaterializeObserve *obs = (T6MaterializeObserve *)user;
+    T6PhysicalTileState phys;
+    GXFrameSnapshot *snap;
+    MappingKind mapping;
+    uint32_t mapId;
+    uint64_t psxColor, snapSeq, efbSeq;
+    int slotIndex = -1;
+
+    if (obs->seen[ty & 31][tx & 63])
+        return;
+    obs->seen[ty & 31][tx & 63] = 1;
+
+    mapping = ClassifyTileMapping(tx, ty);
+    if (mapping == MAPPING_CURRENT)
+        mapId = g_activeMap.map_id;
+    else if (mapping == MAPPING_PREVIOUS)
+        mapId = g_prevMapId;
+    else
+        mapId = 0;
+
+    memset(&phys, 0, sizeof(phys));
+    if (mapping != MAPPING_UNKNOWN)
+    {
+        TilePhysicalEfbState(tx, ty, mapping, mapId, &phys);
+        if (!TilePhysicalOwnsTargetMap(&phys, mapping, mapId))
+            memset(&phys, 0, sizeof(phys));
+    }
+
+    snap = BestOwningSnapshotForTile(tx, ty, mapping, mapId);
+
+    psxColor = PsxVuwColorTileEpoch(
+        g_psxWriteTileEpoch[ty & 31][tx & 63],
+        g_psxMaterializedColorTileEpoch[ty & 31][tx & 63]);
+    snapSeq = snap ? snap->efbTile[ty & 31][tx & 63].seq : 0;
+    efbSeq = phys.present && phys.seq > snapSeq ? phys.seq : snapSeq;
+
+    if (snap != NULL && snapSeq >= efbSeq)
+        slotIndex = snap == &g_snapshot[0] ? 0 : 1;
+
+    T6MaterializeSessionObserveTile(obs->session, tx, ty,
+                                    psxColor, efbSeq, snapSeq,
+                                    mapId, slotIndex, (int)mapping,
+                                    phys.present, phys.seq);
+}
+
+static int ValidateMaterializeTile(void *user, int tx, int ty,
+                                   uint64_t requiredSeq,
+                                   VramTileFreshnessInput *in)
+{
+    VramMaterializeSession *session = (VramMaterializeSession *)user;
+    T6PhysicalTileState phys;
+    GXFrameSnapshot *snap;
+    MappingKind mapping;
+    uint32_t mapId;
+    const EfbTileState *efb;
+
+    memset(&phys, 0, sizeof(phys));
+    mapping = ClassifyTileMapping(tx, ty);
+    mapId = T6MaterializeSessionRequiredMapId(session, tx, ty);
+
+    if (mapping == MAPPING_UNKNOWN || mapId == 0)
+    {
+        in->untrackedEfb = 1;
+        return 1;
+    }
+
+    TilePhysicalEfbState(tx, ty, mapping, mapId, &phys);
+    if (!TilePhysicalOwnsTargetMap(&phys, mapping, mapId))
+        memset(&phys, 0, sizeof(phys));
+
+    snap = BestOwningSnapshotForTile(tx, ty, mapping, mapId);
+
+    in->cpuWriteEpoch = g_psxWriteTileEpoch[ty & 31][tx & 63];
+    in->materializedColorEpoch =
+        g_psxMaterializedColorTileEpoch[ty & 31][tx & 63];
+    in->snapshotSeq = snap ? snap->efbTile[ty & 31][tx & 63].seq : 0;
+    in->rgb24 = (STATUSREG & GPUSTATUS_RGB24) || PSXDisplay.RGB24 ||
+                (phys.map != NULL && phys.map->rgb24);
+    in->contaminated = g_efbContaminated;
+    in->mixedMapping = g_mixedMappingSeen;
+    in->untrackedEfb = g_untrackedEfbWrite;
+    in->hasValidSnapshot =
+        snap != NULL && in->snapshotSeq >= requiredSeq;
+    in->baselinePresentForSnapshot =
+        snap != NULL && RebuildBaselineMatchesSnapshot(snap);
+    in->baselineUsable =
+        snap != NULL && RebuildBaselineUsableForTile(snap, tx, ty);
+
+    efb = snap ? &snap->efbTile[ty & 31][tx & 63] : NULL;
+    in->efbCoverFull =
+        efb != NULL && efb->cover == EFB_TILE_FULL &&
+        SnapshotExactRectCoversTile(snap, tx, ty);
+    return 1;
+}
+
+static void WriteMaterializeTile(void *user, VramMaterializePlan *plan,
+                                 int tx, int ty, uint64_t requiredSeq)
+{
+    VramMaterializeSession *session = (VramMaterializeSession *)user;
+    MappingKind mapping;
+    uint32_t mapId;
+    GXFrameSnapshot *snap;
+    int baselineDelta;
+    int px, py;
+
+    (void)requiredSeq;
+    mapping = ClassifyTileMapping(tx, ty);
+    mapId = T6MaterializeSessionRequiredMapId(session, tx, ty);
+    if (mapping == MAPPING_UNKNOWN || mapId == 0)
+        return;
+
+    snap = BestOwningSnapshotForTile(tx, ty, mapping, mapId);
+    if (snap == NULL)
+        return;
+    baselineDelta = RebuildBaselineUsableForTile(snap, tx, ty);
+
+    for (py = ty << 4; py < (ty << 4) + VRAM_READBACK_TILE_SIZE; py++)
+        for (px = tx << 4; px < (tx << 4) + VRAM_READBACK_TILE_SIZE; px++)
+        {
+            unsigned short old = GETLE16(psxVuw + (py << 10) + px);
+            unsigned short color;
+            unsigned short psx;
+
+            if (baselineDelta &&
+                !SnapshotPixelDiffers(snap, &g_rebuildBaseline, px, py))
+                continue;
+
+            color = ReadSnapshotPixelToPSX(snap, px, py);
+            psx = T6MergePixelColor(old, color);
+            if (psx == old)
+                continue;
+
+            PUTLE16(psxVuw + (py << 10) + px, psx);
+            T6MaterializePlanMarkChanged(plan, tx, ty);
+        }
+}
+
+static uint64_t MaterializeSnapshotSeq(void *user, int tx, int ty)
+{
+    VramMaterializeSession *session = (VramMaterializeSession *)user;
+    MappingKind mapping;
+    uint32_t mapId;
+    GXFrameSnapshot *snap;
+
+    mapping = ClassifyTileMapping(tx, ty);
+    mapId = T6MaterializeSessionRequiredMapId(session, tx, ty);
+    if (mapping == MAPPING_UNKNOWN || mapId == 0)
+        return T6MaterializeSessionRequiredSeq(session, tx, ty);
+
+    snap = BestOwningSnapshotForTile(tx, ty, mapping, mapId);
+    if (snap != NULL)
+        return snap->efbTile[ty & 31][tx & 63].seq;
+    return T6MaterializeSessionRequiredSeq(session, tx, ty);
+}
+
+static void ApplyMaterializeEpoch(void *user, int tx, int ty, uint64_t seq)
+{
+    (void)user;
+    if (seq > g_psxMaterializedColorTileEpoch[ty & 31][tx & 63])
+        g_psxMaterializedColorTileEpoch[ty & 31][tx & 63] = seq;
+}
+
+/* Two-phase materialize: prove every hazard tile first, then write, commit
+ * epochs, and invalidate only after the whole batch is safe. */
+static VramFreshResult MaterializeVramReadCore(const VramReadDependency *dep)
+{
+    VramMaterializeSession session;
+    T6MaterializeObserve obs;
+    int slotIndex;
+    int oldestIndex;
+
+    if (!ReadbackEnabled() || dep == NULL || dep->count == 0 ||
+        dep->count > T6_DEP_RECT_CAPACITY)
+        return VRAM_FRESH_UNRESOLVED;
+
+    T6MaterializeSessionInit(&session, &g_t6Workspace);
+    memset(&obs, 0, sizeof(obs));
+    obs.session = &session;
+    ForEachVramReadDependencyTile(dep, 1024, 512,
+                                  ObserveMaterializeTile, &obs);
+
+    if (session.overflow)
+        return VRAM_FRESH_UNRESOLVED;
+
+    if (session.captureRequired)
+    {
+        GXFrameSnapshot *oldest = OldestSnapshotSlot();
+
+        oldestIndex = oldest == &g_snapshot[0] ? 0 : 1;
+        if (session.captureConflict ||
+            !T6MaterializeSessionSelectCaptureSlot(
+                &session, oldestIndex, &slotIndex))
+            return VRAM_FRESH_UNRESOLVED;
+
+        if (!CaptureEfbForMaterialize(
+                &g_snapshot[slotIndex],
+                (MappingKind)session.captureMappingKind,
+                session.captureMapId,
+                session.captureTileX, session.captureTileY))
+            return VRAM_FRESH_UNRESOLVED;
+    }
+
+    if (session.plan.hazardCount == 0)
+        return VRAM_FRESH_NO_ACTION;
+
+    /* Re-prove the original hazard batch; capture may have replaced a slot,
+     * so a missing snapshot now means the whole barrier is unresolved. */
+    if (!T6MaterializeSessionValidate(&session,
+                                      ValidateMaterializeTile, &session))
+        return VRAM_FRESH_UNRESOLVED;
+
+    T6MaterializeSessionWrite(&session, WriteMaterializeTile, &session);
+    T6MaterializeSessionCommitEpoch(&session,
+                                    MaterializeSnapshotSeq,
+                                    ApplyMaterializeEpoch, NULL);
+
+    if (session.plan.changedCount > 0)
+    {
+        int runs = T6MaterializeSessionInvalidateChanged(
+            &session, InvalidateTileRunRect, NULL);
+        (void)runs;
+    }
+
+    return VRAM_FRESH_MATERIALIZED;
+}
+
+static VramFreshResult MaterializeVramRead(const VramReadDependency *dep)
+{
+    VramFreshResult result;
+
+    if (!ReadbackEnabled() || dep == NULL || dep->count == 0 ||
+        dep->count > T6_DEP_RECT_CAPACITY)
+        return VRAM_FRESH_UNRESOLVED;
+
+    if (!T6WorkspaceBegin(&g_t6WorkspaceDepth))
+        return VRAM_FRESH_UNRESOLVED;
+
+    result = MaterializeVramReadCore(dep);
+    T6WorkspaceEnd(&g_t6WorkspaceDepth);
+    return result;
+}
+
+/* Dedicated T6-B synthetic entry.  No production texture or MoveImage caller
+ * uses this yet; it exists so later stages and tests can drive the core. */
+void T6_MaterializeVramReadForTest(int x, int y, int w, int h)
+{
+    VramReadDependency dep;
+
+    if (!ReadbackEnabled())
+        return;
+
+    memset(&dep, 0, sizeof(dep));
+    if (!BuildMoveSourceDependency(x, y, w, h, 1024, 512, &dep))
+        return;
+
+    MaterializeVramRead(&dep);
 }
 
 /* GP0 80h reads VRAM internally; it does not pass through the C0 transfer
@@ -2134,8 +2790,8 @@ static void MaterializeEfbForVramMove(int x, int y, int w, int h)
     }
 
     if (capturedSnapshot != NULL &&
-        SnapshotsShareSamplingMap(capturedSnapshot, &g_moveBaseline))
-        baseline = &g_moveBaseline;
+        SnapshotsShareSamplingMap(capturedSnapshot, &g_rebuildBaseline))
+        baseline = &g_rebuildBaseline;
 
     if (baseline != NULL)
         MergeReadbackToPsxVuwFiltered(x, y, w, h,
