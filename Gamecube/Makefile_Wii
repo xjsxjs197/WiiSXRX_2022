@@ -40,6 +40,8 @@ CFLAGS	= -flto -Ofast -w -Wno-stringop-truncation -Wno-strict-aliasing -Wno-misl
 		  -D__GX__ \
 		  -D_GNU_SOURCE -DDISP_DEBUG -DSHOW_DEBUG
 
+CFLAGS += $(EXTRA_CFLAGS)
+
 CXXFLAGS	=	$(CFLAGS)
 
 ASFLAGS := -DHW_RVL

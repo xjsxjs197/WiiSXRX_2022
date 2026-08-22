@@ -919,6 +919,15 @@ typedef struct T6Harness
     int validateIterations;
     int writeIterations;
     int commitIterations;
+    int wndHits;
+    int wndUploads;
+    unsigned int wndKey[8];
+    int wndUsed[8];
+    int wndPage[8];
+    int wndMode[8];
+    unsigned int wndClut[8];
+    int wndCount;
+    unsigned char changed[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
     uint32_t mapId;
 } T6Harness;
 
@@ -1093,6 +1102,7 @@ static VramFreshResult harness_run(T6Harness *h,
     memset(&run, 0, sizeof(run));
     run.h = h;
     run.session = &session;
+    memset(h->changed, 0, sizeof(h->changed));
     T6MaterializeSessionInit(&session, &s_ws);
     ForEachVramReadDependencyTile(dep, 1024, 512,
                                   harness_observe, &run);
@@ -1156,6 +1166,7 @@ static VramFreshResult harness_run(T6Harness *h,
     h->validateIterations = session.validateIterations;
     h->writeIterations = session.writeIterations;
     h->commitIterations = session.commitIterations;
+    memcpy(h->changed, session.plan.changed, sizeof(h->changed));
 
     return VRAM_FRESH_MATERIALIZED;
 }
@@ -1180,6 +1191,144 @@ static void append_tile_dep(VramReadDependency *dep, int tx, int ty)
     r.x1 = r.x0 + T6_VRAM_TILE_SIZE;
     r.y1 = r.y0 + T6_VRAM_TILE_SIZE;
     VramReadDependencyAppend(dep, &r);
+}
+
+static unsigned int harness_le32(const T6Harness *h, int addr)
+{
+    return (unsigned int)h->vram[addr] |
+           ((unsigned int)h->vram[addr + 1] << 16);
+}
+
+/* Exact production palette checksum: 32-bit grouped reads, row-weighted and
+ * high-word folded, so the harness key matches LoadTextureWnd(). */
+static unsigned int production_palette_checksum(const T6Harness *h,
+                                                unsigned int clutId,
+                                                int mode)
+{
+    int cx = ((int)(clutId & 0x3F) << 4);
+    int cy = (int)((clutId >> 6) & 0x1FF);
+    unsigned int l = 0;
+    unsigned int words = mode == 1 ? 128u : 8u;
+    unsigned int row;
+    unsigned int addr = (unsigned int)(cy * 1024 + cx);
+
+    for (row = 1; row <= words; row++)
+    {
+        unsigned int v = harness_le32(h, (int)(addr & 0x7FFFFu));
+
+        if (mode == 1)
+            l += (v - 1u) * row;
+        else
+            l += (v - 1u) << row;
+        addr += 2;
+    }
+    l = (l + (l >> 16)) & 0x3FFFu;
+    return l;
+}
+
+static void harness_set_tile(T6Harness *h, int tx, int ty, uint64_t seq)
+{
+    h->physPresent[ty][tx] = 1;
+    h->physSeq[ty][tx] = seq;
+    h->snapshotPresent[ty][tx] = 1;
+    h->snapshotFull[ty][tx] = 1;
+    h->snapshotSeq[ty][tx] = seq;
+    h->snapshotSlot[ty][tx] = 0;
+}
+
+static void harness_set_phys_only(T6Harness *h, int tx, int ty,
+                                  uint64_t seq)
+{
+    h->physPresent[ty][tx] = 1;
+    h->physSeq[ty][tx] = seq;
+    h->snapshotPresent[ty][tx] = 0;
+}
+
+static void mark_dep_tile(void *user, int tx, int ty)
+{
+    unsigned char (*tiles)[T6_VRAM_TILE_X] =
+        (unsigned char (*)[T6_VRAM_TILE_X])user;
+
+    tiles[ty & 31][tx & 63] = 1;
+}
+
+static int wnd_entry_depends_on_changed(const T6Harness *h,
+                                        int pageid, int mode,
+                                        unsigned int clutId)
+{
+    VramReadDependency dep;
+    unsigned char tiles[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    int ty, tx;
+
+    memset(&dep, 0, sizeof(dep));
+    memset(tiles, 0, sizeof(tiles));
+    if (!BuildWindowTextureDependency(pageid, mode, clutId & 0x7FFF,
+                                      0x1FF, 1024, 512, &dep))
+        return 0;
+
+    ForEachVramReadDependencyTile(&dep, 1024, 512,
+                                  mark_dep_tile, tiles);
+    for (ty = 0; ty < T6_VRAM_TILE_Y; ty++)
+        for (tx = 0; tx < T6_VRAM_TILE_X; tx++)
+            if (tiles[ty][tx] && h->changed[ty][tx])
+                return 1;
+    return 0;
+}
+
+static VramFreshResult simulate_window_lookup(T6Harness *h,
+                                              int pageid, int mode,
+                                              unsigned int clutId,
+                                              int *hitOut)
+{
+    VramReadDependency dep;
+    VramFreshResult result;
+    unsigned int key;
+    int i;
+
+    memset(&dep, 0, sizeof(dep));
+    if (!BuildWindowTextureDependency(pageid, mode, clutId & 0x7FFF,
+                                      0x1FF, 1024, 512, &dep))
+        return VRAM_FRESH_UNRESOLVED;
+
+    result = harness_run(h, &dep);
+
+    if (mode == 2)
+        key = 0;
+    else
+        key = (clutId & 0x7FFF) |
+              (((uint32_t)production_palette_checksum(
+                  h, clutId, mode)) << 16);
+
+    /* Materialize may have invalidated entries that depend on changed tiles. */
+    if (result == VRAM_FRESH_MATERIALIZED)
+    {
+        for (i = 0; i < h->wndCount; i++)
+            if (h->wndUsed[i] &&
+                wnd_entry_depends_on_changed(
+                    h, h->wndPage[i], h->wndMode[i], h->wndClut[i]))
+                h->wndUsed[i] = 0;
+    }
+
+    *hitOut = 0;
+    for (i = 0; i < h->wndCount; i++)
+        if (h->wndUsed[i] && h->wndKey[i] == key)
+        {
+            h->wndHits++;
+            *hitOut = 1;
+            return result;
+        }
+
+    if (h->wndCount < 8)
+    {
+        h->wndUsed[h->wndCount] = 1;
+        h->wndKey[h->wndCount] = key;
+        h->wndPage[h->wndCount] = pageid;
+        h->wndMode[h->wndCount] = mode;
+        h->wndClut[h->wndCount] = clutId & 0x7FFF;
+        h->wndCount++;
+    }
+    h->wndUploads++;
+    return result;
 }
 
 static void test_materialize_core_repeat(void)
@@ -1244,6 +1393,7 @@ static void test_materialize_core_fail_no_change(void)
     expect_count((int)harness_run(h, &dep),
                  (int)VRAM_FRESH_NO_ACTION);
     expect_count(h->writes, 0);
+    expect_count(h->invalidateRuns, 0);
     expect_u64(h->matEpoch[0][0], 0, "cpu newer no epoch");
     expect_bool(tile_hash(h, 0, 0) == before, 1,
                 "cpu newer hash unchanged");
@@ -1604,6 +1754,330 @@ static void test_session_compact_gates(void)
                 "max dependency no overflow");
 }
 
+static void test_window_lookup_source_only(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    int hit = 0;
+
+    harness_reset(h);
+    harness_set_tile(h, 0, 0, 11);
+
+    r = simulate_window_lookup(h, 0, 2, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(hit, 0);
+    expect_count(h->wndUploads, 1);
+    expect_count(h->wndHits, 0);
+    expect_count(h->captures, 0);
+    expect_bool(h->writes > 0, 1, "source pixels written");
+    expect_bool(h->invalidateRuns >= 1, 1, "source invalidation run");
+    expect_u64(h->matEpoch[0][0], 11, "source epoch");
+
+    hit = 0;
+    r = simulate_window_lookup(h, 0, 2, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(hit, 1);
+    expect_count(h->wndUploads, 1);
+    expect_count(h->wndHits, 1);
+}
+
+static void test_window_lookup_clut4_order(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    uint32_t initialChecksum;
+    uint32_t keyChecksum;
+    int hit = 0;
+
+    harness_reset(h);
+    initialChecksum = production_palette_checksum(h, 0x3F, 0);
+    harness_set_tile(h, 63, 0, 11);
+
+    r = simulate_window_lookup(h, 0, 0, 0x3F, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(hit, 0);
+    expect_count(h->wndUploads, 1);
+    expect_u64(h->matEpoch[0][63], 11, "clut4 epoch");
+    keyChecksum = (h->wndKey[0] >> 16) & 0x3FFF;
+    expect_bool(keyChecksum == production_palette_checksum(h, 0x3F, 0), 1,
+                "clut4 key uses post-barrier checksum");
+    expect_bool(keyChecksum != initialChecksum, 1,
+                "clut4 barrier injected B checksum");
+
+    hit = 0;
+    r = simulate_window_lookup(h, 0, 0, 0x3F, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(hit, 1);
+    expect_count(h->wndUploads, 1);
+    expect_count(h->wndHits, 1);
+}
+
+static void test_window_lookup_clut8_order(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    uint32_t initialChecksum;
+    uint32_t keyChecksum;
+    int hit = 0;
+
+    harness_reset(h);
+    initialChecksum = production_palette_checksum(h, 0x3F, 1);
+    harness_set_tile(h, 63, 0, 11);
+
+    r = simulate_window_lookup(h, 0, 1, 0x3F, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(hit, 0);
+    expect_count(h->wndUploads, 1);
+    expect_u64(h->matEpoch[0][63], 11, "clut8 epoch");
+    keyChecksum = (h->wndKey[0] >> 16) & 0x3FFF;
+    expect_bool(keyChecksum == production_palette_checksum(h, 0x3F, 1), 1,
+                "clut8 key uses post-barrier checksum");
+    expect_bool(keyChecksum != initialChecksum, 1,
+                "clut8 barrier injected B checksum");
+
+    hit = 0;
+    r = simulate_window_lookup(h, 0, 1, 0x3F, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(hit, 1);
+    expect_count(h->wndUploads, 1);
+    expect_count(h->wndHits, 1);
+}
+
+static void test_window_lookup_preset_hit(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    unsigned int key;
+    int hit = 0;
+
+    harness_reset(h);
+    key = (0x3F & 0x7FFF) |
+          (((uint32_t)production_palette_checksum(h, 0x3F, 0)) << 16);
+    h->wndUsed[0] = 1;
+    h->wndKey[0] = key;
+    h->wndPage[0] = 0;
+    h->wndMode[0] = 0;
+    h->wndClut[0] = 0x3F;
+    h->wndCount = 1;
+
+    r = simulate_window_lookup(h, 0, 0, 0x3F, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(hit, 1);
+    expect_count(h->wndUploads, 0);
+    expect_count(h->captures, 0);
+
+    hit = 0;
+    r = simulate_window_lookup(h, 0, 0, 0x3F, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(hit, 1);
+    expect_count(h->wndHits, 2);
+    expect_count(h->wndUploads, 0);
+}
+
+static void test_window_lookup_preset_miss(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    int hit = 0;
+
+    harness_reset(h);
+    harness_set_tile(h, 63, 0, 11);
+
+    r = simulate_window_lookup(h, 0, 0, 0x3F, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(hit, 0);
+    expect_count(h->wndUploads, 1);
+    expect_count(h->wndHits, 0);
+
+    hit = 0;
+    r = simulate_window_lookup(h, 0, 0, 0x3F, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(hit, 1);
+    expect_count(h->wndUploads, 1);
+    expect_count(h->wndHits, 1);
+}
+
+static void test_window_lookup_stale_hit_source_capture(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    int hit = 0;
+
+    harness_reset(h);
+    h->wndUsed[0] = 1;
+    h->wndKey[0] = 0;
+    h->wndPage[0] = 0;
+    h->wndMode[0] = 2;
+    h->wndClut[0] = 0;
+    h->wndCount = 1;
+    harness_set_phys_only(h, 0, 0, 11);
+
+    r = simulate_window_lookup(h, 0, 2, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->captures, 1);
+    expect_count(hit, 0);
+    expect_count(h->wndUploads, 1);
+    expect_bool(h->wndUsed[0] == 0, 1,
+                "stale source entry invalidated");
+    expect_bool(h->writes > 0, 1, "source captured pixels");
+
+    hit = 0;
+    r = simulate_window_lookup(h, 0, 2, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(h->captures, 1);
+    expect_count(hit, 1);
+    expect_count(h->wndUploads, 1);
+}
+
+static void test_window_lookup_stale_hit_clut_capture(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    unsigned int initialKey;
+    int hit = 0;
+
+    harness_reset(h);
+    initialKey = (0x3F & 0x7FFF) |
+                 (((uint32_t)production_palette_checksum(
+                     h, 0x3F, 0)) << 16);
+    h->wndUsed[0] = 1;
+    h->wndKey[0] = initialKey;
+    h->wndPage[0] = 0;
+    h->wndMode[0] = 0;
+    h->wndClut[0] = 0x3F;
+    h->wndCount = 1;
+    harness_set_phys_only(h, 63, 0, 11);
+
+    r = simulate_window_lookup(h, 0, 0, 0x3F, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->captures, 1);
+    expect_count(hit, 0);
+    expect_count(h->wndUploads, 1);
+    expect_bool(h->wndUsed[0] == 0, 1,
+                "stale clut entry invalidated");
+    expect_u64(h->matEpoch[0][63], 11, "clut capture epoch");
+
+    hit = 0;
+    r = simulate_window_lookup(h, 0, 0, 0x3F, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(h->captures, 1);
+    expect_count(hit, 1);
+    expect_count(h->wndUploads, 1);
+}
+
+static void test_production_checksum_vector(void)
+{
+    T6Harness *h = &s_harness;
+    int i;
+
+    harness_reset(h);
+    for (i = 0; i < 16; i++)
+        h->vram[i] = 0x0000;
+    h->vram[0] = 0x0000;
+    h->vram[1] = 0x0001;
+    h->vram[2] = 0x0002;
+    h->vram[3] = 0x0000;
+
+    /* Hand-computed mode 0 vector with unsigned 32-bit wrap:
+     * v1=0x00010000, v2=0x00000002, v3..v8=0
+     * rows 3..8 contribute (0xFFFFFFFF<<row) mod 2^32,
+     * sum=0x0001FE0A, fold -> 0x0001FE0B, &0x3fff -> 0x3E0B */
+    expect_u64(production_palette_checksum(h, 0, 0), 0x3E0Bu,
+               "fixed checksum vector");
+}
+
+static void test_capture_failure_reason(void)
+{
+    expect_count(T6ClassifyCaptureFailureReason(1, 0, 0, 0, 0),
+                 T6_REASON_RGB24);
+    expect_count(T6ClassifyCaptureFailureReason(0, 1, 0, 0, 0),
+                 T6_REASON_HAZARD);
+    expect_count(T6ClassifyCaptureFailureReason(0, 0, 1, 0, 0),
+                 T6_REASON_HAZARD);
+    expect_count(T6ClassifyCaptureFailureReason(0, 0, 0, 1, 0),
+                 T6_REASON_HAZARD);
+    expect_count(T6ClassifyCaptureFailureReason(0, 0, 0, 0, 1),
+                 T6_REASON_UNKNOWN_MAP);
+    expect_count(T6ClassifyCaptureFailureReason(0, 0, 0, 0, 0),
+                 T6_REASON_CAPTURE_FAIL);
+}
+
+static void test_window_lookup_harness_cumulative_capture(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    int hit = 0;
+
+    harness_reset(h);
+    harness_set_phys_only(h, 0, 0, 11);
+
+    r = simulate_window_lookup(h, 0, 2, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->captures, 1);
+    expect_count(h->wndUploads, 1);
+
+    /* Harness-level behavior only; the production CopyTex total wiring is
+     * covered separately by test_copytex_stats_shared. */
+    harness_set_phys_only(h, 1, 0, 12);
+    hit = 0;
+    r = simulate_window_lookup(h, 0, 2, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->captures, 2);
+    expect_count(h->wndUploads, 2);
+
+    /* Both tiles fresh now: NO_ACTION, captures stay cumulative. */
+    hit = 0;
+    r = simulate_window_lookup(h, 0, 2, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(h->captures, 2);
+    expect_count(hit, 1);
+    expect_count(h->wndUploads, 2);
+}
+
+static void test_capture_diag_production_flow(void)
+{
+    T6CaptureDiagInput diag;
+
+    /* Current RGB15 capture, unrelated pending map RGB24: must stay
+     * CAPTURE_FAIL, not leak the pending map's RGB24 flag. */
+    T6CaptureDiagFill(&diag, 0, 0, 1, T6_MAP_CURRENT, 0, 0, 0, 0);
+    expect_count(T6ClassifyCaptureFailure(&diag),
+                 T6_REASON_CAPTURE_FAIL);
+
+    /* Previous-map capture really reads the pending RGB24 state. */
+    T6CaptureDiagFill(&diag, 0, 0, 1, T6_MAP_PREVIOUS, 0, 0, 0, 0);
+    expect_count(T6ClassifyCaptureFailure(&diag), T6_REASON_RGB24);
+
+    /* Global RGB24 affects both mappings. */
+    T6CaptureDiagFill(&diag, 1, 0, 0, T6_MAP_CURRENT, 0, 0, 0, 0);
+    expect_count(T6ClassifyCaptureFailure(&diag), T6_REASON_RGB24);
+
+    /* Hazard flags survive the diag input path. */
+    T6CaptureDiagFill(&diag, 0, 0, 0, T6_MAP_CURRENT, 1, 0, 0, 0);
+    expect_count(T6ClassifyCaptureFailure(&diag), T6_REASON_HAZARD);
+    T6CaptureDiagFill(&diag, 0, 0, 0, T6_MAP_CURRENT, 0, 1, 0, 0);
+    expect_count(T6ClassifyCaptureFailure(&diag), T6_REASON_HAZARD);
+    T6CaptureDiagFill(&diag, 0, 0, 0, T6_MAP_CURRENT, 0, 0, 1, 0);
+    expect_count(T6ClassifyCaptureFailure(&diag), T6_REASON_HAZARD);
+}
+
+static void test_copytex_stats_shared(void)
+{
+    unsigned int thisCall = 0;
+    unsigned int total = 0;
+
+    T6CopyTexBeginCall(&thisCall);
+    T6CopyTexCapture(&thisCall, &total);
+    T6CopyTexCapture(&thisCall, &total);
+    expect_count((int)thisCall, 2);
+    expect_count((int)total, 2);
+
+    /* Next barrier starts with a fresh delta but keeps the cumulative total. */
+    T6CopyTexBeginCall(&thisCall);
+    expect_count((int)thisCall, 0);
+    expect_count((int)total, 2);
+}
+
 int main(void)
 {
     test_epoch();
@@ -1635,6 +2109,18 @@ int main(void)
     test_c0_hash_equivalence();
     test_rebuild_baseline_gate();
     test_session_compact_gates();
+    test_window_lookup_source_only();
+    test_window_lookup_clut4_order();
+    test_window_lookup_clut8_order();
+    test_window_lookup_preset_hit();
+    test_window_lookup_preset_miss();
+    test_window_lookup_stale_hit_source_capture();
+    test_window_lookup_stale_hit_clut_capture();
+    test_production_checksum_vector();
+    test_capture_failure_reason();
+    test_window_lookup_harness_cumulative_capture();
+    test_capture_diag_production_flow();
+    test_copytex_stats_shared();
 
     if (s_failures == 0)
         printf("PASS t6_barrier\n");

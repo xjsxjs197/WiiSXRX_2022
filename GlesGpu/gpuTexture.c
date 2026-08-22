@@ -224,6 +224,9 @@ unsigned int g_texturePaletteEntryChecks = 0;
 unsigned int g_textureTotalInvalidatedEntries = 0;
 unsigned int g_textureStandardUploads = 0;
 unsigned int g_textureWindowUploads = 0;
+/* Pure memory counter feeding the DIAG-only WNDLOOK log; ordinary Debug
+ * keeps the number but performs no window-lookup file output from it. */
+unsigned int g_textureWindowCacheHits = 0;
 #endif
 
 static textureSubCacheEntryS *curTsx;
@@ -1189,11 +1192,45 @@ void LoadWndTexturePage(int pageid, int mode, short cx, short cy)
 // tex window: main selecting, cache handler included
 ////////////////////////////////////////////////////////////////////////
 
+#if defined(DISP_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+#define T6_WND_DIAG 1
+#else
+#define T6_WND_DIAG 0
+#endif
+
+#if T6_WND_DIAG
+static unsigned int g_wndLookupHitLogs;
+static unsigned int g_wndLookupMissLogs;
+
+static void T6LogWindowLookup(unsigned int hitsBefore,
+                              unsigned int uploadsBefore, int hit)
+{
+    unsigned int *logCount =
+        hit ? &g_wndLookupHitLogs : &g_wndLookupMissLogs;
+
+    if (*logCount >= 8)
+        return;
+    (*logCount)++;
+    sprintf(txtbuffer,
+            "TRB WNDLOOK hit=%d hits=%u+%u uploads=%u+%u\r\n",
+            hit, hitsBefore,
+            g_textureWindowCacheHits - hitsBefore,
+            uploadsBefore,
+            g_textureWindowUploads - uploadsBefore);
+    writeLogFile(txtbuffer);
+}
+#endif
+
 GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
 {
  textureWndCacheEntry * ts, * tsx=NULL;
  int i;short cx,cy;
  EXLong npos;
+ unsigned int clutIdForBarrier = GivenClutId;
+#if T6_WND_DIAG
+ unsigned int diagHitsBefore = g_textureWindowCacheHits;
+ unsigned int diagUploadsBefore = g_textureWindowUploads;
+#endif
 
  npos.c.x1=TWin.Position.x0;
  npos.c.x2=TWin.OPosition.x1;
@@ -1202,6 +1239,19 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
 
  g_x1=TWin.Position.x0;g_x2=g_x1+TWin.Position.x1-1;
  g_y1=TWin.Position.y0;g_y2=g_y1+TWin.Position.y1-1;
+
+  /* T6-C: refresh EFB-owned source/CLUT before the palette checksum and cache
+   * lookup.  The original CLUT id is preserved for the dependency; cx/cy and
+   * the checksum are computed after the barrier from the current psxVuw. */
+  if (ReadbackEnabled())
+   {
+    VramReadDependency dep;
+    if (BuildWindowTextureDependency(pageid, TextureMode,
+                                     clutIdForBarrier & CLUTMASK,
+                                     CLUTYMASK, 1024, iGPUHeight,
+                                     &dep))
+     EnsureVramReadFresh(&dep);
+   }
 
  if(TextureMode==2) {GivenClutId=0;cx=cy=0;}
  else
@@ -1219,9 +1269,9 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
      GivenClutId|=(l<<16);
     }
 
-  }
+   }
 
- ts=wcWndtexStore;
+  ts=wcWndtexStore;
 
  for(i=0;i<iMaxTexWnds;i++,ts++)
   {
@@ -1235,6 +1285,12 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
         {
          ubOpaqueDraw=ts->Opaque;
          gl_ux[8] = ts->textureType;
+#ifdef DISP_DEBUG
+         g_textureWindowCacheHits++;
+#endif
+#if T6_WND_DIAG
+         T6LogWindowLookup(diagHitsBefore, diagUploadsBefore, 1);
+#endif
          return ts->texname;
         }
       }
@@ -1284,6 +1340,9 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
  tsx->used=1;
  tsx->textureType = gl_ux[8];
 
+#if T6_WND_DIAG
+ T6LogWindowLookup(diagHitsBefore, diagUploadsBefore, 0);
+#endif
  return gTexName;
 }
 

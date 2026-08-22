@@ -1002,6 +1002,91 @@ static inline int T6RebuildCandidateEstablishes(int candidateValid,
     return candidateValid && !candidateComplete && coversMap;
 }
 
+typedef enum {
+    T6_REASON_NONE = 0,
+    T6_REASON_RGB24,
+    T6_REASON_HAZARD,
+    T6_REASON_UNKNOWN_MAP,
+    T6_REASON_PARTIAL,
+    T6_REASON_CAPTURE_FAIL,
+    T6_REASON_BASELINE_STALE,
+    T6_REASON_OVERFLOW,
+    T6_REASON_REENTRANT,
+    T6_REASON_COUNT
+} T6BarrierReason;
+
+/* Capture-eligibility classification shared by production diagnostics and
+ * host tests: RGB24/hazard/unknown map must not collapse into CAPTURE_FAIL. */
+static inline int T6ClassifyCaptureFailureReason(int rgb24,
+                                                 int contaminated,
+                                                 int mixedMapping,
+                                                 int untrackedEfb,
+                                                 int unknownMap)
+{
+    if (unknownMap)
+        return T6_REASON_UNKNOWN_MAP;
+    if (rgb24)
+        return T6_REASON_RGB24;
+    if (contaminated || mixedMapping || untrackedEfb)
+        return T6_REASON_HAZARD;
+    return T6_REASON_CAPTURE_FAIL;
+}
+
+typedef struct T6CaptureDiagInput
+{
+    int rgb24;
+    int contaminated;
+    int mixedMapping;
+    int untrackedEfb;
+    int unknownMap;
+} T6CaptureDiagInput;
+
+/* Build the capture diagnostic input from the actual capture source.  For a
+ * current-map capture, pending-presented RGB24 state is irrelevant; only a
+ * previous-map capture reads the pending map. */
+static inline void T6CaptureDiagFill(T6CaptureDiagInput *in,
+                                     int globalRgb24, int activeRgb24,
+                                     int pendingRgb24, int mappingKind,
+                                     int contaminated, int mixedMapping,
+                                     int untrackedEfb, int unknownMap)
+{
+    if (in == NULL)
+        return;
+    in->rgb24 = globalRgb24 ||
+                (mappingKind == T6_MAP_PREVIOUS ? pendingRgb24 :
+                                                  activeRgb24);
+    in->contaminated = contaminated;
+    in->mixedMapping = mixedMapping;
+    in->untrackedEfb = untrackedEfb;
+    in->unknownMap = unknownMap;
+}
+
+static inline int T6ClassifyCaptureFailure(const T6CaptureDiagInput *in)
+{
+    if (in == NULL)
+        return T6_REASON_CAPTURE_FAIL;
+    return T6ClassifyCaptureFailureReason(
+        in->rgb24, in->contaminated, in->mixedMapping,
+        in->untrackedEfb, in->unknownMap);
+}
+
+/* Shared CopyTex stat helpers: production passes its DIAG globals, host tests
+ * pass local counters, so the increment/reset contract is testable. */
+static inline void T6CopyTexBeginCall(unsigned int *thisCall)
+{
+    if (thisCall != NULL)
+        *thisCall = 0;
+}
+
+static inline void T6CopyTexCapture(unsigned int *thisCall,
+                                    unsigned int *total)
+{
+    if (thisCall != NULL)
+        (*thisCall)++;
+    if (total != NULL)
+        (*total)++;
+}
+
 typedef void (*VramReadTileCallback)(void *user, int tx, int ty);
 
 /*

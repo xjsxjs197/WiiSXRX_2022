@@ -272,6 +272,7 @@ extern unsigned int   g_texturePaletteEntryChecks;
 extern unsigned int   g_textureTotalInvalidatedEntries;
 extern unsigned int   g_textureStandardUploads;
 extern unsigned int   g_textureWindowUploads;
+extern unsigned int   g_textureWindowCacheHits;
 #endif
 extern unsigned int   (*TCF[]) (unsigned int );
 //extern unsigned short (*PTCF[]) (unsigned short);

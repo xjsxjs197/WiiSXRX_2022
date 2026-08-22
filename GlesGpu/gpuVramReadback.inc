@@ -15,6 +15,12 @@
 #endif
 #include "gpuTextureReadBarrier.h"
 
+#if defined(DISP_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+#define T6_BARRIER_DIAG 1
+#else
+#define T6_BARRIER_DIAG 0
+#endif
+
 #define EFB_DRAW_CONTEXT_DEPTH 8
 #define VRAM_READBACK_TILE_X 64
 #define VRAM_READBACK_TILE_Y 32
@@ -145,6 +151,7 @@ static uint64_t g_psxWriteTileEpoch[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
 static uint64_t g_psxMaterializedColorTileEpoch[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
 static VramMaterializeWorkspace g_t6Workspace;
 static int g_t6WorkspaceDepth;
+static int g_vramReadBarrierDepth;
 static EfbTileState g_efbTileState[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
 static EfbTileState g_pendingPresentedTile[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
 
@@ -172,6 +179,20 @@ static unsigned int g_lastReadbackInvalidateRuns;
 static unsigned int g_lastReadbackPaletteEntryChecks;
 static unsigned int g_lastReadbackTotalInvalidated;
 static unsigned int g_lastReadbackInvalidateUs;
+#if T6_BARRIER_DIAG
+static unsigned int g_vramReadBarrierCalls;
+static unsigned int g_vramReadBarrierNoAction;
+static unsigned int g_vramReadBarrierMaterialized;
+static unsigned int g_vramReadBarrierUnresolved;
+static unsigned int g_vramReadBarrierReentrant;
+static int g_vramReadBarrierLastReason;
+static unsigned int g_vramReadBarrierCopyTex;
+static unsigned int g_vramReadBarrierCopyTexTotal;
+static unsigned int g_vramReadBarrierChangedTiles;
+static unsigned int g_vramReadBarrierInvalidateRuns;
+static unsigned int g_vramReadBarrierSuccessLogs;
+static unsigned int g_vramReadBarrierReasonLogs[T6_REASON_COUNT];
+#endif
 #endif
 
 static int g_displayMapTxDepth;
@@ -1607,6 +1628,18 @@ static void ResetVramReadbackState(void)
 {
     int i;
 
+#if T6_BARRIER_DIAG
+    sprintf(txtbuffer,
+            "TRB STATS calls=%u noAction=%u materialized=%u unresolved=%u "
+            "reentrant=%u copyTexTotal=%u changed=%u invalRuns=%u\r\n",
+            g_vramReadBarrierCalls, g_vramReadBarrierNoAction,
+            g_vramReadBarrierMaterialized, g_vramReadBarrierUnresolved,
+            g_vramReadBarrierReentrant, g_vramReadBarrierCopyTexTotal,
+            g_vramReadBarrierChangedTiles,
+            g_vramReadBarrierInvalidateRuns);
+    writeLogFile(txtbuffer);
+#endif
+
     g_writeSeq = 0;
     g_captureOrder = 0;
     g_mapId = 0;
@@ -1618,6 +1651,8 @@ static void ResetVramReadbackState(void)
     g_displayMapTxChanged = FALSE;
     g_pendingPresentedReady = 0;
     g_pendingPresentedCaptureOrder = 0;
+    g_vramReadBarrierDepth = 0;
+    g_t6WorkspaceDepth = 0;
 #ifdef DISP_DEBUG
     g_debugDrawSubmitted = 0;
     g_diagCycle = 0;
@@ -1625,6 +1660,21 @@ static void ResetVramReadbackState(void)
     g_diagBaselinePending = 0;
     g_diagLastActiveWriteSeq = 0;
     g_diagLastExternalLogSeq = 0;
+#if T6_BARRIER_DIAG
+    g_vramReadBarrierCalls = 0;
+    g_vramReadBarrierNoAction = 0;
+    g_vramReadBarrierMaterialized = 0;
+    g_vramReadBarrierUnresolved = 0;
+    g_vramReadBarrierReentrant = 0;
+    g_vramReadBarrierLastReason = T6_REASON_NONE;
+    T6CopyTexBeginCall(&g_vramReadBarrierCopyTex);
+    g_vramReadBarrierCopyTexTotal = 0;
+    g_vramReadBarrierChangedTiles = 0;
+    g_vramReadBarrierInvalidateRuns = 0;
+    g_vramReadBarrierSuccessLogs = 0;
+    memset(g_vramReadBarrierReasonLogs, 0,
+           sizeof(g_vramReadBarrierReasonLogs));
+#endif
 #endif
 
     memset(g_psxWriteTileEpoch, 0, sizeof(g_psxWriteTileEpoch));
@@ -2524,6 +2574,9 @@ static int ValidateMaterializeTile(void *user, int tx, int ty,
     uint32_t mapId;
     const EfbTileState *efb;
 
+#if T6_BARRIER_DIAG
+    g_vramReadBarrierLastReason = T6_REASON_NONE;
+#endif
     memset(&phys, 0, sizeof(phys));
     mapping = ClassifyTileMapping(tx, ty);
     mapId = T6MaterializeSessionRequiredMapId(session, tx, ty);
@@ -2531,6 +2584,9 @@ static int ValidateMaterializeTile(void *user, int tx, int ty,
     if (mapping == MAPPING_UNKNOWN || mapId == 0)
     {
         in->untrackedEfb = 1;
+#if T6_BARRIER_DIAG
+        g_vramReadBarrierLastReason = T6_REASON_UNKNOWN_MAP;
+#endif
         return 1;
     }
 
@@ -2560,6 +2616,18 @@ static int ValidateMaterializeTile(void *user, int tx, int ty,
     in->efbCoverFull =
         efb != NULL && efb->cover == EFB_TILE_FULL &&
         SnapshotExactRectCoversTile(snap, tx, ty);
+#if T6_BARRIER_DIAG
+    if (in->rgb24)
+        g_vramReadBarrierLastReason = T6_REASON_RGB24;
+    else if (in->contaminated || in->mixedMapping || in->untrackedEfb)
+        g_vramReadBarrierLastReason = T6_REASON_HAZARD;
+    else if (!in->efbCoverFull)
+        g_vramReadBarrierLastReason = T6_REASON_PARTIAL;
+    else if (!in->hasValidSnapshot)
+        g_vramReadBarrierLastReason = T6_REASON_CAPTURE_FAIL;
+    else if (in->baselinePresentForSnapshot && !in->baselineUsable)
+        g_vramReadBarrierLastReason = T6_REASON_BASELINE_STALE;
+#endif
     return 1;
 }
 
@@ -2643,6 +2711,13 @@ static VramFreshResult MaterializeVramReadCore(const VramReadDependency *dep)
         dep->count > T6_DEP_RECT_CAPACITY)
         return VRAM_FRESH_UNRESOLVED;
 
+#if T6_BARRIER_DIAG
+    g_vramReadBarrierLastReason = T6_REASON_NONE;
+    g_vramReadBarrierCopyTex = 0;
+    g_vramReadBarrierChangedTiles = 0;
+    g_vramReadBarrierInvalidateRuns = 0;
+#endif
+
     T6MaterializeSessionInit(&session, &g_t6Workspace);
     memset(&obs, 0, sizeof(obs));
     obs.session = &session;
@@ -2650,7 +2725,12 @@ static VramFreshResult MaterializeVramReadCore(const VramReadDependency *dep)
                                   ObserveMaterializeTile, &obs);
 
     if (session.overflow)
+    {
+#if T6_BARRIER_DIAG
+        g_vramReadBarrierLastReason = T6_REASON_OVERFLOW;
+#endif
         return VRAM_FRESH_UNRESOLVED;
+    }
 
     if (session.captureRequired)
     {
@@ -2660,14 +2740,59 @@ static VramFreshResult MaterializeVramReadCore(const VramReadDependency *dep)
         if (session.captureConflict ||
             !T6MaterializeSessionSelectCaptureSlot(
                 &session, oldestIndex, &slotIndex))
-            return VRAM_FRESH_UNRESOLVED;
+        {
+#if T6_BARRIER_DIAG
+            {
+                T6CaptureDiagInput diag;
 
+                T6CaptureDiagFill(
+                    &diag,
+                    (STATUSREG & GPUSTATUS_RGB24) || PSXDisplay.RGB24,
+                    g_activeMap.rgb24,
+                    g_pendingPresentedReady ? g_pendingPresentedMap.rgb24 : 0,
+                    (int)session.captureMappingKind == MAPPING_PREVIOUS ?
+                        T6_MAP_PREVIOUS : T6_MAP_CURRENT,
+                    g_efbContaminated, g_mixedMappingSeen,
+                    g_untrackedEfbWrite,
+                    session.captureMapId == 0);
+                g_vramReadBarrierLastReason =
+                    T6ClassifyCaptureFailure(&diag);
+            }
+#endif
+            return VRAM_FRESH_UNRESOLVED;
+        }
+
+#if T6_BARRIER_DIAG
+        {
+            T6CaptureDiagInput diag;
+
+            T6CaptureDiagFill(
+                &diag,
+                (STATUSREG & GPUSTATUS_RGB24) || PSXDisplay.RGB24,
+                g_activeMap.rgb24,
+                g_pendingPresentedReady ? g_pendingPresentedMap.rgb24 : 0,
+                (int)session.captureMappingKind == MAPPING_PREVIOUS ?
+                    T6_MAP_PREVIOUS : T6_MAP_CURRENT,
+                g_efbContaminated, g_mixedMappingSeen,
+                g_untrackedEfbWrite,
+                session.captureMapId == 0);
+            g_vramReadBarrierLastReason =
+                T6ClassifyCaptureFailure(&diag);
+        }
+#endif
         if (!CaptureEfbForMaterialize(
                 &g_snapshot[slotIndex],
                 (MappingKind)session.captureMappingKind,
                 session.captureMapId,
                 session.captureTileX, session.captureTileY))
+        {
             return VRAM_FRESH_UNRESOLVED;
+        }
+#if T6_BARRIER_DIAG
+        g_vramReadBarrierLastReason = T6_REASON_NONE;
+        T6CopyTexCapture(&g_vramReadBarrierCopyTex,
+                         &g_vramReadBarrierCopyTexTotal);
+#endif
     }
 
     if (session.plan.hazardCount == 0)
@@ -2680,6 +2805,10 @@ static VramFreshResult MaterializeVramReadCore(const VramReadDependency *dep)
         return VRAM_FRESH_UNRESOLVED;
 
     T6MaterializeSessionWrite(&session, WriteMaterializeTile, &session);
+#if T6_BARRIER_DIAG
+    g_vramReadBarrierChangedTiles =
+        (unsigned int)session.plan.changedCount;
+#endif
     T6MaterializeSessionCommitEpoch(&session,
                                     MaterializeSnapshotSeq,
                                     ApplyMaterializeEpoch, NULL);
@@ -2688,6 +2817,9 @@ static VramFreshResult MaterializeVramReadCore(const VramReadDependency *dep)
     {
         int runs = T6MaterializeSessionInvalidateChanged(
             &session, InvalidateTileRunRect, NULL);
+#if T6_BARRIER_DIAG
+        g_vramReadBarrierInvalidateRuns = (unsigned int)runs;
+#endif
         (void)runs;
     }
 
@@ -2707,6 +2839,101 @@ static VramFreshResult MaterializeVramRead(const VramReadDependency *dep)
 
     result = MaterializeVramReadCore(dep);
     T6WorkspaceEnd(&g_t6WorkspaceDepth);
+    return result;
+}
+
+/* Texture-path barrier entry.  Returns UNRESOLVED on reentrancy/disabled
+ * state so a nested lookup can never paper over stale VRAM with success. */
+static VramFreshResult EnsureVramReadFresh(
+    const VramReadDependency *dependency)
+{
+    VramFreshResult result;
+#if T6_BARRIER_DIAG
+    uint64_t ticksStart = (uint64_t)gettime();
+    uint64_t ticksEnd;
+#endif
+
+    if (!ReadbackEnabled() || dependency == NULL ||
+        dependency->count == 0 || dependency->count > T6_DEP_RECT_CAPACITY)
+        return VRAM_FRESH_UNRESOLVED;
+
+#if T6_BARRIER_DIAG
+    g_vramReadBarrierCalls++;
+#endif
+
+    if (!T6WorkspaceBegin(&g_vramReadBarrierDepth))
+    {
+#if T6_BARRIER_DIAG
+        g_vramReadBarrierReentrant++;
+        g_vramReadBarrierUnresolved++;
+        g_vramReadBarrierLastReason = T6_REASON_REENTRANT;
+        if (g_vramReadBarrierReasonLogs[T6_REASON_REENTRANT] < 8)
+        {
+            g_vramReadBarrierReasonLogs[T6_REASON_REENTRANT]++;
+            sprintf(txtbuffer,
+                    "TRB REENTRANT depth=%d\r\n",
+                    g_vramReadBarrierDepth);
+            writeLogFile(txtbuffer);
+        }
+#endif
+        return VRAM_FRESH_UNRESOLVED;
+    }
+
+    result = MaterializeVramRead(dependency);
+    T6WorkspaceEnd(&g_vramReadBarrierDepth);
+
+#if T6_BARRIER_DIAG
+    ticksEnd = (uint64_t)gettime();
+    if (result == VRAM_FRESH_NO_ACTION)
+        g_vramReadBarrierNoAction++;
+    else if (result == VRAM_FRESH_MATERIALIZED)
+        g_vramReadBarrierMaterialized++;
+    else
+        g_vramReadBarrierUnresolved++;
+
+    if (result == VRAM_FRESH_UNRESOLVED)
+    {
+        int reason = g_vramReadBarrierLastReason;
+
+        if (reason <= 0 || reason >= T6_REASON_COUNT)
+            reason = T6_REASON_NONE;
+        if (g_vramReadBarrierReasonLogs[reason] < 8)
+        {
+            g_vramReadBarrierReasonLogs[reason]++;
+            sprintf(txtbuffer,
+                    "TRB WND result=unresolved reason=%d calls=%u "
+                    "copyTex=%u copyTexTotal=%u changed=%u invalRuns=%u "
+                    "us=%u\r\n",
+                    reason, g_vramReadBarrierCalls,
+                    g_vramReadBarrierCopyTex,
+                    g_vramReadBarrierCopyTexTotal,
+                    g_vramReadBarrierChangedTiles,
+                    g_vramReadBarrierInvalidateRuns,
+                    (unsigned int)ticks_to_microsecs(
+                        ticksEnd - ticksStart));
+            writeLogFile(txtbuffer);
+        }
+    }
+    else if (g_vramReadBarrierSuccessLogs < 32)
+    {
+        g_vramReadBarrierSuccessLogs++;
+        sprintf(txtbuffer,
+                "TRB WND result=%d calls=%u noAction=%u materialized=%u "
+                "copyTex=%u copyTexTotal=%u changed=%u invalRuns=%u "
+                "us=%u\r\n",
+                (int)result, g_vramReadBarrierCalls,
+                g_vramReadBarrierNoAction,
+                g_vramReadBarrierMaterialized,
+                g_vramReadBarrierCopyTex,
+                g_vramReadBarrierCopyTexTotal,
+                g_vramReadBarrierChangedTiles,
+                g_vramReadBarrierInvalidateRuns,
+                (unsigned int)ticks_to_microsecs(
+                    ticksEnd - ticksStart));
+        writeLogFile(txtbuffer);
+    }
+#endif
+
     return result;
 }
 

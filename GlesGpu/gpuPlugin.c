@@ -39,6 +39,7 @@
 #include "gpuExternals.h"
 #include "gpuPlugin.h"
 #include "gpuVramRect.h"
+#include "gpuTextureReadBarrier.h"
 //#include "gpuDraw.h"
 //#include "gpuTexture.h"
 //#include "gpuPrim.h"
@@ -192,6 +193,12 @@ static inline unsigned short ReadGXRGB5A3PixelRaw(
     const unsigned char *buf, int texWidth, int px, int py);
 static inline unsigned short GXRGB5A3ToPSX15(unsigned short gx);
 extern GXRModeObj *vmode;     /*** Graphics Mode Object ***/
+
+/* gpuTexture.c is included before gpuVramReadback.inc, so the barrier entry
+ * and its readback enablement need forward declarations in this TU. */
+static BOOL ReadbackEnabled(void);
+static VramFreshResult EnsureVramReadFresh(
+    const VramReadDependency *dependency);
 
 #include "gpuDraw.c"
 #include "gpuTexture.c"
