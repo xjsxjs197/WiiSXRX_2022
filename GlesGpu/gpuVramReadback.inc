@@ -2700,12 +2700,16 @@ static void ApplyMaterializeEpoch(void *user, int tx, int ty, uint64_t seq)
 
 /* Two-phase materialize: prove every hazard tile first, then write, commit
  * epochs, and invalidate only after the whole batch is safe. */
-static VramFreshResult MaterializeVramReadCore(const VramReadDependency *dep)
+static VramFreshResult MaterializeVramReadCore(
+    const VramReadDependency *dep, unsigned int *changedTilesOut)
 {
     VramMaterializeSession session;
     T6MaterializeObserve obs;
     int slotIndex;
     int oldestIndex;
+
+    if (changedTilesOut != NULL)
+        *changedTilesOut = 0;
 
     if (!ReadbackEnabled() || dep == NULL || dep->count == 0 ||
         dep->count > T6_DEP_RECT_CAPACITY)
@@ -2823,29 +2827,40 @@ static VramFreshResult MaterializeVramReadCore(const VramReadDependency *dep)
         (void)runs;
     }
 
+    if (changedTilesOut != NULL)
+        *changedTilesOut = (unsigned int)session.plan.changedCount;
     return VRAM_FRESH_MATERIALIZED;
 }
 
-static VramFreshResult MaterializeVramRead(const VramReadDependency *dep)
+static VramFreshResult MaterializeVramRead(
+    const VramReadDependency *dep, unsigned int *changedTilesOut)
 {
     VramFreshResult result;
 
-    if (!ReadbackEnabled() || dep == NULL || dep->count == 0 ||
-        dep->count > T6_DEP_RECT_CAPACITY)
+    if (T6ReadFreshEntry(
+            ReadbackEnabled(),
+            dep != NULL && dep->count > 0 &&
+                dep->count <= T6_DEP_RECT_CAPACITY,
+            1, 1, changedTilesOut) != VRAM_FRESH_NO_ACTION)
         return VRAM_FRESH_UNRESOLVED;
 
     if (!T6WorkspaceBegin(&g_t6WorkspaceDepth))
+    {
+        (void)T6ReadFreshEntry(1, 1, 1, 0, changedTilesOut);
         return VRAM_FRESH_UNRESOLVED;
+    }
 
-    result = MaterializeVramReadCore(dep);
+    result = MaterializeVramReadCore(dep, changedTilesOut);
     T6WorkspaceEnd(&g_t6WorkspaceDepth);
     return result;
 }
 
-/* Texture-path barrier entry.  Returns UNRESOLVED on reentrancy/disabled
- * state so a nested lookup can never paper over stale VRAM with success. */
-static VramFreshResult EnsureVramReadFresh(
-    const VramReadDependency *dependency)
+/* Texture-path barrier entry with a release-usable changed-tile result.  The
+ * counter lets callers distinguish a same-color materialize from one that
+ * really changed pixels.  Returns UNRESOLVED on reentrancy/disabled state so
+ * a nested lookup can never paper over stale VRAM with success. */
+static VramFreshResult EnsureVramReadFreshEx(
+    const VramReadDependency *dependency, unsigned int *changedTilesOut)
 {
     VramFreshResult result;
 #if T6_BARRIER_DIAG
@@ -2853,8 +2868,11 @@ static VramFreshResult EnsureVramReadFresh(
     uint64_t ticksEnd;
 #endif
 
-    if (!ReadbackEnabled() || dependency == NULL ||
-        dependency->count == 0 || dependency->count > T6_DEP_RECT_CAPACITY)
+    if (T6ReadFreshEntry(
+            ReadbackEnabled(),
+            dependency != NULL && dependency->count > 0 &&
+                dependency->count <= T6_DEP_RECT_CAPACITY,
+            1, 1, changedTilesOut) != VRAM_FRESH_NO_ACTION)
         return VRAM_FRESH_UNRESOLVED;
 
 #if T6_BARRIER_DIAG
@@ -2863,6 +2881,7 @@ static VramFreshResult EnsureVramReadFresh(
 
     if (!T6WorkspaceBegin(&g_vramReadBarrierDepth))
     {
+        (void)T6ReadFreshEntry(1, 1, 0, 1, changedTilesOut);
 #if T6_BARRIER_DIAG
         g_vramReadBarrierReentrant++;
         g_vramReadBarrierUnresolved++;
@@ -2879,7 +2898,7 @@ static VramFreshResult EnsureVramReadFresh(
         return VRAM_FRESH_UNRESOLVED;
     }
 
-    result = MaterializeVramRead(dependency);
+    result = MaterializeVramRead(dependency, changedTilesOut);
     T6WorkspaceEnd(&g_vramReadBarrierDepth);
 
 #if T6_BARRIER_DIAG
@@ -2901,7 +2920,7 @@ static VramFreshResult EnsureVramReadFresh(
         {
             g_vramReadBarrierReasonLogs[reason]++;
             sprintf(txtbuffer,
-                    "TRB WND result=unresolved reason=%d calls=%u "
+                    "TRB RES result=unresolved reason=%d calls=%u "
                     "copyTex=%u copyTexTotal=%u changed=%u invalRuns=%u "
                     "us=%u\r\n",
                     reason, g_vramReadBarrierCalls,
@@ -2918,7 +2937,7 @@ static VramFreshResult EnsureVramReadFresh(
     {
         g_vramReadBarrierSuccessLogs++;
         sprintf(txtbuffer,
-                "TRB WND result=%d calls=%u noAction=%u materialized=%u "
+                "TRB RES result=%d calls=%u noAction=%u materialized=%u "
                 "copyTex=%u copyTexTotal=%u changed=%u invalRuns=%u "
                 "us=%u\r\n",
                 (int)result, g_vramReadBarrierCalls,
@@ -2937,6 +2956,12 @@ static VramFreshResult EnsureVramReadFresh(
     return result;
 }
 
+static VramFreshResult EnsureVramReadFresh(
+    const VramReadDependency *dependency)
+{
+    return EnsureVramReadFreshEx(dependency, NULL);
+}
+
 /* Dedicated T6-B synthetic entry.  No production texture or MoveImage caller
  * uses this yet; it exists so later stages and tests can drive the core. */
 void T6_MaterializeVramReadForTest(int x, int y, int w, int h)
@@ -2950,7 +2975,7 @@ void T6_MaterializeVramReadForTest(int x, int y, int w, int h)
     if (!BuildMoveSourceDependency(x, y, w, h, 1024, 512, &dep))
         return;
 
-    MaterializeVramRead(&dep);
+    MaterializeVramRead(&dep, NULL);
 }
 
 /* GP0 80h reads VRAM internally; it does not pass through the C0 transfer

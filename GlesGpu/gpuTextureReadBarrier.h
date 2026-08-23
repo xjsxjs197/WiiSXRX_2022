@@ -524,6 +524,183 @@ static inline int BuildMoveSourceDependency(
 }
 
 /*
+ * Shared interleaved materialize decision used by SelectSubTextureS() and by
+ * the host harness.  Only a successful materialize that actually changed at
+ * least one tile deserves the conservative full-page standard invalidation;
+ * a same-color draw still commits the epoch but must keep cache hits.
+ */
+static inline int T6InterleavedMaterializeShouldInvalidate(
+    VramFreshResult result, unsigned int changedTiles, int interleaved)
+{
+    return result == VRAM_FRESH_MATERIALIZED && changedTiles > 0 &&
+           interleaved != 0;
+}
+
+/*
+ * Packed-position XCHECK used by the standard subtexture cache.  The layout
+ * mirrors EXLong.c on a little-endian integer: byte0=y2, byte1=y1, byte2=x2,
+ * byte3=x1.  Production entry positions are copied from gl_ux[4..7], so an
+ * entry packs vMax|vMin<<8|uMax<<16|uMin<<24.
+ */
+static inline int T6PackedPosIntersects(unsigned int pos1, unsigned int pos2)
+{
+    unsigned int y1a = (pos1 >> 8) & 0xFF;
+    unsigned int y2a = pos1 & 0xFF;
+    unsigned int x1a = (pos1 >> 24) & 0xFF;
+    unsigned int x2a = (pos1 >> 16) & 0xFF;
+    unsigned int y1b = (pos2 >> 8) & 0xFF;
+    unsigned int y2b = pos2 & 0xFF;
+    unsigned int x1b = (pos2 >> 24) & 0xFF;
+    unsigned int x2b = (pos2 >> 16) & 0xFF;
+
+    return y2a >= y1b && y1a <= y2b && x2a >= x1b && x1a <= x2b;
+}
+
+static inline unsigned int T6StandardEntryPackedPos(
+    int uMin, int uMax, int vMin, int vMax)
+{
+    return ((unsigned int)vMax & 0xFF) |
+           (((unsigned int)vMin & 0xFF) << 8) |
+           (((unsigned int)uMax & 0xFF) << 16) |
+           (((unsigned int)uMin & 0xFF) << 24);
+}
+
+/*
+ * Conservative full-page standard invalidation shared by SelectSubTextureS()
+ * and the host harness.  It clears all four SOFFA..SOFFD partitions of one
+ * page/mode with a full UV-range packed position, so a page crossing the VRAM
+ * right edge invalidates its wrapped UV half as well.
+ */
+typedef void (*T6StandardPageInvalidateFn)(
+    void *user, int pageid, int mode, int partition,
+    unsigned int packedPos);
+
+static inline void T6StandardPageInvalidateCore(
+    int pageid, int mode, T6StandardPageInvalidateFn callback, void *user)
+{
+    int p;
+    unsigned int packed = 0x00FF00FFu;
+
+    if (callback == NULL || pageid < 0 || pageid > 31 ||
+        mode < 0 || mode > 2)
+        return;
+    for (p = 0; p < 4; p++)
+        callback(user, pageid, mode, p, packed);
+}
+
+/*
+ * Byte-order-independent packed position used by the standard cache sweep.
+ * EXLong.c stores y2,y1,x2,x1 as consecutive bytes; the reader bridges real
+ * production entries and host T6StandardCacheEntry entries.
+ */
+typedef struct T6StandardPos
+{
+    unsigned char y1;
+    unsigned char y2;
+    unsigned char x1;
+    unsigned char x2;
+} T6StandardPos;
+
+static inline int T6StandardPosIntersects(const T6StandardPos *pos1,
+                                          const T6StandardPos *pos2)
+{
+    return pos1 != NULL && pos2 != NULL &&
+           pos1->y2 >= pos2->y1 && pos1->y1 <= pos2->y2 &&
+           pos1->x2 >= pos2->x1 && pos1->x1 <= pos2->x2;
+}
+
+/* Layout-equivalent to textureSubCacheEntryS so host tests drive the same
+ * sweep with real partition metadata and packed positions. */
+typedef struct T6StandardCacheEntry
+{
+    unsigned int clutId;
+    unsigned int packedPos;
+    unsigned char posTX;
+    unsigned char posTY;
+    unsigned char texId;
+    unsigned char opaque;
+    unsigned int textureType;
+} T6StandardCacheEntry;
+
+typedef void (*T6StandardEntryPosReader)(
+    void *user, int index, unsigned int *clutIdOut, T6StandardPos *posOut);
+typedef void (*T6StandardEntryInvalidateFn)(void *user, int index);
+
+/*
+ * One-partition production entry sweep shared by T6InvalidateStandardPageFor-
+ * Interleaved() and the host integration harness.  The reader/invalidate pair
+ * keeps the sweep independent of pscSubtexStore and EXLong byte order.
+ */
+static inline void T6InvalidateStandardPartitionSweep(
+    int count, unsigned int packedNpos,
+    T6StandardEntryPosReader reader, T6StandardEntryInvalidateFn invalidate,
+    void *user)
+{
+    T6StandardPos npos;
+    int i;
+
+    if (reader == NULL || invalidate == NULL || count <= 0)
+        return;
+    npos.y2 = (unsigned char)(packedNpos & 0xFF);
+    npos.y1 = (unsigned char)((packedNpos >> 8) & 0xFF);
+    npos.x2 = (unsigned char)((packedNpos >> 16) & 0xFF);
+    npos.x1 = (unsigned char)((packedNpos >> 24) & 0xFF);
+
+    for (i = 0; i < count; i++)
+    {
+        unsigned int clutId = 0;
+        T6StandardPos pos;
+
+        memset(&pos, 0, sizeof(pos));
+        reader(user, i, &clutId, &pos);
+        if (clutId != 0 && T6StandardPosIntersects(&pos, &npos))
+            invalidate(user, i);
+    }
+}
+
+/*
+ * Shared wiring between the materialize result and the conservative page
+ * invalidation.  SelectSubTextureS() and the host harness both call this, so
+ * the decision plus the four-partition sweep cannot diverge.
+ */
+static inline void T6InterleavedStandardBarrier(
+    VramFreshResult fresh, unsigned int changedTiles, int interleaved,
+    int pageid, int mode,
+    T6StandardPageInvalidateFn invalidate, void *user)
+{
+    if (T6InterleavedMaterializeShouldInvalidate(
+            fresh, changedTiles, interleaved))
+        T6StandardPageInvalidateCore(pageid, mode, invalidate, user);
+}
+
+/* Explicit output reset used by every changedTilesOut early-return path. */
+static inline void T6ResetChangedTilesOutput(unsigned int *out)
+{
+    if (out != NULL)
+        *out = 0;
+}
+
+/*
+ * Shared early-return entry used by both production read-fresh entrances.
+ * Unlike a mutable gate struct it takes explicit stage booleans, so callers
+ * can never read an uninitialized field.  It resets changedTilesOut first,
+ * then fails closed for disabled readback, invalid dependency, outer barrier
+ * reentrancy and inner workspace reentrancy.
+ */
+static inline VramFreshResult T6ReadFreshEntry(
+    int readbackEnabled, int dependencyValid,
+    int outerWorkspaceAvailable, int innerWorkspaceAvailable,
+    unsigned int *changedTilesOut)
+{
+    if (changedTilesOut != NULL)
+        *changedTilesOut = 0;
+    if (!readbackEnabled || !dependencyValid ||
+        !outerWorkspaceAvailable || !innerWorkspaceAvailable)
+        return VRAM_FRESH_UNRESOLVED;
+    return VRAM_FRESH_NO_ACTION;
+}
+
+/*
  * Pure per-tile freshness decision.  This is the T6-A observer contract;
  * materialize conditions beyond the tile state (baseline, capture) are
  * introduced by the later stages.

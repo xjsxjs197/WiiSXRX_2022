@@ -199,6 +199,9 @@ extern GXRModeObj *vmode;     /*** Graphics Mode Object ***/
 static BOOL ReadbackEnabled(void);
 static VramFreshResult EnsureVramReadFresh(
     const VramReadDependency *dependency);
+static VramFreshResult EnsureVramReadFreshEx(
+    const VramReadDependency *dependency,
+    unsigned int *changedTilesOut);
 
 #include "gpuDraw.c"
 #include "gpuTexture.c"

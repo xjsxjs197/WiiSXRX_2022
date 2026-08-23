@@ -227,6 +227,7 @@ unsigned int g_textureWindowUploads = 0;
 /* Pure memory counter feeding the DIAG-only WNDLOOK log; ordinary Debug
  * keeps the number but performs no window-lookup file output from it. */
 unsigned int g_textureWindowCacheHits = 0;
+unsigned int g_textureStandardCacheHits = 0;
 #endif
 
 static textureSubCacheEntryS *curTsx;
@@ -648,6 +649,57 @@ static void InvalidateSubTexturePaletteArea(const VramRect *invalid)
                                         1024,iGPUHeight,invalid,1,
                                         SubTextureInvalidateMarkFree,NULL);
     }
+}
+
+/* Shared full-page conservative invalidation callback: production clears the
+ * four SOFFA..SOFFD partitions of one page/mode using the packed UV range
+ * produced by T6StandardPageInvalidateCore(). */
+typedef struct T6StandardPartitionSweepUser
+{
+    textureSubCacheEntryS *entries;
+} T6StandardPartitionSweepUser;
+
+static void T6StandardEntryReader(
+    void *user, int index, unsigned int *clutIdOut, T6StandardPos *posOut)
+{
+    T6StandardPartitionSweepUser *ctx =
+        (T6StandardPartitionSweepUser *)user;
+    textureSubCacheEntryS *entry;
+
+    if (ctx == NULL || clutIdOut == NULL || posOut == NULL)
+        return;
+    entry = &ctx->entries[index];
+    *clutIdOut = entry->ClutID;
+    posOut->y2 = entry->pos.c.y2;
+    posOut->y1 = entry->pos.c.y1;
+    posOut->x2 = entry->pos.c.x2;
+    posOut->x1 = entry->pos.c.x1;
+}
+
+static void T6StandardEntryInvalidate(void *user, int index)
+{
+    T6StandardPartitionSweepUser *ctx =
+        (T6StandardPartitionSweepUser *)user;
+
+    if (ctx != NULL)
+        InvalidateSubTextureEntry(&ctx->entries[index]);
+}
+
+static void T6InvalidateStandardPageEntries(
+    void *user, int pageid, int mode, int partition,
+    unsigned int packedPos)
+{
+    T6StandardPartitionSweepUser ctx;
+    textureSubCacheEntryS *head;
+    int iMax;
+
+    (void)user;
+    head = pscSubtexStore[mode][pageid] + partition * SOFFB;
+    iMax = GETLE32((char *)head + 4);
+    ctx.entries = head + 1;
+    T6InvalidateStandardPartitionSweep(
+        iMax, packedPos,
+        T6StandardEntryReader, T6StandardEntryInvalidate, &ctx);
 }
 
 void InvalidateSubSTextureArea(int X,int Y,int W, int H)
@@ -1217,6 +1269,27 @@ static void T6LogWindowLookup(unsigned int hitsBefore,
             g_textureWindowCacheHits - hitsBefore,
             uploadsBefore,
             g_textureWindowUploads - uploadsBefore);
+    writeLogFile(txtbuffer);
+}
+
+static unsigned int g_stdLookupHitLogs;
+static unsigned int g_stdLookupMissLogs;
+
+static void T6LogStandardLookup(unsigned int hitsBefore,
+                                unsigned int uploadsBefore, int hit)
+{
+    unsigned int *logCount =
+        hit ? &g_stdLookupHitLogs : &g_stdLookupMissLogs;
+
+    if (*logCount >= 8)
+        return;
+    (*logCount)++;
+    sprintf(txtbuffer,
+            "TRB STDLOOK hit=%d hits=%u+%u uploads=%u+%u\r\n",
+            hit, hitsBefore,
+            g_textureStandardCacheHits - hitsBefore,
+            uploadsBefore,
+            g_textureStandardUploads - uploadsBefore);
     writeLogFile(txtbuffer);
 }
 #endif
@@ -3207,6 +3280,11 @@ void CompressTextureSpace(void)
 GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
 {
  unsigned char * OPtr;unsigned short iCache;short cx,cy;
+ unsigned int clutForBarrier = GivenClutId;
+#if T6_WND_DIAG
+ unsigned int diagHitsBefore = g_textureStandardCacheHits;
+ unsigned int diagUploadsBefore = g_textureStandardUploads;
+#endif
 
  // sort sow/tow infos for fast access
 
@@ -3240,11 +3318,51 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
 
        return (GLuint)gTexName;
    }
+
+   /* T6-D: after Fake15BitTexture() did not take over CPU decode, refresh
+    * EFB-owned source before the cache lookup.  Mode 2 has no palette. */
+   if (ReadbackEnabled())
+   {
+    VramReadDependency dep;
+    if (BuildStandardTextureDependency(
+            GlobalTexturePage, TextureMode, 0, CLUTYMASK,
+            1024, iGPUHeight,
+            gl_ux[7], gl_ux[6], gl_ux[5], gl_ux[4],
+            GlobalTextIL, &dep))
+     EnsureVramReadFresh(&dep);
+   }
   }
  else
   {
    cx=((GivenClutId << 4) & 0x3F0);                    // but here
    cy=((GivenClutId >> 6) & CLUTYMASK);
+
+   /* T6-D: barrier before palette checksum and CheckTextureInSubSCache(). */
+   if (ReadbackEnabled())
+   {
+    VramReadDependency dep;
+    if (BuildStandardTextureDependency(
+            GlobalTexturePage, TextureMode,
+            clutForBarrier & CLUTMASK, CLUTYMASK,
+            1024, iGPUHeight,
+            gl_ux[7], gl_ux[6], gl_ux[5], gl_ux[4],
+            GlobalTextIL, &dep))
+     {
+      unsigned int changedTiles = 0;
+      VramFreshResult fresh =
+          EnsureVramReadFreshEx(&dep, &changedTiles);
+
+      /* Interleaved loaders use a swizzled source footprint that the linear
+       * InvalidateSubSTextureArea() cannot prove.  When the barrier really
+       * materialized changed tiles, conservatively invalidate every standard
+       * entry of this mode/page; a same-color materialize keeps cache hits. */
+      T6InterleavedStandardBarrier(
+          fresh, changedTiles, GlobalTextIL,
+          GlobalTexturePage, TextureMode,
+          T6InvalidateStandardPageEntries, NULL);
+     }
+   }
+
    GivenClutId=(GivenClutId&CLUTMASK)|(DrawSemiTrans<<30)|CLUTUSED;
 
    // palette check sum.. removed MMX asm, this easy func works as well
@@ -3278,7 +3396,16 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
 // DEBUG_print(txtbuffer,  DBG_CDR3);
 //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
- if(!OPtr) return uiStexturePage[iCache];
+ if(!OPtr)
+  {
+#ifdef DISP_DEBUG
+   g_textureStandardCacheHits++;
+#endif
+#if T6_WND_DIAG
+   T6LogStandardLookup(diagHitsBefore, diagUploadsBefore, 1);
+#endif
+   return uiStexturePage[iCache];
+  }
 
 #ifdef DISP_DEBUG
   g_textureStandardUploads++;
@@ -3298,6 +3425,9 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
  LoadSubTexFn(GlobalTexturePage,TextureMode,cx,cy);
  uiStexturePage[iCache]=gTexName;
  *OPtr=ubOpaqueDraw;
+#if T6_WND_DIAG
+ T6LogStandardLookup(diagHitsBefore, diagUploadsBefore, 0);
+#endif
  #ifdef DISP_DEBUG
 // sprintf(txtbuffer, "SelectSubTextureS 3 %d\r\n", gTexName);
 // DEBUG_print(txtbuffer,  DBG_CDR3);

@@ -9,6 +9,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "../GlesGpu/gpuTextureReadBarrier.h"
@@ -927,6 +928,19 @@ typedef struct T6Harness
     int wndMode[8];
     unsigned int wndClut[8];
     int wndCount;
+    unsigned int stdKey[8];
+    int stdUsed[8];
+    int stdPage[8];
+    int stdMode[8];
+    unsigned int stdClut[8];
+    int stdU0[8];
+    int stdU1[8];
+    int stdV0[8];
+    int stdV1[8];
+    int stdIL[8];
+    int stdCount;
+    int stdHits;
+    int stdUploads;
     unsigned char changed[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
     uint32_t mapId;
 } T6Harness;
@@ -956,6 +970,19 @@ static uint16_t harness_color(int tx, int ty, int px, int py)
 {
     return (uint16_t)(0x1000 +
                       ((tx * 7 + ty * 3 + px + py * 5) & 0x0FFF));
+}
+
+/* Pre-fill one tile with exactly what harness_write() would materialize, so
+ * a same-color barrier commits the epoch without changedCount. */
+static void harness_prefill_tile(T6Harness *h, int tx, int ty)
+{
+    int px, py;
+
+    for (py = ty << 4; py < (ty << 4) + T6_VRAM_TILE_SIZE; py++)
+        for (px = tx << 4; px < (tx << 4) + T6_VRAM_TILE_SIZE; px++)
+            h->vram[py * 1024 + px] =
+                (uint16_t)(0x8000 |
+                           (harness_color(tx, ty, px, py) & 0x7FFF));
 }
 
 typedef struct T6HarnessRun
@@ -1328,6 +1355,159 @@ static VramFreshResult simulate_window_lookup(T6Harness *h,
         h->wndCount++;
     }
     h->wndUploads++;
+    return result;
+}
+
+static int standard_entry_depends_on_changed(const T6Harness *h,
+                                             int pageid, int mode,
+                                             unsigned int clutId,
+                                             int uMin, int uMax,
+                                             int vMin, int vMax,
+                                             int interleaved)
+{
+    VramReadDependency dep;
+    unsigned char tiles[T6_VRAM_TILE_Y][T6_VRAM_TILE_X];
+    int ty, tx;
+
+    memset(&dep, 0, sizeof(dep));
+    memset(tiles, 0, sizeof(tiles));
+    if (!BuildStandardTextureDependency(pageid, mode, clutId & 0x7FFF,
+                                        0x1FF, 1024, 512,
+                                        uMin, uMax, vMin, vMax,
+                                        interleaved, &dep))
+        return 0;
+
+    ForEachVramReadDependencyTile(&dep, 1024, 512,
+                                  mark_dep_tile, tiles);
+    for (ty = 0; ty < T6_VRAM_TILE_Y; ty++)
+        for (tx = 0; tx < T6_VRAM_TILE_X; tx++)
+            if (tiles[ty][tx] && h->changed[ty][tx])
+                return 1;
+    return 0;
+}
+
+/* Production CheckTextureInSubSCache() compares page/mode/CLUT key and the
+ * stored UV rect must cover the requested one (INCHECK semantics). */
+static int std_entry_covers_lookup(const T6Harness *h, int entryIndex,
+                                   int pageid, int mode,
+                                   unsigned int key,
+                                   int uMin, int uMax,
+                                   int vMin, int vMax,
+                                   int interleaved)
+{
+    /* Production CheckTextureInSubSCache() does not compare GlobalTextIL;
+     * interleaved state only affects dependency construction, not identity. */
+    (void)interleaved;
+    if (entryIndex < 0 || entryIndex >= 8 || !h->stdUsed[entryIndex])
+        return 0;
+    return h->stdPage[entryIndex] == pageid &&
+           h->stdMode[entryIndex] == mode &&
+           h->stdKey[entryIndex] == key &&
+           uMin >= h->stdU0[entryIndex] &&
+           uMax <= h->stdU1[entryIndex] &&
+           vMin >= h->stdV0[entryIndex] &&
+           vMax <= h->stdV1[entryIndex];
+}
+
+/* Host callback for the shared full-page invalidation core.  It applies the
+ * same packed-position XCHECK as production's SOFFA..SOFFD sweep. */
+static void t6_harness_invalidate_standard_page(
+    void *user, int pageid, int mode, int partition,
+    unsigned int packedPos)
+{
+    T6Harness *h = (T6Harness *)user;
+    int i;
+
+    (void)partition;
+    for (i = 0; i < h->stdCount; i++)
+        if (h->stdUsed[i] &&
+            h->stdPage[i] == pageid &&
+            h->stdMode[i] == mode &&
+            T6PackedPosIntersects(
+                T6StandardEntryPackedPos(h->stdU0[i], h->stdU1[i],
+                                         h->stdV0[i], h->stdV1[i]),
+                packedPos))
+            h->stdUsed[i] = 0;
+}
+
+static VramFreshResult simulate_standard_lookup(T6Harness *h,
+                                                int pageid, int mode,
+                                                unsigned int clutId,
+                                                int uMin, int uMax,
+                                                int vMin, int vMax,
+                                                int interleaved,
+                                                int *hitOut)
+{
+    VramReadDependency dep;
+    VramFreshResult result;
+    unsigned int key;
+    unsigned int changedTiles = 0;
+    int i;
+    int ty, tx;
+
+    memset(&dep, 0, sizeof(dep));
+    if (!BuildStandardTextureDependency(pageid, mode, clutId & 0x7FFF,
+                                        0x1FF, 1024, 512,
+                                        uMin, uMax, vMin, vMax,
+                                        interleaved, &dep))
+        return VRAM_FRESH_UNRESOLVED;
+
+    result = harness_run(h, &dep);
+    for (ty = 0; ty < T6_VRAM_TILE_Y; ty++)
+        for (tx = 0; tx < T6_VRAM_TILE_X; tx++)
+            if (h->changed[ty][tx])
+                changedTiles++;
+
+    if (mode == 2)
+        key = 0;
+    else
+        key = (clutId & 0x7FFF) |
+              (((uint32_t)production_palette_checksum(
+                  h, clutId, mode)) << 16);
+
+    if (result == VRAM_FRESH_MATERIALIZED)
+    {
+        T6InterleavedStandardBarrier(
+            result, changedTiles, interleaved,
+            pageid, mode, t6_harness_invalidate_standard_page, h);
+        if (!interleaved)
+        {
+            for (i = 0; i < h->stdCount; i++)
+                if (h->stdUsed[i] &&
+                    standard_entry_depends_on_changed(
+                        h, h->stdPage[i], h->stdMode[i], h->stdClut[i],
+                        h->stdU0[i], h->stdU1[i], h->stdV0[i], h->stdV1[i],
+                        h->stdIL[i]))
+                    h->stdUsed[i] = 0;
+        }
+    }
+
+    *hitOut = 0;
+    for (i = 0; i < h->stdCount; i++)
+        if (std_entry_covers_lookup(
+                h, i, pageid, mode, key,
+                uMin, uMax, vMin, vMax, interleaved))
+        {
+            h->stdHits++;
+            *hitOut = 1;
+            return result;
+        }
+
+    if (h->stdCount < 8)
+    {
+        h->stdUsed[h->stdCount] = 1;
+        h->stdKey[h->stdCount] = key;
+        h->stdPage[h->stdCount] = pageid;
+        h->stdMode[h->stdCount] = mode;
+        h->stdClut[h->stdCount] = clutId & 0x7FFF;
+        h->stdU0[h->stdCount] = uMin;
+        h->stdU1[h->stdCount] = uMax;
+        h->stdV0[h->stdCount] = vMin;
+        h->stdV1[h->stdCount] = vMax;
+        h->stdIL[h->stdCount] = interleaved;
+        h->stdCount++;
+    }
+    h->stdUploads++;
     return result;
 }
 
@@ -2078,6 +2258,959 @@ static void test_copytex_stats_shared(void)
     expect_count((int)total, 2);
 }
 
+static void test_standard_lookup_cache_miss(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    int hit = 0;
+
+    harness_reset(h);
+    harness_set_tile(h, 0, 0, 11);
+
+    r = simulate_standard_lookup(h, 0, 2, 0, 0, 255, 0, 255, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(hit, 0);
+    expect_count(h->stdUploads, 1);
+    expect_count(h->stdHits, 0);
+    expect_u64(h->matEpoch[0][0], 11, "standard source epoch");
+
+    hit = 0;
+    r = simulate_standard_lookup(h, 0, 2, 0, 0, 255, 0, 255, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(hit, 1);
+    expect_count(h->stdUploads, 1);
+    expect_count(h->stdHits, 1);
+}
+
+static void test_standard_lookup_preset_hit(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    unsigned int key;
+    int hit = 0;
+
+    harness_reset(h);
+    key = (0x3F & 0x7FFF) |
+          (((uint32_t)production_palette_checksum(h, 0x3F, 0)) << 16);
+    h->stdUsed[0] = 1;
+    h->stdKey[0] = key;
+    h->stdPage[0] = 0;
+    h->stdMode[0] = 0;
+    h->stdClut[0] = 0x3F;
+    h->stdU0[0] = 0;
+    h->stdU1[0] = 15;
+    h->stdV0[0] = 0;
+    h->stdV1[0] = 1;
+    h->stdIL[0] = 0;
+    h->stdCount = 1;
+
+    r = simulate_standard_lookup(h, 0, 0, 0x3F, 0, 15, 0, 1, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(hit, 1);
+    expect_count(h->stdUploads, 0);
+    expect_count(h->captures, 0);
+}
+
+static void test_standard_lookup_clut4_palette(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    int hit = 0;
+
+    harness_reset(h);
+    harness_set_tile(h, 63, 0, 11);
+
+    r = simulate_standard_lookup(h, 0, 0, 0x3F, 0, 15, 0, 1, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(hit, 0);
+    expect_count(h->stdUploads, 1);
+    expect_u64(h->matEpoch[0][63], 11, "standard clut4 epoch");
+
+    hit = 0;
+    r = simulate_standard_lookup(h, 0, 0, 0x3F, 0, 15, 0, 1, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(hit, 1);
+    expect_count(h->stdUploads, 1);
+}
+
+static void test_standard_lookup_clut8_palette(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    int hit = 0;
+
+    harness_reset(h);
+    harness_set_tile(h, 63, 0, 11);
+
+    r = simulate_standard_lookup(h, 0, 1, 0x3F, 0, 31, 0, 1, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(hit, 0);
+    expect_count(h->stdUploads, 1);
+    expect_u64(h->matEpoch[0][63], 11, "standard clut8 epoch");
+
+    hit = 0;
+    r = simulate_standard_lookup(h, 0, 1, 0x3F, 0, 31, 0, 1, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(hit, 1);
+    expect_count(h->stdUploads, 1);
+}
+
+static void test_standard_lookup_capture_suppression(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    int hit = 0;
+
+    harness_reset(h);
+    harness_set_phys_only(h, 0, 0, 11);
+
+    r = simulate_standard_lookup(h, 0, 2, 0, 0, 255, 0, 255, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->captures, 1);
+    expect_count(hit, 0);
+    expect_count(h->stdUploads, 1);
+
+    hit = 0;
+    r = simulate_standard_lookup(h, 0, 2, 0, 0, 255, 0, 255, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(h->captures, 1);
+    expect_count(hit, 1);
+    expect_count(h->stdUploads, 1);
+}
+
+static void test_standard_lookup_identity(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    int hit = 0;
+
+    harness_reset(h);
+    h->stdUsed[0] = 1;
+    h->stdKey[0] = 0;
+    h->stdPage[0] = 0;
+    h->stdMode[0] = 2;
+    h->stdClut[0] = 0;
+    h->stdU0[0] = 0;
+    h->stdU1[0] = 255;
+    h->stdV0[0] = 0;
+    h->stdV1[0] = 255;
+    h->stdIL[0] = 0;
+    h->stdCount = 1;
+
+    /* Same CLUT key but different page must miss. */
+    r = simulate_standard_lookup(h, 1, 2, 0, 0, 255, 0, 255, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(hit, 0);
+    expect_count(h->stdUploads, 1);
+
+    harness_reset(h);
+    h->stdUsed[0] = 1;
+    h->stdKey[0] = 0;
+    h->stdPage[0] = 0;
+    h->stdMode[0] = 2;
+    h->stdU0[0] = 0;
+    h->stdU1[0] = 255;
+    h->stdV0[0] = 0;
+    h->stdV1[0] = 255;
+    h->stdIL[0] = 0;
+    h->stdCount = 1;
+    hit = 0;
+    r = simulate_standard_lookup(h, 0, 0, 0x3F, 0, 15, 0, 1, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(hit, 0);
+    expect_count(h->stdUploads, 1);
+
+    harness_reset(h);
+    h->stdUsed[0] = 1;
+    h->stdKey[0] = (0x3F & 0x7FFF) |
+                   (((uint32_t)production_palette_checksum(
+                       h, 0x3F, 0)) << 16);
+    h->stdPage[0] = 0;
+    h->stdMode[0] = 0;
+    h->stdClut[0] = 0x3F;
+    h->stdU0[0] = 0;
+    h->stdU1[0] = 15;
+    h->stdV0[0] = 0;
+    h->stdV1[0] = 1;
+    h->stdIL[0] = 0;
+    h->stdCount = 1;
+    hit = 0;
+    r = simulate_standard_lookup(h, 0, 0, 0x3F, 16, 31, 0, 1, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(hit, 0);
+    expect_count(h->stdUploads, 1);
+
+    harness_reset(h);
+    h->stdUsed[0] = 1;
+    h->stdKey[0] = 0;
+    h->stdPage[0] = 0;
+    h->stdMode[0] = 2;
+    h->stdU0[0] = 0;
+    h->stdU1[0] = 255;
+    h->stdV0[0] = 0;
+    h->stdV1[0] = 255;
+    h->stdIL[0] = 0;
+    h->stdCount = 1;
+    hit = 0;
+    r = simulate_standard_lookup(h, 0, 2, 0, 0, 255, 0, 255, 1, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(hit, 1);
+    expect_count(h->stdUploads, 0);
+}
+
+static void test_standard_lookup_stale_hit_source(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    uint32_t targetBefore, bgBefore;
+    int hit = 0;
+
+    harness_reset(h);
+    h->stdUsed[0] = 1;
+    h->stdKey[0] = 0;
+    h->stdPage[0] = 0;
+    h->stdMode[0] = 2;
+    h->stdClut[0] = 0;
+    h->stdU0[0] = 0;
+    h->stdU1[0] = 255;
+    h->stdV0[0] = 0;
+    h->stdV1[0] = 255;
+    h->stdIL[0] = 0;
+    h->stdCount = 1;
+    harness_set_phys_only(h, 0, 0, 11);
+    targetBefore = tile_hash(h, 0, 0);
+    bgBefore = tile_hash(h, 5, 5);
+
+    r = simulate_standard_lookup(h, 0, 2, 0, 0, 255, 0, 255, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->captures, 1);
+    expect_count(hit, 0);
+    expect_count(h->stdUploads, 1);
+    expect_bool(h->stdUsed[0] == 0, 1,
+                "stale source standard entry invalidated");
+    expect_bool(tile_hash(h, 0, 0) != targetBefore, 1,
+                "source tile carries GX pixel");
+    expect_bool(tile_hash(h, 5, 5) == bgBefore, 1,
+                "source background hash unchanged");
+
+    hit = 0;
+    r = simulate_standard_lookup(h, 0, 2, 0, 0, 255, 0, 255, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(h->captures, 1);
+    expect_count(hit, 1);
+    expect_count(h->stdUploads, 1);
+}
+
+static void test_standard_lookup_stale_hit_clut4(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    uint32_t palBefore, bgBefore, checksumBefore;
+    unsigned int initialKey;
+    int hit = 0;
+
+    harness_reset(h);
+    initialKey = (0x3F & 0x7FFF) |
+                 (((uint32_t)production_palette_checksum(
+                     h, 0x3F, 0)) << 16);
+    h->stdUsed[0] = 1;
+    h->stdKey[0] = initialKey;
+    h->stdPage[0] = 0;
+    h->stdMode[0] = 0;
+    h->stdClut[0] = 0x3F;
+    h->stdU0[0] = 0;
+    h->stdU1[0] = 15;
+    h->stdV0[0] = 0;
+    h->stdV1[0] = 1;
+    h->stdIL[0] = 0;
+    h->stdCount = 1;
+    harness_set_phys_only(h, 63, 0, 11);
+    palBefore = tile_hash(h, 63, 0);
+    bgBefore = tile_hash(h, 5, 5);
+    checksumBefore = production_palette_checksum(h, 0x3F, 0);
+
+    r = simulate_standard_lookup(h, 0, 0, 0x3F, 0, 15, 0, 1, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->captures, 1);
+    expect_count(hit, 0);
+    expect_count(h->stdUploads, 1);
+    expect_bool(h->stdUsed[0] == 0, 1,
+                "stale clut4 standard entry invalidated");
+    expect_bool(tile_hash(h, 63, 0) != palBefore, 1,
+                "clut4 palette carries GX word");
+    expect_bool(tile_hash(h, 5, 5) == bgBefore, 1,
+                "clut4 background hash unchanged");
+    expect_bool(production_palette_checksum(h, 0x3F, 0) != checksumBefore,
+                1, "clut4 checksum changed");
+
+    hit = 0;
+    r = simulate_standard_lookup(h, 0, 0, 0x3F, 0, 15, 0, 1, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(h->captures, 1);
+    expect_count(hit, 1);
+    expect_count(h->stdUploads, 1);
+}
+
+static void test_standard_lookup_stale_hit_clut8(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    uint32_t palBefore, bgBefore, checksumBefore;
+    unsigned int initialKey;
+    int hit = 0;
+
+    harness_reset(h);
+    initialKey = (0x3F & 0x7FFF) |
+                 (((uint32_t)production_palette_checksum(
+                     h, 0x3F, 1)) << 16);
+    h->stdUsed[0] = 1;
+    h->stdKey[0] = initialKey;
+    h->stdPage[0] = 0;
+    h->stdMode[0] = 1;
+    h->stdClut[0] = 0x3F;
+    h->stdU0[0] = 0;
+    h->stdU1[0] = 31;
+    h->stdV0[0] = 0;
+    h->stdV1[0] = 1;
+    h->stdIL[0] = 0;
+    h->stdCount = 1;
+    harness_set_phys_only(h, 63, 0, 11);
+    palBefore = tile_hash(h, 63, 0);
+    bgBefore = tile_hash(h, 5, 5);
+    checksumBefore = production_palette_checksum(h, 0x3F, 1);
+
+    r = simulate_standard_lookup(h, 0, 1, 0x3F, 0, 31, 0, 1, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->captures, 1);
+    expect_count(hit, 0);
+    expect_count(h->stdUploads, 1);
+    expect_bool(h->stdUsed[0] == 0, 1,
+                "stale clut8 standard entry invalidated");
+    expect_bool(tile_hash(h, 63, 0) != palBefore, 1,
+                "clut8 palette carries GX word");
+    expect_bool(tile_hash(h, 5, 5) == bgBefore, 1,
+                "clut8 background hash unchanged");
+    expect_bool(production_palette_checksum(h, 0x3F, 1) != checksumBefore,
+                1, "clut8 checksum changed");
+
+    hit = 0;
+    r = simulate_standard_lookup(h, 0, 1, 0x3F, 0, 31, 0, 1, 0, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(h->captures, 1);
+    expect_count(hit, 1);
+    expect_count(h->stdUploads, 1);
+}
+
+static void test_standard_lookup_stale_hit_interleaved_mode0(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    uint32_t targetBefore, bgBefore;
+    unsigned int initialKey;
+    int hit = 0;
+
+    harness_reset(h);
+    initialKey = (0 & 0x7FFF) |
+                 (((uint32_t)production_palette_checksum(
+                     h, 0, 0)) << 16);
+    h->stdUsed[0] = 1;
+    h->stdKey[0] = initialKey;
+    h->stdPage[0] = 0;
+    h->stdMode[0] = 0;
+    h->stdClut[0] = 0;
+    h->stdU0[0] = 0;
+    h->stdU1[0] = 3;
+    h->stdV0[0] = 15;
+    h->stdV1[0] = 15;
+    h->stdIL[0] = 0;
+    h->stdCount = 1;
+    h->stdUsed[1] = 1;
+    h->stdKey[1] = 0;
+    h->stdPage[1] = 1;
+    h->stdMode[1] = 0;
+    h->stdClut[1] = 0;
+    h->stdU0[1] = 0;
+    h->stdU1[1] = 15;
+    h->stdV0[1] = 0;
+    h->stdV1[1] = 1;
+    h->stdIL[1] = 0;
+    h->stdCount = 2;
+
+    /* u=0,v=15 mode 0 swizzles to word x=60,y=0 (tile 3,0), while the linear
+     * UV rect lives in tile 0,0; only full page/mode invalidation can clear
+     * this preset entry. */
+    harness_set_phys_only(h, 3, 0, 11);
+    targetBefore = tile_hash(h, 3, 0);
+    bgBefore = tile_hash(h, 5, 5);
+
+    r = simulate_standard_lookup(h, 0, 0, 0, 0, 3, 15, 15, 1, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->captures, 1);
+    expect_count(hit, 0);
+    expect_count(h->stdUploads, 1);
+    expect_bool(h->stdUsed[0] == 0, 1,
+                "interleaved mode0 stale entry invalidated");
+    expect_bool(h->stdUsed[1] == 1, 1,
+                "unrelated page/mode entry kept");
+    expect_bool(tile_hash(h, 3, 0) != targetBefore, 1,
+                "interleaved mode0 swizzle tile carries GX pixel");
+    expect_bool(tile_hash(h, 5, 5) == bgBefore, 1,
+                "interleaved mode0 background unchanged");
+
+    hit = 0;
+    r = simulate_standard_lookup(h, 0, 0, 0, 0, 3, 15, 15, 1, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(h->captures, 1);
+    expect_count(hit, 1);
+    expect_count(h->stdUploads, 1);
+}
+
+static void test_standard_lookup_stale_hit_interleaved_mode1(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    uint32_t targetBefore, bgBefore;
+    unsigned int initialKey;
+    int hit = 0;
+
+    harness_reset(h);
+    initialKey = (0 & 0x7FFF) |
+                 (((uint32_t)production_palette_checksum(
+                     h, 0, 1)) << 16);
+    h->stdUsed[0] = 1;
+    h->stdKey[0] = initialKey;
+    h->stdPage[0] = 17;
+    h->stdMode[0] = 1;
+    h->stdClut[0] = 0;
+    h->stdU0[0] = 0;
+    h->stdU1[0] = 31;
+    h->stdV0[0] = 7;
+    h->stdV1[0] = 7;
+    h->stdIL[0] = 0;
+    h->stdCount = 1;
+
+    /* Page 17 mode 1: the interleaved loader reads the whole page while the
+     * linear UV rect only covers tile 4,16.  Tile 5,16 is inside the
+     * swizzled page footprint but outside both the linear UV rect and the
+     * CLUT row, so only the conservative mode/page invalidation can clear
+     * this preset entry. */
+    harness_set_phys_only(h, 5, 16, 11);
+    targetBefore = tile_hash(h, 5, 16);
+    bgBefore = tile_hash(h, 5, 5);
+
+    r = simulate_standard_lookup(h, 17, 1, 0, 0, 31, 7, 7, 1, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->captures, 1);
+    expect_count(hit, 0);
+    expect_count(h->stdUploads, 1);
+    expect_bool(h->stdUsed[0] == 0, 1,
+                "interleaved mode1 stale entry invalidated");
+    expect_bool(tile_hash(h, 5, 16) != targetBefore, 1,
+                "interleaved mode1 swizzle tile carries GX pixel");
+    expect_bool(tile_hash(h, 5, 5) == bgBefore, 1,
+                "interleaved mode1 background unchanged");
+
+    hit = 0;
+    r = simulate_standard_lookup(h, 17, 1, 0, 0, 31, 7, 7, 1, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(h->captures, 1);
+    expect_count(hit, 1);
+    expect_count(h->stdUploads, 1);
+}
+
+typedef struct T6PageCoreCallRecord
+{
+    int pageid[4];
+    int mode[4];
+    int partition[4];
+    unsigned int packed[4];
+    int count;
+} T6PageCoreCallRecord;
+
+static void record_standard_page_call(void *user, int pageid, int mode,
+                                      int partition,
+                                      unsigned int packedPos)
+{
+    T6PageCoreCallRecord *rec = (T6PageCoreCallRecord *)user;
+
+    if (rec == NULL || rec->count >= 4)
+        return;
+    rec->pageid[rec->count] = pageid;
+    rec->mode[rec->count] = mode;
+    rec->partition[rec->count] = partition;
+    rec->packed[rec->count] = packedPos;
+    rec->count++;
+}
+
+static void test_standard_page_invalidate_core(void)
+{
+    T6PageCoreCallRecord calls;
+    unsigned int entryPos;
+    unsigned int clampedNpos;
+    int i;
+
+    memset(&calls, 0, sizeof(calls));
+    T6StandardPageInvalidateCore(
+        15, 1, record_standard_page_call, &calls);
+    expect_count(calls.count, 4);
+    for (i = 0; i < 4; i++)
+    {
+        expect_count(calls.pageid[i], 15);
+        expect_count(calls.mode[i], 1);
+        expect_count(calls.partition[i], i);
+        expect_u64((uint64_t)calls.packed[i], 0x00FF00FFu,
+                   "full page packed range");
+    }
+
+    /* A u=128..255 entry must intersect the full page but not a clamped
+     * [0,127] npos, which is exactly the right-edge regression. */
+    entryPos = T6StandardEntryPackedPos(128, 255, 0, 255);
+    expect_bool(T6PackedPosIntersects(entryPos, 0x00FF00FFu), 1,
+                "wrapped UV half intersects full page");
+    clampedNpos = 0x007F00FFu; /* x2=127 */
+    expect_bool(T6PackedPosIntersects(entryPos, clampedNpos), 0,
+                "clamped right edge misses wrapped UV half");
+
+    /* Invalid page/mode must not invoke the callback. */
+    memset(&calls, 0, sizeof(calls));
+    T6StandardPageInvalidateCore(32, 0, record_standard_page_call, &calls);
+    expect_count(calls.count, 0);
+    T6StandardPageInvalidateCore(0, 3, record_standard_page_call, &calls);
+    expect_count(calls.count, 0);
+}
+
+static void test_standard_lookup_same_color_interleaved_mode0(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    unsigned int initialKey;
+    int hit = 0;
+
+    harness_reset(h);
+    initialKey = (0 & 0x7FFF) |
+                 (((uint32_t)production_palette_checksum(
+                     h, 0, 0)) << 16);
+    h->stdUsed[0] = 1;
+    h->stdKey[0] = initialKey;
+    h->stdPage[0] = 0;
+    h->stdMode[0] = 0;
+    h->stdClut[0] = 0;
+    h->stdU0[0] = 0;
+    h->stdU1[0] = 3;
+    h->stdV0[0] = 15;
+    h->stdV1[0] = 15;
+    h->stdIL[0] = 0;
+    h->stdCount = 1;
+
+    /* Pre-fill the swizzle target tile with exactly what the harness would
+     * materialize, so changedCount stays zero. */
+    harness_prefill_tile(h, 3, 0);
+    harness_set_phys_only(h, 3, 0, 11);
+
+    r = simulate_standard_lookup(h, 0, 0, 0, 0, 3, 15, 15, 1, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->captures, 1);
+    expect_count(hit, 1);
+    expect_count(h->stdUploads, 0);
+    expect_bool(h->stdUsed[0] == 1, 1,
+                "same-color mode0 keeps stale entry");
+    expect_u64(h->matEpoch[0][3], 11, "same-color mode0 commits epoch");
+
+    hit = 0;
+    r = simulate_standard_lookup(h, 0, 0, 0, 0, 3, 15, 15, 1, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(h->captures, 1);
+    expect_count(hit, 1);
+    expect_count(h->stdUploads, 0);
+}
+
+static void test_standard_lookup_same_color_interleaved_mode1(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    unsigned int initialKey;
+    int hit = 0;
+
+    harness_reset(h);
+    initialKey = (0 & 0x7FFF) |
+                 (((uint32_t)production_palette_checksum(
+                     h, 0, 1)) << 16);
+    h->stdUsed[0] = 1;
+    h->stdKey[0] = initialKey;
+    h->stdPage[0] = 17;
+    h->stdMode[0] = 1;
+    h->stdClut[0] = 0;
+    h->stdU0[0] = 0;
+    h->stdU1[0] = 31;
+    h->stdV0[0] = 7;
+    h->stdV1[0] = 7;
+    h->stdIL[0] = 0;
+    h->stdCount = 1;
+
+    /* Tile 5,16 is the interleaved-only footprint of page 17 mode 1. */
+    harness_prefill_tile(h, 5, 16);
+    harness_set_phys_only(h, 5, 16, 11);
+
+    r = simulate_standard_lookup(h, 17, 1, 0, 0, 31, 7, 7, 1, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->captures, 1);
+    expect_count(hit, 1);
+    expect_count(h->stdUploads, 0);
+    expect_bool(h->stdUsed[0] == 1, 1,
+                "same-color mode1 keeps stale entry");
+    expect_u64(h->matEpoch[16][5], 11, "same-color mode1 commits epoch");
+
+    hit = 0;
+    r = simulate_standard_lookup(h, 17, 1, 0, 0, 31, 7, 7, 1, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(h->captures, 1);
+    expect_count(hit, 1);
+    expect_count(h->stdUploads, 0);
+}
+
+static void test_standard_lookup_stale_hit_interleaved_page15_wrap(void)
+{
+    T6Harness *h = &s_harness;
+    VramFreshResult r;
+    uint32_t targetBefore, bgBefore;
+    unsigned int initialKey;
+    int hit = 0;
+
+    harness_reset(h);
+    initialKey = (0 & 0x7FFF) |
+                 (((uint32_t)production_palette_checksum(
+                     h, 0, 1)) << 16);
+    h->stdUsed[0] = 1;
+    h->stdKey[0] = initialKey;
+    h->stdPage[0] = 15;
+    h->stdMode[0] = 1;
+    h->stdClut[0] = 0;
+    h->stdU0[0] = 128;
+    h->stdU1[0] = 255;
+    h->stdV0[0] = 0;
+    h->stdV1[0] = 255;
+    h->stdIL[0] = 0;
+    h->stdUsed[1] = 1;
+    h->stdKey[1] = 0;
+    h->stdPage[1] = 14;
+    h->stdMode[1] = 1;
+    h->stdClut[1] = 0;
+    h->stdU0[1] = 0;
+    h->stdU1[1] = 255;
+    h->stdV0[1] = 0;
+    h->stdV1[1] = 255;
+    h->stdIL[1] = 0;
+    h->stdCount = 2;
+
+    /* Tile 63,0 is the non-wrapped half of page 15 mode 1; the stale entry
+     * lives in the wrapped u=128..255 half, so only the full page/mode
+     * invalidation can clear it. */
+    harness_set_phys_only(h, 63, 0, 11);
+    targetBefore = tile_hash(h, 63, 0);
+    bgBefore = tile_hash(h, 5, 5);
+
+    r = simulate_standard_lookup(h, 15, 1, 0, 128, 255, 0, 255, 1, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_MATERIALIZED);
+    expect_count(h->captures, 1);
+    expect_count(hit, 0);
+    expect_count(h->stdUploads, 1);
+    expect_bool(h->stdUsed[0] == 0, 1,
+                "page15 wrapped UV stale entry invalidated");
+    expect_bool(h->stdUsed[1] == 1, 1,
+                "adjacent page14 mode1 entry kept");
+    expect_bool(tile_hash(h, 63, 0) != targetBefore, 1,
+                "page15 swizzle tile carries GX pixel");
+    expect_bool(tile_hash(h, 5, 5) == bgBefore, 1,
+                "page15 background unchanged");
+
+    hit = 0;
+    r = simulate_standard_lookup(h, 15, 1, 0, 128, 255, 0, 255, 1, &hit);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_count(h->captures, 1);
+    expect_count(hit, 1);
+    expect_count(h->stdUploads, 1);
+}
+
+typedef struct T6PartitionIntegrationCtx
+{
+    T6StandardCacheEntry *store;
+    T6StandardCacheEntry *entries;
+    unsigned int invalidated[4];
+    int invalidateCount;
+} T6PartitionIntegrationCtx;
+
+static void integration_entry_reader(
+    void *user, int index, unsigned int *clutIdOut, T6StandardPos *posOut)
+{
+    T6PartitionIntegrationCtx *ctx =
+        (T6PartitionIntegrationCtx *)user;
+    T6StandardCacheEntry *entry;
+    unsigned int packed;
+
+    if (ctx == NULL || clutIdOut == NULL || posOut == NULL)
+        return;
+    entry = &ctx->entries[index];
+    *clutIdOut = entry->clutId;
+    packed = entry->packedPos;
+    posOut->y2 = (unsigned char)(packed & 0xFF);
+    posOut->y1 = (unsigned char)((packed >> 8) & 0xFF);
+    posOut->x2 = (unsigned char)((packed >> 16) & 0xFF);
+    posOut->x1 = (unsigned char)((packed >> 24) & 0xFF);
+}
+
+static void integration_entry_invalidate(void *user, int index)
+{
+    T6PartitionIntegrationCtx *ctx =
+        (T6PartitionIntegrationCtx *)user;
+
+    if (ctx == NULL)
+        return;
+    ctx->entries[index].clutId = 0;
+    ctx->invalidateCount++;
+}
+
+static void integration_page_callback(
+    void *user, int pageid, int mode, int partition,
+    unsigned int packedPos)
+{
+    T6PartitionIntegrationCtx *ctx =
+        (T6PartitionIntegrationCtx *)user;
+
+    (void)pageid;
+    (void)mode;
+    if (ctx == NULL)
+        return;
+    ctx->entries = ctx->store + partition * 1024;
+    ctx->invalidated[partition]++;
+    T6InvalidateStandardPartitionSweep(
+        1, packedPos,
+        integration_entry_reader, integration_entry_invalidate, ctx);
+}
+
+/* Drive the real SOFFA..SOFFD layout through the shared page core and the
+ * shared partition sweep with actual T6StandardCacheEntry metadata. */
+static void test_standard_partition_sweep_integration(void)
+{
+    T6StandardCacheEntry store[4 * 1024];
+    T6PartitionIntegrationCtx ctx;
+    unsigned int clampedNpos = 0x007F00FFu;
+    int p;
+
+    memset(store, 0, sizeof(store));
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.store = store;
+    ctx.entries = store;
+
+    store[0 * 1024 + 0].clutId = 1;
+    store[0 * 1024 + 0].packedPos =
+        T6StandardEntryPackedPos(128, 255, 0, 255);
+    store[1 * 1024 + 0].clutId = 1;
+    store[1 * 1024 + 0].packedPos =
+        T6StandardEntryPackedPos(0, 63, 0, 255);
+    store[2 * 1024 + 0].clutId = 0;
+    store[2 * 1024 + 0].packedPos =
+        T6StandardEntryPackedPos(0, 255, 0, 255);
+    store[3 * 1024 + 0].clutId = 1;
+    store[3 * 1024 + 0].packedPos =
+        T6StandardEntryPackedPos(0, 255, 0, 255);
+
+    T6StandardPageInvalidateCore(15, 1, integration_page_callback, &ctx);
+    expect_count(ctx.invalidateCount, 3);
+    for (p = 0; p < 4; p++)
+        expect_count((int)ctx.invalidated[p], 1);
+    expect_bool(store[0 * 1024 + 0].clutId == 0, 1,
+                "partition A wrapped entry invalidated");
+    expect_bool(store[2 * 1024 + 0].clutId == 0, 1,
+                "clutId=0 entry skipped");
+
+    /* A clamped right edge (x2=127) must miss the wrapped u=128..255 entry.
+     * Rebuild a fresh fixture because the full-page sweep freed A/B. */
+    memset(store, 0, sizeof(store));
+    store[0 * 1024 + 0].clutId = 1;
+    store[0 * 1024 + 0].packedPos =
+        T6StandardEntryPackedPos(128, 255, 0, 255);
+    store[1 * 1024 + 0].clutId = 1;
+    store[1 * 1024 + 0].packedPos =
+        T6StandardEntryPackedPos(0, 63, 0, 255);
+    ctx.invalidateCount = 0;
+    ctx.entries = store;
+    T6InvalidateStandardPartitionSweep(
+        1, clampedNpos,
+        integration_entry_reader, integration_entry_invalidate, &ctx);
+    expect_count(ctx.invalidateCount, 0);
+
+    ctx.invalidateCount = 0;
+    ctx.entries = store + 1024;
+    T6InvalidateStandardPartitionSweep(
+        1, clampedNpos,
+        integration_entry_reader, integration_entry_invalidate, &ctx);
+    expect_count(ctx.invalidateCount, 1);
+}
+
+static void test_read_fresh_early_gate(void)
+{
+    VramFreshResult r;
+    unsigned int sentinel;
+
+    sentinel = 0xDEADBEEFu;
+    r = T6ReadFreshEntry(1, 1, 1, 1, &sentinel);
+    expect_count((int)r, (int)VRAM_FRESH_NO_ACTION);
+    expect_u64((uint64_t)sentinel, 0, "passing entry resets output");
+
+    sentinel = 0xDEADBEEFu;
+    r = T6ReadFreshEntry(0, 1, 1, 1, &sentinel);
+    expect_count((int)r, (int)VRAM_FRESH_UNRESOLVED);
+    expect_u64((uint64_t)sentinel, 0, "disabled resets output");
+
+    sentinel = 0xDEADBEEFu;
+    r = T6ReadFreshEntry(1, 0, 1, 1, &sentinel);
+    expect_count((int)r, (int)VRAM_FRESH_UNRESOLVED);
+    expect_u64((uint64_t)sentinel, 0, "invalid dependency resets output");
+
+    sentinel = 0xDEADBEEFu;
+    r = T6ReadFreshEntry(1, 1, 0, 1, &sentinel);
+    expect_count((int)r, (int)VRAM_FRESH_UNRESOLVED);
+    expect_u64((uint64_t)sentinel, 0, "outer reentrant resets output");
+
+    sentinel = 0xDEADBEEFu;
+    r = T6ReadFreshEntry(1, 1, 1, 0, &sentinel);
+    expect_count((int)r, (int)VRAM_FRESH_UNRESOLVED);
+    expect_u64((uint64_t)sentinel, 0, "inner reentrant resets output");
+}
+
+static char *read_whole_file(const char *path)
+{
+    FILE *f;
+    long size;
+    char *buf;
+    size_t n;
+
+    f = fopen(path, "rb");
+    if (f == NULL)
+        return NULL;
+    if (fseek(f, 0, SEEK_END) != 0)
+    {
+        fclose(f);
+        return NULL;
+    }
+    size = ftell(f);
+    if (fseek(f, 0, SEEK_SET) != 0 || size <= 0)
+    {
+        fclose(f);
+        return NULL;
+    }
+    buf = (char *)malloc((size_t)size + 1);
+    if (buf == NULL)
+    {
+        fclose(f);
+        return NULL;
+    }
+    n = fread(buf, 1, (size_t)size, f);
+    fclose(f);
+    if (n != (size_t)size)
+    {
+        free(buf);
+        return NULL;
+    }
+    buf[n] = '\0';
+    return buf;
+}
+
+static int count_text_in_range(const char *begin, const char *end,
+                               const char *needle)
+{
+    int count = 0;
+    const char *p = begin;
+
+    while (p != NULL && p < end && (p = strstr(p, needle)) != NULL && p < end)
+    {
+        count++;
+        p += strlen(needle);
+    }
+    return count;
+}
+
+/* Minimal production source wiring/mutation check: deleting the
+ * SelectSubTextureS() T6InterleavedStandardBarrier() call must fail here. */
+static void test_production_wiring_source(void)
+{
+    static const char *paths[] = {
+        "../GlesGpu/gpuTexture.c",
+        "WiiSXRX_2022/GlesGpu/gpuTexture.c",
+        "GlesGpu/gpuTexture.c"
+    };
+    int i, opened = 0, wired = 0;
+
+    for (i = 0; i < 3; i++)
+    {
+        char *buf = read_whole_file(paths[i]);
+        char *sel, *next, *call;
+
+        if (buf == NULL)
+            continue;
+        opened = 1;
+        sel = strstr(buf, "GLuint SelectSubTextureS(");
+        next = sel != NULL ? strstr(sel, "#endif // _IN_GPU_LIB") : NULL;
+        if (sel == NULL)
+        {
+            free(buf);
+            continue;
+        }
+        if (next == NULL || next < sel)
+            next = buf + strlen(buf);
+        call = strstr(sel, "T6InterleavedStandardBarrier(");
+        if (call != NULL && call < next &&
+            strstr(buf, "T6InvalidateStandardPageEntries") != NULL)
+            wired = 1;
+        free(buf);
+        if (wired)
+            break;
+    }
+    expect_bool(opened, 1, "production source opened");
+    expect_bool(wired, 1, "SelectSubTextureS wiring present");
+}
+
+/* Both production read-fresh entrances must route every early return through
+ * the shared T6ReadFreshEntry() stage wrapper (4 calls in gpuVramReadback.inc). */
+static void test_read_fresh_entry_wiring(void)
+{
+    static const char *paths[] = {
+        "../GlesGpu/gpuVramReadback.inc",
+        "WiiSXRX_2022/GlesGpu/gpuVramReadback.inc",
+        "GlesGpu/gpuVramReadback.inc"
+    };
+    int i, opened = 0, wired = 0;
+
+    for (i = 0; i < 3; i++)
+    {
+        char *buf = read_whole_file(paths[i]);
+        char *materialize, *ensure, *wrapper;
+
+        if (buf == NULL)
+            continue;
+        opened = 1;
+        materialize = strstr(buf,
+            "static VramFreshResult MaterializeVramRead(");
+        ensure = strstr(buf,
+            "static VramFreshResult EnsureVramReadFreshEx(");
+        wrapper = strstr(buf,
+            "static VramFreshResult EnsureVramReadFresh(");
+        if (materialize != NULL && ensure != NULL && wrapper != NULL &&
+            materialize < ensure && ensure < wrapper &&
+            count_text_in_range(materialize, ensure,
+                                "T6ReadFreshEntry(") >= 2 &&
+            count_text_in_range(ensure, wrapper,
+                                "T6ReadFreshEntry(") >= 2)
+            wired = 1;
+        free(buf);
+        if (wired)
+            break;
+    }
+    expect_bool(opened, 1, "readback source opened");
+    expect_bool(wired, 1,
+                "both entrances use shared T6ReadFreshEntry early returns");
+}
+
 int main(void)
 {
     test_epoch();
@@ -2121,6 +3254,25 @@ int main(void)
     test_window_lookup_harness_cumulative_capture();
     test_capture_diag_production_flow();
     test_copytex_stats_shared();
+    test_standard_lookup_cache_miss();
+    test_standard_lookup_preset_hit();
+    test_standard_lookup_clut4_palette();
+    test_standard_lookup_clut8_palette();
+    test_standard_lookup_capture_suppression();
+    test_standard_lookup_identity();
+    test_standard_lookup_stale_hit_source();
+    test_standard_lookup_stale_hit_clut4();
+    test_standard_lookup_stale_hit_clut8();
+    test_standard_lookup_stale_hit_interleaved_mode0();
+    test_standard_lookup_stale_hit_interleaved_mode1();
+    test_standard_page_invalidate_core();
+    test_standard_lookup_same_color_interleaved_mode0();
+    test_standard_lookup_same_color_interleaved_mode1();
+    test_standard_lookup_stale_hit_interleaved_page15_wrap();
+    test_standard_partition_sweep_integration();
+    test_read_fresh_early_gate();
+    test_production_wiring_source();
+    test_read_fresh_entry_wiring();
 
     if (s_failures == 0)
         printf("PASS t6_barrier\n");
