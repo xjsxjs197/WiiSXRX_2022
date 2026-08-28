@@ -156,8 +156,53 @@ void psxDma2(u32 madr, u32 bcr, u32 chcr) { // GPU
 				//log_unhandled("bad dma2 madr %x bcr %x\n", madr, bcr);
 				words_copy = words_max;
 			}
+#if defined(SHOW_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+			g_t6DiagDma2Serial++;
+			if (g_t6DiagDma2Serial == 0)
+				g_t6DiagDma2Serial++;
+			g_t6DiagDma2ActiveSerial = g_t6DiagDma2Serial;
+			g_t6DiagPostDmaHeartbeatEnabled = 0;
+			g_t6DiagPostDmaHeartbeatCount = 0;
+			if (g_t6DiagDma2ActiveSerial <= 4 &&
+				g_t6DiagDma2LogCount < 48) {
+				g_t6DiagDma2LogCount++;
+				sprintf(txtbuffer,
+					"TRB DMA2 BEGIN serial=%u madr=%08X bcr=%08X "
+					"words=%u copy=%u max=%u cycle=%u chcr=%08X ws=%d\r\n",
+					g_t6DiagDma2ActiveSerial, madr, bcr,
+					words, words_copy, words_max, psxRegs.cycle,
+					SWAPu32(HW_DMA2_CHCR), g_t6DiagWorkspaceStatus);
+				writeLogFile(txtbuffer);
+			}
+#endif
 			gpuPtr->readDataMem(ptr, words_copy);
+#if defined(SHOW_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+			if (g_t6DiagDma2ActiveSerial <= 4 &&
+				g_t6DiagDma2LogCount < 48) {
+				g_t6DiagDma2LogCount++;
+				sprintf(txtbuffer,
+					"TRB DMA2 AFTER_GPU serial=%u cycle=%u status=%08X "
+					"chcr=%08X intr=%08X ws=%d\r\n",
+					g_t6DiagDma2ActiveSerial, psxRegs.cycle,
+					SWAPu32(HW_GPU_STATUS), SWAPu32(HW_DMA2_CHCR),
+					psxRegs.interrupt, g_t6DiagWorkspaceStatus);
+				writeLogFile(txtbuffer);
+			}
+#endif
 			psxCpu->Clear(madr, words_copy);
+#if defined(SHOW_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+			if (g_t6DiagDma2ActiveSerial <= 4 &&
+				g_t6DiagDma2LogCount < 48) {
+				g_t6DiagDma2LogCount++;
+				sprintf(txtbuffer,
+					"TRB DMA2 AFTER_CLEAR serial=%u cycle=%u pc=%08X "
+					"madr=%08X words=%u ws=%d\r\n",
+					g_t6DiagDma2ActiveSerial, psxRegs.cycle,
+					psxRegs.pc, madr, words_copy,
+					g_t6DiagWorkspaceStatus);
+				writeLogFile(txtbuffer);
+			}
+#endif
 
 			//HW_DMA2_MADR = SWAPu32(madr + words_copy * 4);
 			STORE_SWAP32p(psxHAddr(0x10a0), madr + (words << 2));
@@ -166,6 +211,24 @@ void psxDma2(u32 madr, u32 bcr, u32 chcr) { // GPU
 			psxRegs.gpuIdleAfter = psxRegs.cycle + words / 4 + 16;
 			// already 32-bit word size ((size * 4) / 4)
 			set_event(PSXINT_GPUDMA, words / 4);
+#if defined(SHOW_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+			if (g_t6DiagDma2ActiveSerial <= 4 &&
+				g_t6DiagDma2LogCount < 48) {
+				g_t6DiagDma2LogCount++;
+				sprintf(txtbuffer,
+					"TRB DMA2 ARMED serial=%u cycle=%u pc=%08X "
+					"madrReg=%08X chcr=%08X idleAfter=%u event=%u "
+					"next=%u intr=%08X\r\n",
+					g_t6DiagDma2ActiveSerial, psxRegs.cycle,
+					psxRegs.pc, SWAPu32(HW_DMA2_MADR),
+					SWAPu32(HW_DMA2_CHCR), psxRegs.gpuIdleAfter,
+					event_cycles[PSXINT_GPUDMA], next_interupt,
+					psxRegs.interrupt);
+				writeLogFile(txtbuffer);
+			}
+			g_t6DiagPostDmaHeartbeatEnabled =
+				g_t6DiagDma2ActiveSerial <= 4;
+#endif
 			return;
 
 		case 0x01000201: // mem2vram
@@ -233,6 +296,27 @@ void psxDma2(u32 madr, u32 bcr, u32 chcr) { // GPU
 }
 
 void gpuInterrupt() {
+#if defined(SHOW_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+	/* Only associate this IRQ with the observed VRAM2MEM transfer when the
+	 * live CHCR still identifies that mode.  Keeping ActiveSerial after its
+	 * IRQ mislabeled later dma-chain/mem2vram completions as the same serial. */
+	unsigned int t6DiagIrqSerial =
+		(g_t6DiagDma2ActiveSerial != 0 &&
+		 SWAPu32(HW_DMA2_CHCR) == 0x01000200) ?
+		g_t6DiagDma2ActiveSerial : 0;
+
+	if (t6DiagIrqSerial != 0 && t6DiagIrqSerial <= 4 &&
+		g_t6DiagDma2LogCount < 48) {
+		g_t6DiagDma2LogCount++;
+		sprintf(txtbuffer,
+			"TRB DMA2 IRQ BEGIN serial=%u cycle=%u pc=%08X chcr=%08X "
+			"madr=%08X intr=%08X ws=%d\r\n",
+			t6DiagIrqSerial, psxRegs.cycle, psxRegs.pc,
+			SWAPu32(HW_DMA2_CHCR), SWAPu32(HW_DMA2_MADR),
+			psxRegs.interrupt, g_t6DiagWorkspaceStatus);
+		writeLogFile(txtbuffer);
+	}
+#endif
 	if (gpuPtr == &newSoftGpu && HW_DMA2_CHCR == SWAP32(0x01000401) && !(HW_DMA2_MADR & SWAP32(0x800000)))
 	{
 		u32 madr_next = 0xffffff, madr = SWAPu32(HW_DMA2_MADR);
@@ -260,6 +344,24 @@ void gpuInterrupt() {
 	{
 		HW_GPU_STATUS |= SWAP32(PSXGPU_nBUSY); // GPU no longer busy
 	}
+#if defined(SHOW_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+	if (t6DiagIrqSerial != 0 && t6DiagIrqSerial <= 4 &&
+		g_t6DiagDma2LogCount < 48) {
+		g_t6DiagDma2LogCount++;
+		sprintf(txtbuffer,
+			"TRB DMA2 IRQ END serial=%u cycle=%u pc=%08X chcr=%08X "
+			"madr=%08X intr=%08X status=%08X ws=%d\r\n",
+			t6DiagIrqSerial, psxRegs.cycle, psxRegs.pc,
+			SWAPu32(HW_DMA2_CHCR), SWAPu32(HW_DMA2_MADR),
+			psxRegs.interrupt, SWAPu32(HW_GPU_STATUS),
+			g_t6DiagWorkspaceStatus);
+		writeLogFile(txtbuffer);
+	}
+	if (t6DiagIrqSerial != 0) {
+		g_t6DiagDma2ActiveSerial = 0;
+		g_t6DiagPostDmaHeartbeatEnabled = 0;
+	}
+#endif
 }
 
 void psxDma6(u32 madr, u32 bcr, u32 chcr) {

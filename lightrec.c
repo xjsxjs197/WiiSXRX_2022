@@ -502,6 +502,10 @@ void irq_test(psxCP0Regs *cp0)
 	u32 cycle = psxRegs.cycle;
 	u32 irq, irq_bits;
 
+#if defined(SHOW_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+	T6DiagPostDmaHeartbeat();
+#endif
+
 	for (irq = 0, irq_bits = psxRegs.interrupt; irq_bits != 0; irq++, irq_bits >>= 1) {
 		if (!(irq_bits & 1))
 			continue;

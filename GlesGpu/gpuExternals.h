@@ -336,6 +336,7 @@ extern int            iNoScreenSaver;
 extern unsigned int   ulGPUInfoVals[];
 extern BOOL           bNeedInterlaceUpdate;
 extern BOOL           bNeedWriteUpload;
+extern BOOL           bVramWriteTransferActive;
 extern BOOL           bSkipNextFrame;
 
 

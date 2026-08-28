@@ -65,6 +65,20 @@ static FILE* fdebugLog = NULL;
 static char *debugLogFile = "sd:/wiisxrx/debugLog.txt";
 bool canWriteLog = false;
 
+#if defined(SHOW_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+unsigned int g_t6DiagDma2Serial;
+unsigned int g_t6DiagDma2ActiveSerial;
+unsigned int g_t6DiagDma2LogCount;
+unsigned int g_t6DiagPostDmaHeartbeatEnabled;
+unsigned int g_t6DiagPostDmaHeartbeatCount;
+/* 0=takeover workspace not allocated, 1=guards valid, negative=error. */
+int g_t6DiagWorkspaceStatus;
+#endif
+
+int isLogFileEnabled(void) {
+    return canWriteLog ? 1 : 0;
+}
+
 void openLogFile() {
     if (!canWriteLog) return;
     if (!fdebugLog) {
@@ -82,6 +96,16 @@ void closeLogFile() {
 
 void writeLogFile(char* string) {
     if (!canWriteLog) return;
+
+#if defined(SHOW_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+    /* Lean T6 performance build: the legacy DISP_DEBUG call sites log every
+     * primitive and reopen the SD file for every line.  Keep only bounded
+     * texture-barrier and VRAM-read profiler records so logging does not
+     * become the stall being measured. */
+    if (strncmp(string, "TRB ", 4) != 0 &&
+        strncmp(string, "VRP ", 4) != 0)
+        return;
+#endif
 
     closeLogFile();
 
@@ -144,7 +168,7 @@ void DEBUG_print(char* string,int pos){
         else {
             memset(text[pos],0,DEBUG_TEXT_WIDTH);
             strncpy(text[pos], string, DEBUG_TEXT_WIDTH);
-            memset(text[DEBUG_TEXT_WIDTH-1],0,1);
+            text[pos][DEBUG_TEXT_WIDTH-1] = '\0';
             texttimes[pos] = gettime();
         }
     #endif
@@ -181,4 +205,3 @@ void DEBUG_stats(int stats_id, char *info, unsigned int stats_type, unsigned int
     DEBUG_print(txtbuffer,DBG_STATSBASE+stats_id);
     #endif
 }
-

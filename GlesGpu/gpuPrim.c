@@ -1717,7 +1717,7 @@ int UploadScreen ( int Position )
         !activeFullUpload)
         ResetActiveRebuildCandidate();
 
-#ifdef DISP_DEBUG
+#if defined(DISP_DEBUG) && defined(VRAM_CONTENT_DIAG)
     {
         unsigned int sourceNonZero = 0;
         unsigned int sourceHash = 2166136261u;
@@ -1796,7 +1796,7 @@ int UploadScreen ( int Position )
             offsetScreenUpload ( Position );
             assignTextureVRAMWrite();
 
-#ifdef DISP_DEBUG
+#if defined(DISP_DEBUG) && defined(VRAM_CONTENT_DIAG)
             {
                 const unsigned char *textureBytes = texturepart;
                 unsigned int textureNonZero = 0;
@@ -2418,6 +2418,18 @@ static void primLoadImage ( unsigned char * baseAddr )
     VRAMWrite.ColsRemaining = VRAMWrite.Height;
 
     bNeedWriteUpload = TRUE;
+    bVramWriteTransferActive = TRUE;
+#if T6_BARRIER_DIAG
+    g_t6A0TransferGeneration++;
+    if (g_t6A0TransferGeneration == 0)
+        g_t6A0TransferGeneration++;
+    g_t6A0TransferArmed = 1;
+    g_t6A0ArmDmaSerial = g_t6A0DmaSerial;
+    g_t6A0ArmX = VRAMWrite.x;
+    g_t6A0ArmY = VRAMWrite.y;
+    g_t6A0ArmW = VRAMWrite.Width;
+    g_t6A0ArmH = VRAMWrite.Height;
+#endif
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2466,6 +2478,9 @@ static void PrepareRGB24Upload ( void )
 
 void CheckWriteUpdate()
 {
+#if T6_BARRIER_DIAG
+    g_t6A0CheckOutcomeFlags |= T6_CPU_WRITE_FLAG_CHECK_CALLED;
+#endif
     InvalidateTextureArea ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height );
 
     #if defined(DISP_DEBUG)
@@ -2483,6 +2498,9 @@ void CheckWriteUpdate()
 
     if ( PSXDisplay.RGB24 )
     {
+#if T6_BARRIER_DIAG
+        g_t6A0CheckOutcomeFlags |= T6_CPU_WRITE_FLAG_UPLOAD_DEFERRED;
+#endif
         PrepareRGB24Upload();
         return;
     }
@@ -2506,11 +2524,19 @@ void CheckWriteUpdate()
 
         if (uploaded)
         {
+#if T6_BARRIER_DIAG
+            g_t6A0CheckOutcomeFlags |=
+                T6_CPU_WRITE_FLAG_UPLOAD_SUCCEEDED;
+#endif
             needUploadScreen = FALSE;
             uploadedScreen = FALSE;
         }
         else
         {
+#if T6_BARRIER_DIAG
+            g_t6A0CheckOutcomeFlags |=
+                T6_CPU_WRITE_FLAG_UPLOAD_DEFERRED;
+#endif
             // need upload screen ?
             needUploadScreen = TRUE;
             uploadedScreen = FALSE;
@@ -2563,6 +2589,10 @@ void CheckWriteUpdate()
                     xrUploadAreaIL.y0 = min ( xrUploadAreaIL.y0, xrUploadArea.y0 );
                     xrUploadAreaIL.y1 = max ( xrUploadAreaIL.y1, xrUploadArea.y1 );
                 }
+#if T6_BARRIER_DIAG
+                g_t6A0CheckOutcomeFlags |=
+                    T6_CPU_WRITE_FLAG_UPLOAD_DEFERRED;
+#endif
                 #if defined(DISP_DEBUG)
                 sprintf ( txtbuffer, "CheckWriteUpdate3 %d %d %d %d\r\n", xrUploadAreaIL.x0, xrUploadAreaIL.x1, xrUploadAreaIL.y0, xrUploadAreaIL.y1 );
                 writeLogFile ( txtbuffer );
@@ -2585,6 +2615,10 @@ void CheckWriteUpdate()
                 xrUploadArea.y0 = min ( xrUploadArea.y0, VRAMWrite.y );
                 xrUploadArea.y1 = max ( xrUploadArea.y1, VRAMWrite.y + VRAMWrite.Height );
             }
+#if T6_BARRIER_DIAG
+            g_t6A0CheckOutcomeFlags |=
+                T6_CPU_WRITE_FLAG_UPLOAD_DEFERRED;
+#endif
             #if defined(DISP_DEBUG)
             sprintf(txtbuffer, "CheckWriteUpdate4 %d %d %d %d %d %d %d %d\r\n", xrUploadArea.x0, xrUploadArea.x1, xrUploadArea.y0, xrUploadArea.y1,
                            VRAMWrite.x, VRAMWrite.Width, VRAMWrite.y, VRAMWrite.Height);
@@ -2629,6 +2663,9 @@ static void primStoreImage ( unsigned char * baseAddr )
 {
     unsigned short *sgpuData = ( ( unsigned short * ) baseAddr );
     MappingKind readMapping;
+#if T6_BARRIER_DIAG
+    unsigned int priorSerial;
+#endif
 
     VRAMRead.x      = GETLEs16 ( &sgpuData[2] ) & 0x03ff;
     VRAMRead.y      = GETLEs16 ( &sgpuData[3] ) &iGPUHeightMask;
@@ -2649,6 +2686,33 @@ static void primStoreImage ( unsigned char * baseAddr )
 
     readMapping = ClassifyReadMapping(VRAMRead.x, VRAMRead.y,
                                       VRAMRead.Width, VRAMRead.Height);
+#if T6_BARRIER_DIAG
+    priorSerial = g_t6C0ActiveSerial;
+    g_t6C0TransferSerial++;
+    if (g_t6C0TransferSerial == 0)
+        g_t6C0TransferSerial++;
+    g_t6C0ActiveSerial = g_t6C0TransferSerial;
+    g_t6C0ReadCalls = 0;
+    if (g_t6C0ActiveSerial <= 4 && g_t6C0LifecycleLogs < 64)
+    {
+        unsigned int mem2Used = gx_mem2_used();
+        unsigned int mem2Total = gx_mem2_total();
+
+        g_t6C0LifecycleLogs++;
+        sprintf(txtbuffer,
+                "TRB C0 BEGIN serial=%u prior=%u kind=%d state=%d mode=%d "
+                "rect=%d,%d %dx%d rem=%d,%d mem1KB=%u "
+                "mem2KB=%u/%u freeKB=%u\r\n",
+                g_t6C0ActiveSerial, priorSerial, (int)readMapping,
+                (int)g_readbackState, iDataReadMode,
+                VRAMRead.x, VRAMRead.y, VRAMRead.Width, VRAMRead.Height,
+                VRAMRead.RowsRemaining, VRAMRead.ColsRemaining,
+                (unsigned int)(SYS_GetArena1Size() >> 10),
+                mem2Used >> 10, mem2Total >> 10,
+                mem2Total >= mem2Used ? (mem2Total - mem2Used) >> 10 : 0);
+        writeLogFile(txtbuffer);
+    }
+#endif
     if (readMapping == MAPPING_PREVIOUS)
         ResolveCompletedRebuildForRead(VRAMRead.x, VRAMRead.y,
                                        VRAMRead.Width, VRAMRead.Height);
@@ -2858,12 +2922,30 @@ static void primBlkFill ( unsigned char * baseAddr )
     {
         // use software blkFill
         unsigned short fillCol = BGR24to16(GETLE32(&gpuData[0]));
+#if T6_BARRIER_DIAG
+        unsigned int baselineCapturesBefore =
+            g_t6RebuildBaselineCaptures;
+#endif
         BlkFillArea(sprtX, sprtY, sprtW, sprtH, fillCol);
-        MarkCpuVramWriteWithSeq(seq, sprtX, sprtY, sprtW, sprtH);
+        MarkCpuVramWriteWithSeqKind(
+            seq, sprtX, sprtY, sprtW, sprtH,
+            T6_CPU_WRITE_BLKFILL,
+            (clearCurrent && (sprtX + sprtW) >= 1023 &&
+             (sprtY + sprtH) >= 511) ?
+                T6_CPU_WRITE_FLAG_FULL_REBUILD : 0);
         if (clearCurrent && (sprtX + sprtW) >= 1023 &&
             (sprtY + sprtH) >= 511)
             MaybeEstablishBlkFillBaseline();
-#ifdef DISP_DEBUG
+#if T6_BARRIER_DIAG
+        T6CpuWriteProvenanceUpdate(
+            &g_t6CpuWriteProvenance, seq,
+            g_t6RebuildBaselineCaptures != baselineCapturesBefore ?
+                T6_CPU_WRITE_FLAG_BASELINE_ESTABLISHED : 0,
+            g_rebuildBaseline.valid ?
+                g_rebuildBaseline.capturedContentSeq : 0,
+            g_rebuildBaseline.valid ? g_rebuildBaseline.map_id : 0);
+#endif
+#if defined(DISP_DEBUG) && defined(VRAM_CONTENT_DIAG)
         if (sprtH >= 120)
             DebugLogVramHalf("BlkFill", sprtX, sprtY, sprtW, sprtH);
 #endif
@@ -2876,25 +2958,15 @@ static void primBlkFill ( unsigned char * baseAddr )
 // cmd: move image vram -> vram
 ////////////////////////////////////////////////////////////////////////
 
-static void MoveImageWrapped ( short imageX0, short imageY0,
-                        short imageX1, short imageY1,
-                        short imageSX, short imageSY )
-{
-    int i, j;
-
-    for ( j = 0; j < imageSY; j++ )
-        for ( i = 0; i < imageSX; i++ )
-            psxVuw [ ( 1024 * ( ( imageY1 + j ) &iGPUHeightMask ) ) + ( ( imageX1 + i ) & 0x3ff )] =
-                psxVuw[ ( 1024 * ( ( imageY0 + j ) &iGPUHeightMask ) ) + ( ( imageX0 + i ) & 0x3ff )];
-}
-
 ////////////////////////////////////////////////////////////////////////
 
 static void primMoveImage ( unsigned char * baseAddr )
 {
     short *sgpuData = ( ( short * ) baseAddr );
-    short imageY0, imageX0, imageY1, imageX1, imageSX, imageSY, i, j;
+    short imageY0, imageX0, imageY1, imageX1, imageSX, imageSY;
     short copyWidth, copyHeight, clipSX, clipSY;
+    VramFreshResult genericResult;
+    unsigned int genericChangedTiles = 0;
 
     long setMask32 = GETLEs32(&lSetMask);
     short setMask16 = GETLEs16(&sSetMask);
@@ -2935,19 +3007,236 @@ static void primMoveImage ( unsigned char * baseAddr )
     copyWidth = imageSX;
     copyHeight = imageSY;
 
-    /* Only DC2's five full-height strip copies are proven to consume GX-only
-     * EFB content.  Applying the read barrier to unrelated 80h commands can
-     * replace CPU-uploaded animation data with a pending EFB snapshot. */
-    if ((dwActFixes & AUTO_FIX_DINO_CRISIS2) &&
-        imageSX == 64 && imageSY == 240 &&
-        imageX1 == 448 && imageY1 == 256 &&
-        imageX0 <= 256 && (imageX0 & 63) == 0 &&
-        (imageY0 == 0 || imageY0 == 256))
-    {
-        MaterializeEfbForVramMove(imageX0, imageY0, imageSX, imageSY);
-    }
+#if T6_BARRIER_DIAG
+    /* Hang A/B: DIAG evidence is lazily allocated in MEM2.  Allocation or
+     * guard failure disables only shadow/log collection; generic production
+     * freshness still executes unchanged. */
+    int takeDiagBusy = 0;
+    int postGenericResult = (int)VRAM_FRESH_UNRESOLVED;
+    int postGenericReason = T6_REASON_NONE;
+    unsigned int postGenericHazard = 0;
+    unsigned int hashBefore = 0;
+    unsigned int hashAfter = 0;
+    uint64_t takeStart = 0;
+    uint64_t capBefore = 0, writeBefore = 0, invalBefore = 0;
+    unsigned int takeCapDeltaUs = 0, takeWriteDeltaUs = 0;
+    unsigned int takeInvalDeltaUs = 0;
 
-#ifdef DISP_DEBUG
+    if (!T6MoveTakeDiagEnsureWorkspace())
+    {
+        takeDiagBusy = 1;
+        if (isLogFileEnabled() && g_vramMoveTakeLogs < 32)
+        {
+            g_vramMoveTakeLogs++;
+            sprintf(txtbuffer,
+                    "TRB MOVE DIAG unavailable status=%d\r\n",
+                    g_t6DiagWorkspaceStatus);
+            writeLogFile(txtbuffer);
+        }
+    }
+    else if (g_t6MoveTakeDiag.busy)
+    {
+        takeDiagBusy = 1;
+        /* BUSY 日志与 TAKE 一样受 isLogFileEnabled 门控，避免 logging off
+         * 时消费 32 条 quota，导致后续有效 MoveImage 样本被耗尽。 */
+        if (isLogFileEnabled() && g_vramMoveTakeLogs < 32)
+        {
+            g_vramMoveTakeLogs++;
+            sprintf(txtbuffer,
+                    "TRB MOVE BUSY reentrant skip\r\n");
+            writeLogFile(txtbuffer);
+        }
+    }
+    else
+    {
+        g_t6MoveTakeDiag.busy = 1;
+        T6VramMoveShadowDecisionInit(&g_t6MoveTakeDiag.before);
+        T6VramMoveShadowDecisionInit(&g_t6MoveTakeDiag.post);
+        T6VramMoveShadowDecisionForRect(
+            imageX0, imageY0, imageSX, imageSY,
+            &g_t6MoveTakeDiag.before);
+        hashBefore = T6VramRectHashWrapped(
+            imageX0, imageY0, imageSX, imageSY);
+        takeStart = (uint64_t)gettime();
+        /* P2-F4: timing 用 totals 差分（无副作用）：不写共享 per-call
+         * 字段（precheck early-return 不改变 total，delta 自然为 0；
+         * reentrant 外层诊断不受嵌套 MoveImage 污染）。 */
+        capBefore = g_vramReadBarrierCaptureUsTotal;
+        writeBefore = g_vramReadBarrierWriteUsTotal;
+        invalBefore = g_vramReadBarrierInvalUsTotal;
+    }
+#endif
+
+    /* T6-E-3: 所有 MoveImage 在 CPU source read 之前执行 generic source
+     * freshness。wrapper 不执行 CPU copy或 destination ownership；旧 DC2
+     * fallback 已删除。 */
+    genericResult = EnsureVramMoveSourceFresh(
+        imageX0, imageY0, imageSX, imageSY, &genericChangedTiles);
+    /* T6-E-3 production only needs the side effects; DIAG additionally uses
+     * the result below.  Keep one source call for the ordering Gate. */
+    (void)genericResult;
+
+#if T6_BARRIER_DIAG
+    if (!takeDiagBusy)
+    {
+        /* Generic 阶段 totals 差分。 */
+        takeCapDeltaUs = T6MoveTimingDeltaUs(
+            capBefore, g_vramReadBarrierCaptureUsTotal);
+        takeWriteDeltaUs = T6MoveTimingDeltaUs(
+            writeBefore, g_vramReadBarrierWriteUsTotal);
+        takeInvalDeltaUs = T6MoveTimingDeltaUs(
+            invalBefore, g_vramReadBarrierInvalUsTotal);
+        /* postGeneric 决策：generic 执行后的 source 状态。
+         * generic 成功（NO_ACTION/MATERIALIZED）时这里必须是 NO_ACTION
+         * （epoch 已提交 / 无 hazard）；否则记入 takePostHazard 并阻止
+         * T6-E-3 通过。 */
+        T6VramMoveShadowDecisionForRect(
+            imageX0, imageY0, imageSX, imageSY,
+            &g_t6MoveTakeDiag.post);
+        postGenericResult = (int)g_t6MoveTakeDiag.post.result;
+        postGenericReason = g_t6MoveTakeDiag.post.unresolvedReason;
+        postGenericHazard = g_t6MoveTakeDiag.post.hazardTiles;
+    }
+#endif
+
+#if T6_BARRIER_DIAG
+    if (!takeDiagBusy)
+    {
+        hashAfter = T6VramRectHashWrapped(
+            imageX0, imageY0, imageSX, imageSY);
+
+        g_vramMoveShadowCalls++;
+        if (g_t6MoveTakeDiag.before.result == VRAM_FRESH_NO_ACTION)
+            g_vramMoveShadowBeforeNoAction++;
+        else if (g_t6MoveTakeDiag.before.result ==
+                 VRAM_FRESH_MATERIALIZED)
+            g_vramMoveShadowBeforeMaterialized++;
+        else
+            g_vramMoveShadowBeforeUnresolved++;
+
+        g_vramMoveTakeCalls++;
+        if (genericResult == VRAM_FRESH_NO_ACTION)
+            g_vramMoveTakeNoAction++;
+        else if (genericResult == VRAM_FRESH_MATERIALIZED)
+            g_vramMoveTakeMaterialized++;
+        else
+            g_vramMoveTakeUnresolved++;
+        /* P2-F3: post regression = generic 成功 + post 非 clean NO_ACTION
+         * （每个 MoveImage 最多一次）；generic unresolved 是预期的
+         * fail-closed 状态，不计入，由 takeUnresolved 统计。 */
+        if (T6MovePostGenericRegression(
+                (int)genericResult, postGenericResult,
+                postGenericReason, postGenericHazard))
+            g_vramMoveTakePostHazard++;
+        /* Do not consume the bounded takeover quota while SD logging is off.
+         * Logging is normally enabled from the menu after boot; consuming the
+         * quota earlier made the later DC2 load test silently produce no MOVE
+         * samples. */
+        if (isLogFileEnabled() && g_vramMoveTakeLogs < 32)
+        {
+            unsigned int takeUs;
+
+            g_vramMoveTakeLogs++;
+            takeUs = (unsigned int)ticks_to_microsecs(
+                (uint64_t)gettime() - takeStart);
+            sprintf(txtbuffer,
+                    "TRB MOVE TAKE rect=%d,%d %dx%d "
+                    "before=%d reason=%d hazard=%d "
+                    "generic=%d changed=%u "
+                    "post=%d postReason=%d postHazard=%u "
+                    "hash=%08X->%08X "
+                    "calls=%u us=%u capDeltaUs=%u writeDeltaUs=%u "
+                    "invalDeltaUs=%u\r\n",
+                    imageX0, imageY0, imageSX, imageSY,
+                    (int)g_t6MoveTakeDiag.before.result,
+                    g_t6MoveTakeDiag.before.unresolvedReason,
+                    g_t6MoveTakeDiag.before.hazardTiles,
+                    (int)genericResult, genericChangedTiles,
+                    postGenericResult, postGenericReason,
+                    postGenericHazard,
+                    hashBefore, hashAfter,
+                    g_vramMoveTakeCalls, takeUs,
+                    takeCapDeltaUs, takeWriteDeltaUs, takeInvalDeltaUs);
+            writeLogFile(txtbuffer);
+            if (g_t6MoveTakeDiag.before.unresolvedTileX >= 0 &&
+                g_t6MoveTakeDiag.before.unresolvedTileX < T6_VRAM_TILE_X &&
+                g_t6MoveTakeDiag.before.unresolvedTileY >= 0 &&
+                g_t6MoveTakeDiag.before.unresolvedTileY < T6_VRAM_TILE_Y)
+            {
+                int tx = g_t6MoveTakeDiag.before.unresolvedTileX;
+                int ty = g_t6MoveTakeDiag.before.unresolvedTileY;
+                T6CpuWriteProvenance cpuProv;
+                int cpuFound;
+
+                memset(&cpuProv, 0, sizeof(cpuProv));
+                cpuFound = T6CpuWriteProvenanceFind(
+                    &g_t6CpuWriteProvenance,
+                    g_t6MoveTakeDiag.before.unresolvedCpuWriteEpoch,
+                    &cpuProv);
+
+                sprintf(txtbuffer,
+                        "TRB MOVE TILE reason=%d tile=%d,%d base=%llu "
+                        "cpu=%llu mat=%llu snap=%llu req=%llu map=%u "
+                        "source=%llu cpuFound=%d cpuKind=%d "
+                        "cpuRect=%d,%d,%d,%d cpuFlags=%u cpuBase=%llu/%u "
+                        "calls=%u\r\n",
+                        g_t6MoveTakeDiag.before.unresolvedReason, tx, ty,
+                        (unsigned long long)
+                            g_t6MoveTakeDiag.before.unresolvedBaselineSeq,
+                        (unsigned long long)
+                            g_t6MoveTakeDiag.before.unresolvedCpuWriteEpoch,
+                        (unsigned long long)
+                            g_t6MoveTakeDiag.before.unresolvedMaterializedEpoch,
+                        (unsigned long long)
+                            g_t6MoveTakeDiag.before.unresolvedSnapshotSeq,
+                        (unsigned long long)
+                            g_t6MoveTakeDiag.before.unresolvedRequiredSeq,
+                        g_t6MoveTakeDiag.before.unresolvedMapId,
+                        (unsigned long long)
+                            g_t6MoveTakeDiag.before.unresolvedSourceId,
+                        cpuFound, cpuProv.kind,
+                        cpuProv.x, cpuProv.y, cpuProv.w, cpuProv.h,
+                        cpuProv.flags,
+                        (unsigned long long)cpuProv.baselineSeq,
+                        cpuProv.baselineMapId,
+                        g_vramMoveTakeCalls);
+                writeLogFile(txtbuffer);
+                if (cpuFound && cpuProv.kind == T6_CPU_WRITE_A0)
+                {
+                    sprintf(txtbuffer,
+                            "TRB MOVE A0 seq=%llu gen=%u finish=%u armed=%d "
+                            "need=%d mode=%d rem=%d,%d "
+                            "armRect=%d,%d,%d,%d dma=%u armDma=%u "
+                            "lastDma=%d oldMode=%d newMode=%d calls=%u\r\n",
+                            (unsigned long long)cpuProv.seq,
+                            cpuProv.a0Generation, cpuProv.a0FinishSerial,
+                            cpuProv.a0Armed, cpuProv.a0NeedUpload,
+                            cpuProv.a0WriteMode, cpuProv.a0RowsRemaining,
+                            cpuProv.a0ColsRemaining,
+                            cpuProv.a0ArmX, cpuProv.a0ArmY,
+                            cpuProv.a0ArmW, cpuProv.a0ArmH,
+                            cpuProv.a0DmaSerial, cpuProv.a0ArmDmaSerial,
+                            cpuProv.a0LastDmaMode,
+                            cpuProv.a0LastDmaOldWriteMode,
+                            cpuProv.a0LastDmaNewWriteMode,
+                            g_vramMoveTakeCalls);
+                    writeLogFile(txtbuffer);
+                }
+            }
+        }
+        g_t6DiagWorkspaceStatus = T6MoveTakeDiagCanaryStatus();
+        if (g_t6DiagWorkspaceStatus != 1 && isLogFileEnabled())
+        {
+            sprintf(txtbuffer,
+                    "TRB MOVE GUARD status=%d calls=%u\r\n",
+                    g_t6DiagWorkspaceStatus, g_vramMoveTakeCalls);
+            writeLogFile(txtbuffer);
+        }
+        g_t6MoveTakeDiag.busy = 0;
+    }
+#endif
+
+#if defined(DISP_DEBUG) && defined(VRAM_CONTENT_DIAG)
     if (ReadbackEnabled() && imageSY >= 120)
     {
         DebugLogVramHalf("MoveSrcPre", imageX0, imageY0, imageSX, imageSY);
@@ -2958,54 +3247,25 @@ static void primMoveImage ( unsigned char * baseAddr )
     clipSX = imageSX;
     clipSY = imageSY;
 
+    /* P1-F1: CPU copy 走共享纯 core（T6MoveCopyRect，与既存 formula 逐字节
+     * 等价：wrap 分段 / unaligned 16-bit / aligned 32-bit + setMask）。
+     * generic freshness 已在 CPU source read 前完成。 */
+    T6MoveCopyRect(psxVuw, iGPUHeight,
+                   imageX0, imageY0, imageX1, imageY1,
+                   imageSX, imageSY, setMask32, setMask16);
     if ( ( imageY0 + imageSY ) > iGPUHeight ||
             ( imageX0 + imageSX ) > 1024       ||
             ( imageY1 + imageSY ) > iGPUHeight ||
             ( imageX1 + imageSX ) > 1024 )
     {
-        MoveImageWrapped ( imageX0, imageY0, imageX1, imageY1, imageSX, imageSY );
         if ( ( imageY0 + clipSY ) > iGPUHeight ) clipSY = iGPUHeight - imageY0;
         if ( ( imageX0 + clipSX ) > 1024 )       clipSX = 1024 - imageX0;
         if ( ( imageY1 + clipSY ) > iGPUHeight ) clipSY = iGPUHeight - imageY1;
         if ( ( imageX1 + clipSX ) > 1024 )       clipSX = 1024 - imageX1;
     }
-    else if ( (imageSX | imageX0 | imageX1) & 1 ) // not dword aligned? slower func
-    {
-        unsigned short *SRCPtr, *DSTPtr;
-        unsigned short LineOffset;
 
-        SRCPtr = psxVuw + ( 1024 * imageY0 ) + imageX0;
-        DSTPtr = psxVuw + ( 1024 * imageY1 ) + imageX1;
-
-        LineOffset = 1024 - imageSX;
-
-        for ( j = 0; j < imageSY; j++ )
-        {
-            for ( i = 0; i < imageSX; i++ ) *DSTPtr++ = (*SRCPtr++) | setMask16;
-            SRCPtr += LineOffset;
-            DSTPtr += LineOffset;
-        }
-    }
-    else
-    {
-        unsigned int *SRCPtr, *DSTPtr;
-        unsigned short LineOffset;
-        int dx = imageSX >> 1;
-
-        SRCPtr = ( unsigned int * ) ( psxVuw + ( 1024 * imageY0 ) + imageX0 );
-        DSTPtr = ( unsigned int * ) ( psxVuw + ( 1024 * imageY1 ) + imageX1 );
-
-        LineOffset = 512 - dx;
-
-        for ( j = 0; j < imageSY; j++ )
-        {
-            for ( i = 0; i < dx; i++ ) *DSTPtr++ = (*SRCPtr++) | setMask32;
-            SRCPtr += LineOffset;
-            DSTPtr += LineOffset;
-        }
-    }
-
-    MarkCpuVramWrite(imageX1, imageY1, clipSX, clipSY);
+    MarkCpuVramWriteKind(imageX1, imageY1, clipSX, clipSY,
+                         T6_CPU_WRITE_MOVEIMAGE, 0);
     InvalidateTextureArea(imageX1, imageY1, copyWidth, copyHeight);
 
 #ifdef DISP_DEBUG
@@ -3023,7 +3283,7 @@ static void primMoveImage ( unsigned char * baseAddr )
     }
 #endif
 
-#ifdef DISP_DEBUG
+#if defined(DISP_DEBUG) && defined(VRAM_CONTENT_DIAG)
     if (ReadbackEnabled() && imageSY >= 120)
     {
         DebugLogVramHalf("MoveSrcPost", imageX0, imageY0, imageSX, imageSY);

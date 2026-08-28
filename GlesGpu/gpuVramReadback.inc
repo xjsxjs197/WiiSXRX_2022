@@ -149,6 +149,9 @@ static uint64_t g_captureOrder;
 
 static uint64_t g_psxWriteTileEpoch[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
 static uint64_t g_psxMaterializedColorTileEpoch[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
+/* Conservative summary used to reject the overwhelmingly common texture
+ * barrier no-op without clearing/scanning the large T6 workspace. */
+static uint32_t g_t6PotentialHazardTile[VRAM_READBACK_TILE_Y][2];
 static VramMaterializeWorkspace g_t6Workspace;
 static int g_t6WorkspaceDepth;
 static int g_vramReadBarrierDepth;
@@ -166,6 +169,22 @@ static MappingKind g_lastReadMapping;
 #ifdef DISP_DEBUG
 static unsigned int g_lastMergedPixels;
 static unsigned int g_lastMergedChangedPixels;
+#if T6_BARRIER_DIAG
+static unsigned int g_lastMergedChangedTiles;
+static unsigned int g_lastMergedChangedTileBitmap[64];
+static unsigned int g_lastMergedPromotedTiles;
+static unsigned int g_lastMergedPromotedTileBitmap[64];
+static uint64_t g_lastMergedTileSeq
+    [VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
+static uint32_t g_lastMergedTileMapId
+    [VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
+static unsigned char g_lastMergedTileUsed
+    [VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
+static unsigned char g_lastMergedTileMixed
+    [VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
+static uint64_t g_lastMergedTileSourceId
+    [VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
+#endif
 static unsigned int g_lastMergedMaskOnlyPixels;
 static unsigned int g_lastMergedRgbChangedPixels;
 static unsigned int g_lastMergeOldMaskPixels;
@@ -182,16 +201,154 @@ static unsigned int g_lastReadbackInvalidateUs;
 #if T6_BARRIER_DIAG
 static unsigned int g_vramReadBarrierCalls;
 static unsigned int g_vramReadBarrierNoAction;
+static unsigned int g_vramReadBarrierFastReject;
 static unsigned int g_vramReadBarrierMaterialized;
 static unsigned int g_vramReadBarrierUnresolved;
 static unsigned int g_vramReadBarrierReentrant;
 static int g_vramReadBarrierLastReason;
+/* First per-tile validation failure retained for the bounded MoveImage
+ * shadow log.  This is reset immediately before the read-only shadow
+ * validation and never participates in production decisions. */
+static int g_t6ValidationFailureTileX;
+static int g_t6ValidationFailureTileY;
+static uint64_t g_t6ValidationFailureBaselineSeq;
+static uint64_t g_t6ValidationFailureCpuWriteEpoch;
+static uint64_t g_t6ValidationFailureMaterializedEpoch;
+static uint64_t g_t6ValidationFailureSnapshotSeq;
+static uint64_t g_t6ValidationFailureRequiredSeq;
+static uint64_t g_t6ValidationFailureSourceId;
+static uint32_t g_t6ValidationFailureMapId;
+static T6CpuWriteProvenanceRing g_t6CpuWriteProvenance;
+/* Outcome bits for the one synchronous A0 CheckWriteUpdate call.  The
+ * FinishedVRAMWrite caller attaches them to the same exact CPU sequence. */
+static unsigned int g_t6A0CheckOutcomeFlags;
+/* A0/GP1 transfer lifecycle.  The provenance ring snapshots these fields at
+ * finish, avoiding unbounded per-transfer SD logging before MoveImage tells
+ * us which exact CPU epoch matters. */
+static unsigned int g_t6A0TransferGeneration;
+static unsigned int g_t6A0FinishSerial;
+static unsigned int g_t6A0DmaSerial;
+static unsigned int g_t6A0ArmDmaSerial;
+static int g_t6A0TransferArmed;
+static int g_t6A0ArmX;
+static int g_t6A0ArmY;
+static int g_t6A0ArmW;
+static int g_t6A0ArmH;
+static int g_t6A0LastDmaMode;
+static int g_t6A0LastDmaOldWriteMode;
+static int g_t6A0LastDmaNewWriteMode;
+static unsigned int g_t6A0UnarmedWriteCalls;
+/* Bounded CPU-newer negative-probe lifecycle.  Keep these beside the other
+ * DIAG counters so ResetVramReadbackState() starts every GPU session fresh. */
+static unsigned int g_t6CpuNewerProbeRelevant;
+static unsigned int g_t6CpuNewerProbeCandidates;
+static unsigned int g_t6CpuNewerProbePasses;
+/* Bounded C0 lifecycle probe.  This is observation-only: it must not alter
+ * readback state or payload counters.  The active serial links the command,
+ * merge, payload progress and FinishedVRAMRead records. */
+static unsigned int g_t6C0TransferSerial;
+static unsigned int g_t6C0ActiveSerial;
+static unsigned int g_t6C0ReadCalls;
+static unsigned int g_t6C0LifecycleLogs;
+static unsigned int g_t6C0LastFinishedSerial;
+static unsigned int g_t6C0ReturnLogs;
 static unsigned int g_vramReadBarrierCopyTex;
 static unsigned int g_vramReadBarrierCopyTexTotal;
 static unsigned int g_vramReadBarrierChangedTiles;
 static unsigned int g_vramReadBarrierInvalidateRuns;
+/* T6 performance telemetry. Per-call fields are reset by the materialize
+ * core; cumulative fields are emitted at power-of-two call milestones and
+ * on readback reset, keeping file I/O bounded while still exposing stalls. */
+static unsigned int g_vramReadBarrierCaptureUs;
+static unsigned int g_vramReadBarrierWriteUs;
+static unsigned int g_vramReadBarrierInvalUs;
+static unsigned int g_vramReadBarrierPaletteChecks;
+static unsigned int g_vramReadBarrierInvalidatedEntries;
+static unsigned int g_vramReadBarrierSampleFastTiles;
+static unsigned int g_vramReadBarrierSampleFallbackTiles;
+static unsigned int g_vramReadBarrierSampleNoDeltaTiles;
+static uint64_t g_vramReadBarrierUsTotal;
+static uint64_t g_vramReadBarrierCaptureUsTotal;
+static uint64_t g_vramReadBarrierWriteUsTotal;
+static uint64_t g_vramReadBarrierInvalUsTotal;
+static uint64_t g_vramReadBarrierChangedTilesTotal;
+static uint64_t g_vramReadBarrierInvalidateRunsTotal;
+static uint64_t g_vramReadBarrierPaletteChecksTotal;
+static uint64_t g_vramReadBarrierInvalidatedEntriesTotal;
+static uint64_t g_vramReadBarrierSampleFastTilesTotal;
+static uint64_t g_vramReadBarrierSampleFallbackTilesTotal;
+static uint64_t g_vramReadBarrierSampleNoDeltaTilesTotal;
+static unsigned int g_vramReadBarrierUsMax;
+static unsigned int g_vramReadBarrierCaptureUsMax;
+static unsigned int g_vramReadBarrierSlowCalls;
 static unsigned int g_vramReadBarrierSuccessLogs;
 static unsigned int g_vramReadBarrierReasonLogs[T6_REASON_COUNT];
+/* Rebuild baselines are correctness snapshots taken outside the generic
+ * texture barrier.  Track them separately so a full-EFB CopyTex stall cannot
+ * be mistaken for texture lookup or invalidation cost. */
+static unsigned int g_t6RebuildBaselineCalls;
+static unsigned int g_t6RebuildBaselineCaptures;
+static unsigned int g_t6RebuildBaselineFailures;
+static uint64_t g_t6RebuildBaselineUsTotal;
+static unsigned int g_t6RebuildBaselineUsMax;
+static unsigned int g_vramMoveShadowCalls;
+static unsigned int g_vramMoveShadowBeforeNoAction;
+static unsigned int g_vramMoveShadowBeforeMaterialized;
+static unsigned int g_vramMoveShadowBeforeUnresolved;
+static unsigned int g_vramMoveTakeCalls;
+static unsigned int g_vramMoveTakeNoAction;
+static unsigned int g_vramMoveTakeMaterialized;
+static unsigned int g_vramMoveTakeUnresolved;
+static unsigned int g_vramMoveTakePostHazard;
+static unsigned int g_vramMoveTakeLogs;
+/* Keep the ~53 KiB generic before/post evidence out of MEM1 .bss.  It is allocated
+ * lazily from MEM2 at the first MoveImage, so nothing before that command can
+ * be affected by its former BSS layout shift.  Guards detect overwrites while
+ * preserving the existing workspace + busy contract. */
+#define T6_MOVE_DIAG_GUARD_BEFORE 0x54364247u
+#define T6_MOVE_DIAG_GUARD_AFTER  0x54364147u
+typedef struct T6MoveTakeDiagAllocation
+{
+    uint32_t guardBefore;
+    T6MoveTakeDiagWorkspace workspace;
+    uint32_t guardAfter;
+} T6MoveTakeDiagAllocation;
+static T6MoveTakeDiagAllocation *g_t6MoveTakeDiagAllocation;
+#define g_t6MoveTakeDiag (g_t6MoveTakeDiagAllocation->workspace)
+
+static int T6MoveTakeDiagCanaryStatus(void)
+{
+    if (g_t6MoveTakeDiagAllocation == NULL)
+        return 0;
+    if (g_t6MoveTakeDiagAllocation->guardBefore !=
+            T6_MOVE_DIAG_GUARD_BEFORE ||
+        g_t6MoveTakeDiagAllocation->guardAfter !=
+            T6_MOVE_DIAG_GUARD_AFTER)
+        return -2;
+    return 1;
+}
+
+static int T6MoveTakeDiagEnsureWorkspace(void)
+{
+    if (g_t6MoveTakeDiagAllocation == NULL)
+    {
+        g_t6MoveTakeDiagAllocation =
+            (T6MoveTakeDiagAllocation *)_mem2_memalign(
+                32, sizeof(*g_t6MoveTakeDiagAllocation));
+        if (g_t6MoveTakeDiagAllocation == NULL)
+        {
+            g_t6DiagWorkspaceStatus = -1;
+            return 0;
+        }
+        g_t6MoveTakeDiagAllocation->guardBefore =
+            T6_MOVE_DIAG_GUARD_BEFORE;
+        g_t6MoveTakeDiagAllocation->guardAfter =
+            T6_MOVE_DIAG_GUARD_AFTER;
+        memset(&g_t6MoveTakeDiag, 0, sizeof(g_t6MoveTakeDiag));
+    }
+    g_t6DiagWorkspaceStatus = T6MoveTakeDiagCanaryStatus();
+    return g_t6DiagWorkspaceStatus == 1;
+}
 #endif
 #endif
 
@@ -215,7 +372,7 @@ static inline unsigned short GXRGB5A3ToPSX15(unsigned short gx);
 static int SnapshotSourcePriority(const GXFrameSnapshot *snap,
                                   MappingKind mapping);
 static int ContainsPixel(const GXFrameSnapshot *snap, int px, int py);
-#ifdef DISP_DEBUG
+#if defined(DISP_DEBUG) && defined(VRAM_CONTENT_DIAG)
 static void DebugComparePresentedToBaseline(const GXFrameSnapshot *snap);
 #endif
 
@@ -224,7 +381,7 @@ static BOOL ReadbackEnabled(void)
 	return (dwActFixes & AUTO_FIX_VRAM_READBACK) != 0;
 }
 
-#ifdef DISP_DEBUG
+#if defined(DISP_DEBUG) && defined(VRAM_CONTENT_DIAG)
 static void DebugLogVramHalf(const char *tag, int x, int y, int w, int h)
 {
     unsigned int nonZero[2] = {0, 0};
@@ -257,7 +414,7 @@ static void DebugLogVramHalf(const char *tag, int x, int y, int w, int h)
             nonZero[0], hash[0], nonZero[1], hash[1]);
     writeLogFile(txtbuffer);
 }
-#endif
+#endif /* DISP_DEBUG && VRAM_CONTENT_DIAG */
 
 static void ActiveMapVRamRect(int *x0, int *y0, int *x1, int *y1)
 {
@@ -421,14 +578,23 @@ static uint64_t BeginCommandWrite(void)
     return ++g_writeSeq;
 }
 
-static void MarkCpuVramWriteWithSeq(uint64_t seq,
-                                    int x, int y, int w, int h)
+static void MarkCpuVramWriteWithSeqKind(
+    uint64_t seq, int x, int y, int w, int h,
+    int kind, unsigned int flags)
 {
     if (!ReadbackEnabled())
         return;
 
     if (w <= 0 || h <= 0)
         return;
+
+#if T6_BARRIER_DIAG
+    T6CpuWriteProvenanceRecord(&g_t6CpuWriteProvenance, seq, kind,
+                               x, y, w, h, flags);
+#else
+    (void)kind;
+    (void)flags;
+#endif
 
     while (w > 0)
     {
@@ -439,19 +605,52 @@ static void MarkCpuVramWriteWithSeq(uint64_t seq,
 
         for (ty = ty0; ty <= ty1; ty++)
             for (tx = tx0; tx <= tx1; tx++)
+            {
                 g_psxWriteTileEpoch[ty & 31][tx & 63] = seq;
+                /* A sequence allocated at the current timeline head is at
+                 * least as new as every tracked EFB/snapshot source. */
+                if (seq == g_writeSeq)
+                    g_t6PotentialHazardTile[ty & 31][(tx & 63) >> 5] &=
+                        ~(1u << (tx & 31));
+            }
 
         w -= x1 - x;
         x = 0;
     }
 }
 
-static void MarkCpuVramWrite(int x, int y, int w, int h)
+static uint64_t MarkCpuVramWriteKind(
+    int x, int y, int w, int h, int kind, unsigned int flags)
 {
+    uint64_t seq;
+
     if (!ReadbackEnabled())
+        return 0;
+
+    seq = ++g_writeSeq;
+    MarkCpuVramWriteWithSeqKind(seq, x, y, w, h, kind, flags);
+    return seq;
+}
+
+static void MarkPotentialEfbRect(uint64_t seq,
+                                 int x0, int y0, int x1, int y1)
+{
+    int tx0, tx1, ty0, ty1, ty, tx;
+
+    if (seq == 0 || x1 <= x0 || y1 <= y0)
         return;
 
-    MarkCpuVramWriteWithSeq(++g_writeSeq, x, y, w, h);
+    tx0 = x0 >> 4;
+    tx1 = (x1 - 1) >> 4;
+    ty0 = y0 >> 4;
+    ty1 = (y1 - 1) >> 4;
+    for (ty = ty0; ty <= ty1; ty++)
+        for (tx = tx0; tx <= tx1; tx++)
+            if (seq > PsxVuwColorTileEpoch(
+                    g_psxWriteTileEpoch[ty & 31][tx & 63],
+                    g_psxMaterializedColorTileEpoch[ty & 31][tx & 63]))
+                g_t6PotentialHazardTile[ty & 31][(tx & 63) >> 5] |=
+                    1u << (tx & 31);
 }
 
 static void MarkEfbTilesPartial(uint64_t seq,
@@ -475,6 +674,11 @@ static void MarkEfbTilesPartial(uint64_t seq,
                 /* A partial draw over a fully reconstructed tile leaves the
                  * whole tile available in EFB.  Only its newest epoch changes. */
                 st->seq = seq;
+                if (seq > PsxVuwColorTileEpoch(
+                        g_psxWriteTileEpoch[ty & 31][tx & 63],
+                        g_psxMaterializedColorTileEpoch[ty & 31][tx & 63]))
+                    g_t6PotentialHazardTile[ty & 31][(tx & 63) >> 5] |=
+                        1u << (tx & 31);
             }
 
         x0 = 0;
@@ -735,6 +939,31 @@ static int SnapshotOwnsColorTileForBarrier(const GXFrameSnapshot *snap,
            efb->seq > psxColor;
 }
 
+/* A capture replaces a selectable slot with metadata for the whole sampled
+ * EFB mapping.  Merge every full/newer tile into the cheap prefilter summary
+ * before the slot can be consumed.  Baseline/diagnostic snapshots are not
+ * timeline sources and must not affect the production summary. */
+static void MergeSelectableSnapshotPotential(const GXFrameSnapshot *snap)
+{
+    int tx, ty;
+
+    if (snap == NULL || !snap->valid ||
+        (snap != &g_snapshot[0] && snap != &g_snapshot[1]))
+        return;
+
+    for (ty = 0; ty < VRAM_READBACK_TILE_Y; ty++)
+        for (tx = 0; tx < VRAM_READBACK_TILE_X; tx++)
+        {
+            const EfbTileState *efb = &snap->efbTile[ty][tx];
+
+            T6PotentialMergeSnapshotTile(
+                g_t6PotentialHazardTile, tx, ty,
+                efb->cover == EFB_TILE_FULL, efb->seq,
+                g_psxWriteTileEpoch[ty][tx],
+                g_psxMaterializedColorTileEpoch[ty][tx]);
+        }
+}
+
 static int ContainsPixel(const GXFrameSnapshot *snap, int px, int py)
 {
     unsigned int relX, relY;
@@ -891,6 +1120,7 @@ static void OnEfbDrawSubmitted(void)
         else
             MarkTileArrayPartial(g_pendingPresentedTile, seq,
                                  ctx->x0, ctx->y0, ctx->x1, ctx->y1);
+        MarkPotentialEfbRect(seq, ctx->x0, ctx->y0, ctx->x1, ctx->y1);
 
         g_pendingPresentedMap.content_valid = 1;
         g_pendingPresentedMap.content_dirty = 1;
@@ -923,6 +1153,8 @@ static void OnEfbDrawSubmitted(void)
                    sizeof(g_pendingPresentedTile));
             MarkTileArrayFull(g_pendingPresentedTile, seq,
                               ctx->x0, ctx->y0, ctx->x1, ctx->y1);
+            MarkPotentialEfbRect(seq, ctx->x0, ctx->y0,
+                                ctx->x1, ctx->y1);
             EfbHazardsReset();
         }
         else if (ctx->mapId == g_activeMap.map_id &&
@@ -1098,6 +1330,7 @@ static int CaptureEfbSnapshotWithTiles(
     snap->capturedContentSeq = map->contentWriteSeq;
     snap->captureOrder = ++g_captureOrder;
     memcpy(snap->efbTile, tile, sizeof(snap->efbTile));
+    MergeSelectableSnapshotPotential(snap);
 
     snap->size = size;
     snap->texWidth = copyW;
@@ -1123,8 +1356,29 @@ static void EstablishRebuildBaseline(
     SnapshotSource source)
 {
     uint64_t savedCaptureOrder = g_captureOrder;
+#if T6_BARRIER_DIAG
+    uint64_t ticksStart = (uint64_t)gettime();
+    unsigned int us;
+    int captured;
 
-    if (!CaptureEfbSnapshotWithTiles(&g_rebuildBaseline, map, tile, source))
+    g_t6RebuildBaselineCalls++;
+    captured = CaptureEfbSnapshotWithTiles(
+        &g_rebuildBaseline, map, tile, source);
+    us = (unsigned int)ticks_to_microsecs(
+        (uint64_t)gettime() - ticksStart);
+    g_t6RebuildBaselineUsTotal += us;
+    if (us > g_t6RebuildBaselineUsMax)
+        g_t6RebuildBaselineUsMax = us;
+    if (captured)
+        g_t6RebuildBaselineCaptures++;
+    else
+        g_t6RebuildBaselineFailures++;
+#else
+    int captured = CaptureEfbSnapshotWithTiles(
+        &g_rebuildBaseline, map, tile, source);
+#endif
+
+    if (!captured)
         g_rebuildBaseline.valid = 0;
 
     /* The baseline is not a selectable timeline snapshot. */
@@ -1294,6 +1548,7 @@ static int TryCapturePreviousReadRect(int x, int y, int w, int h)
             slot->efbTile[ty & 31][tx & 63].cover = EFB_TILE_FULL;
             slot->efbTile[ty & 31][tx & 63].seq = seq;
         }
+    MarkPotentialEfbRect(seq, x, y, x + w, y + h);
 
     slot->exactRectValid = 1;
     slot->exact_x0 = x;
@@ -1351,7 +1606,7 @@ static int CapturePresentedEfbSnapshot(void)
         return 0;
     }
 
-#ifdef DISP_DEBUG
+#if defined(DISP_DEBUG) && defined(VRAM_CONTENT_DIAG)
     DebugComparePresentedToBaseline(slot);
 #endif
 
@@ -1421,7 +1676,7 @@ static int ResolveCompletedRebuildForRead(int x, int y, int w, int h)
      * or presented snapshot path. */
     mapId = g_rebuildCandidate.map.map_id;
 
-#ifdef DISP_DEBUG
+#if defined(DISP_DEBUG) && defined(VRAM_CONTENT_DIAG)
     {
         uint64_t savedCaptureOrder = g_captureOrder;
 
@@ -1452,6 +1707,8 @@ static int ResolveCompletedRebuildForRead(int x, int y, int w, int h)
         }
         g_captureOrder = savedCaptureOrder;
     }
+#endif
+#ifdef DISP_DEBUG
     sprintf(txtbuffer,
             "VRB REBUILD cpu-authoritative map=%u rect=%d,%d %dx%d\r\n",
             mapId, x, y, w, h);
@@ -1630,13 +1887,43 @@ static void ResetVramReadbackState(void)
 
 #if T6_BARRIER_DIAG
     sprintf(txtbuffer,
-            "TRB STATS calls=%u noAction=%u materialized=%u unresolved=%u "
-            "reentrant=%u copyTexTotal=%u changed=%u invalRuns=%u\r\n",
+            "TRB STATS calls=%u noAction=%u fastReject=%u materialized=%u unresolved=%u "
+            "reentrant=%u copyTexTotal=%u changedTotal=%llu "
+            "invalRunsTotal=%llu totalUs=%llu maxUs=%u slow=%u "
+            "captureUs=%llu captureMaxUs=%u writeUs=%llu invalUs=%llu "
+            "sampleFast=%llu sampleFallback=%llu sampleNoDelta=%llu "
+            "palChecks=%llu invalidated=%llu stdHit=%u stdUp=%u "
+            "wndHit=%u wndUp=%u\r\n",
             g_vramReadBarrierCalls, g_vramReadBarrierNoAction,
+            g_vramReadBarrierFastReject,
             g_vramReadBarrierMaterialized, g_vramReadBarrierUnresolved,
             g_vramReadBarrierReentrant, g_vramReadBarrierCopyTexTotal,
-            g_vramReadBarrierChangedTiles,
-            g_vramReadBarrierInvalidateRuns);
+            (unsigned long long)g_vramReadBarrierChangedTilesTotal,
+            (unsigned long long)g_vramReadBarrierInvalidateRunsTotal,
+            (unsigned long long)g_vramReadBarrierUsTotal,
+            g_vramReadBarrierUsMax, g_vramReadBarrierSlowCalls,
+            (unsigned long long)g_vramReadBarrierCaptureUsTotal,
+            g_vramReadBarrierCaptureUsMax,
+            (unsigned long long)g_vramReadBarrierWriteUsTotal,
+            (unsigned long long)g_vramReadBarrierInvalUsTotal,
+            (unsigned long long)g_vramReadBarrierSampleFastTilesTotal,
+            (unsigned long long)g_vramReadBarrierSampleFallbackTilesTotal,
+            (unsigned long long)g_vramReadBarrierSampleNoDeltaTilesTotal,
+            (unsigned long long)g_vramReadBarrierPaletteChecksTotal,
+            (unsigned long long)g_vramReadBarrierInvalidatedEntriesTotal,
+            g_textureStandardCacheHits, g_textureStandardUploads,
+            g_textureWindowCacheHits, g_textureWindowUploads);
+    writeLogFile(txtbuffer);
+    sprintf(txtbuffer,
+            "TRB MOVE STATS calls=%u beforeNoAction=%u "
+            "beforeMaterialized=%u beforeUnresolved=%u "
+            "takeNoAction=%u takeMaterialized=%u takeUnresolved=%u "
+            "takePostHazard=%u\r\n",
+            g_vramMoveShadowCalls, g_vramMoveShadowBeforeNoAction,
+            g_vramMoveShadowBeforeMaterialized,
+            g_vramMoveShadowBeforeUnresolved,
+            g_vramMoveTakeNoAction, g_vramMoveTakeMaterialized,
+            g_vramMoveTakeUnresolved, g_vramMoveTakePostHazard);
     writeLogFile(txtbuffer);
 #endif
 
@@ -1663,6 +1950,7 @@ static void ResetVramReadbackState(void)
 #if T6_BARRIER_DIAG
     g_vramReadBarrierCalls = 0;
     g_vramReadBarrierNoAction = 0;
+    g_vramReadBarrierFastReject = 0;
     g_vramReadBarrierMaterialized = 0;
     g_vramReadBarrierUnresolved = 0;
     g_vramReadBarrierReentrant = 0;
@@ -1671,15 +1959,90 @@ static void ResetVramReadbackState(void)
     g_vramReadBarrierCopyTexTotal = 0;
     g_vramReadBarrierChangedTiles = 0;
     g_vramReadBarrierInvalidateRuns = 0;
+    g_vramReadBarrierCaptureUs = 0;
+    g_vramReadBarrierWriteUs = 0;
+    g_vramReadBarrierInvalUs = 0;
+    g_vramReadBarrierPaletteChecks = 0;
+    g_vramReadBarrierInvalidatedEntries = 0;
+    g_vramReadBarrierSampleFastTiles = 0;
+    g_vramReadBarrierSampleFallbackTiles = 0;
+    g_vramReadBarrierSampleNoDeltaTiles = 0;
+    g_vramReadBarrierUsTotal = 0;
+    g_vramReadBarrierCaptureUsTotal = 0;
+    g_vramReadBarrierWriteUsTotal = 0;
+    g_vramReadBarrierInvalUsTotal = 0;
+    g_vramReadBarrierChangedTilesTotal = 0;
+    g_vramReadBarrierInvalidateRunsTotal = 0;
+    g_vramReadBarrierPaletteChecksTotal = 0;
+    g_vramReadBarrierInvalidatedEntriesTotal = 0;
+    g_vramReadBarrierSampleFastTilesTotal = 0;
+    g_vramReadBarrierSampleFallbackTilesTotal = 0;
+    g_vramReadBarrierSampleNoDeltaTilesTotal = 0;
+    g_vramReadBarrierUsMax = 0;
+    g_vramReadBarrierCaptureUsMax = 0;
+    g_vramReadBarrierSlowCalls = 0;
     g_vramReadBarrierSuccessLogs = 0;
     memset(g_vramReadBarrierReasonLogs, 0,
            sizeof(g_vramReadBarrierReasonLogs));
+    g_t6RebuildBaselineCalls = 0;
+    g_t6RebuildBaselineCaptures = 0;
+    g_t6RebuildBaselineFailures = 0;
+    g_t6RebuildBaselineUsTotal = 0;
+    g_t6RebuildBaselineUsMax = 0;
+    g_vramMoveShadowCalls = 0;
+    g_vramMoveShadowBeforeNoAction = 0;
+    g_vramMoveShadowBeforeMaterialized = 0;
+    g_vramMoveShadowBeforeUnresolved = 0;
+    g_vramMoveTakeCalls = 0;
+    g_vramMoveTakeNoAction = 0;
+    g_vramMoveTakeMaterialized = 0;
+    g_vramMoveTakeUnresolved = 0;
+    g_vramMoveTakePostHazard = 0;
+    g_vramMoveTakeLogs = 0;
+#if T6_BARRIER_DIAG
+    /* 已分配的 MEM2 workspace 保留复用并复位 busy/guards。 */
+    if (g_t6MoveTakeDiagAllocation != NULL)
+    {
+        g_t6MoveTakeDiag.busy = 0;
+        g_t6MoveTakeDiagAllocation->guardBefore =
+            T6_MOVE_DIAG_GUARD_BEFORE;
+        g_t6MoveTakeDiagAllocation->guardAfter =
+            T6_MOVE_DIAG_GUARD_AFTER;
+    }
+    g_t6DiagWorkspaceStatus = T6MoveTakeDiagCanaryStatus();
+#endif
+    T6CpuWriteProvenanceInit(&g_t6CpuWriteProvenance);
+    g_t6A0CheckOutcomeFlags = 0;
+    g_t6A0TransferGeneration = 0;
+    g_t6A0FinishSerial = 0;
+    g_t6A0DmaSerial = 0;
+    g_t6A0ArmDmaSerial = 0;
+    g_t6A0TransferArmed = 0;
+    g_t6A0ArmX = 0;
+    g_t6A0ArmY = 0;
+    g_t6A0ArmW = 0;
+    g_t6A0ArmH = 0;
+    g_t6A0LastDmaMode = 0;
+    g_t6A0LastDmaOldWriteMode = 0;
+    g_t6A0LastDmaNewWriteMode = 0;
+    g_t6A0UnarmedWriteCalls = 0;
+    g_t6CpuNewerProbeRelevant = 0;
+    g_t6CpuNewerProbeCandidates = 0;
+    g_t6CpuNewerProbePasses = 0;
+    g_t6C0TransferSerial = 0;
+    g_t6C0ActiveSerial = 0;
+    g_t6C0ReadCalls = 0;
+    g_t6C0LifecycleLogs = 0;
+    g_t6C0LastFinishedSerial = 0;
+    g_t6C0ReturnLogs = 0;
 #endif
 #endif
 
     memset(g_psxWriteTileEpoch, 0, sizeof(g_psxWriteTileEpoch));
     memset(g_psxMaterializedColorTileEpoch, 0,
            sizeof(g_psxMaterializedColorTileEpoch));
+    memset(g_t6PotentialHazardTile, 0,
+           sizeof(g_t6PotentialHazardTile));
     memset(g_efbTileState, 0, sizeof(g_efbTileState));
     memset(&g_pendingPresentedMap, 0, sizeof(g_pendingPresentedMap));
     memset(g_pendingPresentedTile, 0, sizeof(g_pendingPresentedTile));
@@ -1699,6 +2062,20 @@ static void ResetVramReadbackState(void)
 #ifdef DISP_DEBUG
     g_lastMergedPixels = 0;
     g_lastMergedChangedPixels = 0;
+#if T6_BARRIER_DIAG
+    g_lastMergedChangedTiles = 0;
+    memset(g_lastMergedChangedTileBitmap, 0,
+           sizeof(g_lastMergedChangedTileBitmap));
+    g_lastMergedPromotedTiles = 0;
+    memset(g_lastMergedPromotedTileBitmap, 0,
+           sizeof(g_lastMergedPromotedTileBitmap));
+    memset(g_lastMergedTileUsed, 0, sizeof(g_lastMergedTileUsed));
+    memset(g_lastMergedTileSeq, 0, sizeof(g_lastMergedTileSeq));
+    memset(g_lastMergedTileMapId, 0, sizeof(g_lastMergedTileMapId));
+    memset(g_lastMergedTileMixed, 0, sizeof(g_lastMergedTileMixed));
+    memset(g_lastMergedTileSourceId, 0,
+           sizeof(g_lastMergedTileSourceId));
+#endif
     g_lastMergedMaskOnlyPixels = 0;
     g_lastMergedRgbChangedPixels = 0;
     g_lastMergeOldMaskPixels = 0;
@@ -1770,7 +2147,7 @@ static uint16_t ReadSnapshotPixelToPSX(const GXFrameSnapshot *snap,
     return GXRGB5A3ToPSX15(gx);
 }
 
-#ifdef DISP_DEBUG
+#if defined(DISP_DEBUG) && defined(VRAM_CONTENT_DIAG)
 static void DebugComparePresentedToBaseline(const GXFrameSnapshot *snap)
 {
     unsigned int quadrant[4] = {0, 0, 0, 0};
@@ -1841,7 +2218,7 @@ static void DebugComparePresentedToBaseline(const GXFrameSnapshot *snap)
     writeLogFile(txtbuffer);
     g_diagBaselinePending = 0;
 }
-#endif
+#endif /* DISP_DEBUG && VRAM_CONTENT_DIAG */
 
 static int RectsOverlap(int ax0, int ay0, int ax1, int ay1,
                         int bx0, int by0, int bx1, int by1)
@@ -2074,20 +2451,44 @@ static int SnapshotsShareSamplingMap(const GXFrameSnapshot *a,
            a->viewport_x == b->viewport_x &&
            a->viewport_y == b->viewport_y &&
            a->viewport_w == b->viewport_w &&
-           a->viewport_h == b->viewport_h;
+           a->viewport_h == b->viewport_h &&
+           a->texWidth == b->texWidth &&
+           a->texHeight == b->texHeight;
 }
 
-static int SnapshotPixelDiffers(const GXFrameSnapshot *current,
+static int SnapshotPixelCompare(const GXFrameSnapshot *current,
                                 const GXFrameSnapshot *baseline,
-                                int px, int py)
+                                int px, int py, int *differs)
 {
     uint16_t currentRaw, baselineRaw;
 
+    if (current == NULL || baseline == NULL || differs == NULL)
+        return 0;
+    *differs = 0;
     if (!ReadSnapshotPixelRaw(current, px, py, &currentRaw) ||
         !ReadSnapshotPixelRaw(baseline, px, py, &baselineRaw))
         return 0;
 
-    return currentRaw != baselineRaw;
+    *differs = currentRaw != baselineRaw;
+    return 1;
+}
+
+static int SnapshotBaselineResolutionEligible(
+    const GXFrameSnapshot *selected,
+    const GXFrameSnapshot *required,
+    const GXFrameSnapshot *baseline,
+    int samplingMapMatches, int tx, int ty, int pixelCompareSucceeded)
+{
+    const EfbTileState *base;
+
+    if (baseline == NULL)
+        return 0;
+    base = &baseline->efbTile[ty & 31][tx & 63];
+    return T6FilteredResolutionEligible(
+        selected == required, samplingMapMatches,
+        base->cover == EFB_TILE_FULL, base->seq,
+        g_psxWriteTileEpoch[ty & 31][tx & 63],
+        pixelCompareSucceeded);
 }
 
 static void InvalidateTileRunRect(void *user, int x0, int y0, int x1, int y1)
@@ -2102,11 +2503,18 @@ static void MergeReadbackToPsxVuwFiltered(
     const GXFrameSnapshot *baseline)
 {
     unsigned char writtenTile[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
-    unsigned int tilePixels[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
+    union
+    {
+        unsigned int c0Written
+            [VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
+        uint16_t filteredResolved
+            [VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
+    } tileCount;
     uint64_t tileSnapSeq[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
     unsigned char tileMixed[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
     MappingKind mapping;
     uint32_t mapId;
+    int baselineSamplingMatches;
     int yy, xx, ty, tx;
 #ifdef DISP_DEBUG
     unsigned int oldNonZero[2] = {0, 0};
@@ -2125,6 +2533,20 @@ static void MergeReadbackToPsxVuwFiltered(
 #ifdef DISP_DEBUG
     g_lastMergedPixels = 0;
     g_lastMergedChangedPixels = 0;
+#if T6_BARRIER_DIAG
+    g_lastMergedChangedTiles = 0;
+    memset(g_lastMergedChangedTileBitmap, 0,
+           sizeof(g_lastMergedChangedTileBitmap));
+    g_lastMergedPromotedTiles = 0;
+    memset(g_lastMergedPromotedTileBitmap, 0,
+           sizeof(g_lastMergedPromotedTileBitmap));
+    memset(g_lastMergedTileUsed, 0, sizeof(g_lastMergedTileUsed));
+    memset(g_lastMergedTileSeq, 0, sizeof(g_lastMergedTileSeq));
+    memset(g_lastMergedTileMapId, 0, sizeof(g_lastMergedTileMapId));
+    memset(g_lastMergedTileMixed, 0, sizeof(g_lastMergedTileMixed));
+    memset(g_lastMergedTileSourceId, 0,
+           sizeof(g_lastMergedTileSourceId));
+#endif
     g_lastMergedMaskOnlyPixels = 0;
     g_lastMergedRgbChangedPixels = 0;
     g_lastMergeOldMaskPixels = 0;
@@ -2152,8 +2574,12 @@ static void MergeReadbackToPsxVuwFiltered(
     else
         return;
 
+    baselineSamplingMatches =
+        requiredSnapshot != NULL && baseline != NULL &&
+        SnapshotsShareSamplingMap(requiredSnapshot, baseline);
+
     memset(writtenTile, 0, sizeof(writtenTile));
-    memset(tilePixels, 0, sizeof(tilePixels));
+    memset(&tileCount, 0, sizeof(tileCount));
     memset(tileSnapSeq, 0, sizeof(tileSnapSeq));
     memset(tileMixed, 0, sizeof(tileMixed));
 
@@ -2163,10 +2589,13 @@ static void MergeReadbackToPsxVuwFiltered(
         for (xx = 0; xx < w; xx++)
         {
             int px = (x + xx) & 1023;
+            int ttx = (px >> 4) & 63;
+            int tty = (py >> 4) & 31;
             uint16_t old = GETLE16(psxVuw + py * 1024 + px);
             GXFrameSnapshot *snap = BestOwningSnapshotForPixel(px, py,
                                                                mapping,
                                                                mapId);
+            int resolutionEligible = 0;
 #ifdef DISP_DEBUG
             int half = (yy < (h / 2)) ? 0 : 1;
 
@@ -2189,34 +2618,74 @@ static void MergeReadbackToPsxVuwFiltered(
              * pixel was changed by the later partial polygon.  DC2 needs only
              * the post-rebuild delta; retaining untouched psxVuw pixels also
              * avoids visible 16x16 resampling boxes on real hardware. */
-            if (requiredSnapshot != NULL &&
-                (snap != requiredSnapshot || baseline == NULL ||
-                 !SnapshotPixelDiffers(snap, baseline, px, py)))
+            if (requiredSnapshot != NULL)
             {
+                int differs = 0;
+                int compareSucceeded =
+                    snap == requiredSnapshot && baselineSamplingMatches &&
+                    SnapshotPixelCompare(snap, baseline, px, py, &differs);
+
+                resolutionEligible = SnapshotBaselineResolutionEligible(
+                    snap, requiredSnapshot, baseline,
+                    baselineSamplingMatches, ttx, tty, compareSucceeded);
+
+                if (!differs)
+                {
+                    /* A matching snapshot/baseline with no delta is a safely
+                     * resolved pixel: retaining psxVuw is intended. */
+                    if (resolutionEligible)
+                        tileCount.filteredResolved[tty][ttx]++;
 #ifdef DISP_DEBUG
-                if (old & 0x7fff)
-                    newNonZero[half]++;
-                newHash[half] = (newHash[half] ^ old) * 16777619u;
+                    if (old & 0x7fff)
+                        newNonZero[half]++;
+                    newHash[half] = (newHash[half] ^ old) * 16777619u;
 #endif
-                continue;
+                    continue;
+                }
             }
 
             uint16_t color = ReadSnapshotPixelToPSX(snap, px, py);
             uint16_t psx = (color & 0x7FFF) | (old & 0x8000);
             {
-                int ttx = (px >> 4) & 63;
-                int tty = (py >> 4) & 31;
                 uint64_t snapTileSeq = snap->efbTile[tty][ttx].seq;
 
                 if (!T6C0ColorCommitAllowed(
                         snapTileSeq,
                         g_psxMaterializedColorTileEpoch[tty][ttx]))
+                {
+                    /* A newer already-materialized color epoch protects the
+                     * retained psxVuw pixel from this older snapshot. */
+                    if (resolutionEligible)
+                        tileCount.filteredResolved[tty][ttx]++;
                     continue;
-                tilePixels[tty][ttx]++;
-                if (tilePixels[tty][ttx] == 1)
-                    tileSnapSeq[tty][ttx] = snapTileSeq;
-                else if (tileSnapSeq[tty][ttx] != snapTileSeq)
-                    tileMixed[tty][ttx] = 1;
+                }
+                if (requiredSnapshot != NULL)
+                {
+                    if (resolutionEligible)
+                        tileCount.filteredResolved[tty][ttx]++;
+                }
+                else
+                {
+                    tileCount.c0Written[tty][ttx]++;
+                    if (tileCount.c0Written[tty][ttx] == 1)
+                        tileSnapSeq[tty][ttx] = snapTileSeq;
+                    else if (tileSnapSeq[tty][ttx] != snapTileSeq)
+                        tileMixed[tty][ttx] = 1;
+                }
+#if T6_BARRIER_DIAG
+                /* A required snapshot is recorded only after all 256 pixels
+                 * have been classified below.  The unfiltered fallback keeps
+                 * its existing per-pixel evidence semantics. */
+                if (requiredSnapshot == NULL)
+                    T6MoveRecordUsedTile(
+                        (unsigned char *)g_lastMergedTileUsed,
+                        (uint64_t *)g_lastMergedTileSeq,
+                        (unsigned int *)g_lastMergedTileMapId,
+                        (unsigned char *)g_lastMergedTileMixed,
+                        (uint64_t *)g_lastMergedTileSourceId,
+                        tty * VRAM_READBACK_TILE_X + ttx,
+                        snapTileSeq, mapId, snap->captureOrder);
+#endif
             }
 
 #ifdef DISP_DEBUG
@@ -2240,11 +2709,25 @@ static void MergeReadbackToPsxVuwFiltered(
                 g_lastMergeNewMaskPixels++;
             if (old != psx)
             {
+                int ttx = (px >> 4) & 63;
+                int tty = (py >> 4) & 31;
+                unsigned int bitIdx =
+                    (unsigned int)(tty * VRAM_READBACK_TILE_X + ttx);
+
                 g_lastMergedChangedPixels++;
                 if ((old & 0x7FFF) == (psx & 0x7FFF))
                     g_lastMergedMaskOnlyPixels++;
                 else
                     g_lastMergedRgbChangedPixels++;
+#if T6_BARRIER_DIAG
+                if (!(g_lastMergedChangedTileBitmap[bitIdx >> 5] &
+                      (1u << (bitIdx & 31))))
+                {
+                    g_lastMergedChangedTileBitmap[bitIdx >> 5] |=
+                        1u << (bitIdx & 31);
+                    g_lastMergedChangedTiles++;
+                }
+#endif
             }
             if (snap->source == SNAPSHOT_SOURCE_CURRENT_EFB)
                 g_lastMergedCurrentPixels++;
@@ -2258,6 +2741,24 @@ static void MergeReadbackToPsxVuwFiltered(
             writtenTile[(py >> 4) & 31][(px >> 4) & 63] = TRUE;
         }
     }
+
+#if T6_BARRIER_DIAG
+    if (requiredSnapshot != NULL)
+    {
+        for (ty = 0; ty < VRAM_READBACK_TILE_Y; ty++)
+            for (tx = 0; tx < VRAM_READBACK_TILE_X; tx++)
+                T6MoveRecordResolvedTileIfFull(
+                    (unsigned char *)g_lastMergedTileUsed,
+                    (uint64_t *)g_lastMergedTileSeq,
+                    (unsigned int *)g_lastMergedTileMapId,
+                    (unsigned char *)g_lastMergedTileMixed,
+                    (uint64_t *)g_lastMergedTileSourceId,
+                    ty * VRAM_READBACK_TILE_X + tx,
+                    tileCount.filteredResolved[ty][tx], 0,
+                    requiredSnapshot->efbTile[ty][tx].seq,
+                    mapId, requiredSnapshot->captureOrder);
+    }
+#endif
 
 #ifdef DISP_DEBUG
     sprintf(txtbuffer,
@@ -2273,19 +2774,57 @@ static void MergeReadbackToPsxVuwFiltered(
     writeLogFile(txtbuffer);
 #endif
 
-    /* A C0 merge that fully coordinated a whole tile from one snapshot may
-     * promote the materialized color epoch; partial reads never claim a tile.
+    /* A filtered merge promotes a tile after all 256 pixels were safely
+     * classified against its required snapshot, including retained no-delta
+     * pixels.  Unfiltered C0 retains its full-pixel-write rule.  Promotion is
+     * independent from writtenTile, so equal colors do not invalidate cache.
      * This runs after pixel writeback and before cache invalidation. */
     {
         int ty, tx;
 
         for (ty = 0; ty < VRAM_READBACK_TILE_Y; ty++)
             for (tx = 0; tx < VRAM_READBACK_TILE_X; tx++)
+            {
+                uint64_t before =
+                    g_psxMaterializedColorTileEpoch[ty][tx];
+                unsigned int promotionPixels;
+                int promotionSingleSource;
+                uint64_t promotionSeq;
+
+                if (requiredSnapshot != NULL)
+                {
+                    promotionPixels = tileCount.filteredResolved[ty][tx];
+                    promotionSingleSource = TRUE;
+                    promotionSeq =
+                        requiredSnapshot->efbTile[ty][tx].seq;
+                }
+                else
+                {
+                    promotionPixels = tileCount.c0Written[ty][tx];
+                    promotionSingleSource = !tileMixed[ty][tx];
+                    promotionSeq = tileSnapSeq[ty][tx];
+                }
+
                 g_psxMaterializedColorTileEpoch[ty][tx] =
-                    T6C0FullTilePromotionEpoch(
-                        (int)tilePixels[ty][tx], !tileMixed[ty][tx],
-                        tileSnapSeq[ty][tx],
-                        g_psxMaterializedColorTileEpoch[ty][tx]);
+                    T6FullTileResolutionPromotionEpoch(
+                        promotionPixels, promotionSingleSource,
+                        promotionSeq, before);
+#if T6_BARRIER_DIAG
+                if (g_psxMaterializedColorTileEpoch[ty][tx] > before)
+                {
+                    unsigned int bitIdx =
+                        (unsigned int)(ty * VRAM_READBACK_TILE_X + tx);
+
+                    if (!(g_lastMergedPromotedTileBitmap[bitIdx >> 5] &
+                          (1u << (bitIdx & 31))))
+                    {
+                        g_lastMergedPromotedTileBitmap[bitIdx >> 5] |=
+                            1u << (bitIdx & 31);
+                        g_lastMergedPromotedTiles++;
+                    }
+                }
+#endif
+            }
     }
 
     /* T5 first pass: coalesce horizontal written-tile runs so a full-width
@@ -2627,6 +3166,24 @@ static int ValidateMaterializeTile(void *user, int tx, int ty,
         g_vramReadBarrierLastReason = T6_REASON_CAPTURE_FAIL;
     else if (in->baselinePresentForSnapshot && !in->baselineUsable)
         g_vramReadBarrierLastReason = T6_REASON_BASELINE_STALE;
+    if (g_vramReadBarrierLastReason != T6_REASON_NONE &&
+        g_t6ValidationFailureTileX < 0)
+    {
+        const EfbTileState *base =
+            &g_rebuildBaseline.efbTile[ty & 31][tx & 63];
+
+        g_t6ValidationFailureTileX = tx;
+        g_t6ValidationFailureTileY = ty;
+        g_t6ValidationFailureBaselineSeq =
+            in->baselinePresentForSnapshot ? base->seq : 0;
+        g_t6ValidationFailureCpuWriteEpoch = in->cpuWriteEpoch;
+        g_t6ValidationFailureMaterializedEpoch =
+            in->materializedColorEpoch;
+        g_t6ValidationFailureSnapshotSeq = in->snapshotSeq;
+        g_t6ValidationFailureRequiredSeq = requiredSeq;
+        g_t6ValidationFailureSourceId = snap ? snap->captureOrder : 0;
+        g_t6ValidationFailureMapId = mapId;
+    }
 #endif
     return 1;
 }
@@ -2635,10 +3192,12 @@ static void WriteMaterializeTile(void *user, VramMaterializePlan *plan,
                                  int tx, int ty, uint64_t requiredSeq)
 {
     VramMaterializeSession *session = (VramMaterializeSession *)user;
+    T6RGB5A3TileSamplePlan samplePlan;
     MappingKind mapping;
     uint32_t mapId;
     GXFrameSnapshot *snap;
     int baselineDelta;
+    int fastPlan;
     int px, py;
 
     (void)requiredSeq;
@@ -2651,19 +3210,65 @@ static void WriteMaterializeTile(void *user, VramMaterializePlan *plan,
     if (snap == NULL)
         return;
     baselineDelta = RebuildBaselineUsableForTile(snap, tx, ty);
+    fastPlan = T6BuildRGB5A3TileSamplePlan(
+        &samplePlan, tx, ty,
+        snap->vram_x, snap->vram_y, snap->vram_w, snap->vram_h,
+        snap->viewport_x, snap->viewport_y,
+        snap->viewport_w, snap->viewport_h,
+        snap->texWidth, snap->texHeight);
+#if T6_BARRIER_DIAG
+    if (fastPlan)
+        g_vramReadBarrierSampleFastTiles++;
+    else
+        g_vramReadBarrierSampleFallbackTiles++;
+#endif
 
     for (py = ty << 4; py < (ty << 4) + VRAM_READBACK_TILE_SIZE; py++)
         for (px = tx << 4; px < (tx << 4) + VRAM_READBACK_TILE_SIZE; px++)
         {
-            unsigned short old = GETLE16(psxVuw + (py << 10) + px);
+            unsigned short currentRaw = 0;
+            unsigned short old;
             unsigned short color;
             unsigned short psx;
+            int currentRawReady = 0;
 
-            if (baselineDelta &&
-                !SnapshotPixelDiffers(snap, &g_rebuildBaseline, px, py))
-                continue;
+            if (fastPlan)
+            {
+                int lx = px & (VRAM_READBACK_TILE_SIZE - 1);
+                int ly = py & (VRAM_READBACK_TILE_SIZE - 1);
 
-            color = ReadSnapshotPixelToPSX(snap, px, py);
+                currentRaw = T6ReadRGB5A3TileSample(
+                    (const unsigned char *)snap->pixels,
+                    &samplePlan, lx, ly);
+                currentRawReady = 1;
+                if (baselineDelta)
+                {
+                    unsigned short baselineRaw = T6ReadRGB5A3TileSample(
+                        (const unsigned char *)g_rebuildBaseline.pixels,
+                        &samplePlan, lx, ly);
+
+                    if (currentRaw == baselineRaw)
+                        continue;
+                }
+            }
+
+            if (!fastPlan && baselineDelta)
+            {
+                int differs;
+
+                if (!SnapshotPixelCompare(
+                        snap, &g_rebuildBaseline, px, py, &differs) ||
+                    !differs)
+                    continue;
+            }
+
+            /* Delay psxVuw access until a baseline delta is proven.  The
+             * common no-delta tile now touches only the two snapshot buffers.
+             * If plan construction ever rejects an unusual map, retain the
+             * original scalar reader instead of weakening correctness. */
+            old = GETLE16(psxVuw + (py << 10) + px);
+            color = currentRawReady ? GXRGB5A3ToPSX15(currentRaw) :
+                                      ReadSnapshotPixelToPSX(snap, px, py);
             psx = T6MergePixelColor(old, color);
             if (psx == old)
                 continue;
@@ -2671,6 +3276,10 @@ static void WriteMaterializeTile(void *user, VramMaterializePlan *plan,
             PUTLE16(psxVuw + (py << 10) + px, psx);
             T6MaterializePlanMarkChanged(plan, tx, ty);
         }
+#if T6_BARRIER_DIAG
+    if (!plan->changed[ty & 31][tx & 63])
+        g_vramReadBarrierSampleNoDeltaTiles++;
+#endif
 }
 
 static uint64_t MaterializeSnapshotSeq(void *user, int tx, int ty)
@@ -2693,9 +3302,33 @@ static uint64_t MaterializeSnapshotSeq(void *user, int tx, int ty)
 
 static void ApplyMaterializeEpoch(void *user, int tx, int ty, uint64_t seq)
 {
+    uint64_t newest;
+    int i;
+
     (void)user;
     if (seq > g_psxMaterializedColorTileEpoch[ty & 31][tx & 63])
         g_psxMaterializedColorTileEpoch[ty & 31][tx & 63] = seq;
+
+    /* Materialization can retire the last potential hazard for this tile.
+     * Recompute from every retained source; invalid sources intentionally do
+     * not keep the conservative bit alive. */
+    newest = g_efbTileState[ty & 31][tx & 63].seq;
+    if (g_pendingPresentedReady &&
+        g_pendingPresentedTile[ty & 31][tx & 63].seq > newest)
+        newest = g_pendingPresentedTile[ty & 31][tx & 63].seq;
+    for (i = 0; i < 2; i++)
+        if (g_snapshot[i].valid &&
+            g_snapshot[i].efbTile[ty & 31][tx & 63].seq > newest)
+            newest = g_snapshot[i].efbTile[ty & 31][tx & 63].seq;
+
+    if (newest > PsxVuwColorTileEpoch(
+            g_psxWriteTileEpoch[ty & 31][tx & 63],
+            g_psxMaterializedColorTileEpoch[ty & 31][tx & 63]))
+        g_t6PotentialHazardTile[ty & 31][(tx & 63) >> 5] |=
+            1u << (tx & 31);
+    else
+        g_t6PotentialHazardTile[ty & 31][(tx & 63) >> 5] &=
+            ~(1u << (tx & 31));
 }
 
 /* Two-phase materialize: prove every hazard tile first, then write, commit
@@ -2720,7 +3353,29 @@ static VramFreshResult MaterializeVramReadCore(
     g_vramReadBarrierCopyTex = 0;
     g_vramReadBarrierChangedTiles = 0;
     g_vramReadBarrierInvalidateRuns = 0;
+    g_vramReadBarrierCaptureUs = 0;
+    g_vramReadBarrierWriteUs = 0;
+    g_vramReadBarrierInvalUs = 0;
+    g_vramReadBarrierPaletteChecks = 0;
+    g_vramReadBarrierInvalidatedEntries = 0;
+    g_vramReadBarrierSampleFastTiles = 0;
+    g_vramReadBarrierSampleFallbackTiles = 0;
+    g_vramReadBarrierSampleNoDeltaTiles = 0;
 #endif
+
+    /* Most texture reads never overlap color newer than psxVuw.  Avoid the
+     * workspace clear plus physical/snapshot ownership scan in that case.
+     * An untracked draw has no safe spatial summary and therefore fails
+     * closed into the original path. */
+    if (!g_untrackedEfbWrite &&
+        !T6DependencyIntersectsPotentialTiles(
+            dep, g_t6PotentialHazardTile))
+    {
+#if T6_BARRIER_DIAG
+        g_vramReadBarrierFastReject++;
+#endif
+        return VRAM_FRESH_NO_ACTION;
+    }
 
     T6MaterializeSessionInit(&session, &g_t6Workspace);
     memset(&obs, 0, sizeof(obs));
@@ -2784,6 +3439,22 @@ static VramFreshResult MaterializeVramReadCore(
                 T6ClassifyCaptureFailure(&diag);
         }
 #endif
+#if T6_BARRIER_DIAG
+        {
+            uint64_t captureStart = (uint64_t)gettime();
+            int captureOk = CaptureEfbForMaterialize(
+                &g_snapshot[slotIndex],
+                (MappingKind)session.captureMappingKind,
+                session.captureMapId,
+                session.captureTileX, session.captureTileY);
+
+            g_vramReadBarrierCaptureUs =
+                (unsigned int)ticks_to_microsecs(
+                    (uint64_t)gettime() - captureStart);
+            if (!captureOk)
+                return VRAM_FRESH_UNRESOLVED;
+        }
+#else
         if (!CaptureEfbForMaterialize(
                 &g_snapshot[slotIndex],
                 (MappingKind)session.captureMappingKind,
@@ -2792,6 +3463,7 @@ static VramFreshResult MaterializeVramReadCore(
         {
             return VRAM_FRESH_UNRESOLVED;
         }
+#endif
 #if T6_BARRIER_DIAG
         g_vramReadBarrierLastReason = T6_REASON_NONE;
         T6CopyTexCapture(&g_vramReadBarrierCopyTex,
@@ -2808,21 +3480,45 @@ static VramFreshResult MaterializeVramReadCore(
                                       ValidateMaterializeTile, &session))
         return VRAM_FRESH_UNRESOLVED;
 
-    T6MaterializeSessionWrite(&session, WriteMaterializeTile, &session);
 #if T6_BARRIER_DIAG
+    {
+        uint64_t writeStart = (uint64_t)gettime();
+
+        T6MaterializeSessionWrite(&session, WriteMaterializeTile, &session);
+        T6MaterializeSessionCommitEpoch(&session,
+                                        MaterializeSnapshotSeq,
+                                        ApplyMaterializeEpoch, &session);
+        g_vramReadBarrierWriteUs =
+            (unsigned int)ticks_to_microsecs(
+                (uint64_t)gettime() - writeStart);
+    }
     g_vramReadBarrierChangedTiles =
         (unsigned int)session.plan.changedCount;
-#endif
+#else
+    T6MaterializeSessionWrite(&session, WriteMaterializeTile, &session);
     T6MaterializeSessionCommitEpoch(&session,
                                     MaterializeSnapshotSeq,
-                                    ApplyMaterializeEpoch, NULL);
+                                    ApplyMaterializeEpoch, &session);
+#endif
 
     if (session.plan.changedCount > 0)
     {
+#if T6_BARRIER_DIAG
+        uint64_t invalStart = (uint64_t)gettime();
+        unsigned int paletteBefore = g_texturePaletteEntryChecks;
+        unsigned int invalidatedBefore = g_textureTotalInvalidatedEntries;
+#endif
         int runs = T6MaterializeSessionInvalidateChanged(
             &session, InvalidateTileRunRect, NULL);
 #if T6_BARRIER_DIAG
         g_vramReadBarrierInvalidateRuns = (unsigned int)runs;
+        g_vramReadBarrierInvalUs =
+            (unsigned int)ticks_to_microsecs(
+                (uint64_t)gettime() - invalStart);
+        g_vramReadBarrierPaletteChecks =
+            g_texturePaletteEntryChecks - paletteBefore;
+        g_vramReadBarrierInvalidatedEntries =
+            g_textureTotalInvalidatedEntries - invalidatedBefore;
 #endif
         (void)runs;
     }
@@ -2866,6 +3562,7 @@ static VramFreshResult EnsureVramReadFreshEx(
 #if T6_BARRIER_DIAG
     uint64_t ticksStart = (uint64_t)gettime();
     uint64_t ticksEnd;
+    unsigned int callUs;
 #endif
 
     if (T6ReadFreshEntry(
@@ -2903,6 +3600,31 @@ static VramFreshResult EnsureVramReadFreshEx(
 
 #if T6_BARRIER_DIAG
     ticksEnd = (uint64_t)gettime();
+    callUs = (unsigned int)ticks_to_microsecs(ticksEnd - ticksStart);
+    g_vramReadBarrierUsTotal += callUs;
+    g_vramReadBarrierCaptureUsTotal += g_vramReadBarrierCaptureUs;
+    g_vramReadBarrierWriteUsTotal += g_vramReadBarrierWriteUs;
+    g_vramReadBarrierInvalUsTotal += g_vramReadBarrierInvalUs;
+    g_vramReadBarrierChangedTilesTotal += g_vramReadBarrierChangedTiles;
+    g_vramReadBarrierInvalidateRunsTotal +=
+        g_vramReadBarrierInvalidateRuns;
+    g_vramReadBarrierPaletteChecksTotal +=
+        g_vramReadBarrierPaletteChecks;
+    g_vramReadBarrierInvalidatedEntriesTotal +=
+        g_vramReadBarrierInvalidatedEntries;
+    g_vramReadBarrierSampleFastTilesTotal +=
+        g_vramReadBarrierSampleFastTiles;
+    g_vramReadBarrierSampleFallbackTilesTotal +=
+        g_vramReadBarrierSampleFallbackTiles;
+    g_vramReadBarrierSampleNoDeltaTilesTotal +=
+        g_vramReadBarrierSampleNoDeltaTiles;
+    if (callUs > g_vramReadBarrierUsMax)
+        g_vramReadBarrierUsMax = callUs;
+    if (g_vramReadBarrierCaptureUs > g_vramReadBarrierCaptureUsMax)
+        g_vramReadBarrierCaptureUsMax = g_vramReadBarrierCaptureUs;
+    if (callUs >= 1000)
+        g_vramReadBarrierSlowCalls++;
+
     if (result == VRAM_FRESH_NO_ACTION)
         g_vramReadBarrierNoAction++;
     else if (result == VRAM_FRESH_MATERIALIZED)
@@ -2928,8 +3650,7 @@ static VramFreshResult EnsureVramReadFreshEx(
                     g_vramReadBarrierCopyTexTotal,
                     g_vramReadBarrierChangedTiles,
                     g_vramReadBarrierInvalidateRuns,
-                    (unsigned int)ticks_to_microsecs(
-                        ticksEnd - ticksStart));
+                    callUs);
             writeLogFile(txtbuffer);
         }
     }
@@ -2939,7 +3660,10 @@ static VramFreshResult EnsureVramReadFreshEx(
         sprintf(txtbuffer,
                 "TRB RES result=%d calls=%u noAction=%u materialized=%u "
                 "copyTex=%u copyTexTotal=%u changed=%u invalRuns=%u "
-                "us=%u\r\n",
+                "us=%u capUs=%u writeUs=%u invalUs=%u "
+                "sampleFast=%u sampleFallback=%u sampleNoDelta=%u "
+                "palChecks=%u "
+                "invalidated=%u\r\n",
                 (int)result, g_vramReadBarrierCalls,
                 g_vramReadBarrierNoAction,
                 g_vramReadBarrierMaterialized,
@@ -2947,8 +3671,49 @@ static VramFreshResult EnsureVramReadFreshEx(
                 g_vramReadBarrierCopyTexTotal,
                 g_vramReadBarrierChangedTiles,
                 g_vramReadBarrierInvalidateRuns,
-                (unsigned int)ticks_to_microsecs(
-                    ticksEnd - ticksStart));
+                callUs, g_vramReadBarrierCaptureUs,
+                g_vramReadBarrierWriteUs, g_vramReadBarrierInvalUs,
+                g_vramReadBarrierSampleFastTiles,
+                g_vramReadBarrierSampleFallbackTiles,
+                g_vramReadBarrierSampleNoDeltaTiles,
+                g_vramReadBarrierPaletteChecks,
+                g_vramReadBarrierInvalidatedEntries);
+        writeLogFile(txtbuffer);
+    }
+
+    /* Bounded lifetime telemetry: 1,2,4,8... calls only.  This remains useful
+     * after the per-call log limits are exhausted without turning logging
+     * itself into the performance problem under investigation. */
+    if ((g_vramReadBarrierCalls & (g_vramReadBarrierCalls - 1u)) == 0)
+    {
+        sprintf(txtbuffer,
+                "TRB PERF calls=%u noAction=%u fastReject=%u mat=%u unr=%u copy=%u "
+                "totalUs=%llu avgUs=%llu maxUs=%u slow=%u "
+                "capUs=%llu capMax=%u writeUs=%llu invalUs=%llu "
+                "sampleFast=%llu sampleFallback=%llu sampleNoDelta=%llu "
+                "changed=%llu runs=%llu palChecks=%llu invalidated=%llu "
+                "stdHit=%u stdUp=%u wndHit=%u wndUp=%u\r\n",
+                g_vramReadBarrierCalls, g_vramReadBarrierNoAction,
+                g_vramReadBarrierFastReject,
+                g_vramReadBarrierMaterialized, g_vramReadBarrierUnresolved,
+                g_vramReadBarrierCopyTexTotal,
+                (unsigned long long)g_vramReadBarrierUsTotal,
+                (unsigned long long)(g_vramReadBarrierUsTotal /
+                                     g_vramReadBarrierCalls),
+                g_vramReadBarrierUsMax, g_vramReadBarrierSlowCalls,
+                (unsigned long long)g_vramReadBarrierCaptureUsTotal,
+                g_vramReadBarrierCaptureUsMax,
+                (unsigned long long)g_vramReadBarrierWriteUsTotal,
+                (unsigned long long)g_vramReadBarrierInvalUsTotal,
+                (unsigned long long)g_vramReadBarrierSampleFastTilesTotal,
+                (unsigned long long)g_vramReadBarrierSampleFallbackTilesTotal,
+                (unsigned long long)g_vramReadBarrierSampleNoDeltaTilesTotal,
+                (unsigned long long)g_vramReadBarrierChangedTilesTotal,
+                (unsigned long long)g_vramReadBarrierInvalidateRunsTotal,
+                (unsigned long long)g_vramReadBarrierPaletteChecksTotal,
+                (unsigned long long)g_vramReadBarrierInvalidatedEntriesTotal,
+                g_textureStandardCacheHits, g_textureStandardUploads,
+                g_textureWindowCacheHits, g_textureWindowUploads);
         writeLogFile(txtbuffer);
     }
 #endif
@@ -2978,92 +3743,661 @@ void T6_MaterializeVramReadForTest(int x, int y, int w, int h)
     MaterializeVramRead(&dep, NULL);
 }
 
-/* GP0 80h reads VRAM internally; it does not pass through the C0 transfer
- * path.  While a double-buffered game builds the next page, GP1 still names
- * the old display page, so the physical EFB is described by the pending
- * presented map rather than g_activeMap.  Materialize that EFB before the
- * CPU-side MoveImage copy consumes psxVuw. */
-static void MaterializeEfbForVramMove(int x, int y, int w, int h)
+/* T6-E-2 建立、T6-E-3 唯一保留的通用 MoveImage source freshness wrapper。
+ * 所有 GP0(80h) 在计算/持有 CPU source pointer或执行 CPU copy 前调用。契约:
+ * 1. iGPUHeight != 512、非法 rect、dependency overflow、readback disabled
+ *    或 reentrant 时返回 VRAM_FRESH_UNRESOLVED,不得留下截断 dependency
+ *    (BuildMoveSourceDependency 失败已把 dep.count 清 0),也不得写任何状态;
+ * 2. 合法 512-line source 用 BuildMoveSourceDependency() 再调
+ *    EnsureVramReadFreshEx()(真实 capture/merge/epoch-commit/invalidate);
+ * 3. 返回原始三态结果与 changed tile 数,不把 UNRESOLVED 改写成 NO_ACTION;
+ * 4. 不在 wrapper 内执行 CPU copy或 destination ownership。 */
+static VramFreshResult EnsureVramMoveSourceFresh(
+    int x, int y, int w, int h, unsigned int *changedTilesOut)
 {
-    MappingKind mapping;
-    uint32_t targetMapId;
-    GXFrameSnapshot *capturedSnapshot = NULL;
-    const GXFrameSnapshot *baseline = NULL;
-    int captured = 0;
+    VramReadDependency dep;
+
+    T6ResetChangedTilesOutput(changedTilesOut);
+
+    if (!T6MoveSourceFreshnessPrecheck(
+            x, y, w, h, iGPUHeight, ReadbackEnabled(),
+            g_t6WorkspaceDepth, g_vramReadBarrierDepth))
+        return VRAM_FRESH_UNRESOLVED;
+
+    memset(&dep, 0, sizeof(dep));
+    if (!BuildMoveSourceDependency(x, y, w, h, 1024, 512, &dep))
+        return VRAM_FRESH_UNRESOLVED;
+
+    return EnsureVramReadFreshEx(&dep, changedTilesOut);
+}
+
+#if T6_BARRIER_DIAG
+/* Bounded before/after content evidence for the generic MoveImage takeover. */
+static unsigned int T6VramRectHashWrapped(int x, int y, int w, int h)
+{
+    VramRect pieces[4];
+    int n, i, py, px;
+    unsigned int hash = 2166136261u;
+
+    n = SplitWrappedVramRect(x, y, w, h, 1024, iGPUHeight, pieces);
+    for (i = 0; i < n; i++)
+        for (py = pieces[i].y0; py < pieces[i].y1; py++)
+            for (px = pieces[i].x0; px < pieces[i].x1; px++)
+            {
+                unsigned int v = GETLE16(psxVuw + (py << 10) + px);
+                hash = (hash ^ v) * 16777619u;
+            }
+    return hash;
+}
+#endif /* T6_BARRIER_DIAG */
+
+#if T6_BARRIER_DIAG
+/* Read-only MoveImage source freshness decision.  It runs the same dependency
+ * observation and pure validate decision as the texture barrier but never
+ * captures, writes psxVuw, commits epochs or invalidates the cache. */
+static int T6VramMoveCapturePlanForSession(
+    const VramMaterializeSession *session, int *outSlot)
+{
+    int oldestIndex, slotIndex;
+    GXFrameSnapshot *oldest = OldestSnapshotSlot();
+
+    if (session == NULL || !session->captureRequired ||
+        session->captureConflict)
+        return 0;
+    oldestIndex = oldest == &g_snapshot[0] ? 0 : 1;
+    if (!T6MaterializeSessionSelectCaptureSlot(
+            session, oldestIndex, &slotIndex))
+        return 0;
+
+    if (session->captureMappingKind == MAPPING_CURRENT)
+    {
+        if (!CanCaptureActiveEfb())
+            return 0;
+    }
+    else if (session->captureMappingKind == MAPPING_PREVIOUS)
+    {
+        if (!g_pendingPresentedReady ||
+            session->captureMapId != g_prevMapId ||
+            !RectIntersectsTile(g_pendingPresentedMap.vram_x0,
+                                g_pendingPresentedMap.vram_y0,
+                                g_pendingPresentedMap.vram_x1,
+                                g_pendingPresentedMap.vram_y1,
+                                session->captureTileX,
+                                session->captureTileY) ||
+            (STATUSREG & GPUSTATUS_RGB24) || PSXDisplay.RGB24 ||
+            g_efbContaminated || g_mixedMappingSeen ||
+            g_untrackedEfbWrite)
+            return 0;
+    }
+    else
+        return 0;
+
+    if (outSlot != NULL)
+        *outSlot = slotIndex;
+    return 1;
+}
+
+static int T6VramMoveCaptureSlotBufferReady(int slotIndex)
+{
+    GXFrameSnapshot *slot;
+    int copyW;
+    int copyH;
+    int requiredSize;
+
+    if (slotIndex < 0 || slotIndex >= 2)
+        return 0;
+    slot = &g_snapshot[slotIndex];
+    copyW = (iResX + 15) & ~15;
+    copyH = (iResY + 1) & ~1;
+    requiredSize = GX_GetTexBufferSize(copyW, copyH,
+                                       GX_TF_RGB5A3, 0, GX_FALSE);
+    return T6MoveCaptureBufferReady(
+        slot->pixels != NULL, slot->size, requiredSize);
+}
+
+/* Build metadata for the snapshot that CaptureEfbForMaterialize() would
+ * create, without copying the EFB or touching a real snapshot slot.  Only
+ * one tile entry is populated at a time by the post-capture validator below,
+ * keeping this DIAG shadow free of a per-call 32 KiB clear/copy. */
+static int T6PreparePlannedCaptureSnapshot(
+    const VramMaterializeSession *session, GXFrameSnapshot *predicted,
+    EfbTileState (**sourceTiles)[VRAM_READBACK_TILE_X])
+{
+    const GXDisplayMap *map;
+
+    if (session == NULL || predicted == NULL || sourceTiles == NULL ||
+        !session->captureRequired)
+        return 0;
+    if (session->captureMappingKind == MAPPING_CURRENT)
+    {
+        map = &g_activeMap;
+        *sourceTiles = g_efbTileState;
+        predicted->source = SNAPSHOT_SOURCE_CURRENT_EFB;
+    }
+    else if (session->captureMappingKind == MAPPING_PREVIOUS &&
+             g_pendingPresentedReady)
+    {
+        map = &g_pendingPresentedMap;
+        *sourceTiles = g_pendingPresentedTile;
+        predicted->source = SNAPSHOT_SOURCE_PRESENTED;
+    }
+    else
+        return 0;
+
+    predicted->valid = 1;
+    predicted->vram_x = map->vram_x0;
+    predicted->vram_y = map->vram_y0;
+    predicted->vram_w = map->vram_x1 - map->vram_x0;
+    predicted->vram_h = map->vram_y1 - map->vram_y0;
+    predicted->viewport_x = map->viewport_x0;
+    predicted->viewport_y = map->viewport_y0;
+    predicted->viewport_w = map->viewport_x1 - map->viewport_x0;
+    predicted->viewport_h = map->viewport_y1 - map->viewport_y0;
+    predicted->ratio = map->ratio;
+    predicted->map_id = session->captureMapId;
+    predicted->exactRectValid = 0;
+    predicted->captureOrder = g_captureOrder + 1;
+    return 1;
+}
+
+/* Select exactly as BestOwningSnapshotForTile() will after the planned slot
+ * has been replaced.  The synthetic candidate is metadata-only and never
+ * becomes visible to production. */
+static const GXFrameSnapshot *T6BestOwningSnapshotAfterPlannedCapture(
+    const GXFrameSnapshot *predicted, int replacedSlot,
+    int tx, int ty, MappingKind mapping, uint32_t mapId)
+{
+    T6SnapshotCandidate cands[3];
+    const GXFrameSnapshot *refs[3];
+    int count = 0;
+    int selected;
+    int i;
+
+    memset(cands, 0, sizeof(cands));
+    for (i = 0; i < 2; i++)
+    {
+        GXFrameSnapshot *snap = &g_snapshot[i];
+
+        if (i == replacedSlot)
+            continue;
+        refs[count] = snap;
+        if (snap->valid && snap->map_id == mapId &&
+            SnapshotCoversTile(snap, tx, ty) &&
+            SnapshotExactRectCoversTile(snap, tx, ty) &&
+            SnapshotOwnsColorTileForBarrier(snap, tx, ty))
+        {
+            cands[count].seq = snap->efbTile[ty][tx].seq;
+            cands[count].sourcePriority =
+                SnapshotSourcePriority(snap, mapping);
+            cands[count].captureOrder = snap->captureOrder;
+            cands[count].qualified = 1;
+        }
+        count++;
+    }
+
+    refs[count] = predicted;
+    if (predicted->valid &&
+        T6MoveCaptureCandidateMatchesMap(predicted->map_id, mapId) &&
+        SnapshotCoversTile(predicted, tx, ty) &&
+        SnapshotExactRectCoversTile(predicted, tx, ty) &&
+        SnapshotOwnsColorTileForBarrier(predicted, tx, ty))
+    {
+        cands[count].seq = predicted->efbTile[ty][tx].seq;
+        cands[count].sourcePriority =
+            SnapshotSourcePriority(predicted, mapping);
+        cands[count].captureOrder = predicted->captureOrder;
+        cands[count].qualified = 1;
+    }
+    count++;
+
+    selected = T6SelectBestSnapshotTile(cands, count, NULL);
+    return selected > 0 ? refs[selected - 1] : NULL;
+}
+
+/* Read-only simulation of the real post-capture validation.  It predicts
+ * the replacement slot and captured metadata, then re-proves every original
+ * hazard tile.  This handles FULL coverage, required sequence, per-tile map
+ * identity and rebuild-baseline freshness; a capture-map baseline is never
+ * applied to a retained snapshot from another map. */
+static int T6VramMoveCapturePostValidateForSession(
+    const VramMaterializeSession *session, int planSlot,
+    VramMoveShadowDecision *out)
+{
+    static GXFrameSnapshot predicted;
+    EfbTileState (*sourceTiles)[VRAM_READBACK_TILE_X] = NULL;
+    int i;
+
+    if (!T6PreparePlannedCaptureSnapshot(
+            session, &predicted, &sourceTiles))
+        return 0;
+
+    for (i = 0; i < session->touchedCount; i++)
+    {
+        int idx = session->touched[i];
+        int tx = idx % T6_VRAM_TILE_X;
+        int ty = idx / T6_VRAM_TILE_X;
+        uint64_t requiredSeq;
+        uint32_t mapId;
+        MappingKind mapping;
+        T6PhysicalTileState phys;
+        const GXFrameSnapshot *snap;
+        const EfbTileState *efb;
+        VramTileFreshnessInput in;
+        int reason = T6_REASON_NONE;
+
+        if (!session->plan.hazard[ty][tx])
+            continue;
+        requiredSeq =
+            T6MaterializeSessionRequiredSeq(session, tx, ty);
+        mapId = T6MaterializeSessionRequiredMapId(session, tx, ty);
+        mapping = ClassifyTileMapping(tx, ty);
+
+        /* Capture copies this tile metadata even when the tile belongs to a
+         * different retained map; map qualification below prevents it from
+         * becoming a candidate for that other map. */
+        predicted.efbTile[ty][tx] = sourceTiles[ty][tx];
+        snap = T6BestOwningSnapshotAfterPlannedCapture(
+            &predicted, planSlot, tx, ty, mapping, mapId);
+
+        memset(&phys, 0, sizeof(phys));
+        if (mapping != MAPPING_UNKNOWN)
+        {
+            TilePhysicalEfbState(tx, ty, mapping, mapId, &phys);
+            if (!TilePhysicalOwnsTargetMap(&phys, mapping, mapId))
+                memset(&phys, 0, sizeof(phys));
+        }
+
+        memset(&in, 0, sizeof(in));
+        in.efbSeq = requiredSeq;
+        in.cpuWriteEpoch = g_psxWriteTileEpoch[ty][tx];
+        in.materializedColorEpoch =
+            g_psxMaterializedColorTileEpoch[ty][tx];
+        in.snapshotSeq = snap ? snap->efbTile[ty][tx].seq : 0;
+        in.rgb24 = (STATUSREG & GPUSTATUS_RGB24) || PSXDisplay.RGB24 ||
+                   (phys.map != NULL && phys.map->rgb24);
+        in.contaminated = g_efbContaminated;
+        in.mixedMapping = g_mixedMappingSeen;
+        in.untrackedEfb = g_untrackedEfbWrite ||
+                          mapping == MAPPING_UNKNOWN || mapId == 0;
+        in.hasValidSnapshot = snap != NULL &&
+                              in.snapshotSeq >= requiredSeq;
+        in.baselinePresentForSnapshot =
+            snap != NULL && RebuildBaselineMatchesSnapshot(snap);
+        in.baselineUsable =
+            snap != NULL && RebuildBaselineUsableForTile(snap, tx, ty);
+        efb = snap ? &snap->efbTile[ty][tx] : NULL;
+        in.efbCoverFull =
+            efb != NULL && efb->cover == EFB_TILE_FULL &&
+            SnapshotExactRectCoversTile(snap, tx, ty);
+
+        if (in.rgb24)
+            reason = T6_REASON_RGB24;
+        else if (in.contaminated || in.mixedMapping || in.untrackedEfb)
+            reason = mapping == MAPPING_UNKNOWN || mapId == 0 ?
+                     T6_REASON_UNKNOWN_MAP : T6_REASON_HAZARD;
+        else if (!in.efbCoverFull)
+            reason = T6_REASON_PARTIAL;
+        else if (!in.hasValidSnapshot)
+            reason = T6_REASON_CAPTURE_FAIL;
+        else if (in.baselinePresentForSnapshot && !in.baselineUsable)
+            reason = T6_REASON_BASELINE_STALE;
+
+        if (EvaluateVramMaterializeTile(&in) != VRAM_FRESH_MATERIALIZED)
+        {
+            const EfbTileState *base =
+                &g_rebuildBaseline.efbTile[ty][tx];
+
+            if (out != NULL)
+            {
+                out->unresolvedReason = reason != T6_REASON_NONE ?
+                                        reason : T6_REASON_CAPTURE_FAIL;
+                out->unresolvedTileX = tx;
+                out->unresolvedTileY = ty;
+                out->unresolvedBaselineSeq =
+                    in.baselinePresentForSnapshot ? base->seq : 0;
+                out->unresolvedCpuWriteEpoch = in.cpuWriteEpoch;
+                out->unresolvedMaterializedEpoch =
+                    in.materializedColorEpoch;
+                out->unresolvedSnapshotSeq = in.snapshotSeq;
+                out->unresolvedRequiredSeq = requiredSeq;
+                out->unresolvedSourceId = snap ? snap->captureOrder : 0;
+                out->unresolvedMapId = mapId;
+            }
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static void T6VramMoveShadowDecisionForRect(
+    int x, int y, int w, int h, VramMoveShadowDecision *out)
+{
+    VramReadDependency dep;
+    VramMaterializeSession session;
+    T6MaterializeObserve obs;
+    int i;
+
+    T6VramMoveShadowDecisionInit(out);
+    out->unresolvedReason = T6_REASON_NONE;
 
     if (!ReadbackEnabled() || w <= 0 || h <= 0)
+    {
+        out->unresolvedReason = T6_REASON_CAPTURE_FAIL;
         return;
+    }
 
-    mapping = ClassifyReadMapping(x, y, w, h);
-    if (mapping == MAPPING_CURRENT)
-        targetMapId = g_activeMap.map_id;
-    else if (mapping == MAPPING_PREVIOUS)
-        targetMapId = g_prevMapId;
-    else
+    /* 1024-line VRAM is outside the 32x64 readback tile model; fail closed
+     * instead of reporting a decision for an unenumerable source. */
+    if (iGPUHeight != 512)
+    {
+        out->unresolvedReason = T6_REASON_PARTIAL;
         return;
-
-    if (g_pendingPresentedReady &&
-        (g_pendingPresentedMap.vram_x0 != g_activeMap.vram_x0 ||
-         g_pendingPresentedMap.vram_y0 != g_activeMap.vram_y0 ||
-         g_pendingPresentedMap.vram_x1 != g_activeMap.vram_x1 ||
-         g_pendingPresentedMap.vram_y1 != g_activeMap.vram_y1) &&
-        !(STATUSREG & GPUSTATUS_RGB24) && !PSXDisplay.RGB24 &&
-        !g_efbContaminated && !g_mixedMappingSeen &&
-        !g_untrackedEfbWrite &&
-        WrappedReadOverlapsMap(x, y, w, h,
-                               g_pendingPresentedMap.vram_x0,
-                               g_pendingPresentedMap.vram_y0,
-                               g_pendingPresentedMap.vram_x1,
-                               g_pendingPresentedMap.vram_y1))
-    {
-        GXDisplayMap map = g_pendingPresentedMap;
-        GXFrameSnapshot *slot = OldestSnapshotSlot();
-
-        map.map_id = targetMapId;
-        map.map_valid = 1;
-        map.content_valid = 1;
-        map.content_dirty = 1;
-
-        captured = CaptureEfbSnapshotWithTiles(
-            slot, &map, g_pendingPresentedTile,
-            SNAPSHOT_SOURCE_CURRENT_EFB);
-        if (captured)
-            capturedSnapshot = slot;
-        g_lastCaptureResult = captured ? 2 : -7;
-    }
-    else if (mapping == MAPPING_CURRENT)
-    {
-        TryCaptureLiveFrame();
-        captured = g_lastCaptureResult == 1;
-    }
-    else
-    {
-        g_lastCaptureResult = -8;
     }
 
-    if (capturedSnapshot != NULL &&
-        SnapshotsShareSamplingMap(capturedSnapshot, &g_rebuildBaseline))
-        baseline = &g_rebuildBaseline;
+    memset(&dep, 0, sizeof(dep));
+    if (!BuildMoveSourceDependency(x, y, w, h, 1024, iGPUHeight, &dep))
+    {
+        out->unresolvedReason = T6_REASON_OVERFLOW;
+        return;
+    }
 
-    if (baseline != NULL)
-        MergeReadbackToPsxVuwFiltered(x, y, w, h,
-                                     capturedSnapshot, baseline);
-    else
-        MergeReadbackToPsxVuw(x, y, w, h);
+    if (!T6WorkspaceBegin(&g_t6WorkspaceDepth))
+    {
+        out->unresolvedReason = T6_REASON_REENTRANT;
+        return;
+    }
+    T6MaterializeSessionInit(&session, &g_t6Workspace);
+    memset(&obs, 0, sizeof(obs));
+    obs.session = &session;
+    ForEachVramReadDependencyTile(&dep, 1024, 512,
+                                  ObserveMaterializeTile, &obs);
+    T6WorkspaceEnd(&g_t6WorkspaceDepth);
 
-#ifdef DISP_DEBUG
-    sprintf(txtbuffer,
-            "VRB MOVE_READ kind=%d capture=%d captured=%d rect=%d,%d %dx%d "
-            "target=%u pending=%d/%u delta=%d merged=%u changed=%u "
-            "src=%u/%u/%u\r\n",
-            mapping, g_lastCaptureResult, captured, x, y, w, h,
-            targetMapId, g_pendingPresentedReady,
-            g_pendingPresentedMap.map_id, baseline != NULL,
-            g_lastMergedPixels,
-            g_lastMergedChangedPixels, g_lastMergedCurrentPixels,
-            g_lastMergedPresentedPixels, g_lastMergedRebuildPixels);
-    writeLogFile(txtbuffer);
+    out->hazardTiles = session.plan.hazardCount;
+    out->captureRequired = session.captureRequired;
+    out->sourceHash = T6VramRectHashWrapped(x, y, w, h);
+    for (i = 0; i < session.touchedCount; i++)
+    {
+        int idx = session.touched[i];
+        int ttx = idx % T6_VRAM_TILE_X;
+        int tty = idx / T6_VRAM_TILE_X;
+
+        if (!session.plan.hazard[tty][ttx])
+            continue;
+        out->requiredTile[tty][ttx] = 1;
+        out->requiredTileSeq[tty][ttx] =
+            T6MaterializeSessionRequiredSeq(&session, ttx, tty);
+        out->requiredTileMapId[tty][ttx] =
+            T6MaterializeSessionRequiredMapId(&session, ttx, tty);
+        out->requiredTiles++;
+        if (out->requiredSeq == 0)
+            out->requiredMapId =
+                T6MaterializeSessionRequiredMapId(&session, ttx, tty);
+        if (T6MaterializeSessionRequiredSeq(&session, ttx, tty) >
+            out->requiredSeq)
+            out->requiredSeq =
+                T6MaterializeSessionRequiredSeq(&session, ttx, tty);
+    }
+    if (session.overflow)
+    {
+        out->unresolvedReason = T6_REASON_OVERFLOW;
+        return;
+    }
+    if (session.captureConflict)
+    {
+        out->unresolvedReason = T6_REASON_HAZARD;
+        return;
+    }
+    if (session.plan.hazardCount == 0)
+    {
+        out->result = VRAM_FRESH_NO_ACTION;
+        out->unresolvedReason = T6_REASON_NONE;
+        return;
+    }
+
+    /* Capture eligibility, mirroring MaterializeVramReadCore(). */
+    if (session.captureRequired)
+    {
+        T6CaptureDiagInput diag;
+        int planSlot = -1;
+
+        T6CaptureDiagFill(
+            &diag,
+            (STATUSREG & GPUSTATUS_RGB24) || PSXDisplay.RGB24,
+            g_activeMap.rgb24,
+            g_pendingPresentedReady ? g_pendingPresentedMap.rgb24 : 0,
+            (int)session.captureMappingKind == MAPPING_PREVIOUS ?
+                T6_MAP_PREVIOUS : T6_MAP_CURRENT,
+            g_efbContaminated, g_mixedMappingSeen,
+            g_untrackedEfbWrite,
+            session.captureMapId == 0);
+        out->unresolvedReason = T6ClassifyCaptureFailure(&diag);
+        if (out->unresolvedReason != T6_REASON_CAPTURE_FAIL)
+            return;
+        if (!T6VramMoveCapturePlanForSession(&session, &planSlot))
+        {
+            out->unresolvedReason = T6_REASON_CAPTURE_FAIL;
+            return;
+        }
+        out->wouldCapture = 1;
+        out->capturePlanSlot = planSlot;
+        out->captureBufferReady =
+            T6VramMoveCaptureSlotBufferReady(planSlot);
+        if (!out->captureBufferReady)
+        {
+            out->unresolvedReason = T6_REASON_CAPTURE_FAIL;
+            return;
+        }
+        if (!T6VramMoveCapturePostValidateForSession(
+                &session, planSlot, out))
+            return;
+        out->unresolvedReason = T6_REASON_NONE;
+        out->result = VRAM_FRESH_MATERIALIZED;
+        return;
+    }
+
+    /* No capture needed: pure validate decision on the current snapshot. */
+#if T6_BARRIER_DIAG
+    g_t6ValidationFailureTileX = -1;
+    g_t6ValidationFailureTileY = -1;
+    g_t6ValidationFailureBaselineSeq = 0;
+    g_t6ValidationFailureCpuWriteEpoch = 0;
+    g_t6ValidationFailureMaterializedEpoch = 0;
+    g_t6ValidationFailureSnapshotSeq = 0;
+    g_t6ValidationFailureRequiredSeq = 0;
+    g_t6ValidationFailureSourceId = 0;
+    g_t6ValidationFailureMapId = 0;
 #endif
+    if (!T6MaterializeSessionValidate(&session,
+                                      ValidateMaterializeTile, &session))
+    {
+        out->unresolvedReason =
+            g_vramReadBarrierLastReason != T6_REASON_NONE ?
+                g_vramReadBarrierLastReason : T6_REASON_CAPTURE_FAIL;
+#if T6_BARRIER_DIAG
+        out->unresolvedTileX = g_t6ValidationFailureTileX;
+        out->unresolvedTileY = g_t6ValidationFailureTileY;
+        out->unresolvedBaselineSeq =
+            g_t6ValidationFailureBaselineSeq;
+        out->unresolvedCpuWriteEpoch =
+            g_t6ValidationFailureCpuWriteEpoch;
+        out->unresolvedMaterializedEpoch =
+            g_t6ValidationFailureMaterializedEpoch;
+        out->unresolvedSnapshotSeq =
+            g_t6ValidationFailureSnapshotSeq;
+        out->unresolvedRequiredSeq =
+            g_t6ValidationFailureRequiredSeq;
+        out->unresolvedSourceId =
+            g_t6ValidationFailureSourceId;
+        out->unresolvedMapId = g_t6ValidationFailureMapId;
+#endif
+        return;
+    }
+    out->unresolvedReason = T6_REASON_NONE;
+    out->result = VRAM_FRESH_MATERIALIZED;
 }
+
+/*
+ * One-shot, read-only evidence for the CPU-newer negative gate.  This runs
+ * after FinishedVRAMWrite() has assigned the A0 CPU epoch and before its
+ * synchronous CheckWriteUpdate(), so an older mapped EFB/snapshot is still
+ * observable.  Only one 16x16 tile is passed through the same generic shadow
+ * decision used by MoveImage; no capture, merge, epoch commit or cache
+ * invalidation is performed here.
+ */
+typedef struct {
+    int found;
+    int qualified;
+    int tx, ty;
+    int mapping;
+    uint32_t mapId;
+    uint64_t provenanceSeq;
+    uint64_t cpuWriteEpoch;
+    uint64_t materializedColorEpoch;
+    uint64_t physicalEfbSeq;
+    uint64_t snapshotSeq;
+    VramFreshResult result;
+    int unresolvedReason;
+    int hazardTiles;
+    int captureRequired;
+    int wouldCapture;
+    int capturePlanSlot;
+    int captureBufferReady;
+    unsigned int requiredTiles;
+    uint32_t requiredMapId;
+    uint64_t requiredSeq;
+} T6CpuNewerProbeEvidence;
+
+static VramMoveShadowDecision g_t6CpuNewerProbeShadow;
+
+static uint64_t T6CpuNewerRawSnapshotSeqForTile(
+    int tx, int ty, uint32_t mapId)
+{
+    uint64_t newest = 0;
+    int i;
+
+    for (i = 0; i < 2; i++)
+    {
+        const GXFrameSnapshot *snap = &g_snapshot[i];
+        const EfbTileState *st = &snap->efbTile[ty & 31][tx & 63];
+
+        if (snap->valid && snap->map_id == mapId &&
+            st->cover == EFB_TILE_FULL && st->seq != 0 &&
+            SnapshotCoversTile(snap, tx, ty) &&
+            SnapshotExactRectCoversTile(snap, tx, ty) &&
+            st->seq > newest)
+            newest = st->seq;
+    }
+    return newest;
+}
+
+static int T6CpuNewerProbeForA0(
+    int x, int y, int w, int h, uint64_t provenanceSeq,
+    T6CpuNewerProbeEvidence *out)
+{
+    VramReadDependency dep;
+    unsigned int i;
+
+    if (out == NULL)
+        return 0;
+    memset(out, 0, sizeof(*out));
+    out->tx = -1;
+    out->ty = -1;
+    out->mapping = (int)MAPPING_UNKNOWN;
+    out->result = VRAM_FRESH_UNRESOLVED;
+    out->unresolvedReason = T6_REASON_CAPTURE_FAIL;
+    out->provenanceSeq = provenanceSeq;
+
+    if (provenanceSeq == 0 || iGPUHeight != 512 ||
+        g_t6WorkspaceDepth != 0 || g_vramReadBarrierDepth != 0 ||
+        !BuildMoveSourceDependency(x, y, w, h, 1024, 512, &dep))
+        return 0;
+
+    for (i = 0; i < dep.count; i++)
+    {
+        const VramRect *r = &dep.rect[i];
+        int tx0 = r->x0 >> 4;
+        int tx1 = (r->x1 - 1) >> 4;
+        int ty0 = r->y0 >> 4;
+        int ty1 = (r->y1 - 1) >> 4;
+        int tx, ty;
+
+        for (ty = ty0; ty <= ty1; ty++)
+            for (tx = tx0; tx <= tx1; tx++)
+            {
+                T6PhysicalTileState phys;
+                MappingKind mapping = ClassifyTileMapping(tx, ty);
+                uint32_t mapId;
+                uint64_t cpu, materialized, physicalSeq = 0, snapshotSeq;
+
+                if (mapping == MAPPING_CURRENT)
+                    mapId = g_activeMap.map_id;
+                else if (mapping == MAPPING_PREVIOUS)
+                    mapId = g_prevMapId;
+                else
+                    continue;
+                if (mapId == INVALID_MAP_ID)
+                    continue;
+
+                cpu = g_psxWriteTileEpoch[ty & 31][tx & 63];
+                materialized =
+                    g_psxMaterializedColorTileEpoch[ty & 31][tx & 63];
+                if (cpu != provenanceSeq || cpu <= materialized)
+                    continue;
+
+                memset(&phys, 0, sizeof(phys));
+                if (TilePhysicalEfbState(tx, ty, mapping, mapId, &phys) &&
+                    TilePhysicalOwnsTargetMap(&phys, mapping, mapId))
+                    physicalSeq = phys.seq;
+                snapshotSeq =
+                    T6CpuNewerRawSnapshotSeqForTile(tx, ty, mapId);
+                if ((physicalSeq > snapshotSeq ? physicalSeq : snapshotSeq) ==
+                        0 ||
+                    cpu <= (physicalSeq > snapshotSeq ?
+                            physicalSeq : snapshotSeq))
+                    continue;
+
+                T6VramMoveShadowDecisionForRect(
+                    tx << 4, ty << 4,
+                    VRAM_READBACK_TILE_SIZE, VRAM_READBACK_TILE_SIZE,
+                    &g_t6CpuNewerProbeShadow);
+
+                out->found = 1;
+                out->tx = tx;
+                out->ty = ty;
+                out->mapping = (int)mapping;
+                out->mapId = mapId;
+                out->cpuWriteEpoch = cpu;
+                out->materializedColorEpoch = materialized;
+                out->physicalEfbSeq = physicalSeq;
+                out->snapshotSeq = snapshotSeq;
+                out->result = g_t6CpuNewerProbeShadow.result;
+                out->unresolvedReason =
+                    g_t6CpuNewerProbeShadow.unresolvedReason;
+                out->hazardTiles = g_t6CpuNewerProbeShadow.hazardTiles;
+                out->captureRequired =
+                    g_t6CpuNewerProbeShadow.captureRequired;
+                out->wouldCapture =
+                    g_t6CpuNewerProbeShadow.wouldCapture;
+                out->capturePlanSlot =
+                    g_t6CpuNewerProbeShadow.capturePlanSlot;
+                out->captureBufferReady =
+                    g_t6CpuNewerProbeShadow.captureBufferReady;
+                out->requiredTiles =
+                    g_t6CpuNewerProbeShadow.requiredTiles;
+                out->requiredMapId =
+                    g_t6CpuNewerProbeShadow.requiredMapId;
+                out->requiredSeq =
+                    g_t6CpuNewerProbeShadow.requiredSeq;
+                out->qualified = T6CpuNewerProbeQualifies(
+                    provenanceSeq, cpu, materialized,
+                    physicalSeq, snapshotSeq,
+                    &g_t6CpuNewerProbeShadow);
+                return 1;
+            }
+    }
+    return 0;
+}
+#endif /* T6_BARRIER_DIAG */
 
 #endif /* GPU_VRAM_READBACK_INC */

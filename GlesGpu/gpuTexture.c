@@ -84,6 +84,10 @@
 #include "../Gamecube/DEBUG.h"
 #include "../gpulib/gpu.h"
 
+#if defined(DISP_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+#include <ogc/lwp_watchdog.h>
+#endif
+
 #define CLUTCHK   0x00060000
 #define CLUTSHIFT 17
 
@@ -228,6 +232,14 @@ unsigned int g_textureWindowUploads = 0;
  * keeps the number but performs no window-lookup file output from it. */
 unsigned int g_textureWindowCacheHits = 0;
 unsigned int g_textureStandardCacheHits = 0;
+#if defined(TEXTURE_READ_BARRIER_DIAG)
+static unsigned int g_t6InvalidateCalls;
+static unsigned int g_t6InvalidateUsMax;
+static unsigned int g_t6InvalidateSlowLogs;
+static unsigned int g_t6PaletteInvalidatedEntries;
+static unsigned int g_t6WindowInvalidatedEntries;
+static uint64_t g_t6InvalidateUsTotal;
+#endif
 #endif
 
 static textureSubCacheEntryS *curTsx;
@@ -566,6 +578,9 @@ void InvalidateWndTextureArea(int X,int Y,int W, int H)
     {
 #ifdef DISP_DEBUG
      g_textureTotalInvalidatedEntries++;
+#if defined(TEXTURE_READ_BARRIER_DIAG)
+     g_t6WindowInvalidatedEntries++;
+#endif
 #endif
      tsw->used=0;
     }
@@ -623,6 +638,9 @@ static void InvalidateSubTextureEntry(textureSubCacheEntryS *tsb)
 static void SubTextureInvalidateMarkFree(void *user, void *entry)
 {
  (void)user;
+#if defined(DISP_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+ g_t6PaletteInvalidatedEntries++;
+#endif
  InvalidateSubTextureEntry((textureSubCacheEntryS *)entry);
 }
 
@@ -811,8 +829,33 @@ static void InvalidateVramRectCallback(void *user_data, const VramRect *rect)
 
 void InvalidateTextureArea(int X,int Y,int W, int H)
 {
+#if defined(DISP_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+ uint64_t ticksStart = (uint64_t)gettime();
+ unsigned int invalidatedBefore = g_textureTotalInvalidatedEntries;
+ unsigned int paletteBefore = g_texturePaletteEntryChecks;
+ unsigned int us;
+#endif
  ForEachWrappedVramRect(X,Y,W,H,1024,iGPUHeight,
                         InvalidateVramRectCallback,NULL);
+#if defined(DISP_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+ us = (unsigned int)ticks_to_microsecs(
+     (uint64_t)gettime() - ticksStart);
+ g_t6InvalidateCalls++;
+ g_t6InvalidateUsTotal += us;
+ if (us > g_t6InvalidateUsMax)
+  g_t6InvalidateUsMax = us;
+ if (us >= 1000 && g_t6InvalidateSlowLogs < 16)
+  {
+   g_t6InvalidateSlowLogs++;
+   sprintf(txtbuffer,
+           "VRP INVAL SLOW call=%u rect=%d,%d %dx%d us=%u "
+           "palChecks=%u invalidated=%u\r\n",
+           g_t6InvalidateCalls, X, Y, W, H, us,
+           g_texturePaletteEntryChecks - paletteBefore,
+           g_textureTotalInvalidatedEntries - invalidatedBefore);
+   writeLogFile(txtbuffer);
+  }
+#endif
 }
 
 
@@ -1253,6 +1296,108 @@ void LoadWndTexturePage(int pageid, int mode, short cx, short cy)
 #if T6_WND_DIAG
 static unsigned int g_wndLookupHitLogs;
 static unsigned int g_wndLookupMissLogs;
+static unsigned int g_t6InterleavedInvalCalls;
+static uint64_t g_t6InterleavedInvalUsTotal;
+static unsigned int g_t6InterleavedInvalUsMax;
+static uint64_t g_t6InterleavedPaletteChecksTotal;
+static uint64_t g_t6InterleavedInvalidatedTotal;
+static uint64_t g_t6StandardLookupUsTotal;
+static uint64_t g_t6StandardUploadUsTotal;
+static uint64_t g_t6WindowLookupUsTotal;
+static uint64_t g_t6WindowUploadUsTotal;
+static uint64_t g_t6CompressUsTotal;
+static uint64_t g_t6StandardBarrierFlowUsTotal;
+static unsigned int g_t6CompressCalls;
+static unsigned int g_t6StandardBarrierFlowCalls;
+static unsigned int g_t6CompressUsMax;
+static unsigned int g_t6StandardBarrierFlowUsMax;
+static unsigned int g_t6StandardLookupUsMax;
+static unsigned int g_t6StandardUploadUsMax;
+static unsigned int g_t6WindowLookupUsMax;
+static unsigned int g_t6WindowUploadUsMax;
+
+static void T6TexturePerfAdd(uint64_t ticksStart, uint64_t *totalUs,
+                             unsigned int *maxUs)
+{
+    unsigned int us = (unsigned int)ticks_to_microsecs(
+        (uint64_t)gettime() - ticksStart);
+
+    *totalUs += us;
+    if (us > *maxUs)
+        *maxUs = us;
+}
+
+static void T6LogCachePerf(int standard)
+{
+    unsigned int hits = standard ? g_textureStandardCacheHits :
+                                   g_textureWindowCacheHits;
+    unsigned int uploads = standard ? g_textureStandardUploads :
+                                      g_textureWindowUploads;
+    unsigned int lookups = hits + uploads;
+
+    if (lookups == 0 || (lookups & (lookups - 1u)) != 0)
+        return;
+    sprintf(txtbuffer,
+            "TRB CACHE kind=%s lookups=%u hits=%u uploads=%u hitPct=%u "
+            "ilCalls=%u ilUs=%llu ilMaxUs=%u ilPalChecks=%llu "
+            "ilInvalidated=%llu\r\n",
+            standard ? "std" : "wnd", lookups, hits, uploads,
+            (hits * 100u) / lookups, g_t6InterleavedInvalCalls,
+            (unsigned long long)g_t6InterleavedInvalUsTotal,
+            g_t6InterleavedInvalUsMax,
+            (unsigned long long)g_t6InterleavedPaletteChecksTotal,
+            (unsigned long long)g_t6InterleavedInvalidatedTotal);
+    writeLogFile(txtbuffer);
+}
+
+static void T6RunInterleavedStandardBarrierDiag(
+    VramFreshResult fresh, unsigned int changedTiles, int interleaved,
+    int pageid, int mode,
+    T6StandardPageInvalidateFn invalidate, void *user)
+{
+    uint64_t ticksStart;
+    unsigned int callUs;
+    unsigned int paletteBefore;
+    unsigned int invalidatedBefore;
+
+    if (!T6InterleavedMaterializeShouldInvalidate(
+            fresh, changedTiles, interleaved))
+        return;
+
+    ticksStart = (uint64_t)gettime();
+    paletteBefore = g_texturePaletteEntryChecks;
+    invalidatedBefore = g_textureTotalInvalidatedEntries;
+    T6InterleavedStandardBarrier(fresh, changedTiles, interleaved,
+                                 pageid, mode, invalidate, user);
+    callUs = (unsigned int)ticks_to_microsecs(
+        (uint64_t)gettime() - ticksStart);
+    g_t6InterleavedInvalCalls++;
+    g_t6InterleavedInvalUsTotal += callUs;
+    g_t6InterleavedPaletteChecksTotal +=
+        g_texturePaletteEntryChecks - paletteBefore;
+    g_t6InterleavedInvalidatedTotal +=
+        g_textureTotalInvalidatedEntries - invalidatedBefore;
+    if (callUs > g_t6InterleavedInvalUsMax)
+        g_t6InterleavedInvalUsMax = callUs;
+
+    if ((g_t6InterleavedInvalCalls &
+         (g_t6InterleavedInvalCalls - 1u)) == 0)
+    {
+        sprintf(txtbuffer,
+                "TRB INTERLEAVED calls=%u totalUs=%llu avgUs=%llu "
+                "maxUs=%u palChecks=%llu invalidated=%llu "
+                "stdHit=%u stdUp=%u\r\n",
+                g_t6InterleavedInvalCalls,
+                (unsigned long long)g_t6InterleavedInvalUsTotal,
+                (unsigned long long)(g_t6InterleavedInvalUsTotal /
+                                     g_t6InterleavedInvalCalls),
+                g_t6InterleavedInvalUsMax,
+                (unsigned long long)g_t6InterleavedPaletteChecksTotal,
+                (unsigned long long)g_t6InterleavedInvalidatedTotal,
+                g_textureStandardCacheHits, g_textureStandardUploads);
+        writeLogFile(txtbuffer);
+    }
+}
 
 static void T6LogWindowLookup(unsigned int hitsBefore,
                               unsigned int uploadsBefore, int hit)
@@ -1303,6 +1448,8 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
 #if T6_WND_DIAG
  unsigned int diagHitsBefore = g_textureWindowCacheHits;
  unsigned int diagUploadsBefore = g_textureWindowUploads;
+ uint64_t diagLookupStart;
+ uint64_t diagUploadStart;
 #endif
 
  npos.c.x1=TWin.Position.x0;
@@ -1344,6 +1491,9 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
 
    }
 
+#if T6_WND_DIAG
+ diagLookupStart = (uint64_t)gettime();
+#endif
   ts=wcWndtexStore;
 
  for(i=0;i<iMaxTexWnds;i++,ts++)
@@ -1362,7 +1512,11 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
          g_textureWindowCacheHits++;
 #endif
 #if T6_WND_DIAG
+         T6TexturePerfAdd(diagLookupStart,
+                          &g_t6WindowLookupUsTotal,
+                          &g_t6WindowLookupUsMax);
          T6LogWindowLookup(diagHitsBefore, diagUploadsBefore, 1);
+         T6LogCachePerf(0);
 #endif
          return ts->texname;
         }
@@ -1370,6 +1524,12 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
     }
    else tsx=ts;
   }
+
+#if T6_WND_DIAG
+ T6TexturePerfAdd(diagLookupStart,
+                  &g_t6WindowLookupUsTotal,
+                  &g_t6WindowLookupUsMax);
+#endif
 
  if(!tsx)
   {
@@ -1394,6 +1554,9 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
  g_textureWindowUploads++;
 #endif
 
+#if T6_WND_DIAG
+ diagUploadStart = (uint64_t)gettime();
+#endif
  if(TWin.OPosition.y1==TWin.Position.y1 &&
     TWin.OPosition.x1==TWin.Position.x1)
   {
@@ -1403,6 +1566,11 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
   {
     LoadStretchWndTexturePage(pageid,TextureMode,cx,cy);
   }
+#if T6_WND_DIAG
+ T6TexturePerfAdd(diagUploadStart,
+                  &g_t6WindowUploadUsTotal,
+                  &g_t6WindowUploadUsMax);
+#endif
 
  tsx->Opaque=ubOpaqueDraw;
  tsx->pos.l=npos.l;
@@ -1415,6 +1583,7 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
 
 #if T6_WND_DIAG
  T6LogWindowLookup(diagHitsBefore, diagUploadsBefore, 0);
+ T6LogCachePerf(0);
 #endif
  return gTexName;
 }
@@ -3284,6 +3453,8 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
 #if T6_WND_DIAG
  unsigned int diagHitsBefore = g_textureStandardCacheHits;
  unsigned int diagUploadsBefore = g_textureStandardUploads;
+ uint64_t diagLookupStart;
+ uint64_t diagUploadStart;
 #endif
 
  // sort sow/tow infos for fast access
@@ -3321,8 +3492,12 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
 
    /* T6-D: after Fake15BitTexture() did not take over CPU decode, refresh
     * EFB-owned source before the cache lookup.  Mode 2 has no palette. */
+#if !defined(T6_DISABLE_STANDARD_TEXTURE_BARRIER)
    if (ReadbackEnabled())
    {
+#if T6_WND_DIAG
+    uint64_t diagBarrierStart = (uint64_t)gettime();
+#endif
     VramReadDependency dep;
     if (BuildStandardTextureDependency(
             GlobalTexturePage, TextureMode, 0, CLUTYMASK,
@@ -3330,7 +3505,14 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
             gl_ux[7], gl_ux[6], gl_ux[5], gl_ux[4],
             GlobalTextIL, &dep))
      EnsureVramReadFresh(&dep);
+#if T6_WND_DIAG
+    g_t6StandardBarrierFlowCalls++;
+    T6TexturePerfAdd(diagBarrierStart,
+                     &g_t6StandardBarrierFlowUsTotal,
+                     &g_t6StandardBarrierFlowUsMax);
+#endif
    }
+#endif
   }
  else
   {
@@ -3338,8 +3520,12 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
    cy=((GivenClutId >> 6) & CLUTYMASK);
 
    /* T6-D: barrier before palette checksum and CheckTextureInSubSCache(). */
+#if !defined(T6_DISABLE_STANDARD_TEXTURE_BARRIER)
    if (ReadbackEnabled())
    {
+#if T6_WND_DIAG
+    uint64_t diagBarrierStart = (uint64_t)gettime();
+#endif
     VramReadDependency dep;
     if (BuildStandardTextureDependency(
             GlobalTexturePage, TextureMode,
@@ -3356,12 +3542,23 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
        * InvalidateSubSTextureArea() cannot prove.  When the barrier really
        * materialized changed tiles, conservatively invalidate every standard
        * entry of this mode/page; a same-color materialize keeps cache hits. */
+#if T6_WND_DIAG
+      T6RunInterleavedStandardBarrierDiag(
+#else
       T6InterleavedStandardBarrier(
+#endif
           fresh, changedTiles, GlobalTextIL,
           GlobalTexturePage, TextureMode,
           T6InvalidateStandardPageEntries, NULL);
      }
+#if T6_WND_DIAG
+    g_t6StandardBarrierFlowCalls++;
+    T6TexturePerfAdd(diagBarrierStart,
+                     &g_t6StandardBarrierFlowUsTotal,
+                     &g_t6StandardBarrierFlowUsMax);
+#endif
    }
+#endif
 
    GivenClutId=(GivenClutId&CLUTMASK)|(DrawSemiTrans<<30)|CLUTUSED;
 
@@ -3380,12 +3577,24 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
 
  // search cache
  iCache=0;
+#if T6_WND_DIAG
+ diagLookupStart = (uint64_t)gettime();
+#endif
  OPtr=CheckTextureInSubSCache(TextureMode,GivenClutId,&iCache);
 
  // cache full? compress and try again
  if(iCache==0xffff)
   {
+#if T6_WND_DIAG
+   uint64_t diagCompressStart = (uint64_t)gettime();
+#endif
    CompressTextureSpace();
+#if T6_WND_DIAG
+   g_t6CompressCalls++;
+   T6TexturePerfAdd(diagCompressStart,
+                    &g_t6CompressUsTotal,
+                    &g_t6CompressUsMax);
+#endif
    OPtr=CheckTextureInSubSCache(TextureMode,GivenClutId,&iCache);
   }
 
@@ -3402,10 +3611,20 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
    g_textureStandardCacheHits++;
 #endif
 #if T6_WND_DIAG
+   T6TexturePerfAdd(diagLookupStart,
+                    &g_t6StandardLookupUsTotal,
+                    &g_t6StandardLookupUsMax);
    T6LogStandardLookup(diagHitsBefore, diagUploadsBefore, 1);
+   T6LogCachePerf(1);
 #endif
    return uiStexturePage[iCache];
   }
+
+#if T6_WND_DIAG
+  T6TexturePerfAdd(diagLookupStart,
+                   &g_t6StandardLookupUsTotal,
+                   &g_t6StandardLookupUsMax);
+#endif
 
 #ifdef DISP_DEBUG
   g_textureStandardUploads++;
@@ -3422,11 +3641,20 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
 // DEBUG_print(txtbuffer,  DBG_CDR3);
  //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
+#if T6_WND_DIAG
+ diagUploadStart = (uint64_t)gettime();
+#endif
  LoadSubTexFn(GlobalTexturePage,TextureMode,cx,cy);
+#if T6_WND_DIAG
+ T6TexturePerfAdd(diagUploadStart,
+                  &g_t6StandardUploadUsTotal,
+                  &g_t6StandardUploadUsMax);
+#endif
  uiStexturePage[iCache]=gTexName;
  *OPtr=ubOpaqueDraw;
 #if T6_WND_DIAG
  T6LogStandardLookup(diagHitsBefore, diagUploadsBefore, 0);
+ T6LogCachePerf(1);
 #endif
  #ifdef DISP_DEBUG
 // sprintf(txtbuffer, "SelectSubTextureS 3 %d\r\n", gTexName);

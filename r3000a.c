@@ -27,6 +27,7 @@
 #include "cdrom.h"
 #include "mdec.h"
 #include "psxinterpreter.h"
+#include "gpu.h"
 #include "Gamecube/wiiSXconfig.h"
 #include "Gamecube/DEBUG.h"
 
@@ -69,6 +70,14 @@ void psxReset() {
 	psxMemReset();
 
 	memset(&psxRegs, 0, sizeof(psxRegs));
+
+#if defined(SHOW_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+	g_t6DiagDma2Serial = 0;
+	g_t6DiagDma2ActiveSerial = 0;
+	g_t6DiagDma2LogCount = 0;
+	g_t6DiagPostDmaHeartbeatEnabled = 0;
+	g_t6DiagPostDmaHeartbeatCount = 0;
+#endif
 
 	psxRegs.pc = 0xbfc00000; // Start in bootstrap
 
@@ -147,7 +156,40 @@ void psxException(u32 cause, enum R3000Abdt bdt, psxCP0Regs *cp0) {
 }
 
 extern u32 psxNextCounter, psxNextsCounter;
+#if defined(SHOW_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+void T6DiagPostDmaHeartbeat(void)
+{
+	if (g_t6DiagPostDmaHeartbeatEnabled &&
+		g_t6DiagDma2ActiveSerial != 0) {
+		unsigned int beat;
+
+		g_t6DiagPostDmaHeartbeatCount++;
+		beat = g_t6DiagPostDmaHeartbeatCount;
+		if (g_t6DiagDma2LogCount < 48 &&
+			(beat <= 4 || (beat & (beat - 1u)) == 0)) {
+			g_t6DiagDma2LogCount++;
+			sprintf(txtbuffer,
+				"TRB CPU POSTDMA serial=%u beat=%u pc=%08X cycle=%u "
+				"intr=%08X event=%u next=%u chcr=%08X madr=%08X "
+				"status=%08X ws=%d\r\n",
+				g_t6DiagDma2ActiveSerial, beat, psxRegs.pc,
+				psxRegs.cycle, psxRegs.interrupt,
+				event_cycles[PSXINT_GPUDMA], next_interupt,
+				SWAPu32(HW_DMA2_CHCR), SWAPu32(HW_DMA2_MADR),
+				SWAPu32(HW_GPU_STATUS), g_t6DiagWorkspaceStatus);
+			writeLogFile(txtbuffer);
+		}
+		if (beat >= 64)
+			g_t6DiagPostDmaHeartbeatEnabled = 0;
+	}
+}
+#endif
+
 void psxBranchTest() {
+
+#if defined(SHOW_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
+	T6DiagPostDmaHeartbeat();
+#endif
 
 	if ((psxRegs.cycle - psxNextsCounter) >= psxNextCounter)
 		psxRcntUpdate();
@@ -280,5 +322,3 @@ void psxExecuteBios() {
 	if (psxRegs.pc != 0x80030000)
 		SysPrintf("non-standard BIOS detected (%d, %08x)\n", i, psxRegs.pc);
 }
-
-

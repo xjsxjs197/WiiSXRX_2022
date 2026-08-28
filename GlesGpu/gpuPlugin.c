@@ -298,6 +298,7 @@ PSXDisplay.DisplayModeNew.y=0;
 //PreviousPSXDisplay.Height = PSXDisplay.Height = 239;
 
 iDataWriteMode = DR_NORMAL;
+bVramWriteTransferActive = FALSE;
 
 // Reset transfer values, to prevent mis-transfer of data
 memset(&VRAMWrite,0,sizeof(VRAMLoad_t));
@@ -1115,6 +1116,7 @@ switch(lCommand)
    lGPUstatusRet=0x14802000;
    PSXDisplay.Disabled=1;
    iDataWriteMode=iDataReadMode=DR_NORMAL;
+   bVramWriteTransferActive=FALSE;
    PSXDisplay.DrawOffset.x=PSXDisplay.DrawOffset.y=0;
    drawX=drawY=0;drawW=drawH=0;
    sSetMask=0;lSetMask=0;bCheckMask=FALSE;iSetMask=0;
@@ -1159,9 +1161,17 @@ switch(lCommand)
   case 0x04:
    gdata &= 0x03;                                     // only want the lower two bits
 
+#if T6_BARRIER_DIAG
+   g_t6A0LastDmaOldWriteMode = iDataWriteMode;
+#endif
    iDataWriteMode=iDataReadMode=DR_NORMAL;
    if(gdata==0x02) iDataWriteMode=DR_VRAMTRANSFER;
    if(gdata==0x03) iDataReadMode =DR_VRAMTRANSFER;
+#if T6_BARRIER_DIAG
+   g_t6A0DmaSerial++;
+   g_t6A0LastDmaMode = (int)gdata;
+   g_t6A0LastDmaNewWriteMode = iDataWriteMode;
+#endif
 
    STATUSREG&=~GPUSTATUS_DMABITS;                     // clear the current settings of the DMA bits
    STATUSREG|=(gdata << 29);                          // set the DMA bits according to the received data
@@ -1484,14 +1494,117 @@ switch(lCommand)
 ////////////////////////////////////////////////////////////////////////
 
 BOOL bNeedWriteUpload=FALSE;
+BOOL bVramWriteTransferActive=FALSE;
 
-__inline void FinishedVRAMWrite(void)
+#if T6_BARRIER_DIAG
+enum {
+ T6_CPU_NEWER_PROBE_MAX_RELEVANT = 64,
+ T6_CPU_NEWER_PROBE_PASS_TARGET = 4
+};
+#endif
+
+static inline void FinishedVRAMWrite(void)
 {
+#if T6_BARRIER_DIAG
+ uint64_t provenanceSeq = 0;
+ unsigned int baselineCapturesBefore = g_t6RebuildBaselineCaptures;
+ int a0NeedUploadAtFinish = bNeedWriteUpload;
+ int a0WriteModeAtFinish = iDataWriteMode;
+ int a0RowsAtFinish = VRAMWrite.RowsRemaining;
+ int a0ColsAtFinish = VRAMWrite.ColsRemaining;
+
+ g_t6A0CheckOutcomeFlags = 0;
+ g_t6A0FinishSerial++;
+#endif
  if (ReadbackEnabled())
  {
-  MarkCpuVramWrite(VRAMWrite.x, VRAMWrite.y,
-                   VRAMWrite.Width, VRAMWrite.Height);
-#ifdef DISP_DEBUG
+  unsigned int provenanceFlags = bNeedWriteUpload ?
+   T6_CPU_WRITE_FLAG_UPLOAD_PENDING : 0;
+
+#if T6_BARRIER_DIAG
+  provenanceSeq =
+#endif
+  MarkCpuVramWriteKind(VRAMWrite.x, VRAMWrite.y,
+                       VRAMWrite.Width, VRAMWrite.Height,
+                       T6_CPU_WRITE_A0, provenanceFlags);
+#if T6_BARRIER_DIAG
+  if (provenanceSeq != 0)
+   T6CpuWriteProvenanceUpdateA0Flow(
+       &g_t6CpuWriteProvenance, provenanceSeq,
+       g_t6A0TransferGeneration, g_t6A0FinishSerial,
+       g_t6A0DmaSerial, g_t6A0ArmDmaSerial,
+       g_t6A0TransferArmed, a0NeedUploadAtFinish,
+       a0WriteModeAtFinish, a0RowsAtFinish, a0ColsAtFinish,
+       g_t6A0ArmX, g_t6A0ArmY, g_t6A0ArmW, g_t6A0ArmH,
+       g_t6A0LastDmaMode, g_t6A0LastDmaOldWriteMode,
+       g_t6A0LastDmaNewWriteMode);
+  /* Real CPU-newer window: MarkCpuVramWriteKind() has committed the A0
+   * epoch, while CheckWriteUpdate() below has not uploaded/rebuilt EFB yet.
+   * Bound both relevant attempts and successful samples so SD logging and
+   * the read-only shadow cannot become a new steady-state cost. */
+  if (provenanceSeq != 0 &&
+      isLogFileEnabled() &&
+      g_t6CpuNewerProbeRelevant < T6_CPU_NEWER_PROBE_MAX_RELEVANT &&
+      g_t6CpuNewerProbePasses < T6_CPU_NEWER_PROBE_PASS_TARGET &&
+      ClassifyReadMapping(VRAMWrite.x, VRAMWrite.y,
+                          VRAMWrite.Width, VRAMWrite.Height) !=
+          MAPPING_UNKNOWN)
+   {
+    T6CpuNewerProbeEvidence probe;
+    unsigned int sample;
+
+    g_t6CpuNewerProbeRelevant++;
+    if (T6CpuNewerProbeForA0(
+            VRAMWrite.x, VRAMWrite.y,
+            VRAMWrite.Width, VRAMWrite.Height,
+            provenanceSeq, &probe))
+     {
+      g_t6CpuNewerProbeCandidates++;
+      if (probe.qualified)
+       g_t6CpuNewerProbePasses++;
+      sample = g_t6CpuNewerProbeCandidates;
+      if (probe.qualified || sample <= 8 ||
+          (sample & (sample - 1)) == 0)
+       {
+        sprintf(txtbuffer,
+                "TRB CPU NEWER relevant=%u sample=%u pass=%u "
+                "ok=%d tile=%d,%d map=%d/%u seq=%llu "
+                "cpu=%llu mat=%llu phys=%llu snap=%llu "
+                "result=%d reason=%d hazard=%d cap=%d would=%d "
+                "slot=%d capBuf=%d req=%u reqMap=%u reqSeq=%llu\r\n",
+                g_t6CpuNewerProbeRelevant, sample,
+                g_t6CpuNewerProbePasses, probe.qualified,
+                probe.tx, probe.ty, probe.mapping, probe.mapId,
+                (unsigned long long)probe.provenanceSeq,
+                (unsigned long long)probe.cpuWriteEpoch,
+                (unsigned long long)probe.materializedColorEpoch,
+                (unsigned long long)probe.physicalEfbSeq,
+                (unsigned long long)probe.snapshotSeq,
+                (int)probe.result, probe.unresolvedReason,
+                probe.hazardTiles, probe.captureRequired,
+                probe.wouldCapture, probe.capturePlanSlot,
+                probe.captureBufferReady, probe.requiredTiles,
+                probe.requiredMapId,
+                (unsigned long long)probe.requiredSeq);
+        writeLogFile(txtbuffer);
+       }
+     }
+    else if (g_t6CpuNewerProbeRelevant <= 8 ||
+             (g_t6CpuNewerProbeRelevant &
+              (g_t6CpuNewerProbeRelevant - 1)) == 0)
+     {
+      sprintf(txtbuffer,
+              "TRB CPU NEWER MISS relevant=%u pass=%u seq=%llu "
+              "rect=%d,%d %dx%d\r\n",
+              g_t6CpuNewerProbeRelevant, g_t6CpuNewerProbePasses,
+              (unsigned long long)provenanceSeq,
+              VRAMWrite.x, VRAMWrite.y,
+              VRAMWrite.Width, VRAMWrite.Height);
+      writeLogFile(txtbuffer);
+     }
+   }
+#endif
+#if defined(DISP_DEBUG) && defined(VRAM_CONTENT_DIAG)
   if (VRAMWrite.Height >= 120)
    DebugLogVramHalf("A0Done", VRAMWrite.x, VRAMWrite.y,
                     VRAMWrite.Width, VRAMWrite.Height);
@@ -1504,7 +1617,21 @@ __inline void FinishedVRAMWrite(void)
    CheckWriteUpdate();
   }
 
+#if T6_BARRIER_DIAG
+ if (g_t6RebuildBaselineCaptures != baselineCapturesBefore)
+  g_t6A0CheckOutcomeFlags |= T6_CPU_WRITE_FLAG_BASELINE_ESTABLISHED;
+ if (provenanceSeq != 0)
+  T6CpuWriteProvenanceUpdate(
+      &g_t6CpuWriteProvenance, provenanceSeq,
+      g_t6A0CheckOutcomeFlags,
+      g_rebuildBaseline.valid ?
+          g_rebuildBaseline.capturedContentSeq : 0,
+      g_rebuildBaseline.valid ? g_rebuildBaseline.map_id : 0);
+ g_t6A0TransferArmed = 0;
+#endif
+
  // set register to NORMAL operation
+ bVramWriteTransferActive = FALSE;
  iDataWriteMode = DR_NORMAL;
 
  // reset transfer values, to prevent mis-transfer of data
@@ -1514,6 +1641,28 @@ __inline void FinishedVRAMWrite(void)
 
 __inline void FinishedVRAMRead(void)
 {
+#if T6_BARRIER_DIAG
+ if (g_t6C0ActiveSerial != 0)
+  {
+   if (g_t6C0ActiveSerial <= 4 && g_t6C0LifecycleLogs < 64)
+    {
+     g_t6C0LifecycleLogs++;
+     sprintf(txtbuffer,
+             "TRB C0 FINISH serial=%u calls=%u state=%d mode=%d "
+             "rem=%d,%d ptr=%u\r\n",
+             g_t6C0ActiveSerial, g_t6C0ReadCalls,
+             (int)g_readbackState, iDataReadMode,
+             VRAMRead.RowsRemaining, VRAMRead.ColsRemaining,
+             (unsigned int)(((uintptr_t)VRAMRead.ImagePtr -
+                             (uintptr_t)psxVuw) /
+                            sizeof(*VRAMRead.ImagePtr)));
+     writeLogFile(txtbuffer);
+    }
+   g_t6C0LastFinishedSerial = g_t6C0ActiveSerial;
+   g_t6C0ActiveSerial = 0;
+   g_t6C0ReadCalls = 0;
+  }
+#endif
  g_readbackState = READBACK_IDLE;
 
  // set register to NORMAL operation
@@ -1654,6 +1803,354 @@ static inline void CheckVRamRead(int x, int y, int dx, int dy)
  MergeReadbackToPsxVuw(x, y, dx - x, dy - y);
 }
 
+#if T6_BARRIER_DIAG
+typedef struct T6C0PerfStats
+{
+ unsigned int calls;
+ unsigned int currentReads;
+ unsigned int previousReads;
+ unsigned int otherReads;
+ unsigned int currentCaptures;
+ unsigned int previousCaptures;
+ unsigned int slowCalls;
+ unsigned int slowLogs;
+ uint64_t captureUs;
+ uint64_t mergeUs;
+ uint64_t invalidateUs;
+ uint64_t mergedPixels;
+ uint64_t changedPixels;
+ uint64_t invalidateRuns;
+ uint64_t paletteChecks;
+ uint64_t invalidatedEntries;
+ unsigned int captureMaxUs;
+ unsigned int mergeMaxUs;
+ unsigned int invalidateMaxUs;
+} T6C0PerfStats;
+
+static T6C0PerfStats g_t6C0Perf;
+static unsigned int g_t6PresentFrames;
+static unsigned int g_t6PresentCaptures;
+static unsigned int g_t6PresentSlow;
+static unsigned int g_t6PresentSlowLogs;
+static unsigned int g_t6PresentCaptureUsMax;
+static uint64_t g_t6PresentCaptureUsTotal;
+
+typedef struct T6FramePerfLast
+{
+ unsigned int frame;
+ unsigned int presentCaptures;
+ unsigned int presentSlow;
+ unsigned int stdHits;
+ unsigned int stdUploads;
+ unsigned int wndHits;
+ unsigned int wndUploads;
+ unsigned int paletteChecks;
+ unsigned int invalidatedEntries;
+ unsigned int invalidateCalls;
+ unsigned int paletteInvalidated;
+ unsigned int windowInvalidated;
+ unsigned int compressCalls;
+ unsigned int barrierCalls;
+ unsigned int barrierFastReject;
+ unsigned int barrierMaterialized;
+ unsigned int barrierFlowCalls;
+ unsigned int c0Calls;
+ unsigned int c0Captures;
+ unsigned int rebuildBaselineCalls;
+ unsigned int rebuildBaselineCaptures;
+ unsigned int rebuildBaselineFailures;
+ uint64_t presentUs;
+ uint64_t stdLookupUs;
+ uint64_t stdUploadUs;
+ uint64_t wndLookupUs;
+ uint64_t wndUploadUs;
+ uint64_t barrierUs;
+ uint64_t barrierFlowUs;
+ uint64_t c0CaptureUs;
+ uint64_t rebuildBaselineUs;
+ uint64_t compressUs;
+ uint64_t invalidateUs;
+} T6FramePerfLast;
+
+static T6FramePerfLast g_t6FramePerfLast;
+
+static unsigned int T6PerfDeltaU32(unsigned int current,
+                                   unsigned int previous)
+{
+ return current >= previous ? current - previous : current;
+}
+
+static uint64_t T6PerfDeltaU64(uint64_t current, uint64_t previous)
+{
+ return current >= previous ? current - previous : current;
+}
+
+static void T6LogFramePerf(void)
+{
+ unsigned int c0Captures = g_t6C0Perf.currentCaptures +
+                           g_t6C0Perf.previousCaptures;
+ unsigned int invalidated;
+ unsigned int paletteInvalidated;
+ unsigned int windowInvalidated;
+ unsigned int sourceInvalidated;
+
+ if ((g_t6PresentFrames % 60u) != 0)
+  return;
+
+ invalidated = T6PerfDeltaU32(
+     g_textureTotalInvalidatedEntries,
+     g_t6FramePerfLast.invalidatedEntries);
+ paletteInvalidated = T6PerfDeltaU32(
+     g_t6PaletteInvalidatedEntries,
+     g_t6FramePerfLast.paletteInvalidated);
+ windowInvalidated = T6PerfDeltaU32(
+     g_t6WindowInvalidatedEntries,
+     g_t6FramePerfLast.windowInvalidated);
+ sourceInvalidated = invalidated >= paletteInvalidated + windowInvalidated ?
+     invalidated - paletteInvalidated - windowInvalidated : 0;
+
+ sprintf(txtbuffer,
+         "VRP FRAME frame=%u span=%u presentCap=%u presentUs=%llu "
+         "presentMaxUs=%u presentSlow=%u stdLook=%u stdHit=%u stdUp=%u "
+         "stdLookupUs=%llu stdLookupMaxUs=%u stdUpUs=%llu stdUpMaxUs=%u "
+         "wndLook=%u wndHit=%u wndUp=%u wndLookupUs=%llu "
+         "wndLookupMaxUs=%u wndUpUs=%llu wndUpMaxUs=%u "
+         "compress=%u compressUs=%llu compressMaxUs=%u "
+         "invalCalls=%u invalScanUs=%llu invalScanMaxUs=%u "
+         "palChecks=%u invalidated=%u srcInvalid=%u palInvalid=%u "
+         "wndInvalid=%u trbCalls=%u trbFast=%u trbMat=%u trbUs=%llu "
+         "trbFlowCalls=%u trbFlowUs=%llu trbFlowMaxUs=%u "
+         "c0Calls=%u c0Cap=%u c0CapUs=%llu "
+         "baseCalls=%u baseCap=%u baseFail=%u baseUs=%llu "
+         "baseMaxUs=%u\r\n",
+         g_t6PresentFrames,
+         T6PerfDeltaU32(g_t6PresentFrames, g_t6FramePerfLast.frame),
+         T6PerfDeltaU32(g_t6PresentCaptures,
+                        g_t6FramePerfLast.presentCaptures),
+         (unsigned long long)T6PerfDeltaU64(
+             g_t6PresentCaptureUsTotal, g_t6FramePerfLast.presentUs),
+         g_t6PresentCaptureUsMax,
+         T6PerfDeltaU32(g_t6PresentSlow, g_t6FramePerfLast.presentSlow),
+         T6PerfDeltaU32(g_textureStandardCacheHits +
+                        g_textureStandardUploads,
+                        g_t6FramePerfLast.stdHits +
+                        g_t6FramePerfLast.stdUploads),
+         T6PerfDeltaU32(g_textureStandardCacheHits,
+                        g_t6FramePerfLast.stdHits),
+         T6PerfDeltaU32(g_textureStandardUploads,
+                        g_t6FramePerfLast.stdUploads),
+         (unsigned long long)T6PerfDeltaU64(
+             g_t6StandardLookupUsTotal,
+             g_t6FramePerfLast.stdLookupUs),
+         g_t6StandardLookupUsMax,
+         (unsigned long long)T6PerfDeltaU64(
+             g_t6StandardUploadUsTotal,
+             g_t6FramePerfLast.stdUploadUs),
+         g_t6StandardUploadUsMax,
+         T6PerfDeltaU32(g_textureWindowCacheHits + g_textureWindowUploads,
+                        g_t6FramePerfLast.wndHits +
+                        g_t6FramePerfLast.wndUploads),
+         T6PerfDeltaU32(g_textureWindowCacheHits,
+                        g_t6FramePerfLast.wndHits),
+         T6PerfDeltaU32(g_textureWindowUploads,
+                        g_t6FramePerfLast.wndUploads),
+         (unsigned long long)T6PerfDeltaU64(
+             g_t6WindowLookupUsTotal,
+             g_t6FramePerfLast.wndLookupUs),
+         g_t6WindowLookupUsMax,
+         (unsigned long long)T6PerfDeltaU64(
+             g_t6WindowUploadUsTotal,
+             g_t6FramePerfLast.wndUploadUs),
+         g_t6WindowUploadUsMax,
+         T6PerfDeltaU32(g_t6CompressCalls,
+                        g_t6FramePerfLast.compressCalls),
+         (unsigned long long)T6PerfDeltaU64(
+             g_t6CompressUsTotal, g_t6FramePerfLast.compressUs),
+         g_t6CompressUsMax,
+         T6PerfDeltaU32(g_t6InvalidateCalls,
+                        g_t6FramePerfLast.invalidateCalls),
+         (unsigned long long)T6PerfDeltaU64(
+             g_t6InvalidateUsTotal, g_t6FramePerfLast.invalidateUs),
+         g_t6InvalidateUsMax,
+         T6PerfDeltaU32(g_texturePaletteEntryChecks,
+                        g_t6FramePerfLast.paletteChecks),
+         invalidated, sourceInvalidated, paletteInvalidated,
+         windowInvalidated,
+         T6PerfDeltaU32(g_vramReadBarrierCalls,
+                        g_t6FramePerfLast.barrierCalls),
+         T6PerfDeltaU32(g_vramReadBarrierFastReject,
+                        g_t6FramePerfLast.barrierFastReject),
+         T6PerfDeltaU32(g_vramReadBarrierMaterialized,
+                        g_t6FramePerfLast.barrierMaterialized),
+         (unsigned long long)T6PerfDeltaU64(
+             g_vramReadBarrierUsTotal, g_t6FramePerfLast.barrierUs),
+         T6PerfDeltaU32(g_t6StandardBarrierFlowCalls,
+                        g_t6FramePerfLast.barrierFlowCalls),
+         (unsigned long long)T6PerfDeltaU64(
+             g_t6StandardBarrierFlowUsTotal,
+             g_t6FramePerfLast.barrierFlowUs),
+         g_t6StandardBarrierFlowUsMax,
+         T6PerfDeltaU32(g_t6C0Perf.calls, g_t6FramePerfLast.c0Calls),
+         T6PerfDeltaU32(c0Captures, g_t6FramePerfLast.c0Captures),
+         (unsigned long long)T6PerfDeltaU64(
+             g_t6C0Perf.captureUs, g_t6FramePerfLast.c0CaptureUs),
+         T6PerfDeltaU32(g_t6RebuildBaselineCalls,
+                        g_t6FramePerfLast.rebuildBaselineCalls),
+         T6PerfDeltaU32(g_t6RebuildBaselineCaptures,
+                        g_t6FramePerfLast.rebuildBaselineCaptures),
+         T6PerfDeltaU32(g_t6RebuildBaselineFailures,
+                        g_t6FramePerfLast.rebuildBaselineFailures),
+         (unsigned long long)T6PerfDeltaU64(
+             g_t6RebuildBaselineUsTotal,
+             g_t6FramePerfLast.rebuildBaselineUs),
+         g_t6RebuildBaselineUsMax);
+ writeLogFile(txtbuffer);
+
+ g_t6FramePerfLast.frame = g_t6PresentFrames;
+ g_t6FramePerfLast.presentCaptures = g_t6PresentCaptures;
+ g_t6FramePerfLast.presentSlow = g_t6PresentSlow;
+ g_t6FramePerfLast.stdHits = g_textureStandardCacheHits;
+ g_t6FramePerfLast.stdUploads = g_textureStandardUploads;
+ g_t6FramePerfLast.wndHits = g_textureWindowCacheHits;
+ g_t6FramePerfLast.wndUploads = g_textureWindowUploads;
+ g_t6FramePerfLast.paletteChecks = g_texturePaletteEntryChecks;
+ g_t6FramePerfLast.invalidatedEntries =
+     g_textureTotalInvalidatedEntries;
+ g_t6FramePerfLast.paletteInvalidated =
+     g_t6PaletteInvalidatedEntries;
+ g_t6FramePerfLast.windowInvalidated =
+     g_t6WindowInvalidatedEntries;
+ g_t6FramePerfLast.compressCalls = g_t6CompressCalls;
+ g_t6FramePerfLast.invalidateCalls = g_t6InvalidateCalls;
+ g_t6FramePerfLast.barrierCalls = g_vramReadBarrierCalls;
+ g_t6FramePerfLast.barrierFastReject =
+     g_vramReadBarrierFastReject;
+ g_t6FramePerfLast.barrierMaterialized =
+     g_vramReadBarrierMaterialized;
+ g_t6FramePerfLast.barrierFlowCalls =
+     g_t6StandardBarrierFlowCalls;
+ g_t6FramePerfLast.c0Calls = g_t6C0Perf.calls;
+ g_t6FramePerfLast.c0Captures = c0Captures;
+ g_t6FramePerfLast.rebuildBaselineCalls =
+     g_t6RebuildBaselineCalls;
+ g_t6FramePerfLast.rebuildBaselineCaptures =
+     g_t6RebuildBaselineCaptures;
+ g_t6FramePerfLast.rebuildBaselineFailures =
+     g_t6RebuildBaselineFailures;
+ g_t6FramePerfLast.presentUs = g_t6PresentCaptureUsTotal;
+ g_t6FramePerfLast.stdLookupUs = g_t6StandardLookupUsTotal;
+ g_t6FramePerfLast.stdUploadUs = g_t6StandardUploadUsTotal;
+ g_t6FramePerfLast.wndLookupUs = g_t6WindowLookupUsTotal;
+ g_t6FramePerfLast.wndUploadUs = g_t6WindowUploadUsTotal;
+ g_t6FramePerfLast.barrierUs = g_vramReadBarrierUsTotal;
+ g_t6FramePerfLast.barrierFlowUs =
+     g_t6StandardBarrierFlowUsTotal;
+ g_t6FramePerfLast.c0CaptureUs = g_t6C0Perf.captureUs;
+ g_t6FramePerfLast.rebuildBaselineUs =
+     g_t6RebuildBaselineUsTotal;
+ g_t6FramePerfLast.compressUs = g_t6CompressUsTotal;
+ g_t6FramePerfLast.invalidateUs = g_t6InvalidateUsTotal;
+ g_t6PresentCaptureUsMax = 0;
+ g_t6StandardLookupUsMax = 0;
+ g_t6StandardUploadUsMax = 0;
+ g_t6WindowLookupUsMax = 0;
+ g_t6WindowUploadUsMax = 0;
+ g_t6CompressUsMax = 0;
+ g_t6InvalidateUsMax = 0;
+ g_t6StandardBarrierFlowUsMax = 0;
+ g_t6RebuildBaselineUsMax = 0;
+}
+
+static void T6ProfilePresentedCapture(void)
+{
+ uint64_t ticksStart = (uint64_t)gettime();
+ int captured = CapturePresentedEfbSnapshot();
+ unsigned int us = (unsigned int)ticks_to_microsecs(
+     (uint64_t)gettime() - ticksStart);
+
+ g_t6PresentFrames++;
+ if (captured)
+  {
+   g_t6PresentCaptures++;
+   g_t6PresentCaptureUsTotal += us;
+   if (us > g_t6PresentCaptureUsMax)
+    g_t6PresentCaptureUsMax = us;
+   if (us >= 1000)
+    {
+     g_t6PresentSlow++;
+     if (g_t6PresentSlowLogs < 16)
+      {
+       g_t6PresentSlowLogs++;
+       sprintf(txtbuffer,
+               "VRP PRESENT SLOW frame=%u us=%u captures=%u\r\n",
+               g_t6PresentFrames, us, g_t6PresentCaptures);
+       writeLogFile(txtbuffer);
+      }
+    }
+  }
+ T6LogFramePerf();
+}
+
+static void T6LogC0Perf(unsigned int callUs, unsigned int captureUs,
+                        unsigned int mergeUs, int capturedThisCall)
+{
+ unsigned int captures = g_t6C0Perf.currentCaptures +
+                         g_t6C0Perf.previousCaptures;
+ int callMilestone =
+     (g_t6C0Perf.calls & (g_t6C0Perf.calls - 1u)) == 0;
+ int captureMilestone = capturedThisCall && captures != 0 &&
+     (captures & (captures - 1u)) == 0;
+
+ if (callUs >= 1000)
+  {
+   g_t6C0Perf.slowCalls++;
+   if (g_t6C0Perf.slowLogs < 16)
+    {
+     g_t6C0Perf.slowLogs++;
+     sprintf(txtbuffer,
+             "VRP SLOW call=%u kind=%d capResult=%d totalUs=%u "
+             "capUs=%u mergeUs=%u invalUs=%u merged=%u changed=%u "
+             "runs=%u palChecks=%u invalidated=%u\r\n",
+             g_t6C0Perf.calls, (int)g_lastReadMapping,
+             g_lastCaptureResult, callUs, captureUs, mergeUs,
+             g_lastReadbackInvalidateUs, g_lastMergedPixels,
+             g_lastMergedChangedPixels, g_lastReadbackInvalidateRuns,
+             g_lastReadbackPaletteEntryChecks,
+             g_lastReadbackTotalInvalidated);
+     writeLogFile(txtbuffer);
+    }
+  }
+
+ if (!callMilestone && !captureMilestone)
+  return;
+ sprintf(txtbuffer,
+         "VRP C0 calls=%u current=%u previous=%u other=%u "
+         "capCurrent=%u capPrevious=%u capUs=%llu capAvgUs=%llu "
+         "capMaxUs=%u mergeUs=%llu mergeAvgUs=%llu mergeMaxUs=%u "
+         "invalUs=%llu invalMaxUs=%u merged=%llu changed=%llu "
+         "runs=%llu palChecks=%llu invalidated=%llu slow=%u\r\n",
+         g_t6C0Perf.calls, g_t6C0Perf.currentReads,
+         g_t6C0Perf.previousReads, g_t6C0Perf.otherReads,
+         g_t6C0Perf.currentCaptures, g_t6C0Perf.previousCaptures,
+         (unsigned long long)g_t6C0Perf.captureUs,
+         (unsigned long long)(captures ?
+             g_t6C0Perf.captureUs / captures : 0),
+         g_t6C0Perf.captureMaxUs,
+         (unsigned long long)g_t6C0Perf.mergeUs,
+         (unsigned long long)(g_t6C0Perf.mergeUs / g_t6C0Perf.calls),
+         g_t6C0Perf.mergeMaxUs,
+         (unsigned long long)g_t6C0Perf.invalidateUs,
+         g_t6C0Perf.invalidateMaxUs,
+         (unsigned long long)g_t6C0Perf.mergedPixels,
+         (unsigned long long)g_t6C0Perf.changedPixels,
+         (unsigned long long)g_t6C0Perf.invalidateRuns,
+         (unsigned long long)g_t6C0Perf.paletteChecks,
+         (unsigned long long)g_t6C0Perf.invalidatedEntries,
+         g_t6C0Perf.slowCalls);
+ writeLogFile(txtbuffer);
+}
+#endif
+
 ////////////////////////////////////////////////////////////////////////
 // core read from vram
 ////////////////////////////////////////////////////////////////////////
@@ -1678,14 +2175,57 @@ if (readCallCount <= 4 || iDataReadMode == DR_VRAMTRANSFER ||
  }
 #endif
 
+#if T6_BARRIER_DIAG
+if (g_t6C0ActiveSerial != 0)
+ {
+  unsigned int call;
+
+  g_t6C0ReadCalls++;
+  call = g_t6C0ReadCalls;
+  if (g_t6C0ActiveSerial <= 4 && g_t6C0LifecycleLogs < 64 &&
+      (call <= 4 || (call & (call - 1u)) == 0))
+   {
+    g_t6C0LifecycleLogs++;
+    sprintf(txtbuffer,
+            "TRB C0 PROGRESS serial=%u call=%u size=%d state=%d mode=%d "
+            "rem=%d,%d ptr=%u\r\n",
+            g_t6C0ActiveSerial, call, iSize,
+            (int)g_readbackState, iDataReadMode,
+            VRAMRead.RowsRemaining, VRAMRead.ColsRemaining,
+            (unsigned int)(((uintptr_t)VRAMRead.ImagePtr -
+                            (uintptr_t)psxVuw) /
+                           sizeof(*VRAMRead.ImagePtr)));
+    writeLogFile(txtbuffer);
+   }
+ }
+#endif
+
 if(iDataReadMode!=DR_VRAMTRANSFER) return;
 
 GPUIsBusy;
 
 if (g_readbackState == READBACK_PENDING)
  {
+#if T6_BARRIER_DIAG
+  uint64_t callTicksStart = (uint64_t)gettime();
+  uint64_t phaseTicksStart;
+  unsigned int captureUs;
+  unsigned int mergeUs;
+  unsigned int callUs;
+
+  g_t6C0Perf.calls++;
+#endif
   g_lastReadMapping = ClassifyReadMapping(VRAMRead.x, VRAMRead.y,
                                           VRAMRead.Width, VRAMRead.Height);
+#if T6_BARRIER_DIAG
+  if (g_lastReadMapping == MAPPING_CURRENT)
+   g_t6C0Perf.currentReads++;
+  else if (g_lastReadMapping == MAPPING_PREVIOUS)
+   g_t6C0Perf.previousReads++;
+  else
+   g_t6C0Perf.otherReads++;
+  phaseTicksStart = (uint64_t)gettime();
+#endif
   if (g_lastReadMapping == MAPPING_CURRENT)
    TryCaptureLiveFrame();
   else if (g_lastReadMapping == MAPPING_PREVIOUS &&
@@ -1694,8 +2234,55 @@ if (g_readbackState == READBACK_PENDING)
    g_lastCaptureResult = 3;
   else
    g_lastCaptureResult = (g_lastReadMapping == MAPPING_PREVIOUS) ? -5 : -6;
+#if T6_BARRIER_DIAG
+  captureUs = (unsigned int)ticks_to_microsecs(
+      (uint64_t)gettime() - phaseTicksStart);
+  if (g_lastCaptureResult == 1)
+   g_t6C0Perf.currentCaptures++;
+  else if (g_lastCaptureResult == 3)
+   g_t6C0Perf.previousCaptures++;
+  if (g_lastCaptureResult == 1 || g_lastCaptureResult == 3)
+   {
+    g_t6C0Perf.captureUs += captureUs;
+    if (captureUs > g_t6C0Perf.captureMaxUs)
+     g_t6C0Perf.captureMaxUs = captureUs;
+   }
+  phaseTicksStart = (uint64_t)gettime();
+#endif
   MergeReadbackToPsxVuw(VRAMRead.x, VRAMRead.y,
                         VRAMRead.Width, VRAMRead.Height);
+#if T6_BARRIER_DIAG
+  mergeUs = (unsigned int)ticks_to_microsecs(
+      (uint64_t)gettime() - phaseTicksStart);
+  if (g_t6C0ActiveSerial != 0 && g_t6C0ActiveSerial <= 4 &&
+      g_t6C0LifecycleLogs < 64)
+   {
+    g_t6C0LifecycleLogs++;
+    sprintf(txtbuffer,
+            "TRB C0 MERGED serial=%u call=%u kind=%d capResult=%d "
+            "mergeUs=%u merged=%u changed=%u rem=%d,%d\r\n",
+            g_t6C0ActiveSerial, g_t6C0ReadCalls,
+            (int)g_lastReadMapping, g_lastCaptureResult, mergeUs,
+            g_lastMergedPixels, g_lastMergedChangedPixels,
+            VRAMRead.RowsRemaining, VRAMRead.ColsRemaining);
+    writeLogFile(txtbuffer);
+   }
+  callUs = (unsigned int)ticks_to_microsecs(
+      (uint64_t)gettime() - callTicksStart);
+  g_t6C0Perf.mergeUs += mergeUs;
+  g_t6C0Perf.invalidateUs += g_lastReadbackInvalidateUs;
+  g_t6C0Perf.mergedPixels += g_lastMergedPixels;
+  g_t6C0Perf.changedPixels += g_lastMergedChangedPixels;
+  g_t6C0Perf.invalidateRuns += g_lastReadbackInvalidateRuns;
+  g_t6C0Perf.paletteChecks += g_lastReadbackPaletteEntryChecks;
+  g_t6C0Perf.invalidatedEntries += g_lastReadbackTotalInvalidated;
+  if (mergeUs > g_t6C0Perf.mergeMaxUs)
+   g_t6C0Perf.mergeMaxUs = mergeUs;
+  if (g_lastReadbackInvalidateUs > g_t6C0Perf.invalidateMaxUs)
+   g_t6C0Perf.invalidateMaxUs = g_lastReadbackInvalidateUs;
+  T6LogC0Perf(callUs, captureUs, mergeUs,
+              g_lastCaptureResult == 1 || g_lastCaptureResult == 3);
+#endif
 #ifdef DISP_DEBUG
   sprintf(txtbuffer,
           "VRB RESULT kind=%d capture=%d merged=%u src=%u/%u/%u "
@@ -1724,6 +2311,19 @@ if (g_readbackState == READBACK_PENDING)
   writeLogFile(txtbuffer);
 #endif
   g_readbackState = READBACK_DONE;
+#if T6_BARRIER_DIAG
+  if (g_t6C0ActiveSerial != 0 && g_t6C0ActiveSerial <= 4 &&
+      g_t6C0LifecycleLogs < 64)
+   {
+    g_t6C0LifecycleLogs++;
+    sprintf(txtbuffer,
+            "TRB C0 READY serial=%u call=%u state=%d mode=%d rem=%d,%d\r\n",
+            g_t6C0ActiveSerial, g_t6C0ReadCalls,
+            (int)g_readbackState, iDataReadMode,
+            VRAMRead.RowsRemaining, VRAMRead.ColsRemaining);
+    writeLogFile(txtbuffer);
+   }
+#endif
  }
 
 // adjust read ptr, if necessary
@@ -1787,6 +2387,21 @@ for(i=0;i<iSize;i++)
 
 ENDREAD_GL:
 GPUIsIdle;
+#if T6_BARRIER_DIAG
+if (g_t6C0LastFinishedSerial != 0 && g_t6C0ReturnLogs < 4)
+ {
+  unsigned int finishedSerial = g_t6C0LastFinishedSerial;
+
+  g_t6C0ReturnLogs++;
+  g_t6C0LastFinishedSerial = 0;
+  g_t6DiagWorkspaceStatus = T6MoveTakeDiagCanaryStatus();
+  sprintf(txtbuffer,
+          "TRB C0 RETURN serial=%u state=%d mode=%d status=%08lX ws=%d\r\n",
+          finishedSerial, (int)g_readbackState, iDataReadMode,
+          lGPUstatusRet, g_t6DiagWorkspaceStatus);
+  writeLogFile(txtbuffer);
+ }
+#endif
  #ifdef DISP_DEBUG
  //sprintf(txtbuffer, "GL_GPUreadDataMem %08x \r\n", GPUdataRet);
  //writeLogFile(txtbuffer);
@@ -1886,9 +2501,39 @@ int i=0;
 GPUIsBusy;
 GPUIsNotReadyForCommands;
 
+#if T6_BARRIER_DIAG
+/* GP1(04h)=2 can select CPU-to-GP0 DMA before the GP0(A0h) header arrives.
+ * Count the calls which the descriptor gate keeps in command parsing. */
+if(iDataWriteMode==DR_VRAMTRANSFER && !bVramWriteTransferActive)
+ {
+  g_t6A0UnarmedWriteCalls++;
+  if(g_t6A0UnarmedWriteCalls<=8 ||
+     (g_t6A0UnarmedWriteCalls & (g_t6A0UnarmedWriteCalls-1))==0)
+   {
+    sprintf(txtbuffer,
+            "TRB A0 GATE call=%u size=%d dma=%u mode=%d active=%d "
+            "packet=%ld/%ld rect=%d,%d %dx%d rem=%d,%d\r\n",
+            g_t6A0UnarmedWriteCalls, iSize, g_t6A0DmaSerial,
+            iDataWriteMode, bVramWriteTransferActive,
+            gpuDataP, gpuDataC,
+            VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height,
+            VRAMWrite.RowsRemaining, VRAMWrite.ColsRemaining);
+    writeLogFile(txtbuffer);
+   }
+ }
+#endif
+
+/* GP1(04h)=2 selects a DMA direction, not an A0 payload descriptor.  Return
+ * to command parsing once, without invoking FinishedVRAMWrite(): there is no
+ * transfer whose counters/status/cache side effects could be finished. */
+if(T6VramWriteModeNeedsNormalize(
+       iDataWriteMode==DR_VRAMTRANSFER, bVramWriteTransferActive))
+ iDataWriteMode=DR_NORMAL;
+
 STARTVRAM_GL:
 
-if(iDataWriteMode==DR_VRAMTRANSFER)
+if(T6VramWritePayloadActive(iDataWriteMode==DR_VRAMTRANSFER,
+                            bVramWriteTransferActive))
  {
 //    #if defined(DISP_DEBUG)
 //    sprintf ( txtbuffer, "GPUwriteDataMem DR_VRAMTRANSFER %d \r\n", iSize );
@@ -1959,7 +2604,8 @@ if(iDataWriteMode==DR_VRAMTRANSFER)
 
 ENDVRAM_GL:
 
-if(iDataWriteMode==DR_NORMAL)
+if(!T6VramWritePayloadActive(iDataWriteMode==DR_VRAMTRANSFER,
+                             bVramWriteTransferActive))
  {
 //    #if defined(DISP_DEBUG)
 //    sprintf ( txtbuffer, "GPUwriteDataMem DR_NORMAL %d \r\n", iSize );
@@ -1972,7 +2618,9 @@ if(iDataWriteMode==DR_NORMAL)
 
   for(;i<iSize;)
    {
-    if(iDataWriteMode==DR_VRAMTRANSFER) goto STARTVRAM_GL;
+    if(T6VramWritePayloadActive(iDataWriteMode==DR_VRAMTRANSFER,
+                                bVramWriteTransferActive))
+     goto STARTVRAM_GL;
 
      gdata=GETLE32(pMem); pMem++; i++;
 
@@ -2199,9 +2847,13 @@ static void flipEGL(void)
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
+#if T6_BARRIER_DIAG
+    T6ProfilePresentedCapture();
+#else
     CapturePresentedEfbSnapshot();
+#endif
 
-    if (canShowFps)
+    if (canShowFps && showFPSonScreen == 1)
     {
         // Write menu/debug text on screen
         showFpsAndDebugInfo();
