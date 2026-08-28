@@ -48,6 +48,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "debug.h"
 #include "image_DXT.h"
 #include "opengx.h"
+#include "gxSemiPlane.h"
+#include "gxTextureScramble.h"
 #include "state.h"
 #include "utils.h"
 
@@ -1620,8 +1622,8 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
         currtex->semiTransData = 0;
     }
 
-    int required_size = wi * he * 2;
-    int tex_size_rnd = ROUND_32B(required_size);
+    unsigned int required_size = GxRgb5a3TiledSize(wi, he);
+    unsigned int tex_size_rnd = ROUND_32B(required_size);
     currtex->data = _mem2_memalign(32, tex_size_rnd);
     memset(currtex->data, 0, tex_size_rnd);
     DCFlushRange(currtex->data, tex_size_rnd);
@@ -1645,7 +1647,6 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
 extern unsigned char GXtexture[MOVIE_BUF_SIZE];
 static unsigned char *movieTexPtr;
 static int movieUsedSize = 0;
-static unsigned char semiTransBuf[256 * 256 * 2];
 
 // 4b texel scrambling, opengx conversion: src(argb) -> dst(ar...gb)
 // for movie
@@ -1685,116 +1686,6 @@ static inline void _ogx_scramble_4b(unsigned char *src, void *dst,
     }
 }
 
-// The position happens to be the integer position of the Block
-static inline int _ogx_scramble_4b_sub(unsigned char *src, void *dst, void *semiTransDst, unsigned short semiTransFlg,
-                      const unsigned int width, const unsigned int height, const unsigned int oldWidth)
-{
-    unsigned int he;
-    unsigned int wi;
-    unsigned char blockHe;
-    unsigned char blockWi;
-    unsigned char *p = (unsigned char *)dst;
-    unsigned char *semiTransP = (unsigned char *)semiTransDst;
-    unsigned short tmpPixel;
-    int oldWidthBlock = W_BLOCK(oldWidth);
-    int newWidthBlock = W_BLOCK(width);
-    int textureType = 0;
-
-    for (he = 0; he < height; he += 4) {
-        for (wi = 0; wi < width; wi += 4) {
-            for (blockHe = 0; blockHe < 4; blockHe++) {
-                for (blockWi = 0; blockWi < 4; blockWi++) {
-                    if ((wi + blockWi) >= width || (he + blockHe) >= height)
-                    {
-                        //*(unsigned short*)p = 0;
-                    }
-                    else
-                    {
-                        // RGB5A3(Actually, it's the original BGR555 of PSX, Can be efficiently converted to Wii RGB5A3)
-                        tmpPixel = *(unsigned short*)(src + ((wi + blockWi) + ((he + blockHe) * width)) * 4 + 2);
-                        if (tmpPixel == 0)
-                        {
-                            *(unsigned short*)(semiTransP) = 0;
-                            *(unsigned short*)(p) = 0;
-                        }
-                        else if (semiTransFlg && (tmpPixel & 0x8000) == 0)
-                        {
-                            *(unsigned short*)(semiTransP) = tmpPixel | 0x8000;
-                            *(unsigned short*)(p) = 0;
-                            textureType |= TEX_TYPE_1;
-                        }
-                        else
-                        {
-                            *(unsigned short*)(semiTransP) = 0;
-                            *(unsigned short*)(p) = tmpPixel | 0x8000;
-                            textureType |= TEX_TYPE_2;
-                        }
-                    }
-                    p += 2;
-                    semiTransP += 2;
-                }
-            }
-        }
-        p += (oldWidthBlock - newWidthBlock) * 32;
-        semiTransP += (oldWidthBlock - newWidthBlock) * 32;
-    }
-
-    return textureType;
-}
-
-// 4b texel scrambling, opengx conversion: src(4 bytes bgr555) -> dst(2 bytes bgr5a3)
-static inline int _ogx_scramble_4b_5a3(unsigned char *src, void *dst, unsigned short semiTransFlg,
-                      const unsigned int width, const unsigned int height)
-{
-    unsigned int block;
-    unsigned int i;
-    unsigned char c;
-    unsigned char argb;
-    unsigned char *p = (unsigned char *)dst;
-    unsigned char *semiTransP = semiTransBuf;
-    unsigned short tmpPixel;
-    int textureType = 0;
-
-    for (block = 0; block < height; block += 4) {
-        for (i = 0; i < width; i += 4) {
-            for (c = 0; c < 4; c++) {
-                for (argb = 0; argb < 4; argb++) {
-                    if ((i + argb) >= width || (block + c) >= height)
-                    {
-                        *(unsigned short*)p = 0;
-                        *(unsigned short*)semiTransP = 0;
-                    }
-                    else
-                    {
-                        tmpPixel = *(unsigned short*)(src + ((i + argb) + ((block + c) * width)) * 4 + 2);
-                        if (tmpPixel == 0)
-                        {
-                            *(unsigned short*)semiTransP = 0;
-                            *(unsigned short*)p = 0;
-                        }
-                        else if (semiTransFlg && (tmpPixel & 0x8000) == 0)
-                        {
-                            *(unsigned short*)(semiTransP) = tmpPixel | 0x8000;
-                            *(unsigned short*)p = 0;
-                            textureType |= TEX_TYPE_1;
-                        }
-                        else
-                        {
-                            *(unsigned short*)semiTransP = 0;
-                            *(unsigned short*)(p) = tmpPixel | 0x8000;
-                            textureType |= TEX_TYPE_2;
-                        }
-                    }
-                    p += 2;
-                    semiTransP += 2;
-                }
-            }
-        }
-    }
-
-    return textureType;
-}
-
 void glResetMovieTexPtr( void )
 {
     movieUsedSize = 0;
@@ -1814,21 +1705,35 @@ int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
     int wi = width; //(width + 3) & ~(unsigned int)3;
     int he = height; //(height + 3) & ~(unsigned int)3;
 
-    int required_size = wi * he * 4;
-    int tex_size_rnd = ROUND_32B(required_size);
-    if ((movieUsedSize + tex_size_rnd) > MOVIE_BUF_SIZE)
+    unsigned int primarySize;
+    unsigned int tex_size_rnd;
+    if (glparamstate.RGB24)
+    {
+        /* Existing RGB24 backing layout: one linear 4bpp plane. */
+        primarySize = (unsigned int)wi * (unsigned int)he * 4u;
+        tex_size_rnd = ROUND_32B(primarySize);
+    }
+    else
+    {
+        primarySize = GxRgb5a3TiledSize(wi, he);
+        tex_size_rnd = ROUND_32B(primarySize * 2u);
+    }
+    if ((movieUsedSize + (int)tex_size_rnd) > MOVIE_BUF_SIZE)
     {
         glResetMovieTexPtr();
     }
     currtex->data = (unsigned char *)movieTexPtr;
-    currtex->semiTransData = currtex->data;
-    if (!glparamstate.RGB24)
+    if (glparamstate.RGB24)
     {
-        currtex->semiTransData = currtex->data + (tex_size_rnd / 2);
+        currtex->semiTransData = currtex->data;
+    }
+    else
+    {
+        currtex->semiTransData = currtex->data + primarySize;
     }
     memset(currtex->data, 0, tex_size_rnd);
     movieTexPtr += tex_size_rnd;
-    movieUsedSize += tex_size_rnd;
+    movieUsedSize += (int)tex_size_rnd;
 
     currtex->w = wi;
     currtex->h = he;
@@ -1848,7 +1753,10 @@ int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
     }
     else
     {
-        textureType = _ogx_scramble_4b_5a3((unsigned char *)texData, currtex->data, glparamstate.blendenabled, width, height);
+        textureType = GxScramble4b5a3Full((unsigned char *)texData, currtex->data,
+                                          currtex->semiTransData,
+                                          glparamstate.blendenabled,
+                                          width, height);
         GX_InitTexObj(&currtex->texobj, currtex->data,
                       currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
         if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter != BILINEARFILTER_ENABLE)
@@ -1858,7 +1766,6 @@ int glInitMovieTextures( GLsizei width, GLsizei height, void * texData )
         // For Non transparent colors in transparent mode
         if (textureType & TEX_TYPE_1)
         {
-            memcpy(currtex->semiTransData, semiTransBuf, currtex->w * currtex->h * 2);
             GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
                           currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
             if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter != BILINEARFILTER_ENABLE)
@@ -1885,20 +1792,54 @@ int glTexSubImage2D(GLenum target, GLint level,
     resetTexCacheInfo();
 
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
-    unsigned char * semiTransBufPtr = (currtex->semiTransData == 0 ? semiTransBuf : currtex->semiTransData);
+    int hasSemi = GxScramble4b5a3HasSemi((const unsigned char *)data,
+                                         width, height,
+                                         glparamstate.blendenabled);
+    GxSemiPlaneState retained = {
+        currtex->semiTransData,
+        currtex->semiTransData ? GxRgb5a3TiledSize(currtex->w, currtex->h) : 0
+    };
+    int semiReinit = 0;
+    unsigned char *semiTarget = currtex->semiTransData;
+    GxSemiPlaneAction semiAction = GxSemiPlanePrepareSub(
+        &retained, hasSemi, &semiReinit);
+
+    if (semiAction == GX_SEMI_ACTION_ALLOC_ZERO_COPY)
+    {
+        /* First semi-touching partial upload: create an independent zeroed
+         * plane so regions outside this sub-rect are not inherited from a
+         * shared scratch buffer. */
+        semiTarget = _mem2_memalign(32, GxRgb5a3TiledSize(currtex->w, currtex->h));
+        GxSemiPlaneZero(semiTarget, currtex->w, currtex->h);
+        currtex->semiTransData = semiTarget;
+        if (semiReinit)
+        {
+            GX_InitTexObj(&currtex->semiTransTexobj, semiTarget,
+                          currtex->w, currtex->h, GX_TF_RGB5A3,
+                          currtex->wraps, currtex->wrapt, GX_FALSE);
+            if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_NEAR)
+            {
+                GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
+            }
+        }
+    }
 
     if ((xoffset & 3) == 0 && (yoffset & 3) == 0)
     {
         // The position happens to be the integer position of the Block
         int startOffset = ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32;
-        textureType = _ogx_scramble_4b_sub((unsigned char *)data, currtex->data + startOffset, semiTransBufPtr + startOffset, glparamstate.blendenabled, width, height, currtex->w);
-        DCFlushRange(currtex->data , currtex->w * currtex->h * 2);
+        textureType = GxScramble4b5a3Sub((unsigned char *)data,
+                                         currtex->data + startOffset,
+                                         semiTarget ? semiTarget + startOffset : NULL,
+                                         glparamstate.blendenabled,
+                                         width, height, currtex->w);
+        DCFlushRange(currtex->data, GxRgb5a3TiledSize(currtex->w, currtex->h));
     }
     else
     {
         // It is not the position of the integer Block, so we need to write data to different blocks
         unsigned char * dstBlock = currtex->data;
-        unsigned char * semiTransDstBlock = semiTransBufPtr;
+        unsigned char * semiTransDstBlock = semiTarget;
         unsigned char * src = (unsigned char *)data;
         int totalWi = min(xoffset + width, currtex->w);
         int totalHe = min(yoffset + height, currtex->h);
@@ -1940,7 +1881,7 @@ int glTexSubImage2D(GLenum target, GLint level,
                 unsigned char blockWi;
                 src = (unsigned char *)data + (y * width + x) * 4;
                 dstBlock = currtex->data + ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32;
-                semiTransDstBlock = semiTransBufPtr + ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32;
+                semiTransDstBlock = semiTarget ? semiTarget + ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32 : NULL;
                 for (he = 0, blockHe = (yoffset & 3); he < copyHe; he++, blockHe++)
                 {
                     for (wi = 0, blockWi = (xoffset & 3); wi < copyWi; wi++, blockWi++)
@@ -1948,18 +1889,21 @@ int glTexSubImage2D(GLenum target, GLint level,
                         tmpPixel = *(unsigned short*)(src + (he * width + wi) * 4 + 2); // RGB5A3
                         if (tmpPixel == 0)
                         {
-                            *(unsigned short*)(semiTransDstBlock + (blockHe * 4 + blockWi) * 2) = 0;
+                            if (semiTarget)
+                                *(unsigned short*)(semiTransDstBlock + (blockHe * 4 + blockWi) * 2) = 0;
                             *(unsigned short*)(dstBlock + (blockHe * 4 + blockWi) * 2) = 0;
                         }
                         else if (glparamstate.blendenabled && (tmpPixel & 0x8000) == 0)
                         {
-                            *(unsigned short*)(semiTransDstBlock + (blockHe * 4 + blockWi) * 2) = tmpPixel | 0x8000;
+                            if (semiTarget)
+                                *(unsigned short*)(semiTransDstBlock + (blockHe * 4 + blockWi) * 2) = tmpPixel | 0x8000;
                             *(unsigned short*)(dstBlock + (blockHe * 4 + blockWi) * 2) = 0;
                             textureType |= TEX_TYPE_1;
                         }
                         else
                         {
-                            *(unsigned short*)(semiTransDstBlock + (blockHe * 4 + blockWi) * 2) = 0;
+                            if (semiTarget)
+                                *(unsigned short*)(semiTransDstBlock + (blockHe * 4 + blockWi) * 2) = 0;
                             *(unsigned short*)(dstBlock + (blockHe * 4 + blockWi) * 2) = tmpPixel | 0x8000;
                             textureType |= TEX_TYPE_2;
                         }
@@ -1975,24 +1919,14 @@ int glTexSubImage2D(GLenum target, GLint level,
             xoffset = oldXoffset;
         }
 
-        DCFlushRange(currtex->data , currtex->w * currtex->h * 2);
+        DCFlushRange(currtex->data, GxRgb5a3TiledSize(currtex->w, currtex->h));
     }
 
-    if (textureType & TEX_TYPE_1)
-    {
-        if (currtex->semiTransData == 0)
-        {
-            currtex->semiTransData = _mem2_memalign(32, currtex->w * currtex->h * 2);
-            GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
-                        currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
-            if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_NEAR)
-            {
-                GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
-            }
-            memcpy(currtex->semiTransData, semiTransBuf, currtex->w * currtex->h * 2);
-        }
-        DCFlushRange(currtex->semiTransData , currtex->w * currtex->h * 2);
-    }
+    /* A partial update can clear semi texels to zero even when this upload
+     * contains no TEX_TYPE_1 pixels; flush the semi target whenever it was
+     * written directly. */
+    if (semiTarget != NULL)
+        DCFlushRange(semiTarget, GxRgb5a3TiledSize(currtex->w, currtex->h));
 
     return textureType;
 }
@@ -2034,8 +1968,8 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
             currtex->semiTransData = 0;
         }
 
-        int required_size = wi * he * 2;
-        int tex_size_rnd = ROUND_32B(required_size);
+        unsigned int required_size = GxRgb5a3TiledSize(wi, he);
+        unsigned int tex_size_rnd = ROUND_32B(required_size);
         currtex->data = _mem2_memalign(32, tex_size_rnd);
         memset(currtex->data, 0, tex_size_rnd);
     }
@@ -2044,8 +1978,33 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
     currtex->h = he;
     currtex->bytespp = 2;
 
-    textureType = _ogx_scramble_4b_5a3((unsigned char *)data, currtex->data, glparamstate.blendenabled, width, height);
-    DCFlushRange(currtex->data, currtex->w * currtex->h * 2);
+    int hasSemi = GxScramble4b5a3HasSemi((const unsigned char *)data,
+                                         width, height,
+                                         glparamstate.blendenabled);
+    GxSemiPlaneState retained = {
+        currtex->semiTransData,
+        currtex->semiTransData ? GxRgb5a3TiledSize(wi, he) : 0
+    };
+    int semiReinit = 0;
+    GxSemiPlaneAction semiAction = GxSemiPlanePrepareFull(
+        &retained, hasSemi, wi, he, &semiReinit);
+    unsigned char *semiTarget = NULL;
+
+    if (semiAction == GX_SEMI_ACTION_ALLOC_ZERO_COPY)
+    {
+        currtex->semiTransData = _mem2_memalign(32, GxRgb5a3TiledSize(wi, he));
+        GxSemiPlaneZero(currtex->semiTransData, wi, he);
+        semiTarget = currtex->semiTransData;
+    }
+    else if (semiAction == GX_SEMI_ACTION_COPY)
+    {
+        semiTarget = currtex->semiTransData;
+    }
+
+    textureType = GxScramble4b5a3Full((unsigned char *)data, currtex->data,
+                                      semiTarget, glparamstate.blendenabled,
+                                      width, height);
+    DCFlushRange(currtex->data, GxRgb5a3TiledSize(currtex->w, currtex->h));
 
     // Slow but necessary! The new textures may be in the same region of some old cached textures
     //GX_InvalidateTexAll();
@@ -2057,22 +2016,19 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
         GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
     }
     // For Non transparent colors in transparent mode
-    if (textureType & TEX_TYPE_1)
+    if (semiReinit)
     {
-        if (currtex->semiTransData == 0)
+        GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
+                      currtex->w, currtex->h, GX_TF_RGB5A3,
+                      currtex->wraps, currtex->wrapt, GX_FALSE);
+        if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_NEAR)
         {
-            currtex->semiTransData = _mem2_memalign(32, currtex->w * currtex->h * 2);
-            memcpy(currtex->semiTransData, semiTransBuf, currtex->w * currtex->h * 2);
-
-            GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
-                        currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
-            if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_NEAR)
-            {
-                GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
-            }
+            GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
         }
-        DCFlushRange(currtex->semiTransData, currtex->w * currtex->h * 2);
     }
+
+    if (semiTarget != NULL)
+        DCFlushRange(semiTarget, GxRgb5a3TiledSize(wi, he));
     //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
     //GX_InitTexObjLOD(&currtex->texobj, GX_LIN_MIP_LIN, GX_LIN_MIP_LIN, currtex->minlevel, currtex->maxlevel, 0, GX_ENABLE, GX_ENABLE, GX_ANISO_1);
 
