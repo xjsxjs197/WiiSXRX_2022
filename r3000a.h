@@ -425,9 +425,6 @@ void psxReset();
 void psxShutdown();
 void psxException(u32 code, enum R3000Abdt bdt, psxCP0Regs *cp0);
 void psxBranchTest();
-#if defined(SHOW_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
-void T6DiagPostDmaHeartbeat(void);
-#endif
 void psxExecuteBios();
 int  psxTestLoadDelay(int reg, u32 tmp);
 void psxDelayTest(int reg, u32 bpc);

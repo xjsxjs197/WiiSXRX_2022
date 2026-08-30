@@ -267,14 +267,6 @@ extern GLint          giWantedFMT;
 extern GLint          giWantedTYPE;
 extern void           (*LoadSubTexFn) (int,int,short,short);
 extern int            GlobalTexturePage;
-#ifdef DISP_DEBUG
-extern unsigned int   g_texturePaletteEntryChecks;
-extern unsigned int   g_textureTotalInvalidatedEntries;
-extern unsigned int   g_textureStandardUploads;
-extern unsigned int   g_textureWindowUploads;
-extern unsigned int   g_textureWindowCacheHits;
-extern unsigned int   g_textureStandardCacheHits;
-#endif
 extern unsigned int   (*TCF[]) (unsigned int );
 //extern unsigned short (*PTCF[]) (unsigned short);
 //extern unsigned int   (*PalTexturedColourFn) (unsigned int);
@@ -336,7 +328,6 @@ extern int            iNoScreenSaver;
 extern unsigned int   ulGPUInfoVals[];
 extern BOOL           bNeedInterlaceUpdate;
 extern BOOL           bNeedWriteUpload;
-extern BOOL           bVramWriteTransferActive;
 extern BOOL           bSkipNextFrame;
 
 

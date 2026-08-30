@@ -99,21 +99,11 @@ void openLogFile();
 void closeLogFile();
 void writeLogFile(char* string);
 void printFunctionName();
-int isLogFileEnabled(void);
-
-#if defined(SHOW_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
-/* Cross-module, bounded T6 hang diagnosis state.  These fields are
- * observation-only and are compiled out of Release builds. */
-extern unsigned int g_t6DiagDma2Serial;
-extern unsigned int g_t6DiagDma2ActiveSerial;
-extern unsigned int g_t6DiagDma2LogCount;
-extern unsigned int g_t6DiagPostDmaHeartbeatEnabled;
-extern unsigned int g_t6DiagPostDmaHeartbeatCount;
-extern int g_t6DiagWorkspaceStatus;
-#endif
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif
+
+
