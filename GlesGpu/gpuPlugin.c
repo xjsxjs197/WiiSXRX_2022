@@ -128,12 +128,6 @@ GLuint          uiScanLine=0;
 //int             lSelectedSlot=0;
 unsigned char * pGfxCardScreen=0;
 int              cardTexBufSize = 0;
-static unsigned char *pSharedFrameBuf = NULL;
-static int sharedFrameBufSize = 0;
-static int sharedFrameWidth = 0;
-static int sharedFrameHeight = 0;
-static int sharedFrameValid = 0;
-
 int             iBlurBuffer=0;
 int             iScanBlend=0;
 int             iRenderFVR=0;
@@ -851,6 +845,7 @@ else                                                  // some res change?
 
     if (originalMode == ORIGINALMODE_ENABLE)
 	{
+		gx_vout_wait_idle();
 		switchToTVMode(PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y, 0);
 	}
     // Check if TVMode needs to be changed (240 or 480 lines)
@@ -1701,48 +1696,6 @@ void CheckVRamReadEx(int x, int y, int dx, int dy)
 //void CheckVRamRead(int x, int y, int dx, int dy, bool bFront)
 //{
 //}
-
-int CopyWholeFrameToSharedBuffer(void)
-{
-    int copyWidth, copyHeight;
-    int size;
-
-    copyWidth  = (iResX + 15) & ~15;
-    copyHeight = (iResY + 1) & ~1;
-    size = GX_GetTexBufferSize(copyWidth, copyHeight, GX_TF_RGB5A3, 0, GX_FALSE);
-
-    if (!pSharedFrameBuf || sharedFrameBufSize < size)
-    {
-        if (pSharedFrameBuf)
-        {
-            _mem2_free(pSharedFrameBuf);
-            pSharedFrameBuf = NULL;
-        }
-
-        pSharedFrameBuf = (unsigned char *)_mem2_malloc(size);
-        sharedFrameBufSize = size;
-    }
-
-    if (!pSharedFrameBuf)
-        return 0;
-
-    GX_SetCopyFilter(vmode ? vmode->aa : GX_FALSE,
-                     (vmode && vmode->aa) ? vmode->sample_pattern : NULL,
-                     GX_FALSE, NULL);
-    GX_SetTexCopySrc(0, 0, iResX, iResY);
-    GX_SetTexCopyDst(copyWidth, copyHeight, GX_TF_RGB5A3, GX_FALSE);
-    GX_CopyTex(MEM_K0_TO_K1(pSharedFrameBuf), GX_FALSE);
-    GX_PixModeSync();
-    GX_DrawDone();
-    DCInvalidateRange(pSharedFrameBuf, size);
-    RestoreDispCopyInfo();
-
-    sharedFrameWidth  = copyWidth;
-    sharedFrameHeight = copyHeight;
-    sharedFrameValid  = 1;
-
-    return 1;
-}
 
 void RestoreDispCopyInfo(void)
 {
@@ -2841,6 +2794,7 @@ void CALLBACK GL_GPUrearmedCallbacks(const struct rearmed_cbs *_cbs)
 
 static void flipEGL(void)
 {
+    int presentSubmitted;
     #ifdef DISP_DEBUG
     sprintf(txtbuffer, "flipEGL %d \r\n", canClearFrameBuf);
     DEBUG_print(txtbuffer, DBG_SPU3);
@@ -2867,19 +2821,21 @@ static void flipEGL(void)
         if(backFromMenu)
         {
             backFromMenu = 0;
+            gx_vout_wait_idle();
             switchToTVMode(PSXDisplay.DisplayModeNew.x, PSXDisplay.DisplayModeNew.y, 0);
         }
     }
 
-    gx_vout_render(canClearFrameBuf);
+    presentSubmitted = gx_vout_render(canClearFrameBuf);
 
-    if (canClearFrameBuf)
+    if (presentSubmitted && canClearFrameBuf)
         EfbDiscardedAfterPresent();
 
     clearLargeRange = 0;
     uploadedScreen = FALSE;
-    needFlipEGL = FALSE;
-    canClearFrameBuf = FALSE;
+    needFlipEGL = presentSubmitted ? FALSE : TRUE;
+    if (presentSubmitted)
+        canClearFrameBuf = FALSE;
     canShowFps = FALSE;
     RGB24Uploaded = 0;
     glSetLoadMtxFlg();

@@ -52,6 +52,12 @@ typedef enum {
     READBACK_DONE
 } ReadbackState;
 
+typedef enum {
+    CAPTURE_REJECTED = 0,
+    CAPTURE_COMPLETE = 1,
+    CAPTURE_QUEUED = 2
+} CaptureResult;
+
 typedef struct {
     uint64_t seq;
     EfbTileCover cover;
@@ -129,6 +135,15 @@ static int g_efbOverflowDepth;
 static GXFrameSnapshot g_snapshot[2];
 static int g_liveSlot = 0;
 static int g_prevSlot = 1;
+
+/* GX writes only this staging snapshot.  A completed copy is published into
+ * its target on the emulation thread, so T6 never samples a buffer in flight. */
+static GXFrameSnapshot g_asyncSnapshot;
+static GXFrameSnapshot *g_asyncTarget;
+static volatile BOOL g_asyncCaptureInFlight;
+static volatile BOOL g_asyncCaptureReady;
+static volatile u16 g_asyncCaptureToken;
+static u16 g_asyncNextToken = 0x5100;
 
 /* Single CPU-authoritative rebuild baseline for T6 delta merges.  It is
  * captured when a complete map has been rebuilt from psxVuw, so materialize
@@ -1263,6 +1278,49 @@ static int AllocSnapshotBuffer(GXFrameSnapshot *snap, int size)
     return 1;
 }
 
+static void AsyncSnapshotDrawSync(u16 token)
+{
+    if (g_asyncCaptureInFlight && token == g_asyncCaptureToken)
+        g_asyncCaptureReady = TRUE;
+}
+
+static int PublishCompletedAsyncSnapshot(void)
+{
+    GXFrameSnapshot *target;
+    void *reusePixels;
+    int reuseSize;
+
+    if (!g_asyncCaptureInFlight || !g_asyncCaptureReady)
+        return 0;
+
+    target = g_asyncTarget;
+    if (!target)
+        return 0;
+
+    DCInvalidateRange(g_asyncSnapshot.pixels, g_asyncSnapshot.size);
+
+    if (g_asyncSnapshot.map_id == INVALID_MAP_ID &&
+        g_activeMap.map_valid &&
+        g_asyncSnapshot.vram_x == g_activeMap.vram_x0 &&
+        g_asyncSnapshot.vram_y == g_activeMap.vram_y0 &&
+        g_asyncSnapshot.vram_w == g_activeMap.vram_x1 - g_activeMap.vram_x0 &&
+        g_asyncSnapshot.vram_h == g_activeMap.vram_y1 - g_activeMap.vram_y0)
+        g_asyncSnapshot.map_id = g_activeMap.map_id;
+
+    reusePixels = target->pixels;
+    reuseSize = target->size;
+    *target = g_asyncSnapshot;
+    MergeSelectableSnapshotPotential(target);
+
+    memset(&g_asyncSnapshot, 0, sizeof(g_asyncSnapshot));
+    g_asyncSnapshot.pixels = reusePixels;
+    g_asyncSnapshot.size = reuseSize;
+    g_asyncTarget = NULL;
+    g_asyncCaptureReady = FALSE;
+    g_asyncCaptureInFlight = FALSE;
+    return 1;
+}
+
 static BOOL CanCaptureActiveEfb(void)
 {
     if (!ReadbackEnabled())
@@ -1294,50 +1352,57 @@ static int CaptureEfbSnapshotWithTiles(
     int size  = GX_GetTexBufferSize(copyW, copyH,
                                     GX_TF_RGB5A3, 0, GX_FALSE);
 
-    if (!map->content_valid)
-        return 0;
+    PublishCompletedAsyncSnapshot();
 
-    if (snap->pixels == NULL || snap->size < size)
+    if (!map->content_valid || g_asyncCaptureInFlight)
+        return CAPTURE_REJECTED;
+
+    if (g_asyncSnapshot.pixels == NULL || g_asyncSnapshot.size < size)
     {
-        if (!AllocSnapshotBuffer(snap, size))
-            return 0;
+        if (!AllocSnapshotBuffer(&g_asyncSnapshot, size))
+            return CAPTURE_REJECTED;
     }
+
+    g_asyncSnapshot.valid = 1;
+    g_asyncSnapshot.vram_x = map->vram_x0;
+    g_asyncSnapshot.vram_y = map->vram_y0;
+    g_asyncSnapshot.vram_w = map->vram_x1 - map->vram_x0;
+    g_asyncSnapshot.vram_h = map->vram_y1 - map->vram_y0;
+    g_asyncSnapshot.viewport_x = map->viewport_x0;
+    g_asyncSnapshot.viewport_y = map->viewport_y0;
+    g_asyncSnapshot.viewport_w = map->viewport_x1 - map->viewport_x0;
+    g_asyncSnapshot.viewport_h = map->viewport_y1 - map->viewport_y0;
+    g_asyncSnapshot.ratio = map->ratio;
+    g_asyncSnapshot.map_id = map->map_id;
+    g_asyncSnapshot.source = source;
+    g_asyncSnapshot.exactRectValid = 0;
+    g_asyncSnapshot.capturedContentSeq = map->contentWriteSeq;
+    g_asyncSnapshot.captureOrder = ++g_captureOrder;
+    memcpy(g_asyncSnapshot.efbTile, tile, sizeof(g_asyncSnapshot.efbTile));
+    g_asyncSnapshot.size = size;
+    g_asyncSnapshot.texWidth = copyW;
+    g_asyncSnapshot.texHeight = copyH;
+
+    g_asyncTarget = snap;
+    g_asyncCaptureReady = FALSE;
+    g_asyncCaptureInFlight = TRUE;
+    g_asyncCaptureToken = ++g_asyncNextToken;
+    if (g_asyncCaptureToken == 0)
+        g_asyncCaptureToken = ++g_asyncNextToken;
 
     GX_SetCopyFilter(vmode ? vmode->aa : GX_FALSE,
                      (vmode && vmode->aa) ? vmode->sample_pattern : NULL,
                      GX_FALSE, NULL);
     GX_SetTexCopySrc(0, 0, iResX, iResY);
     GX_SetTexCopyDst(copyW, copyH, GX_TF_RGB5A3, GX_FALSE);
-    GX_CopyTex(MEM_K0_TO_K1(snap->pixels), GX_FALSE);
+    GX_CopyTex(MEM_K0_TO_K1(g_asyncSnapshot.pixels), GX_FALSE);
     GX_PixModeSync();
-    GX_DrawDone();
-    DCInvalidateRange(snap->pixels, size);
-
-    snap->valid = 1;
-    snap->vram_x = map->vram_x0;
-    snap->vram_y = map->vram_y0;
-    snap->vram_w = map->vram_x1 - map->vram_x0;
-    snap->vram_h = map->vram_y1 - map->vram_y0;
-    snap->viewport_x = map->viewport_x0;
-    snap->viewport_y = map->viewport_y0;
-    snap->viewport_w = map->viewport_x1 - map->viewport_x0;
-    snap->viewport_h = map->viewport_y1 - map->viewport_y0;
-    snap->ratio = map->ratio;
-    snap->map_id = map->map_id;
-    snap->source = source;
-    snap->exactRectValid = 0;
-
-    snap->capturedContentSeq = map->contentWriteSeq;
-    snap->captureOrder = ++g_captureOrder;
-    memcpy(snap->efbTile, tile, sizeof(snap->efbTile));
-    MergeSelectableSnapshotPotential(snap);
-
-    snap->size = size;
-    snap->texWidth = copyW;
-    snap->texHeight = copyH;
+    GX_SetDrawSyncCallback(AsyncSnapshotDrawSync);
+    GX_SetDrawSync(g_asyncCaptureToken);
+    GX_Flush();
 
     RestoreDispCopyInfo();
-    return 1;
+    return CAPTURE_QUEUED;
 }
 
 static int CaptureEfbSnapshot(GXFrameSnapshot *snap,
@@ -1359,26 +1424,32 @@ static void EstablishRebuildBaseline(
 #if T6_BARRIER_DIAG
     uint64_t ticksStart = (uint64_t)gettime();
     unsigned int us;
-    int captured;
+    int captureResult;
 
     g_t6RebuildBaselineCalls++;
-    captured = CaptureEfbSnapshotWithTiles(
+    captureResult = CaptureEfbSnapshotWithTiles(
         &g_rebuildBaseline, map, tile, source);
+    if (captureResult == CAPTURE_QUEUED &&
+        PublishCompletedAsyncSnapshot())
+        captureResult = CAPTURE_COMPLETE;
     us = (unsigned int)ticks_to_microsecs(
         (uint64_t)gettime() - ticksStart);
     g_t6RebuildBaselineUsTotal += us;
     if (us > g_t6RebuildBaselineUsMax)
         g_t6RebuildBaselineUsMax = us;
-    if (captured)
+    if (captureResult == CAPTURE_COMPLETE)
         g_t6RebuildBaselineCaptures++;
     else
         g_t6RebuildBaselineFailures++;
 #else
-    int captured = CaptureEfbSnapshotWithTiles(
+    int captureResult = CaptureEfbSnapshotWithTiles(
         &g_rebuildBaseline, map, tile, source);
+    if (captureResult == CAPTURE_QUEUED &&
+        PublishCompletedAsyncSnapshot())
+        captureResult = CAPTURE_COMPLETE;
 #endif
 
-    if (!captured)
+    if (captureResult != CAPTURE_COMPLETE)
         g_rebuildBaseline.valid = 0;
 
     /* The baseline is not a selectable timeline snapshot. */
@@ -1483,6 +1554,7 @@ static int TryCapturePreviousReadRect(int x, int y, int w, int h)
     int drawX0, drawY0, drawX1, drawY1;
     int previousOverlap, activeOverlap;
     int tx0, tx1, ty0, ty1, tx, ty;
+    int captureResult;
 
     if (!(dwActFixes & AUTO_FIX_NO_SWAP_BUF) ||
         !ReadbackEnabled() || w <= 0 || h <= 0 ||
@@ -1533,11 +1605,12 @@ static int TryCapturePreviousReadRect(int x, int y, int w, int h)
     map.contentWriteSeq = seq;
 
     slot = OldestSnapshotSlot();
-    if (!CaptureEfbSnapshotWithTiles(slot, &map, g_efbTileState,
-                                     SNAPSHOT_SOURCE_PRESENTED))
+    captureResult = CaptureEfbSnapshotWithTiles(
+        slot, &map, g_efbTileState, SNAPSHOT_SOURCE_PRESENTED);
+    if (captureResult == CAPTURE_REJECTED)
         return 0;
 
-    memset(slot->efbTile, 0, sizeof(slot->efbTile));
+    memset(g_asyncSnapshot.efbTile, 0, sizeof(g_asyncSnapshot.efbTile));
     tx0 = x >> 4;
     tx1 = (x + w - 1) >> 4;
     ty0 = y >> 4;
@@ -1545,24 +1618,28 @@ static int TryCapturePreviousReadRect(int x, int y, int w, int h)
     for (ty = ty0; ty <= ty1; ty++)
         for (tx = tx0; tx <= tx1; tx++)
         {
-            slot->efbTile[ty & 31][tx & 63].cover = EFB_TILE_FULL;
-            slot->efbTile[ty & 31][tx & 63].seq = seq;
+            g_asyncSnapshot.efbTile[ty & 31][tx & 63].cover = EFB_TILE_FULL;
+            g_asyncSnapshot.efbTile[ty & 31][tx & 63].seq = seq;
         }
     MarkPotentialEfbRect(seq, x, y, x + w, y + h);
 
-    slot->exactRectValid = 1;
-    slot->exact_x0 = x;
-    slot->exact_y0 = y;
-    slot->exact_x1 = x + w;
-    slot->exact_y1 = y + h;
+    g_asyncSnapshot.exactRectValid = 1;
+    g_asyncSnapshot.exact_x0 = x;
+    g_asyncSnapshot.exact_y0 = y;
+    g_asyncSnapshot.exact_x1 = x + w;
+    g_asyncSnapshot.exact_y1 = y + h;
 
-    return 1;
+    if (captureResult == CAPTURE_QUEUED &&
+        PublishCompletedAsyncSnapshot())
+        captureResult = CAPTURE_COMPLETE;
+    return captureResult == CAPTURE_COMPLETE;
 }
 
 static int CapturePresentedEfbSnapshot(void)
 {
     GXDisplayMap map;
     GXFrameSnapshot *slot;
+    int captureResult;
 
     if (g_pendingPresentedReady)
     {
@@ -1588,31 +1665,43 @@ static int CapturePresentedEfbSnapshot(void)
             g_pendingPresentedMap.vram_x1 != g_activeMap.vram_x1 ||
             g_pendingPresentedMap.vram_y1 != g_activeMap.vram_y1)
         {
-            if (!CaptureEfbSnapshotWithTiles(slot, &map,
-                                             g_pendingPresentedTile,
-                                             SNAPSHOT_SOURCE_PRESENTED))
+            captureResult = CaptureEfbSnapshotWithTiles(
+                slot, &map, g_pendingPresentedTile,
+                SNAPSHOT_SOURCE_PRESENTED);
+            if (captureResult == CAPTURE_REJECTED)
                 return 0;
         }
-        else if (!CaptureEfbSnapshotWithTiles(slot, &map,
-                                              g_efbTileState,
-                                              SNAPSHOT_SOURCE_PRESENTED))
+        else
         {
-            return 0;
+            captureResult = CaptureEfbSnapshotWithTiles(
+                slot, &map, g_efbTileState,
+                SNAPSHOT_SOURCE_PRESENTED);
+            if (captureResult == CAPTURE_REJECTED)
+                return 0;
         }
     }
-    else if (!CaptureEfbSnapshot(slot, &map,
-                                 SNAPSHOT_SOURCE_PRESENTED))
+    else
     {
-        return 0;
+        captureResult = CaptureEfbSnapshot(
+            slot, &map, SNAPSHOT_SOURCE_PRESENTED);
+        if (captureResult == CAPTURE_REJECTED)
+            return 0;
     }
 
+    if (captureResult == CAPTURE_QUEUED &&
+        PublishCompletedAsyncSnapshot())
+        captureResult = CAPTURE_COMPLETE;
+
 #if defined(DISP_DEBUG) && defined(VRAM_CONTENT_DIAG)
-    DebugComparePresentedToBaseline(slot);
+    if (captureResult == CAPTURE_COMPLETE)
+        DebugComparePresentedToBaseline(slot);
 #endif
 
     if (g_pendingPresentedReady)
     {
-        g_pendingPresentedCaptureOrder = slot->captureOrder;
+        g_pendingPresentedCaptureOrder =
+            captureResult == CAPTURE_QUEUED ?
+            g_asyncSnapshot.captureOrder : slot->captureOrder;
         g_pendingPresentedReady = 0;
     }
     return 1;
@@ -1679,11 +1768,16 @@ static int ResolveCompletedRebuildForRead(int x, int y, int w, int h)
 #if defined(DISP_DEBUG) && defined(VRAM_CONTENT_DIAG)
     {
         uint64_t savedCaptureOrder = g_captureOrder;
+        int captureResult;
 
-        if (CaptureEfbSnapshotWithTiles(&g_diagBaseline,
-                                        &g_rebuildCandidate.map,
-                                        g_rebuildCandidate.tile,
-                                        SNAPSHOT_SOURCE_UPLOAD_REBUILD))
+        captureResult = CaptureEfbSnapshotWithTiles(
+            &g_diagBaseline, &g_rebuildCandidate.map,
+            g_rebuildCandidate.tile,
+            SNAPSHOT_SOURCE_UPLOAD_REBUILD);
+        if (captureResult == CAPTURE_QUEUED &&
+            PublishCompletedAsyncSnapshot())
+            captureResult = CAPTURE_COMPLETE;
+        if (captureResult == CAPTURE_COMPLETE)
         {
             g_diagCycle++;
             g_diagBaselineDrawCount = g_debugDrawSubmitted;
@@ -1700,9 +1794,11 @@ static int ResolveCompletedRebuildForRead(int x, int y, int w, int h)
         else
         {
             sprintf(txtbuffer,
-                    "VRD BASE cycle=%u capture=FAIL map=%u "
+                    "VRD BASE cycle=%u capture=%s map=%u "
                     "rect=%d,%d %dx%d\r\n",
-                    g_diagCycle + 1, mapId, x, y, w, h);
+                    g_diagCycle + 1,
+                    captureResult == CAPTURE_QUEUED ? "QUEUED" : "FAIL",
+                    mapId, x, y, w, h);
             writeLogFile(txtbuffer);
         }
         g_captureOrder = savedCaptureOrder;
@@ -1738,6 +1834,8 @@ static void RetireLiveSnapshotToPrev(void)
 
 static void TryCaptureLiveFrame(void)
 {
+    int captureResult;
+
     g_lastCaptureResult = 0;
 
     if (!ReadbackEnabled())
@@ -1760,11 +1858,16 @@ static void TryCaptureLiveFrame(void)
         LIVE_SNAP()->map_id != g_activeMap.map_id)
         RetireLiveSnapshotToPrev();
 
-    if (CaptureEfbSnapshot(LIVE_SNAP(), &g_activeMap,
-                           SNAPSHOT_SOURCE_CURRENT_EFB))
+    captureResult = CaptureEfbSnapshot(
+        LIVE_SNAP(), &g_activeMap, SNAPSHOT_SOURCE_CURRENT_EFB);
+    if (captureResult == CAPTURE_QUEUED &&
+        PublishCompletedAsyncSnapshot())
+        captureResult = CAPTURE_COMPLETE;
+    if (captureResult != CAPTURE_REJECTED)
     {
         g_activeMap.content_dirty = 0;
-        g_lastCaptureResult = 1;
+        g_lastCaptureResult =
+            captureResult == CAPTURE_COMPLETE ? 1 : 4;
     }
     else
     {
@@ -1884,6 +1987,14 @@ static void OnDisplayMappingChanged(void)
 static void ResetVramReadbackState(void)
 {
     int i;
+
+    if (g_asyncCaptureInFlight)
+    {
+        GX_DrawDone();
+        g_asyncCaptureReady = TRUE;
+        PublishCompletedAsyncSnapshot();
+    }
+    GX_SetDrawSyncCallback(NULL);
 
 #if T6_BARRIER_DIAG
     sprintf(txtbuffer,
@@ -2099,6 +2210,13 @@ static void ResetVramReadbackState(void)
         g_snapshot[i].valid  = 0;
         g_snapshot[i].size   = 0;
     }
+
+    if (g_asyncSnapshot.pixels)
+        _mem2_free(g_asyncSnapshot.pixels);
+    memset(&g_asyncSnapshot, 0, sizeof(g_asyncSnapshot));
+    g_asyncTarget = NULL;
+    g_asyncCaptureInFlight = FALSE;
+    g_asyncCaptureReady = FALSE;
 
     if (g_rebuildBaseline.pixels)
         _mem2_free(g_rebuildBaseline.pixels);
@@ -2529,6 +2647,8 @@ static void MergeReadbackToPsxVuwFiltered(
     uint64_t invalTicksStart;
     uint64_t invalTicksEnd;
 #endif
+
+    PublishCompletedAsyncSnapshot();
 
 #ifdef DISP_DEBUG
     g_lastMergedPixels = 0;
@@ -3011,6 +3131,7 @@ static int CaptureEfbForMaterialize(GXFrameSnapshot *slot,
 {
     GXDisplayMap map;
     EfbTileState (*tiles)[VRAM_READBACK_TILE_X];
+    int captureResult;
 
     if (mapping == MAPPING_CURRENT)
     {
@@ -3044,10 +3165,14 @@ static int CaptureEfbForMaterialize(GXFrameSnapshot *slot,
     else
         return 0;
 
-    return CaptureEfbSnapshotWithTiles(
+    captureResult = CaptureEfbSnapshotWithTiles(
         slot, &map, tiles,
         mapping == MAPPING_CURRENT ? SNAPSHOT_SOURCE_CURRENT_EFB :
                                      SNAPSHOT_SOURCE_PRESENTED);
+    if (captureResult == CAPTURE_QUEUED &&
+        PublishCompletedAsyncSnapshot())
+        captureResult = CAPTURE_COMPLETE;
+    return captureResult;
 }
 
 typedef struct {
@@ -3341,6 +3466,8 @@ static VramFreshResult MaterializeVramReadCore(
     int slotIndex;
     int oldestIndex;
 
+    PublishCompletedAsyncSnapshot();
+
     if (changedTilesOut != NULL)
         *changedTilesOut = 0;
 
@@ -3442,7 +3569,7 @@ static VramFreshResult MaterializeVramReadCore(
 #if T6_BARRIER_DIAG
         {
             uint64_t captureStart = (uint64_t)gettime();
-            int captureOk = CaptureEfbForMaterialize(
+            int captureResult = CaptureEfbForMaterialize(
                 &g_snapshot[slotIndex],
                 (MappingKind)session.captureMappingKind,
                 session.captureMapId,
@@ -3451,23 +3578,26 @@ static VramFreshResult MaterializeVramReadCore(
             g_vramReadBarrierCaptureUs =
                 (unsigned int)ticks_to_microsecs(
                     (uint64_t)gettime() - captureStart);
-            if (!captureOk)
+            if (captureResult == CAPTURE_REJECTED)
+                return VRAM_FRESH_UNRESOLVED;
+            T6CopyTexCapture(&g_vramReadBarrierCopyTex,
+                             &g_vramReadBarrierCopyTexTotal);
+            if (captureResult != CAPTURE_COMPLETE)
                 return VRAM_FRESH_UNRESOLVED;
         }
 #else
-        if (!CaptureEfbForMaterialize(
+        {
+            int captureResult = CaptureEfbForMaterialize(
                 &g_snapshot[slotIndex],
                 (MappingKind)session.captureMappingKind,
                 session.captureMapId,
-                session.captureTileX, session.captureTileY))
-        {
-            return VRAM_FRESH_UNRESOLVED;
+                session.captureTileX, session.captureTileY);
+            if (captureResult != CAPTURE_COMPLETE)
+                return VRAM_FRESH_UNRESOLVED;
         }
 #endif
 #if T6_BARRIER_DIAG
         g_vramReadBarrierLastReason = T6_REASON_NONE;
-        T6CopyTexCapture(&g_vramReadBarrierCopyTex,
-                         &g_vramReadBarrierCopyTexTotal);
 #endif
     }
 

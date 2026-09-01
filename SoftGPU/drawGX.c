@@ -83,6 +83,7 @@ void switchToTVMode(short dWidth, short dHeight, bool retMenu);
 
 static int vsync_enable;
 static int new_frame;
+static volatile int gx_present_inflight;
 
 static void gx_prepare_efb_pixel_state(void)
 {
@@ -133,6 +134,17 @@ static void gc_vout_copydone(void)
 	new_frame = 1;
 }
 
+static void gx_vout_copydone(void)
+{
+	/* GX draw-done callbacks are global.  A lifecycle drain from another
+	 * subsystem must not rotate the XFBs when no display copy is pending. */
+	if (!gx_present_inflight)
+		return;
+
+	gc_vout_copydone();
+	gx_present_inflight = 0;
+}
+
 static void gc_vout_drawdone(void)
 {
 	GX_CopyDisp(xfb[FB_BACK], GX_TRUE);
@@ -150,24 +162,46 @@ void gc_vout_render(void)
 	GX_SetDrawDone();
 }
 
-void gx_vout_render(short canSwapFrameBuf)
+int gx_vout_render(short canSwapFrameBuf)
 {
+	/* Keep displaying the last completed XFB while the next copy is pending.
+	 * In particular, never rotate an XFB merely because GX_CopyDisp was queued. */
+	if (gx_present_inflight)
+		return 0;
+
 	// reset swap table from GUI/DEBUG
 	// To improve efficiency, the original BGR pixel format of PS is directly used
 	// So the format of SwapModeTable is GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED, GX_CH_ALPHA
 	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED, GX_CH_ALPHA);
 	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
 
-	//extern int CopyWholeFrameToSharedBuffer(void);
-	//CopyWholeFrameToSharedBuffer();
-
-	GX_DrawDone();
+	gx_present_inflight = 1;
 	GX_CopyDisp(xfb[FB_BACK], canSwapFrameBuf ? GX_TRUE : GX_FALSE);
-	GX_Flush();
+	GX_PixModeSync();
+	GX_SetDrawDoneCallback(gx_vout_copydone);
+	GX_SetDrawDone();
+	return 1;
+}
 
-	gc_vout_copydone();
-	gc_vout_vsync(0);
-	//new_frame = 1;
+void gx_vout_wait_idle(void)
+{
+	int had_pending_copy = gx_present_inflight;
+
+	/* Mode changes may replace/reconfigure the XFBs.  Finish an already
+	 * submitted copy first and publish only that completed buffer.  Detach
+	 * the global callback before draining so an older menu/plugin draw-done
+	 * token cannot be mistaken for this XFB copy.  This is a rare lifecycle
+	 * boundary, not a per-frame synchronization point. */
+	GX_SetDrawDoneCallback(NULL);
+	GX_DrawDone();
+	if (had_pending_copy && gx_present_inflight)
+	{
+		gc_vout_copydone();
+		gx_present_inflight = 0;
+	}
+
+	if (new_frame)
+		gc_vout_vsync(0);
 }
 
 void gc_vout_disabled(void)
@@ -473,7 +507,9 @@ int gc_vout_open(void) {
 }
 
 int gx_vout_open(void) {
-	//VIDEO_SetPreRetraceCallback(gc_vout_vsync);
+	new_frame = 0;
+	gx_present_inflight = 0;
+	VIDEO_SetPreRetraceCallback(gc_vout_vsync);
 	return 0;
 }
 
