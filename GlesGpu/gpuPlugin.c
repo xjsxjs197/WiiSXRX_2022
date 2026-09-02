@@ -188,6 +188,21 @@ static inline unsigned short ReadGXRGB5A3PixelRaw(
 static inline unsigned short GXRGB5A3ToPSX15(unsigned short gx);
 extern GXRModeObj *vmode;     /*** Graphics Mode Object ***/
 
+#ifdef DISP_DEBUG
+/* Dino Crisis 2 pause-feedback diagnosis.  gpuTexture.c is included before
+ * gpuVramReadback.inc, so keep the small cross-stage trace state here. */
+static unsigned int g_dc2PauseDiagBarrierSerial;
+static unsigned int g_dc2PauseDiagEventSerial;
+static unsigned int g_dc2PauseDiagEventLogs;
+static unsigned int g_dc2PauseDiagTextureLogs;
+static unsigned int g_dc2PauseDiagDrawLogs;
+static unsigned int g_dc2PauseDiagInvalidateLogs;
+static unsigned int g_dc2PauseDiagDrawBudget;
+static unsigned int g_dc2PauseFeedbackSkips;
+static int g_dc2PauseDiagLastResult;
+static unsigned int g_dc2PauseDiagLastChanged;
+#endif
+
 /* gpuTexture.c is included before gpuVramReadback.inc, so the barrier entry
  * and its readback enablement need forward declarations in this TU. */
 static BOOL ReadbackEnabled(void);
@@ -196,6 +211,8 @@ static VramFreshResult EnsureVramReadFresh(
 static VramFreshResult EnsureVramReadFreshEx(
     const VramReadDependency *dependency,
     unsigned int *changedTilesOut);
+static BOOL ShouldSkipDC2PauseFeedbackMaterialize(
+    const VramReadDependency *dependency, int pageid, int textureMode);
 
 #include "gpuDraw.c"
 #include "gpuTexture.c"

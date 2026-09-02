@@ -1293,6 +1293,33 @@ void LoadWndTexturePage(int pageid, int mode, short cx, short cy)
 #define T6_WND_DIAG 0
 #endif
 
+#ifdef DISP_DEBUG
+static void DC2PauseDiagLogTextureDecision(
+    const char *kind, int hit, int pageid, int mode,
+    unsigned int clut, int cache)
+{
+    if (!(dwActFixes & AUTO_FIX_DINO_CRISIS2) ||
+        g_dc2PauseDiagDrawBudget == 0 ||
+        g_dc2PauseDiagTextureLogs >= 4096)
+        return;
+
+    g_dc2PauseDiagTextureLogs++;
+    sprintf(txtbuffer,
+            "TRB DC2 TEX event=%u barrier=%u kind=%s hit=%d "
+            "page=%d mode=%d clut=%08X cache=%d "
+            "uv=%u,%u/%u,%u/%u,%u/%u,%u "
+            "fresh=%d changed=%u std=%u/%u wnd=%u/%u\r\n",
+            g_dc2PauseDiagEventSerial, g_dc2PauseDiagBarrierSerial,
+            kind, hit, pageid, mode, clut, cache,
+            gl_ux[0], gl_vy[0], gl_ux[1], gl_vy[1],
+            gl_ux[2], gl_vy[2], gl_ux[3], gl_vy[3],
+            g_dc2PauseDiagLastResult, g_dc2PauseDiagLastChanged,
+            g_textureStandardCacheHits, g_textureStandardUploads,
+            g_textureWindowCacheHits, g_textureWindowUploads);
+    writeLogFile(txtbuffer);
+}
+#endif
+
 #if T6_WND_DIAG
 static unsigned int g_wndLookupHitLogs;
 static unsigned int g_wndLookupMissLogs;
@@ -1510,6 +1537,8 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
          gl_ux[8] = ts->textureType;
 #ifdef DISP_DEBUG
          g_textureWindowCacheHits++;
+         DC2PauseDiagLogTextureDecision(
+             "wnd", 1, pageid, TextureMode, GivenClutId, i);
 #endif
 #if T6_WND_DIAG
          T6TexturePerfAdd(diagLookupStart,
@@ -1552,6 +1581,9 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
  //GX_SetDrawDone();
 #ifdef DISP_DEBUG
  g_textureWindowUploads++;
+ DC2PauseDiagLogTextureDecision(
+     "wnd", 0, pageid, TextureMode, GivenClutId,
+     (int)(tsx - wcWndtexStore));
 #endif
 
 #if T6_WND_DIAG
@@ -3504,7 +3536,18 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
             1024, iGPUHeight,
             gl_ux[7], gl_ux[6], gl_ux[5], gl_ux[4],
             GlobalTextIL, &dep))
-     EnsureVramReadFresh(&dep);
+    {
+     /* DC2 repeatedly blits the displayed 320x240 image to the alternate
+      * display page as four slightly inset 160x120 quads while paused.  The
+      * legacy renderer intentionally keeps the CPU-side source stable here;
+      * materializing every completed blit feeds the inset result back into
+      * the next frame until the picture collapses into the centre.  Keep
+      * this exception on the standard 16-bit texture path only: MoveImage
+      * and C0 readback still use the normal freshness machinery. */
+     if (!ShouldSkipDC2PauseFeedbackMaterialize(
+             &dep, GlobalTexturePage, TextureMode))
+      EnsureVramReadFresh(&dep);
+    }
 #if T6_WND_DIAG
     g_t6StandardBarrierFlowCalls++;
     T6TexturePerfAdd(diagBarrierStart,
@@ -3609,6 +3652,9 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
   {
 #ifdef DISP_DEBUG
    g_textureStandardCacheHits++;
+   DC2PauseDiagLogTextureDecision(
+       "std", 1, GlobalTexturePage, TextureMode,
+       GivenClutId, iCache);
 #endif
 #if T6_WND_DIAG
    T6TexturePerfAdd(diagLookupStart,
@@ -3628,6 +3674,9 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
 
 #ifdef DISP_DEBUG
   g_textureStandardUploads++;
+  DC2PauseDiagLogTextureDecision(
+      "std", 0, GlobalTexturePage, TextureMode,
+      GivenClutId, iCache);
 #endif
 
   texChgType = 3;

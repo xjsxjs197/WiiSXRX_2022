@@ -583,6 +583,32 @@ static void SetEfbDrawContextFromVertices(int count, int addDrawOffset)
     ctx->rectSet = 1;
     ctx->coverage = EFB_TILE_PARTIAL;
     ctx->pendingRender = usePending;
+
+#ifdef DISP_DEBUG
+    if ((dwActFixes & AUTO_FIX_DINO_CRISIS2) &&
+        g_dc2PauseDiagDrawBudget != 0 &&
+        g_dc2PauseDiagDrawLogs < 4096)
+    {
+        g_dc2PauseDiagDrawBudget--;
+        g_dc2PauseDiagDrawLogs++;
+        sprintf(txtbuffer,
+                "TRB DC2 DRAW event=%u barrier=%u n=%d off=%d "
+                "xy=%d,%d/%d,%d/%d,%d/%d,%d "
+                "bbox=%d,%d-%d,%d uv=%u,%u/%u,%u/%u,%u/%u,%u "
+                "page=%d mode=%d map=%u pending=%d seq=%u\r\n",
+                g_dc2PauseDiagEventSerial, g_dc2PauseDiagBarrierSerial,
+                count, addDrawOffset,
+                lx[0], ly[0], lx[1], ly[1],
+                lx[2], ly[2], lx[3], ly[3],
+                x0, y0, x1, y1,
+                gl_ux[0], gl_vy[0], gl_ux[1], gl_vy[1],
+                gl_ux[2], gl_vy[2], gl_ux[3], gl_vy[3],
+                GlobalTexturePage, GlobalTextTP,
+                ctx->mapId, usePending,
+                (unsigned int)g_activeMap.contentWriteSeq);
+        writeLogFile(txtbuffer);
+    }
+#endif
 }
 
 static uint64_t BeginCommandWrite(void)
@@ -2052,6 +2078,16 @@ static void ResetVramReadbackState(void)
     g_vramReadBarrierDepth = 0;
     g_t6WorkspaceDepth = 0;
 #ifdef DISP_DEBUG
+    g_dc2PauseDiagBarrierSerial = 0;
+    g_dc2PauseDiagEventSerial = 0;
+    g_dc2PauseDiagEventLogs = 0;
+    g_dc2PauseDiagTextureLogs = 0;
+    g_dc2PauseDiagDrawLogs = 0;
+    g_dc2PauseDiagInvalidateLogs = 0;
+    g_dc2PauseDiagDrawBudget = 0;
+    g_dc2PauseFeedbackSkips = 0;
+    g_dc2PauseDiagLastResult = VRAM_FRESH_NO_ACTION;
+    g_dc2PauseDiagLastChanged = 0;
     g_debugDrawSubmitted = 0;
     g_diagCycle = 0;
     g_diagBaselineDrawCount = 0;
@@ -2394,6 +2430,144 @@ static MappingKind ClassifyReadMapping(int x, int y, int w, int h)
     return MAPPING_UNKNOWN;
 }
 
+/* Dino Crisis 2 pause-feedback compatibility exception.
+ *
+ * This is deliberately stricter than a page-number or rectangle-only hack.
+ * A read is suppressed only when all of the following describe the observed
+ * four-quad page flip:
+ *   - standard RGB15 texture data overlapping the current display map;
+ *   - an axis-aligned 160x120 source/destination quadrant (up to the game's
+ *     two-pixel inset);
+ *   - destination coordinates wholly inside the distinct pending display
+ *     page which is about to become visible.
+ *
+ * The test runs before psxVuw materialization.  Skipping invalidation alone
+ * would be insufficient because a later cache miss could still decode the
+ * recursively modified CPU-side image. */
+static BOOL ShouldSkipDC2PauseFeedbackMaterialize(
+    const VramReadDependency *dependency, int pageid, int textureMode)
+{
+    const VramRect *source;
+    int ux0, ux1, vy0, vy1;
+    int dx[4], dy[4];
+    int dx0, dx1, dy0, dy1;
+    int activeW, activeH, pendingW, pendingH;
+    int i;
+
+    if (!(dwActFixes & AUTO_FIX_DINO_CRISIS2) ||
+        dependency == NULL || dependency->kind != VRAM_READ_TEXTURE ||
+        textureMode != 2 || GlobalTextIL ||
+        pageid < 0 || pageid > 31 || dependency->count != 2)
+        return FALSE;
+
+    source = &dependency->rect[0];
+    if (source->x0 != dependency->rect[1].x0 ||
+        source->y0 != dependency->rect[1].y0 ||
+        source->x1 != dependency->rect[1].x1 ||
+        source->y1 != dependency->rect[1].y1 ||
+        source->x1 - source->x0 != 161 ||
+        source->y1 - source->y0 != 121 ||
+        ClassifyReadMapping(source->x0, source->y0,
+                            source->x1 - source->x0,
+                            source->y1 - source->y0) != MAPPING_CURRENT)
+        return FALSE;
+
+    if (!g_activeMap.map_valid || !g_pendingPresentedReady ||
+        !g_pendingPresentedMap.map_valid ||
+        (g_pendingPresentedMap.vram_x0 == g_activeMap.vram_x0 &&
+         g_pendingPresentedMap.vram_y0 == g_activeMap.vram_y0 &&
+         g_pendingPresentedMap.vram_x1 == g_activeMap.vram_x1 &&
+         g_pendingPresentedMap.vram_y1 == g_activeMap.vram_y1))
+        return FALSE;
+
+    activeW = g_activeMap.vram_x1 - g_activeMap.vram_x0;
+    activeH = g_activeMap.vram_y1 - g_activeMap.vram_y0;
+    pendingW = g_pendingPresentedMap.vram_x1 -
+               g_pendingPresentedMap.vram_x0;
+    pendingH = g_pendingPresentedMap.vram_y1 -
+               g_pendingPresentedMap.vram_y0;
+    if (activeW != 320 || activeH != 240 ||
+        pendingW != 320 || pendingH != 240)
+        return FALSE;
+
+    ux0 = ux1 = gl_ux[0];
+    vy0 = vy1 = gl_vy[0];
+    dx0 = dx1 = lx0 + PSXDisplay.DrawOffset.x;
+    dy0 = dy1 = ly0 + PSXDisplay.DrawOffset.y;
+    dx[0] = dx0;
+    dy[0] = dy0;
+    dx[1] = lx1 + PSXDisplay.DrawOffset.x;
+    dy[1] = ly1 + PSXDisplay.DrawOffset.y;
+    dx[2] = lx2 + PSXDisplay.DrawOffset.x;
+    dy[2] = ly2 + PSXDisplay.DrawOffset.y;
+    dx[3] = lx3 + PSXDisplay.DrawOffset.x;
+    dy[3] = ly3 + PSXDisplay.DrawOffset.y;
+
+    for (i = 1; i < 4; i++)
+    {
+        if ((int)gl_ux[i] < ux0) ux0 = gl_ux[i];
+        if ((int)gl_ux[i] > ux1) ux1 = gl_ux[i];
+        if ((int)gl_vy[i] < vy0) vy0 = gl_vy[i];
+        if ((int)gl_vy[i] > vy1) vy1 = gl_vy[i];
+        if (dx[i] < dx0) dx0 = dx[i];
+        if (dx[i] > dx1) dx1 = dx[i];
+        if (dy[i] < dy0) dy0 = dy[i];
+        if (dy[i] > dy1) dy1 = dy[i];
+    }
+
+    if (ux1 - ux0 != 160 || vy1 - vy0 != 120 ||
+        dx1 - dx0 < 158 || dx1 - dx0 > 160 ||
+        dy1 - dy0 < 118 || dy1 - dy0 > 120)
+        return FALSE;
+
+    /* Reject triangles and arbitrary quads which happen to share the same
+     * bounding box: every vertex must be one of the four rectangle corners. */
+    for (i = 0; i < 4; i++)
+        if ((dx[i] != dx0 && dx[i] != dx1) ||
+            (dy[i] != dy0 && dy[i] != dy1))
+            return FALSE;
+
+    if (dx0 < g_pendingPresentedMap.vram_x0 ||
+        dy0 < g_pendingPresentedMap.vram_y0 ||
+        dx1 > g_pendingPresentedMap.vram_x1 ||
+        dy1 > g_pendingPresentedMap.vram_y1)
+        return FALSE;
+
+    /* Each command covers one half-width by half-height quadrant.  Requiring
+     * an edge near both the display boundary and its midpoint prevents large
+     * ordinary sprites from being mistaken for the pause page-flip sequence. */
+    if (!((dx0 - g_pendingPresentedMap.vram_x0 <= 2 &&
+           dx1 - g_pendingPresentedMap.vram_x0 == 160) ||
+          (dx0 - g_pendingPresentedMap.vram_x0 == 160 &&
+           g_pendingPresentedMap.vram_x1 - dx1 <= 2)) ||
+        !((dy0 - g_pendingPresentedMap.vram_y0 <= 2 &&
+           dy1 - g_pendingPresentedMap.vram_y0 == 120) ||
+          (dy0 - g_pendingPresentedMap.vram_y0 == 120 &&
+           g_pendingPresentedMap.vram_y1 - dy1 <= 2)))
+        return FALSE;
+
+#ifdef DISP_DEBUG
+    g_dc2PauseDiagLastResult = VRAM_FRESH_NO_ACTION;
+    g_dc2PauseDiagLastChanged = 0;
+    g_dc2PauseFeedbackSkips++;
+    if (g_dc2PauseDiagTextureLogs < 4096)
+    {
+        g_dc2PauseDiagTextureLogs++;
+        sprintf(txtbuffer,
+                "TRB DC2 FB_SKIP count=%u barrier=%u "
+                "page=%d src=%d,%d-%d,%d "
+                "dst=%d,%d-%d,%d active=%u pending=%u\r\n",
+                g_dc2PauseFeedbackSkips,
+                g_dc2PauseDiagBarrierSerial, pageid,
+                source->x0, source->y0, source->x1, source->y1,
+                dx0, dy0, dx1 + 1, dy1 + 1,
+                g_activeMap.map_id, g_pendingPresentedMap.map_id);
+        writeLogFile(txtbuffer);
+    }
+#endif
+    return TRUE;
+}
+
 static int SnapshotSourcePriority(const GXFrameSnapshot *snap,
                                   MappingKind mapping)
 {
@@ -2612,6 +2786,22 @@ static int SnapshotBaselineResolutionEligible(
 static void InvalidateTileRunRect(void *user, int x0, int y0, int x1, int y1)
 {
     (void)user;
+#ifdef DISP_DEBUG
+    if ((dwActFixes & AUTO_FIX_DINO_CRISIS2) &&
+        (g_dc2PauseDiagBarrierSerial & 3u) == 0 &&
+        g_dc2PauseDiagInvalidateLogs < 2048)
+    {
+        g_dc2PauseDiagInvalidateLogs++;
+        sprintf(txtbuffer,
+                "TRB DC2 INVAL event=%u barrier=%u rect=%d,%d-%d,%d "
+                "std=%u/%u wnd=%u/%u\r\n",
+                g_dc2PauseDiagEventSerial, g_dc2PauseDiagBarrierSerial,
+                x0, y0, x1, y1,
+                g_textureStandardCacheHits, g_textureStandardUploads,
+                g_textureWindowCacheHits, g_textureWindowUploads);
+        writeLogFile(txtbuffer);
+    }
+#endif
     InvalidateTextureArea(x0, y0, x1 - x0, y1 - y0);
 }
 
@@ -3681,6 +3871,122 @@ static VramFreshResult MaterializeVramRead(
     return result;
 }
 
+#ifdef DISP_DEBUG
+static unsigned int DC2PauseDiagRectHash(const VramRect *rect)
+{
+    unsigned int hash = 2166136261u;
+    int xs[3], ys[3];
+    int ix, iy;
+
+    if (rect == NULL || rect->x1 <= rect->x0 || rect->y1 <= rect->y0)
+        return 0;
+
+    xs[0] = rect->x0;
+    xs[1] = (rect->x0 + rect->x1 - 1) / 2;
+    xs[2] = rect->x1 - 1;
+    ys[0] = rect->y0;
+    ys[1] = (rect->y0 + rect->y1 - 1) / 2;
+    ys[2] = rect->y1 - 1;
+
+    for (iy = 0; iy < 3; iy++)
+        for (ix = 0; ix < 3; ix++)
+        {
+            unsigned short pixel = GETLE16(
+                psxVuw + ((ys[iy] & 511) << 10) + (xs[ix] & 1023));
+            hash = (hash ^ pixel) * 16777619u;
+        }
+    return hash;
+}
+
+static void DC2PauseDiagLogBarrier(
+    const VramReadDependency *dependency,
+    VramFreshResult result, unsigned int changedTiles)
+{
+    unsigned int i, rectCount;
+    int targetKind;
+    int interesting;
+
+    if (!(dwActFixes & AUTO_FIX_DINO_CRISIS2) || dependency == NULL)
+        return;
+
+    g_dc2PauseDiagLastResult = (int)result;
+    g_dc2PauseDiagLastChanged = changedTiles;
+
+    interesting =
+        (result == VRAM_FRESH_MATERIALIZED && changedTiles != 0 &&
+         (g_dc2PauseDiagBarrierSerial & 3u) == 0) ||
+        (result == VRAM_FRESH_UNRESOLVED && g_asyncCaptureInFlight &&
+         (g_dc2PauseDiagBarrierSerial & 31u) == 0) ||
+        ((g_dc2PauseDiagBarrierSerial & 511u) == 0);
+    if (!interesting || g_dc2PauseDiagEventLogs >= 1024)
+        return;
+
+    g_dc2PauseDiagEventSerial++;
+    g_dc2PauseDiagEventLogs++;
+    g_dc2PauseDiagDrawBudget = 8;
+
+    targetKind = g_asyncTarget == &g_snapshot[0] ? 0 :
+                 (g_asyncTarget == &g_snapshot[1] ? 1 :
+                  (g_asyncTarget == &g_rebuildBaseline ? 2 :
+#if defined(VRAM_CONTENT_DIAG)
+                   (g_asyncTarget == &g_diagBaseline ? 3 : 4)));
+#else
+                   4));
+#endif
+
+    sprintf(txtbuffer,
+            "TRB DC2 MAT event=%u barrier=%u result=%d changed=%u "
+            "kind=%d rects=%u async=%d/%d target=%d token=%u "
+            "aOrder=%u aSrc=%d aMap=%u aSeq=%u "
+            "active=%u/%u dirty=%d pending=%d/%u "
+            "snap0=%d/%u/%u/%u snap1=%d/%u/%u/%u "
+            "base=%d/%u/%u\r\n",
+            g_dc2PauseDiagEventSerial, g_dc2PauseDiagBarrierSerial,
+            (int)result, changedTiles, (int)dependency->kind,
+            dependency->count,
+            g_asyncCaptureInFlight, g_asyncCaptureReady,
+            targetKind, (unsigned int)g_asyncCaptureToken,
+            (unsigned int)g_asyncSnapshot.captureOrder,
+            (int)g_asyncSnapshot.source, g_asyncSnapshot.map_id,
+            (unsigned int)g_asyncSnapshot.capturedContentSeq,
+            g_activeMap.map_id,
+            (unsigned int)g_activeMap.contentWriteSeq,
+            g_activeMap.content_dirty,
+            g_pendingPresentedReady,
+            (unsigned int)g_pendingPresentedCaptureOrder,
+            g_snapshot[0].valid, g_snapshot[0].map_id,
+            (unsigned int)g_snapshot[0].capturedContentSeq,
+            (unsigned int)g_snapshot[0].captureOrder,
+            g_snapshot[1].valid, g_snapshot[1].map_id,
+            (unsigned int)g_snapshot[1].capturedContentSeq,
+            (unsigned int)g_snapshot[1].captureOrder,
+            g_rebuildBaseline.valid, g_rebuildBaseline.map_id,
+            (unsigned int)g_rebuildBaseline.capturedContentSeq);
+    writeLogFile(txtbuffer);
+
+    rectCount = dependency->count < 4 ? dependency->count : 4;
+    for (i = 0; i < rectCount; i++)
+    {
+        const VramRect *rect = &dependency->rect[i];
+        int tx = (rect->x0 >> 4) & 63;
+        int ty = (rect->y0 >> 4) & 31;
+
+        sprintf(txtbuffer,
+                "TRB DC2 RECT event=%u i=%u rect=%d,%d-%d,%d "
+                "hash=%08X tile=%d,%d epoch=%u/%u efb=%u "
+                "hazard=%u\r\n",
+                g_dc2PauseDiagEventSerial, i,
+                rect->x0, rect->y0, rect->x1, rect->y1,
+                DC2PauseDiagRectHash(rect), tx, ty,
+                (unsigned int)g_psxWriteTileEpoch[ty][tx],
+                (unsigned int)g_psxMaterializedColorTileEpoch[ty][tx],
+                (unsigned int)g_efbTileState[ty][tx].seq,
+                (g_t6PotentialHazardTile[ty][tx >> 5] >> (tx & 31)) & 1u);
+        writeLogFile(txtbuffer);
+    }
+}
+#endif
+
 /* Texture-path barrier entry with a release-usable changed-tile result.  The
  * counter lets callers distinguish a same-color materialize from one that
  * really changed pixels.  Returns UNRESOLVED on reentrancy/disabled state so
@@ -3689,10 +3995,22 @@ static VramFreshResult EnsureVramReadFreshEx(
     const VramReadDependency *dependency, unsigned int *changedTilesOut)
 {
     VramFreshResult result;
+    unsigned int localChangedTiles = 0;
+    unsigned int *effectiveChangedTiles = changedTilesOut;
 #if T6_BARRIER_DIAG
     uint64_t ticksStart = (uint64_t)gettime();
     uint64_t ticksEnd;
     unsigned int callUs;
+#endif
+
+#ifdef DISP_DEBUG
+    if ((dwActFixes & AUTO_FIX_DINO_CRISIS2) &&
+        effectiveChangedTiles == NULL)
+        effectiveChangedTiles = &localChangedTiles;
+    if (dwActFixes & AUTO_FIX_DINO_CRISIS2)
+        g_dc2PauseDiagBarrierSerial++;
+#else
+    (void)localChangedTiles;
 #endif
 
     if (T6ReadFreshEntry(
@@ -3725,8 +4043,14 @@ static VramFreshResult EnsureVramReadFreshEx(
         return VRAM_FRESH_UNRESOLVED;
     }
 
-    result = MaterializeVramRead(dependency, changedTilesOut);
+    result = MaterializeVramRead(dependency, effectiveChangedTiles);
     T6WorkspaceEnd(&g_vramReadBarrierDepth);
+
+#ifdef DISP_DEBUG
+    DC2PauseDiagLogBarrier(
+        dependency, result,
+        effectiveChangedTiles != NULL ? *effectiveChangedTiles : 0);
+#endif
 
 #if T6_BARRIER_DIAG
     ticksEnd = (uint64_t)gettime();
