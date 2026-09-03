@@ -983,6 +983,25 @@ static int PublishCompletedAsyncSnapshot(void)
     return 1;
 }
 
+/* Frame-end snapshots remain asynchronous.  A C0 read or MoveImage source
+ * consumes psxVuw immediately, so finish a queued copy only at that read
+ * boundary before exposing its pixels to the CPU. */
+static int CompletePendingAsyncSnapshotForRead(void)
+{
+    if (!g_asyncCaptureInFlight)
+        return 0;
+
+    if (!g_asyncCaptureReady)
+    {
+        GX_DrawDone();
+        /* GX_DrawDone guarantees completion even if the draw-sync callback
+         * has not updated the notification flag before this thread resumes. */
+        g_asyncCaptureReady = TRUE;
+    }
+
+    return PublishCompletedAsyncSnapshot();
+}
+
 static BOOL CanCaptureActiveEfb(void)
 {
     if (!ReadbackEnabled())
@@ -1163,6 +1182,10 @@ static int TryCapturePreviousReadRect(int x, int y, int w, int h)
     map.content_dirty = 1;
     map.contentWriteSeq = seq;
 
+    if (g_asyncCaptureInFlight &&
+        !CompletePendingAsyncSnapshotForRead())
+        return 0;
+
     slot = OldestSnapshotSlot();
     captureResult = CaptureEfbSnapshotWithTiles(
         slot, &map, g_efbTileState, SNAPSHOT_SOURCE_PRESENTED);
@@ -1188,11 +1211,8 @@ static int TryCapturePreviousReadRect(int x, int y, int w, int h)
     g_asyncSnapshot.exact_y1 = y + h;
 
     if (captureResult == CAPTURE_QUEUED &&
-        PublishCompletedAsyncSnapshot())
+        CompletePendingAsyncSnapshotForRead())
         captureResult = CAPTURE_COMPLETE;
-
-    /* This C0 read uses the last completed snapshot; the queued one becomes
-     * available to subsequent reads only after its token callback. */
     return captureResult == CAPTURE_COMPLETE;
 }
 
@@ -1430,6 +1450,13 @@ static void TryCaptureLiveFrame(void)
         return;
     }
 
+    if (g_asyncCaptureInFlight &&
+        !CompletePendingAsyncSnapshotForRead())
+    {
+        g_lastCaptureResult = -4;
+        return;
+    }
+
     if (LIVE_SNAP()->valid &&
         LIVE_SNAP()->map_id != g_activeMap.map_id)
         RetireLiveSnapshotToPrev();
@@ -1438,7 +1465,7 @@ static void TryCaptureLiveFrame(void)
      int captureResult = CaptureEfbSnapshot(
          LIVE_SNAP(), &g_activeMap, SNAPSHOT_SOURCE_CURRENT_EFB);
      if (captureResult == CAPTURE_QUEUED &&
-         PublishCompletedAsyncSnapshot())
+         CompletePendingAsyncSnapshotForRead())
          captureResult = CAPTURE_COMPLETE;
      if (captureResult != CAPTURE_REJECTED)
     {
@@ -2165,6 +2192,13 @@ static void MaterializeEfbForVramMove(int x, int y, int w, int h)
     else
         return;
 
+    /* The MoveImage CPU copy follows this function immediately.  Publish an
+     * older frame-end/baseline producer before deciding whether a new EFB
+     * capture is required and before reusing the single staging buffer. */
+    if (g_asyncCaptureInFlight &&
+        !CompletePendingAsyncSnapshotForRead())
+        return;
+
     if (g_pendingPresentedReady &&
         (g_pendingPresentedMap.vram_x0 != g_activeMap.vram_x0 ||
          g_pendingPresentedMap.vram_y0 != g_activeMap.vram_y0 ||
@@ -2192,7 +2226,7 @@ static void MaterializeEfbForVramMove(int x, int y, int w, int h)
              slot, &map, g_pendingPresentedTile,
              SNAPSHOT_SOURCE_CURRENT_EFB);
          if (captureResult == CAPTURE_QUEUED &&
-             PublishCompletedAsyncSnapshot())
+             CompletePendingAsyncSnapshotForRead())
              captureResult = CAPTURE_COMPLETE;
          captured = captureResult == CAPTURE_COMPLETE;
          if (captured)
