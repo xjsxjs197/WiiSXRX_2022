@@ -2823,6 +2823,7 @@ static void flipEGL(void)
 #else
     CapturePresentedEfbSnapshot();
 #endif
+    AdvanceDC2ReadbackScopeAfterPresent();
 
     if (canShowFps && showFPSonScreen == 1)
     {

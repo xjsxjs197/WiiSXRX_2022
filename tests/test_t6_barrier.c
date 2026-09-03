@@ -13,8 +13,79 @@
 #include <string.h>
 
 #include "../GlesGpu/gpuTextureReadBarrier.h"
+#include "../GlesGpu/gpuVramReadbackScope.h"
 
 static int s_failures = 0;
+static void expect_count(int got, int expected);
+static void expect_bool(int got, int expected, const char *what);
+
+static void test_dc2_readback_scope(void)
+{
+    static const int sourceX[] = {0, 64, 128, 192, 256};
+    DC2ReadbackScope scope = {0, 0};
+    unsigned int i;
+
+    expect_bool(DC2ReadbackScopeIsTriggerC0(0, 256, 320, 240), 1,
+                "DC2 underwater C0 accepted");
+    expect_bool(DC2ReadbackScopeIsTriggerC0(0, 0, 320, 240), 0,
+                "DC2 unrelated C0 y rejected");
+    expect_bool(DC2ReadbackScopeIsTriggerC0(0, 256, 64, 240), 0,
+                "DC2 unrelated C0 width rejected");
+
+    for (i = 0; i < sizeof(sourceX) / sizeof(sourceX[0]); i++)
+    {
+        expect_bool(DC2ReadbackScopeIsUnderwaterMove(
+                        sourceX[i], 0, 448, 256, 64, 240), 1,
+                    "DC2 upper underwater strip accepted");
+        expect_bool(DC2ReadbackScopeIsUnderwaterMove(
+                        sourceX[i], 256, 448, 256, 64, 240), 1,
+                    "DC2 lower underwater strip accepted");
+    }
+    expect_bool(DC2ReadbackScopeIsUnderwaterMove(
+                    320, 0, 448, 256, 64, 240), 0,
+                "DC2 out-of-range strip rejected");
+    expect_bool(DC2ReadbackScopeIsUnderwaterMove(
+                    64, 0, 384, 256, 64, 240), 0,
+                "DC2 wrong strip destination rejected");
+    expect_bool(DC2ReadbackScopeIsUnderwaterMove(
+                    64, 0, 448, 256, 32, 240), 0,
+                "DC2 wrong strip width rejected");
+
+    expect_bool(DC2ReadbackScopeAllowsWork(1, &scope), 0,
+                "DC2 scope initially closed");
+    expect_bool(DC2ReadbackScopeAllowsWork(0, &scope), 1,
+                "non-DC2 readback remains enabled");
+    DC2ReadbackScopeArm(&scope);
+    expect_count((int)scope.holdFrames, DC2_READBACK_SCOPE_HOLD_FRAMES);
+    expect_count((int)scope.generation, 1);
+    expect_bool(DC2ReadbackScopeAllowsWork(1, &scope), 1,
+                "DC2 scope opens after trigger");
+    for (i = 1; i < DC2_READBACK_SCOPE_HOLD_FRAMES; i++)
+        expect_bool(DC2ReadbackScopeAdvanceFrame(&scope), 0,
+                    "DC2 scope remains open before timeout");
+    DC2ReadbackScopeArm(&scope);
+    expect_count((int)scope.holdFrames, DC2_READBACK_SCOPE_HOLD_FRAMES);
+    expect_count((int)scope.generation, 1);
+    for (i = 1; i < DC2_READBACK_SCOPE_HOLD_FRAMES; i++)
+        DC2ReadbackScopeAdvanceFrame(&scope);
+    expect_bool(DC2ReadbackScopeAdvanceFrame(&scope), 1,
+                "DC2 scope reports timeout transition");
+    expect_bool(DC2ReadbackScopeActive(&scope), 0,
+                "DC2 scope closes at timeout");
+    DC2ReadbackScopeArm(&scope);
+    expect_count((int)scope.generation, 2);
+    expect_bool(DC2ReadbackScopeActive(&scope), 1,
+                "DC2 scope reopens with a new generation");
+    expect_bool(DC2ReadbackScopeCaptureIsCurrent(1, &scope, 1), 0,
+                "DC2 late prior-generation capture rejected");
+    expect_bool(DC2ReadbackScopeCaptureIsCurrent(1, &scope, 2), 1,
+                "DC2 current-generation capture accepted");
+    expect_bool(DC2ReadbackScopeCaptureIsCurrent(0, &scope, 0), 1,
+                "non-DC2 capture ignores scope generation");
+    scope.holdFrames = 0;
+    expect_bool(DC2ReadbackScopeAdvanceFrame(&scope), 0,
+                "closed DC2 scope stays closed");
+}
 
 static void expect_rect(const VramRect *r, int x0, int y0, int x1, int y1)
 {
@@ -3577,13 +3648,13 @@ static void test_snapshot_potential_wiring(void)
         if (buf == NULL)
             continue;
         opened = 1;
-        capture = strstr(buf, "static int CaptureEfbSnapshotWithTiles(");
+        capture = strstr(buf, "static int PublishCompletedAsyncSnapshot(");
         captureEnd = capture != NULL ?
-            strstr(capture + 1, "static int CaptureEfbSnapshot(") : NULL;
+            strstr(capture + 1, "static BOOL CanCaptureActiveEfb(") : NULL;
         metadata = capture != NULL ?
-            strstr(capture, "memcpy(snap->efbTile, tile,") : NULL;
+            strstr(capture, "*target = g_asyncSnapshot;") : NULL;
         merge = metadata != NULL ?
-            strstr(metadata, "MergeSelectableSnapshotPotential(snap);") : NULL;
+            strstr(metadata, "MergeSelectableSnapshotPotential(target);") : NULL;
         mergeFn = strstr(buf,
             "static void MergeSelectableSnapshotPotential(");
         mergeEnd = mergeFn != NULL ?
@@ -3592,7 +3663,7 @@ static void test_snapshot_potential_wiring(void)
         if (capture != NULL && captureEnd != NULL && metadata != NULL &&
             merge != NULL && metadata < merge && merge < captureEnd &&
             count_text_in_range(capture, captureEnd,
-                                "MergeSelectableSnapshotPotential(snap);") == 1 &&
+                                "MergeSelectableSnapshotPotential(target);") == 1 &&
             mergeFn != NULL && mergeEnd != NULL &&
             count_text_in_range(mergeFn, mergeEnd,
                                 "T6PotentialMergeSnapshotTile(") == 1 &&
@@ -6907,6 +6978,7 @@ static void test_cpu_newer_probe_source_order(void)
 
 int main(void)
 {
+    test_dc2_readback_scope();
     test_epoch();
     test_vram_write_payload_gate();
     test_potential_tile_prefilter();

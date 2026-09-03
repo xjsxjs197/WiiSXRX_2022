@@ -14,6 +14,7 @@
 #include <ogc/lwp_watchdog.h>
 #endif
 #include "gpuTextureReadBarrier.h"
+#include "gpuVramReadbackScope.h"
 
 #if defined(DISP_DEBUG) && defined(TEXTURE_READ_BARRIER_DIAG)
 #define T6_BARRIER_DIAG 1
@@ -144,6 +145,7 @@ static volatile BOOL g_asyncCaptureInFlight;
 static volatile BOOL g_asyncCaptureReady;
 static volatile u16 g_asyncCaptureToken;
 static u16 g_asyncNextToken = 0x5100;
+static unsigned int g_asyncDC2ScopeGeneration;
 
 /* Single CPU-authoritative rebuild baseline for T6 delta merges.  It is
  * captured when a complete map has been rebuilt from psxVuw, so materialize
@@ -181,6 +183,7 @@ static BOOL g_untrackedEfbWrite;
 static ReadbackState g_readbackState;
 static int g_lastCaptureResult;
 static MappingKind g_lastReadMapping;
+static DC2ReadbackScope g_dc2ReadbackScope;
 #ifdef DISP_DEBUG
 static unsigned int g_lastMergedPixels;
 static unsigned int g_lastMergedChangedPixels;
@@ -394,6 +397,92 @@ static void DebugComparePresentedToBaseline(const GXFrameSnapshot *snap);
 static BOOL ReadbackEnabled(void)
 {
 	return (dwActFixes & AUTO_FIX_VRAM_READBACK) != 0;
+}
+
+/* Keep ownership/epoch tracking enabled for the whole game, but restrict
+ * DC2's expensive EFB copies and materialization scans to the proven
+ * underwater command window.  Other readback titles retain their existing
+ * behaviour. */
+static BOOL ReadbackMaterializationEnabled(void)
+{
+    return ReadbackEnabled() &&
+           DC2ReadbackScopeAllowsWork(
+               (dwActFixes & AUTO_FIX_DINO_CRISIS2) != 0,
+               &g_dc2ReadbackScope);
+}
+
+static int PublishCompletedAsyncSnapshot(void);
+
+static void InvalidateDC2ScopedSnapshots(void)
+{
+    int i;
+
+    if (!(dwActFixes & AUTO_FIX_DINO_CRISIS2))
+        return;
+
+    for (i = 0; i < 2; i++)
+        g_snapshot[i].valid = 0;
+    g_rebuildBaseline.valid = 0;
+    g_pendingPresentedCaptureOrder = 0;
+}
+
+static void ObserveDC2ReadbackC0(int x, int y, int w, int h)
+{
+    int wasActive;
+
+    if (!(dwActFixes & AUTO_FIX_DINO_CRISIS2) ||
+        !DC2ReadbackScopeIsTriggerC0(x, y, w, h))
+        return;
+
+    wasActive = DC2ReadbackScopeActive(&g_dc2ReadbackScope);
+    if (!wasActive)
+        InvalidateDC2ScopedSnapshots();
+    DC2ReadbackScopeArm(&g_dc2ReadbackScope);
+
+#ifdef DISP_DEBUG
+    if (!wasActive)
+    {
+        sprintf(txtbuffer,
+                "VRB DC2 SCOPE arm c0=%d,%d %dx%d hold=%u\r\n",
+                x, y, w, h, g_dc2ReadbackScope.holdFrames);
+        writeLogFile(txtbuffer);
+    }
+#endif
+}
+
+static void ObserveDC2ReadbackMove(
+    int sourceX, int sourceY, int destinationX, int destinationY,
+    int w, int h)
+{
+    if (!(dwActFixes & AUTO_FIX_DINO_CRISIS2) ||
+        !DC2ReadbackScopeIsUnderwaterMove(
+            sourceX, sourceY, destinationX, destinationY, w, h))
+        return;
+
+    DC2ReadbackScopeArm(&g_dc2ReadbackScope);
+}
+
+static void AdvanceDC2ReadbackScopeAfterPresent(void)
+{
+    if (!(dwActFixes & AUTO_FIX_DINO_CRISIS2))
+        return;
+
+    /* Drain a ready copy even while the window is closed.  Generation
+     * validation in PublishCompletedAsyncSnapshot() retires a late result
+     * instead of allowing it to block the next underwater window. */
+    PublishCompletedAsyncSnapshot();
+
+    if (!DC2ReadbackScopeAdvanceFrame(&g_dc2ReadbackScope))
+        return;
+
+    /* Buffers stay allocated for reuse.  Only their selectable contents are
+     * retired, so leaving the underwater scene neither frees MEM2 every time
+     * nor permits a stale water snapshot to affect later texture reads. */
+    InvalidateDC2ScopedSnapshots();
+#ifdef DISP_DEBUG
+    sprintf(txtbuffer, "VRB DC2 SCOPE expire\r\n");
+    writeLogFile(txtbuffer);
+#endif
 }
 
 #if defined(DISP_DEBUG) && defined(VRAM_CONTENT_DIAG)
@@ -1315,6 +1404,7 @@ static int PublishCompletedAsyncSnapshot(void)
     GXFrameSnapshot *target;
     void *reusePixels;
     int reuseSize;
+    int scopedCaptureCurrent;
 
     if (!g_asyncCaptureInFlight || !g_asyncCaptureReady)
         return 0;
@@ -1336,7 +1426,14 @@ static int PublishCompletedAsyncSnapshot(void)
     reusePixels = target->pixels;
     reuseSize = target->size;
     *target = g_asyncSnapshot;
-    MergeSelectableSnapshotPotential(target);
+    scopedCaptureCurrent = ReadbackEnabled() &&
+        DC2ReadbackScopeCaptureIsCurrent(
+            (dwActFixes & AUTO_FIX_DINO_CRISIS2) != 0,
+            &g_dc2ReadbackScope, g_asyncDC2ScopeGeneration);
+    if (scopedCaptureCurrent)
+        MergeSelectableSnapshotPotential(target);
+    else
+        target->valid = 0;
 
     memset(&g_asyncSnapshot, 0, sizeof(g_asyncSnapshot));
     g_asyncSnapshot.pixels = reusePixels;
@@ -1344,12 +1441,13 @@ static int PublishCompletedAsyncSnapshot(void)
     g_asyncTarget = NULL;
     g_asyncCaptureReady = FALSE;
     g_asyncCaptureInFlight = FALSE;
+    g_asyncDC2ScopeGeneration = 0;
     return 1;
 }
 
 static BOOL CanCaptureActiveEfb(void)
 {
-    if (!ReadbackEnabled())
+    if (!ReadbackMaterializationEnabled())
         return FALSE;
     if (STATUSREG & GPUSTATUS_RGB24)
         return FALSE;
@@ -1380,7 +1478,8 @@ static int CaptureEfbSnapshotWithTiles(
 
     PublishCompletedAsyncSnapshot();
 
-    if (!map->content_valid || g_asyncCaptureInFlight)
+    if (!ReadbackMaterializationEnabled() ||
+        !map->content_valid || g_asyncCaptureInFlight)
         return CAPTURE_REJECTED;
 
     if (g_asyncSnapshot.pixels == NULL || g_asyncSnapshot.size < size)
@@ -1410,6 +1509,9 @@ static int CaptureEfbSnapshotWithTiles(
     g_asyncSnapshot.texHeight = copyH;
 
     g_asyncTarget = snap;
+    g_asyncDC2ScopeGeneration =
+        (dwActFixes & AUTO_FIX_DINO_CRISIS2) ?
+            g_dc2ReadbackScope.generation : 0;
     g_asyncCaptureReady = FALSE;
     g_asyncCaptureInFlight = TRUE;
     g_asyncCaptureToken = ++g_asyncNextToken;
@@ -2075,6 +2177,8 @@ static void ResetVramReadbackState(void)
     g_displayMapTxChanged = FALSE;
     g_pendingPresentedReady = 0;
     g_pendingPresentedCaptureOrder = 0;
+    g_dc2ReadbackScope.holdFrames = 0;
+    g_dc2ReadbackScope.generation = 0;
     g_vramReadBarrierDepth = 0;
     g_t6WorkspaceDepth = 0;
 #ifdef DISP_DEBUG
@@ -2253,6 +2357,7 @@ static void ResetVramReadbackState(void)
     g_asyncTarget = NULL;
     g_asyncCaptureInFlight = FALSE;
     g_asyncCaptureReady = FALSE;
+    g_asyncDC2ScopeGeneration = 0;
 
     if (g_rebuildBaseline.pixels)
         _mem2_free(g_rebuildBaseline.pixels);
@@ -4014,7 +4119,7 @@ static VramFreshResult EnsureVramReadFreshEx(
 #endif
 
     if (T6ReadFreshEntry(
-            ReadbackEnabled(),
+            ReadbackMaterializationEnabled(),
             dependency != NULL && dependency->count > 0 &&
                 dependency->count <= T6_DEP_RECT_CAPACITY,
             1, 1, changedTilesOut) != VRAM_FRESH_NO_ACTION)
@@ -4214,7 +4319,7 @@ static VramFreshResult EnsureVramMoveSourceFresh(
     T6ResetChangedTilesOutput(changedTilesOut);
 
     if (!T6MoveSourceFreshnessPrecheck(
-            x, y, w, h, iGPUHeight, ReadbackEnabled(),
+            x, y, w, h, iGPUHeight, ReadbackMaterializationEnabled(),
             g_t6WorkspaceDepth, g_vramReadBarrierDepth))
         return VRAM_FRESH_UNRESOLVED;
 
@@ -4534,7 +4639,7 @@ static void T6VramMoveShadowDecisionForRect(
     T6VramMoveShadowDecisionInit(out);
     out->unresolvedReason = T6_REASON_NONE;
 
-    if (!ReadbackEnabled() || w <= 0 || h <= 0)
+    if (!ReadbackMaterializationEnabled() || w <= 0 || h <= 0)
     {
         out->unresolvedReason = T6_REASON_CAPTURE_FAIL;
         return;

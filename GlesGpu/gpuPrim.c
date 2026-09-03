@@ -2684,6 +2684,8 @@ static void primStoreImage ( unsigned char * baseAddr )
     iDataReadMode = DR_VRAMTRANSFER;
     g_readbackState = READBACK_PENDING;
 
+    ObserveDC2ReadbackC0(VRAMRead.x, VRAMRead.y,
+                         VRAMRead.Width, VRAMRead.Height);
     readMapping = ClassifyReadMapping(VRAMRead.x, VRAMRead.y,
                                       VRAMRead.Width, VRAMRead.Height);
 #if T6_BARRIER_DIAG
@@ -2713,7 +2715,8 @@ static void primStoreImage ( unsigned char * baseAddr )
         writeLogFile(txtbuffer);
     }
 #endif
-    if (readMapping == MAPPING_PREVIOUS)
+    if (readMapping == MAPPING_PREVIOUS &&
+        ReadbackMaterializationEnabled())
         ResolveCompletedRebuildForRead(VRAMRead.x, VRAMRead.y,
                                        VRAMRead.Width, VRAMRead.Height);
 
@@ -3006,6 +3009,11 @@ static void primMoveImage ( unsigned char * baseAddr )
      * upload checks. */
     copyWidth = imageSX;
     copyHeight = imageSY;
+
+    /* The exact DC2 underwater strip sequence keeps the bounded readback
+     * window alive before the generic source-freshness barrier runs. */
+    ObserveDC2ReadbackMove(imageX0, imageY0, imageX1, imageY1,
+                           imageSX, imageSY);
 
 #if T6_BARRIER_DIAG
     /* Hang A/B: DIAG evidence is lazily allocated in MEM2.  Allocation or
