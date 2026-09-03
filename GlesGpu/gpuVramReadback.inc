@@ -1445,6 +1445,28 @@ static int PublishCompletedAsyncSnapshot(void)
     return 1;
 }
 
+/* A GX copy may stay asynchronous while it is only producing a snapshot for
+ * a later frame.  A CPU VRAM read is different: its caller consumes psxVuw
+ * before returning, so allowing a queued copy to escape this point exposes
+ * stale pixels.  Wait only at that consumption boundary, then publish through
+ * the normal generation/map validation path. */
+static int CompletePendingAsyncSnapshotForRead(void)
+{
+    if (!g_asyncCaptureInFlight)
+        return 0;
+
+    if (!g_asyncCaptureReady)
+    {
+        GX_DrawDone();
+        /* GX_DrawDone guarantees that the preceding draw-sync token and copy
+         * have completed.  Set the flag explicitly as the callback is only a
+         * non-blocking notification and need not run before we resume. */
+        g_asyncCaptureReady = TRUE;
+    }
+
+    return PublishCompletedAsyncSnapshot();
+}
+
 static BOOL CanCaptureActiveEfb(void)
 {
     if (!ReadbackMaterializationEnabled())
@@ -1732,6 +1754,12 @@ static int TryCapturePreviousReadRect(int x, int y, int w, int h)
     map.content_dirty = 1;
     map.contentWriteSeq = seq;
 
+    /* C0 returns these pixels immediately.  Drain an older asynchronous
+     * producer before reusing the single staging buffer. */
+    if (g_asyncCaptureInFlight &&
+        !CompletePendingAsyncSnapshotForRead())
+        return 0;
+
     slot = OldestSnapshotSlot();
     captureResult = CaptureEfbSnapshotWithTiles(
         slot, &map, g_efbTileState, SNAPSHOT_SOURCE_PRESENTED);
@@ -1758,7 +1786,7 @@ static int TryCapturePreviousReadRect(int x, int y, int w, int h)
     g_asyncSnapshot.exact_y1 = y + h;
 
     if (captureResult == CAPTURE_QUEUED &&
-        PublishCompletedAsyncSnapshot())
+        CompletePendingAsyncSnapshotForRead())
         captureResult = CAPTURE_COMPLETE;
     return captureResult == CAPTURE_COMPLETE;
 }
@@ -1982,6 +2010,15 @@ static void TryCaptureLiveFrame(void)
         return;
     }
 
+    /* Unlike the frame-end producer, C0 consumes the captured pixels in this
+     * call.  Finish any prior producer so the staging slot can be reused. */
+    if (g_asyncCaptureInFlight &&
+        !CompletePendingAsyncSnapshotForRead())
+    {
+        g_lastCaptureResult = -4;
+        return;
+    }
+
     if (LIVE_SNAP()->valid &&
         LIVE_SNAP()->map_id != g_activeMap.map_id)
         RetireLiveSnapshotToPrev();
@@ -1989,7 +2026,7 @@ static void TryCaptureLiveFrame(void)
     captureResult = CaptureEfbSnapshot(
         LIVE_SNAP(), &g_activeMap, SNAPSHOT_SOURCE_CURRENT_EFB);
     if (captureResult == CAPTURE_QUEUED &&
-        PublishCompletedAsyncSnapshot())
+        CompletePendingAsyncSnapshotForRead())
         captureResult = CAPTURE_COMPLETE;
     if (captureResult != CAPTURE_REJECTED)
     {
@@ -3465,7 +3502,7 @@ static int CaptureEfbForMaterialize(GXFrameSnapshot *slot,
         mapping == MAPPING_CURRENT ? SNAPSHOT_SOURCE_CURRENT_EFB :
                                      SNAPSHOT_SOURCE_PRESENTED);
     if (captureResult == CAPTURE_QUEUED &&
-        PublishCompletedAsyncSnapshot())
+        CompletePendingAsyncSnapshotForRead())
         captureResult = CAPTURE_COMPLETE;
     return captureResult;
 }
@@ -3798,6 +3835,14 @@ static VramFreshResult MaterializeVramReadCore(
 #endif
         return VRAM_FRESH_NO_ACTION;
     }
+
+    /* This dependency really can observe GPU-newer data.  If a frame-end or
+     * baseline copy still owns the single staging buffer, complete and publish
+     * it now.  Observation happens afterwards so that a just-published
+     * snapshot can satisfy the dependency without issuing another copy. */
+    if (g_asyncCaptureInFlight &&
+        !CompletePendingAsyncSnapshotForRead())
+        return VRAM_FRESH_UNRESOLVED;
 
     T6MaterializeSessionInit(&session, &g_t6Workspace);
     memset(&obs, 0, sizeof(obs));
