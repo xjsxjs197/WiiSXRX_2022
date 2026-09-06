@@ -76,14 +76,12 @@
 //#include "plugins.h"
 #include "gpuExternals.h"
 #include "gpuTexture.h"
+#include "gpuClutKey.h"
 #include "gpuPlugin.h"
 #include "gpuPrim.h"
 
 #include "../Gamecube/DEBUG.h"
 #include "../gpulib/gpu.h"
-
-#define CLUTCHK   0x00060000
-#define CLUTSHIFT 17
 
 ////////////////////////////////////////////////////////////////////////
 // texture conversion buffer ..
@@ -133,7 +131,9 @@ void               (*LoadSubTexFn) (int,int,short,short);
 
 ////////////////////////////////////////////////////////////////////////
 
-unsigned char * CheckTextureInSubSCache(int TextureMode,unsigned int GivenClutId,unsigned short * pCache);
+struct textureSubCacheEntryTagS;
+struct textureSubCacheEntryTagS *CheckTextureInSubSCache(
+ int TextureMode,uint64_t clutKey,unsigned short *pCache);
 void            LoadSubTexturePageSort(int pageid, int mode, short cx, short cy);
 //void            LoadPackedSubTexturePageSort(int pageid, int mode, short cx, short cy);
 void            DefineSubTextureSort(void);
@@ -164,7 +164,7 @@ unsigned int  (*TCF[2]) (unsigned int);
 
 typedef struct textureWndCacheEntryTag
 {
- unsigned int  ClutID;
+ uint64_t       ClutKey;
  short          pageid;
  short          textureMode;
  short          Opaque;
@@ -174,18 +174,22 @@ typedef struct textureWndCacheEntryTag
  unsigned int   textureType;
 } textureWndCacheEntry;
 
-// "standard texture" cache entry (12 byte per entry, as small as possible... we need lots of them)
+// "standard texture" cache entry (16 bytes per entry; keep this compact)
 
 typedef struct textureSubCacheEntryTagS
 {
- unsigned int    ClutID;
+ uint64_t         ClutKey;
  EXLong          pos;
  unsigned char   posTX;
  unsigned char   posTY;
  unsigned char   cTexID;
- unsigned char   Opaque;
- unsigned int   textureType;
+ unsigned char   drawInfo;
 } textureSubCacheEntryS;
+
+typedef char textureSubCacheEntryMustRemain16Bytes[
+ sizeof(textureSubCacheEntryS)==16 ? 1 : -1];
+
+#define SUBCACHE_COUNT_PTR(entry) ((char *)&((entry)->pos))
 
 
 //---------------------------------------------
@@ -196,7 +200,7 @@ typedef struct textureSubCacheEntryTagS
 
 //---------------------------------------------
 
-textureWndCacheEntry     wcWndtexStore[MAXWNDTEXCACHE];    // 64 * 20 > 1 KB
+textureWndCacheEntry     wcWndtexStore[MAXWNDTEXCACHE];    // only 64 entries
 textureSubCacheEntryS *  pscSubtexStore[3][MAXTPAGES_MAX]; // 3 * (64 / 2) * 4096 * 16 = 6M MB
 EXLong *                 pxSsubtexLeft [MAXSORTTEX_MAX];   // 196 * 2048 * 4 = 1568 KB
 GLuint                   uiStexturePage[MAXSORTTEX_MAX];   // 196 * 4 = 160 B
@@ -217,7 +221,36 @@ unsigned short CLUTMASK      = 0x7fff;
 unsigned short CLUTYMASK     = 0x1ff;
 unsigned short MAXSORTTEX    = MAXSORTTEX_MAX;
 
-static textureSubCacheEntryS *curTsx;
+static uint64_t BuildClutCacheKey(unsigned int rawClutId,int textureMode,
+                                  int drawSemiTrans)
+{
+ const void *palette=NULL;
+
+ if(textureMode!=2)
+  {
+   short cx=((rawClutId<<4)&0x3F0);
+   short cy=((rawClutId>>6)&CLUTYMASK);
+
+   palette=psxVuw+cx+(cy*1024);
+  }
+ return ClutKeyBuild(rawClutId,textureMode,drawSemiTrans,palette);
+}
+
+static unsigned char PackDrawInfo(unsigned char opaque,
+                                  unsigned int textureType)
+{
+ return (opaque&0x3fU)|((textureType&3U)<<6);
+}
+
+static unsigned char DrawInfoOpaque(unsigned char drawInfo)
+{
+ return drawInfo&0x3fU;
+}
+
+static unsigned char DrawInfoTextureType(unsigned char drawInfo)
+{
+ return drawInfo>>6;
+}
 
 ////////////////////////////////////////////////////////////////////////
 // Texture color conversions... all my ASM funcs are removed for easier
@@ -669,29 +702,29 @@ void InvalidateSubSTextureArea(int X,int Y,int W, int H)
         PUTLE32(&npos.l, ((x1-xa)<<(26-k))|((x2-xa)<<(18-k))|y1|y2);
 
         {
-         tsb=pscSubtexStore[k][j]+SOFFA;iMax=GETLE32((char *)tsb + 4);tsb++;
+         tsb=pscSubtexStore[k][j]+SOFFA;iMax=GETLE32(SUBCACHE_COUNT_PTR(tsb));tsb++;
          for(i=0;i<iMax;i++,tsb++)
-          if(tsb->ClutID && XCHECK(tsb->pos,npos)) {tsb->ClutID=0;MarkFree(tsb);}
+          if(tsb->ClutKey && XCHECK(tsb->pos,npos)) {tsb->ClutKey=0;MarkFree(tsb);}
 
 //         if(npos.l & 0x00800000)
           {
-           tsb=pscSubtexStore[k][j]+SOFFB;iMax=GETLE32((char *)tsb + 4);tsb++;
+           tsb=pscSubtexStore[k][j]+SOFFB;iMax=GETLE32(SUBCACHE_COUNT_PTR(tsb));tsb++;
            for(i=0;i<iMax;i++,tsb++)
-            if(tsb->ClutID && XCHECK(tsb->pos,npos)) {tsb->ClutID=0;MarkFree(tsb);}
+            if(tsb->ClutKey && XCHECK(tsb->pos,npos)) {tsb->ClutKey=0;MarkFree(tsb);}
           }
 
 //         if(npos.l & 0x00000080)
           {
-           tsb=pscSubtexStore[k][j]+SOFFC;iMax=GETLE32((char *)tsb + 4);tsb++;
+           tsb=pscSubtexStore[k][j]+SOFFC;iMax=GETLE32(SUBCACHE_COUNT_PTR(tsb));tsb++;
            for(i=0;i<iMax;i++,tsb++)
-            if(tsb->ClutID && XCHECK(tsb->pos,npos)) {tsb->ClutID=0;MarkFree(tsb);}
+            if(tsb->ClutKey && XCHECK(tsb->pos,npos)) {tsb->ClutKey=0;MarkFree(tsb);}
           }
 
 //         if(npos.l & 0x00800080)
           {
-           tsb=pscSubtexStore[k][j]+SOFFD;iMax=GETLE32((char *)tsb + 4);tsb++;
+           tsb=pscSubtexStore[k][j]+SOFFD;iMax=GETLE32(SUBCACHE_COUNT_PTR(tsb));tsb++;
            for(i=0;i<iMax;i++,tsb++)
-            if(tsb->ClutID && XCHECK(tsb->pos,npos)) {tsb->ClutID=0;MarkFree(tsb);}
+            if(tsb->ClutKey && XCHECK(tsb->pos,npos)) {tsb->ClutKey=0;MarkFree(tsb);}
           }
         }
       }
@@ -1159,6 +1192,7 @@ void LoadWndTexturePage(int pageid, int mode, short cx, short cy)
 GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
 {
  textureWndCacheEntry * ts, * tsx=NULL;
+ uint64_t clutKey;
  int i;short cx,cy;
  EXLong npos;
 
@@ -1170,23 +1204,12 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
  g_x1=TWin.Position.x0;g_x2=g_x1+TWin.Position.x1-1;
  g_y1=TWin.Position.y0;g_y2=g_y1+TWin.Position.y1-1;
 
- if(TextureMode==2) {GivenClutId=0;cx=cy=0;}
+ if(TextureMode==2) {cx=cy=0;}
  else
   {
    cx=((GivenClutId << 4) & 0x3F0);cy=((GivenClutId >> 6) & CLUTYMASK);
-   GivenClutId=(GivenClutId&CLUTMASK)|(DrawSemiTrans<<30);
-
-   // palette check sum
-    {
-     unsigned int l=0,row;
-     unsigned int * lSRCPtr=(unsigned int *)(psxVuw+cx+(cy*1024));
-     if(TextureMode==1) for(row=1;row<129;row++) {l+=(GETLE32((unsigned long *)(lSRCPtr))-1)*row; lSRCPtr++; }
-     else               for(row=1;row<9;row++)   {l+=(GETLE32((unsigned long *)(lSRCPtr))-1)<<row; lSRCPtr++; }
-     l=(l+HIWORD(l))&0x3fffL;
-     GivenClutId|=(l<<16);
-    }
-
   }
+ clutKey=BuildClutCacheKey(GivenClutId,TextureMode,DrawSemiTrans);
 
  ts=wcWndtexStore;
 
@@ -1198,10 +1221,10 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
         ts->pageid==pageid &&
         ts->textureMode==TextureMode)
       {
-       if(ts->ClutID==GivenClutId)
+       if(ts->ClutKey==clutKey)
         {
          ubOpaqueDraw=ts->Opaque;
-         gl_ux[8] = ts->textureType;
+         gl_ux[8]=ts->textureType;
          return ts->texname;
         }
       }
@@ -1241,12 +1264,12 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
 
  tsx->Opaque=ubOpaqueDraw;
  tsx->pos.l=npos.l;
- tsx->ClutID=GivenClutId;
+ tsx->ClutKey=clutKey;
  tsx->pageid=pageid;
  tsx->textureMode=TextureMode;
  tsx->texname=gTexName;
  tsx->used=1;
- tsx->textureType = gl_ux[8];
+ tsx->textureType=gl_ux[8];
 
  return gTexName;
 }
@@ -2467,7 +2490,6 @@ void DefineSubTextureSort(void)
                  DXTexS, DYTexS,
                  GL_RGBA, GL_UNSIGNED_BYTE, texturepart); glError();
     gl_ux[8] = (GLubyte)(textureType);
-    curTsx->textureType = textureType;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2504,13 +2526,13 @@ void DoTexGarbageCollection(void)
    for(iC=0;iC<4;iC++)                                 // loop all texture rect info areas
     {
      tsb=pscSubtexStore[i][j]+(iC*SOFFB);
-     iMax=GETLE32((char *)tsb + 4);
+     iMax=GETLE32(SUBCACHE_COUNT_PTR(tsb));
      if(iMax)
       do
        {
         tsb++;
         if(tsb->cTexID>=iC1 && tsb->cTexID<iC2)        // info uses the cleaned textures? remove info
-         tsb->ClutID=0;
+         tsb->ClutKey=0;
        }
       while(--iMax);
      }
@@ -2528,7 +2550,8 @@ void DoTexGarbageCollection(void)
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
-unsigned char * CheckTextureInSubSCache(int TextureMode,unsigned int GivenClutId,unsigned short * pCache)
+textureSubCacheEntryS *CheckTextureInSubSCache(
+ int TextureMode,uint64_t clutKey,unsigned short *pCache)
 {
  textureSubCacheEntryS * tsx, * tsb, *tsg;//, *tse=NULL;
  int i,iMax;EXLong npos;
@@ -2545,16 +2568,16 @@ unsigned char * CheckTextureInSubSCache(int TextureMode,unsigned int GivenClutId
  //--------------------------------------------------------------//
 
  tsg=pscSubtexStore[TextureMode][GlobalTexturePage];
- tsg+=((GivenClutId&CLUTCHK)>>CLUTSHIFT)*SOFFB;
+ tsg+=ClutKeyBucket(clutKey)*SOFFB;
 
- iMax=GETLE32((char *)tsg + 4);
+ iMax=GETLE32(SUBCACHE_COUNT_PTR(tsg));
  if(iMax)
   {
    i=iMax;
    tsb=tsg+1;
    do
     {
-     if(GivenClutId==tsb->ClutID &&
+     if(clutKey==tsb->ClutKey &&
         (INCHECK(tsb->pos,npos)))
       {
         {
@@ -2570,9 +2593,9 @@ unsigned char * CheckTextureInSubSCache(int TextureMode,unsigned int GivenClutId
          gl_vy[2]-=cy;
          gl_vy[3]-=cy;
 
-         gl_ux[8] = tsb->textureType;
+         gl_ux[8]=DrawInfoTextureType(tsb->drawInfo);
 
-         ubOpaqueDraw=tsb->Opaque;
+         ubOpaqueDraw=DrawInfoOpaque(tsb->drawInfo);
          *pCache=tsb->cTexID;
          return NULL;
         }
@@ -2592,7 +2615,7 @@ unsigned char * CheckTextureInSubSCache(int TextureMode,unsigned int GivenClutId
  tsx=NULL;tsb=tsg+1;
  for(i=0;i<iMax;i++,tsb++)
   {
-   if(!tsb->ClutID) {tsx=tsb;break;}
+   if(!tsb->ClutKey) {tsx=tsb;break;}
   }
 
  if(!tsx)
@@ -2613,10 +2636,10 @@ unsigned char * CheckTextureInSubSCache(int TextureMode,unsigned int GivenClutId
        tsb=tsg+1;
 
        for(i=0;i<iMax;i++,tsb++)                       // 1. search other slots with same cluts, and unite the area
-        if(GivenClutId==tsb->ClutID)
+        if(clutKey==tsb->ClutKey)
          {
           if(!tsx) {tsx=tsb;rfree.l=npos.l;}           //
-          else      tsb->ClutID=0;
+          else      tsb->ClutKey=0;
           rfree.c.x1=min(rfree.c.x1,tsb->pos.c.x1);
           rfree.c.x2=max(rfree.c.x2,tsb->pos.c.x2);
           rfree.c.y1=min(rfree.c.y1,tsb->pos.c.y1);
@@ -2638,7 +2661,7 @@ unsigned char * CheckTextureInSubSCache(int TextureMode,unsigned int GivenClutId
      iMax=1;
     }
    tsx=tsg+iMax;
-   PUTLE32((char *)tsg + 4, iMax);
+   PUTLE32(SUBCACHE_COUNT_PTR(tsg),iMax);
   }
 
  //----------------------------------------------------//
@@ -2798,7 +2821,7 @@ ENDLOOP:
        ul->c.y2=255-ry;
       }
     }
-   PUTLE32((char *)tsg + 4, 1);tsx=tsg+1;
+   PUTLE32(SUBCACHE_COUNT_PTR(tsg),1);tsx=tsg+1;
   }
 
  rfree.c.x1+=cXAdj;
@@ -2806,10 +2829,9 @@ ENDLOOP:
 
  tsx->cTexID   =*pCache=iC;
  tsx->pos      = npos;
- tsx->ClutID   = GivenClutId;
+ tsx->ClutKey  = clutKey;
  tsx->posTX    = rfree.c.x1;
  tsx->posTY    = rfree.c.y1;
- curTsx = tsx;
 
  cx=gl_ux[7]-rfree.c.x1;
  cy=gl_ux[5]-rfree.c.y1;
@@ -2826,7 +2848,7 @@ ENDLOOP:
  XTexS=rfree.c.x1;
  YTexS=rfree.c.y1;
 
- return &tsx->Opaque;
+ return tsx;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2980,8 +3002,6 @@ void CompressTextureSpace(void)
  int i,j,k,m,n,iMax;EXLong * ul, r,opos;
  short sOldDST=DrawSemiTrans,cx,cy;
  int  lOGTP=GlobalTexturePage;
- unsigned int l,row;
- unsigned int * lSRCPtr;
 
  opos.l=*((unsigned int *)&gl_ux[4]);
 
@@ -3008,43 +3028,36 @@ void CompressTextureSpace(void)
 
      for(m=0;m<4;m++,tsg+=SOFFB)
       {
-       iMax=GETLE32((char *)tsg + 4);
+       iMax=GETLE32(SUBCACHE_COUNT_PTR(tsg));
 
        tsx=tsg+1;
        for(i=0;i<iMax;i++,tsx++)
         {
-         if(tsx->ClutID)
+         if(tsx->ClutKey)
           {
            r.l=tsx->pos.l;
            for(n=i+1,tsb=tsx+1;n<iMax;n++,tsb++)
             {
-             if(tsx->ClutID==tsb->ClutID)
+             if(tsx->ClutKey==tsb->ClutKey)
               {
                r.c.x1=min(r.c.x1,tsb->pos.c.x1);
                r.c.x2=max(r.c.x2,tsb->pos.c.x2);
                r.c.y1=min(r.c.y1,tsb->pos.c.y1);
                r.c.y2=max(r.c.y2,tsb->pos.c.y2);
-               tsb->ClutID=0;
+               tsb->ClutKey=0;
               }
             }
 
 //           if(r.l!=tsx->pos.l)
             {
-             cx=((tsx->ClutID << 4) & 0x3F0);
-             cy=((tsx->ClutID >> 6) & CLUTYMASK);
+             cx=(short)((tsx->ClutKey<<4)&0x3F0);
+             cy=(short)((tsx->ClutKey>>6)&CLUTYMASK);
 
-             if(j!=2)
-              {
-               // palette check sum
-               l=0;lSRCPtr=(unsigned int *)(psxVuw+cx+(cy*1024));
-               if(j==1) for(row=1;row<129;row++) {l+=(GETLE32((unsigned long *)(lSRCPtr))-1)*row; lSRCPtr++; }
-               else     for(row=1;row<9;row++)   {l+=(GETLE32((unsigned long *)(lSRCPtr))-1)<<row; lSRCPtr++; }
-               l=((l+HIWORD(l))&0x3fffL)<<16;
-               if(l!=(tsx->ClutID&(0x00003fff<<16)))
-                {
-                 tsx->ClutID=0;continue;
-                }
-              }
+             if(j!=2 &&
+                BuildClutCacheKey((unsigned int)tsx->ClutKey,j,
+                                  ClutKeyDrawSemiTrans(tsx->ClutKey))!=
+                tsx->ClutKey)
+              {tsx->ClutKey=0;continue;}
 
              tsx->pos.l=r.l;
              if(!GetCompressTexturePlace(tsx))         // no place?
@@ -3069,14 +3082,13 @@ void CompressTextureSpace(void)
                return;
               }
 
-             if(tsx->ClutID&(1<<30)) DrawSemiTrans=1;
-             else                    DrawSemiTrans=0;
+             DrawSemiTrans=ClutKeyDrawSemiTrans(tsx->ClutKey);
              *((unsigned int *)&gl_ux[4])=r.l;
 
              gTexName=uiStexturePage[tsx->cTexID];
              LoadSubTexFn(k,j,cx,cy);
              uiStexturePage[tsx->cTexID]=gTexName;
-             tsx->Opaque=ubOpaqueDraw;
+             tsx->drawInfo=PackDrawInfo(ubOpaqueDraw,gl_ux[8]);
             }
           }
         }
@@ -3084,8 +3096,8 @@ void CompressTextureSpace(void)
        if(iMax)
         {
          tsx=tsg+iMax;
-         while(!tsx->ClutID && iMax) {tsx--;iMax--;}
-         PUTLE32((char *)tsg + 4, iMax);
+         while(!tsx->ClutKey && iMax) {tsx--;iMax--;}
+         PUTLE32(SUBCACHE_COUNT_PTR(tsg),iMax);
         }
 
       }
@@ -3111,7 +3123,9 @@ void CompressTextureSpace(void)
 
 GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
 {
- unsigned char * OPtr;unsigned short iCache;short cx,cy;
+ textureSubCacheEntryS *newEntry;
+ uint64_t clutKey;
+ unsigned short iCache;short cx,cy;
 
  // sort sow/tow infos for fast access
 
@@ -3138,7 +3152,7 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
 
  if(TextureMode==2)                                    // no clut here
   {
-   GivenClutId=CLUTUSED|(DrawSemiTrans<<30);cx=cy=0;
+   cx=cy=0;
 
    if(iFrameTexType && Fake15BitTexture())
    {
@@ -3150,30 +3164,18 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
   {
    cx=((GivenClutId << 4) & 0x3F0);                    // but here
    cy=((GivenClutId >> 6) & CLUTYMASK);
-   GivenClutId=(GivenClutId&CLUTMASK)|(DrawSemiTrans<<30)|CLUTUSED;
-
-   // palette check sum.. removed MMX asm, this easy func works as well
-    {
-     unsigned int l=0,row;
-
-     unsigned int * lSRCPtr=(unsigned int *)(psxVuw+cx+(cy*1024));
-     if(TextureMode==1) for(row=1;row<129;row++) {l+=(GETLE32((unsigned long *)(lSRCPtr))-1)*row; lSRCPtr++;}
-     else               for(row=1;row<9;row++)   {l+=(GETLE32((unsigned long *)(lSRCPtr))-1)<<row; lSRCPtr++;}
-     l=(l+HIWORD(l))&0x3fffL;
-     GivenClutId|=(l<<16);
-    }
-
   }
+ clutKey=BuildClutCacheKey(GivenClutId,TextureMode,DrawSemiTrans);
 
  // search cache
  iCache=0;
- OPtr=CheckTextureInSubSCache(TextureMode,GivenClutId,&iCache);
+ newEntry=CheckTextureInSubSCache(TextureMode,clutKey,&iCache);
 
  // cache full? compress and try again
  if(iCache==0xffff)
   {
    CompressTextureSpace();
-   OPtr=CheckTextureInSubSCache(TextureMode,GivenClutId,&iCache);
+   newEntry=CheckTextureInSubSCache(TextureMode,clutKey,&iCache);
   }
 
  // found? fine
@@ -3183,7 +3185,7 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
 // DEBUG_print(txtbuffer,  DBG_CDR3);
 //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
- if(!OPtr) return uiStexturePage[iCache];
+  if(!newEntry) return uiStexturePage[iCache];
 
   texChgType = 3;
   //GX_Flush();
@@ -3198,7 +3200,7 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
  #endif // DISP_DEBUG
  LoadSubTexFn(GlobalTexturePage,TextureMode,cx,cy);
  uiStexturePage[iCache]=gTexName;
- *OPtr=ubOpaqueDraw;
+ newEntry->drawInfo=PackDrawInfo(ubOpaqueDraw,gl_ux[8]);
  #ifdef DISP_DEBUG
 // sprintf(txtbuffer, "SelectSubTextureS 3 %d\r\n", gTexName);
 // DEBUG_print(txtbuffer,  DBG_CDR3);
