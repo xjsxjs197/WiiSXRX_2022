@@ -2062,8 +2062,6 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
         if (currtex->semiTransData == 0)
         {
             currtex->semiTransData = _mem2_memalign(32, currtex->w * currtex->h * 2);
-            memcpy(currtex->semiTransData, semiTransBuf, currtex->w * currtex->h * 2);
-
             GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
                         currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
             if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_NEAR)
@@ -2071,6 +2069,7 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
                 GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
             }
         }
+        memcpy(currtex->semiTransData, semiTransBuf, currtex->w * currtex->h * 2);
         DCFlushRange(currtex->semiTransData, currtex->w * currtex->h * 2);
     }
     //GX_InitTexObjFilterMode(&currtex->texobj, GX_LINEAR, GX_LINEAR);
