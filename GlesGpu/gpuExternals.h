@@ -436,7 +436,8 @@ extern int           iTileCheat;
 #endif
 
 extern void gc_vout_render(void);
-extern void gx_vout_render(short canSwapFrameBuf);
+extern int gx_vout_render(short canSwapFrameBuf);
+extern void gx_vout_wait_idle(void);
 extern void gc_vout_disabled(void);
 extern void showFpsAndDebugInfo(void);
 extern void ChangeDispOffsetsXGl(void);
