@@ -8,6 +8,10 @@
 //#define SDPRINT
 //#define PEOPS_SDLOG
 
+/* Temporary GLES texture investigation: suppress legacy Debug output and
+ * allow only compact lines prefixed with "TDI " into debugLog.txt. */
+#define TEXTURE_DIAG_ONLY
+
 #define DBG_MEMFREEINFO 0
 #define DBG_CORE1	1
 #define DBG_CORE2	2
@@ -105,5 +109,4 @@ void printFunctionName();
 #endif
 
 #endif
-
 

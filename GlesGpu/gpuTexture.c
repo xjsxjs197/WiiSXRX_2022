@@ -91,6 +91,12 @@ GLubyte       ubPaletteBuffer[256][4];
 GLuint        gTexMovieName=0;
 GLuint        gTexBlurName=0;
 GLuint        gTexFrameName=0;
+static BOOL   gFramebufferTextureCaptured=FALSE;
+static int    gFramebufferTextureWidth=0;
+static int    gFramebufferTextureHeight=0;
+static int    gFramebufferTextureDisplayX=0;
+static int    gFramebufferTextureDisplayY=0;
+static int    gFramebufferTextureAbr=0;
 int           iTexGarbageCollection=1;
 unsigned int  dwTexPageComp=0;
 int           iVRamSize=0;
@@ -235,6 +241,69 @@ static uint64_t BuildClutCacheKey(unsigned int rawClutId,int textureMode,
   }
  return ClutKeyBuild(rawClutId,textureMode,drawSemiTrans,palette);
 }
+
+#ifdef DISP_DEBUG
+/* Sample the source texels and their resolved CLUT colors.  Full-screen
+ * textures use a 4x4 stride so this stays cheap enough for timing-sensitive
+ * logging; small sprites are inspected exactly. */
+static unsigned int DebugTextureSourceStats(int pageid,int textureMode,
+                                            unsigned int rawClutId,
+                                            int u0,int v0,int w,int h,
+                                            unsigned int *transparent,
+                                            unsigned int *stp,
+                                            unsigned int *samples)
+{
+ unsigned int hash=2166136261u;
+ int pageX=(pageid&15)*64;
+ int pageY=(pageid>>4)*256;
+ int clutX=((rawClutId<<4)&0x3f0);
+ int clutY=((rawClutId>>6)&CLUTYMASK);
+ int stride=(w*h>4096) ? 4 : 1;
+ int y,x;
+
+ *transparent=0;
+ *stp=0;
+ *samples=0;
+ if(w<=0 || h<=0) return hash;
+ if(w>256) w=256;
+ if(h>256) h=256;
+
+ for(y=0;y<h;y+=stride)
+  {
+   int texY=(v0+y)&255;
+   for(x=0;x<w;x+=stride)
+    {
+     int texX=(u0+x)&255;
+     unsigned short packed;
+     unsigned short color;
+
+     if(textureMode==2)
+      color=GETLE16(psxVuw+
+       (((pageY+texY)&iGPUHeightMask)*1024)+
+       ((pageX+texX)&0x3ff));
+     else
+      {
+       int pixelsPerWord=textureMode==0 ? 4 : 2;
+       int shift=textureMode==0 ? ((texX&3)*4) : ((texX&1)*8);
+       unsigned int indexMask=textureMode==0 ? 0x0f : 0xff;
+       unsigned int index;
+
+       packed=GETLE16(psxVuw+
+        (((pageY+texY)&iGPUHeightMask)*1024)+
+        ((pageX+texX/pixelsPerWord)&0x3ff));
+       index=(packed>>shift)&indexMask;
+       color=GETLE16(psxVuw+
+        ((clutY&iGPUHeightMask)*1024)+((clutX+index)&0x3ff));
+      }
+     hash=(hash^(unsigned int)color)*16777619u;
+     if((color&0x7fff)==0) (*transparent)++;
+     else if(color&0x8000) (*stp)++;
+     (*samples)++;
+    }
+  }
+ return hash;
+}
+#endif
 
 static unsigned char PackDrawInfo(unsigned char opaque,
                                   unsigned int textureType)
@@ -478,6 +547,12 @@ void CleanupTextureStore()
   glDeleteTextures(1, &gTexFrameName);                 // -> delete it
   glError();
  gTexFrameName=0;                                      // no more movie tex
+ gFramebufferTextureCaptured=FALSE;
+ gFramebufferTextureWidth=0;
+ gFramebufferTextureHeight=0;
+ gFramebufferTextureDisplayX=0;
+ gFramebufferTextureDisplayY=0;
+ gFramebufferTextureAbr=0;
  //----------------------------------------------------//
  if(gTexBlurName!=0)                                   // some 15bit framebuffer tex?
   glDeleteTextures(1, &gTexBlurName);                  // -> delete it
@@ -1557,6 +1632,142 @@ BOOL bFakeFrontBuffer=FALSE;
 BOOL bIgnoreNextTile =FALSE;
 
 int iFTex=512;
+
+static void ResetFramebufferTextureCapture(void)
+{
+ gFramebufferTextureCaptured=FALSE;
+}
+
+/* Alone in the Dark 4 builds a display page in the EFB and immediately uses
+ * that page as a 16-bit texture.  The GLES renderer deliberately does not
+ * mirror ordinary GX draws into psxVuw, so decoding that texture from VRAM
+ * returns an older door/UI image.  Capture the EFB once per source-page/ABR
+ * operation and reuse it for the horizontally split pieces of that operation. */
+static GLuint CaptureFramebufferTexture(void)
+{
+ int i;
+ int didCapture=FALSE;
+ int pageX, pageY;
+ int srcX0, srcY0, srcX1, srcY1;
+ int displayX, displayY, displayW, displayH;
+ int viewportX, viewportY, viewportW, viewportH;
+ int copyW, copyH;
+
+ if(!(dwActFixes&AUTO_FIX_FRAMEBUFFER_TEXTURE)) return 0;
+ if(!DrawSemiTrans || !iSpriteTex || PSXDisplay.RGB24) return 0;
+ if(PSXDisplay.InterlacedTest) return 0;
+
+ pageX=(GlobalTexturePage&15)<<6;
+ pageY=(GlobalTexturePage>>4)<<8;
+ srcX0=pageX+gl_ux[7];
+ srcY0=pageY+gl_ux[5];
+ srcX1=pageX+gl_ux[6]+1;
+ srcY1=pageY+gl_ux[4]+1;
+
+ displayW=PSXDisplay.DisplayMode.x;
+ displayH=PSXDisplay.DisplayMode.y+PreviousPSXDisplay.DisplayModeNew.y;
+
+ /* Restrict the workaround to the tall display-page strips seen in AITD4.
+  * The page can be split horizontally, so width alone is not a discriminator. */
+ if(displayW<=0 || displayH<=0) return 0;
+ displayX=PSXDisplay.DisplayPosition.x;
+ displayY=PSXDisplay.DisplayPosition.y;
+ if(srcX1<=displayX || srcX0>=displayX+displayW ||
+    srcY1<=displayY || srcY0>=displayY+displayH ||
+    srcY0>displayY+2 || srcY1<displayY+displayH-2)
+  {
+   displayX=PreviousPSXDisplay.DisplayPosition.x;
+   displayY=PreviousPSXDisplay.DisplayPosition.y;
+   if(srcX1<=displayX || srcX0>=displayX+displayW ||
+      srcY1<=displayY || srcY0>=displayY+displayH ||
+      srcY0>displayY+2 || srcY1<displayY+displayH-2) return 0;
+  }
+
+ viewportX=rRatioRect.left;
+ viewportY=iResY-(rRatioRect.top+rRatioRect.bottom);
+ viewportW=rRatioRect.right;
+ viewportH=rRatioRect.bottom;
+ if(viewportW<=0 || viewportH<=0) return 0;
+
+ copyW=(iResX+15)&~15;
+ copyH=(iResY+3)&~3;
+ if(copyW<=0 || copyH<=0 || copyW>1024 || copyH>1024) return 0;
+
+ if(!gTexFrameName)
+  {
+   glGenTextures(1,&gTexFrameName); glError();
+   if(!gTexFrameName) return 0;
+  }
+
+ gTexName=gTexFrameName;
+ glBindTextureBef(GL_TEXTURE_2D,gTexName); glError();
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE); glError();
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE); glError();
+
+ if(gFramebufferTextureWidth!=copyW || gFramebufferTextureHeight!=copyH)
+  {
+   glInitRGBATextures(copyW,copyH); glError();
+   gFramebufferTextureWidth=copyW;
+   gFramebufferTextureHeight=copyH;
+   gFramebufferTextureCaptured=FALSE;
+  }
+
+ if(!gFramebufferTextureCaptured ||
+    gFramebufferTextureDisplayX!=displayX ||
+    gFramebufferTextureDisplayY!=displayY ||
+    gFramebufferTextureAbr!=GlobalTextABR)
+  {
+   if(!glCaptureFramebufferTexture(iResX,iResY)) return 0;
+   RestoreDispCopyInfo();
+   gFramebufferTextureCaptured=TRUE;
+   gFramebufferTextureDisplayX=displayX;
+   gFramebufferTextureDisplayY=displayY;
+   gFramebufferTextureAbr=GlobalTextABR;
+   didCapture=TRUE;
+   texChgType=3;
+  }
+
+ /* Convert PSX display-page coordinates to the full EFB-copy texture.  OpenGX
+  * consumes GLubyte coordinates normalized over 0..255. */
+ for(i=0;i<4;i++)
+  {
+   int physicalX=pageX+gl_ux[i];
+   int physicalY=pageY+gl_vy[i];
+   int efbX=viewportX+(physicalX-displayX)*viewportW/displayW;
+   int efbY=viewportY+(physicalY-displayY)*viewportH/displayH;
+   int texU=efbX*256/copyW;
+   int texV=efbY*256/copyH;
+
+   if(texU<0) texU=0; else if(texU>255) texU=255;
+   if(texV<0) texV=0; else if(texV>255) texV=255;
+   gl_ux[i]=(GLubyte)texU;
+   gl_vy[i]=(GLubyte)texV;
+  }
+
+ /* assignTextureSprite() reconstructs the right/bottom coordinate from these
+  * sizes after texture selection, so keep it aligned with the remapped UVs. */
+ sprtW=(short)((int)gl_ux[1]-(int)gl_ux[0]);
+ sprtH=(short)((int)gl_vy[2]-(int)gl_vy[0]);
+
+ /* The full-screen background which AITD4 feeds back is produced from STP
+  * texels.  Keep it in the normal ABR pass instead of treating the captured
+  * image as opaque and applying the primitive modulation directly. */
+ gl_ux[8]=2; /* TEX_TYPE_2: STP/ABR pass. */
+ ubOpaqueDraw=0;
+
+#ifdef DISP_DEBUG
+ sprintf(txtbuffer,
+         "TDI FRAME_TEX frame=%u capture=%d src=%d,%d-%d,%d "
+         "display=%d,%d+%d,%d copy=%d,%d uv=%u,%u-%u,%u\r\n",
+         g_textureDiagFrame,didCapture,
+         srcX0,srcY0,srcX1,srcY1,displayX,displayY,displayW,displayH,
+         copyW,copyH,(unsigned int)gl_ux[0],(unsigned int)gl_vy[0],
+         (unsigned int)gl_ux[2],(unsigned int)gl_vy[2]);
+ TextureDiagAppend(txtbuffer);
+#endif
+
+ return gTexName;
+}
 
 GLuint Fake15BitTexture(void)
 {
@@ -3153,6 +3364,11 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
  if(TextureMode==2)                                    // no clut here
   {
    cx=cy=0;
+
+   if(CaptureFramebufferTexture())
+   {
+       return (GLuint)gTexName;
+   }
 
    if(iFrameTexType && Fake15BitTexture())
    {

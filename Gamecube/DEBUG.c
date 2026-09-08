@@ -83,6 +83,10 @@ void closeLogFile() {
 void writeLogFile(char* string) {
     if (!canWriteLog) return;
 
+#ifdef TEXTURE_DIAG_ONLY
+    if (!string || strncmp(string, "TDI ", 4) != 0) return;
+#endif
+
     closeLogFile();
 
     openLogFile();
@@ -100,6 +104,14 @@ void printFunctionName() {
 }
 
 void DEBUG_print(char* string,int pos){
+
+#ifdef TEXTURE_DIAG_ONLY
+    /* File diagnostics remain available through writeLogFile().  Avoid the
+     * legacy on-screen Debug queue while measuring this timing-sensitive bug. */
+    (void)string;
+    (void)pos;
+    return;
+#endif
 
     #ifdef SHOW_DEBUG
         if(pos == DBG_USBGECKO) {
@@ -181,4 +193,3 @@ void DEBUG_stats(int stats_id, char *info, unsigned int stats_type, unsigned int
     DEBUG_print(txtbuffer,DBG_STATSBASE+stats_id);
     #endif
 }
-

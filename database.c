@@ -139,6 +139,15 @@ static const char * const special_game_hack_vram_readback[] =
     "SLPS02377", "SCPS45486", "SLPS91457", "SLPM87393", "SLUS01040",
 };
 
+static const char * const special_game_hack_framebuffer_texture[] =
+{
+    /* Alone in the Dark: The New Nightmare (two discs where applicable). */
+    "SLUS01201", "SLUS01377",
+    "SLES02801", "SLES12801", "SLES02802", "SLES12802",
+    "SLES02803", "SLES12803", "SLES02804", "SLES12804",
+    "SLES02805", "SLES12805",
+};
+
 #define HACK_ENTRY(var, list) \
     { #var, &Config.hacks.var, list, ARRAY_SIZE(list) }
 
@@ -377,6 +386,13 @@ void Apply_Hacks_Cdrom()
         if (strcmp(CdromId, special_game_hack_vram_readback[i]) == 0)
         {
             Config.hacks.dwActFixes |= AUTO_FIX_VRAM_READBACK;
+            break;
+        }
+    }
+    for (i = 0; i < ARRAY_SIZE(special_game_hack_framebuffer_texture); i++) {
+        if (strcmp(CdromId, special_game_hack_framebuffer_texture[i]) == 0)
+        {
+            Config.hacks.dwActFixes |= AUTO_FIX_FRAMEBUFFER_TEXTURE;
             break;
         }
     }

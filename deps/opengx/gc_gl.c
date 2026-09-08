@@ -1637,6 +1637,42 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
     }
 }
 
+/* Queue an EFB copy into the currently bound RGB5A3 texture.  The caller
+ * restores the display-copy registers afterwards.  No CPU wait is needed:
+ * GX_CopyTex and the draw which consumes this texture share FIFO ordering. */
+int glCaptureFramebufferTexture( GLsizei srcWidth, GLsizei srcHeight )
+{
+    gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
+
+    if (!currtex->data || currtex->w <= 0 || currtex->h <= 0 ||
+        srcWidth <= 0 || srcHeight <= 0)
+        return 0;
+
+    GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
+    GX_SetTexCopySrc(0, 0, srcWidth, srcHeight);
+    GX_SetTexCopyDst(currtex->w, currtex->h, GX_TF_RGB5A3, GX_FALSE);
+    GX_CopyTex(MEM_K0_TO_K1(currtex->data), GX_FALSE);
+    GX_PixModeSync();
+
+    /* An EFB copy has no recoverable PSX mask bit.  Initialize both OpenGX
+     * texture objects over the same RGB5A3 data so the game-specific caller
+     * can select the appropriate logical STP pass. */
+    GX_InitTexObj(&currtex->texobj, currtex->data,
+                  currtex->w, currtex->h, GX_TF_RGB5A3,
+                  currtex->wraps, currtex->wrapt, GX_FALSE);
+    GX_InitTexObj(&currtex->semiTransTexobj, currtex->data,
+                  currtex->w, currtex->h, GX_TF_RGB5A3,
+                  currtex->wraps, currtex->wrapt, GX_FALSE);
+    if (originalMode == ORIGINALMODE_ENABLE ||
+        bilinearFilter != BILINEARFILTER_ENABLE)
+    {
+        GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
+        GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
+    }
+
+    return 1;
+}
+
 #define RESY_MAX 512    //Vmem height
 #define GXRESX_MAX 1366    //1024 * 1.33 for ARGB
 #define MOVIE_BUF_SIZE (GXRESX_MAX*RESY_MAX*2)

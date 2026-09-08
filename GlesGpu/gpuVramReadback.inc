@@ -870,6 +870,16 @@ static void OnEfbClearSubmitted(void)
     uint64_t seq;
     int x0, y0, x1, y1;
 
+#ifdef DISP_DEBUG
+    g_textureDiagEfbClears++;
+    g_textureDiagEvent++;
+    sprintf(txtbuffer,
+            "TDI CLEAR frame=%u event=%u disp=%d,%d\r\n",
+            g_textureDiagFrame, g_textureDiagEvent,
+            PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y);
+    TextureDiagAppend(txtbuffer);
+#endif
+
     if (!ReadbackEnabled())
         return;
 

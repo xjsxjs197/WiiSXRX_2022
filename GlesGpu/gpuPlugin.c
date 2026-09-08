@@ -179,11 +179,53 @@ static BOOL    skipPreviousDisplayCheckOnce = FALSE;
 
 static short   texChgType = 0;
 
+#ifdef DISP_DEBUG
+/* Texture-diagnostic frame number.  Primitive logs emitted before flipEGL()
+ * carry the number of the frame which is about to be presented. */
+static unsigned int g_textureDiagFrame = 1;
+static unsigned int g_textureDiagDraw = 0;
+static unsigned int g_textureDiagEvent = 0;
+static unsigned int g_textureDiagEfbClears = 0;
+static char g_textureDiagBuffer[16384];
+static unsigned int g_textureDiagBufferUsed = 0;
+
+/* SD open/close per line noticeably disturbs audio timing.  Accumulate one
+ * frame of diagnostics and issue a single file write at presentation. */
+static void TextureDiagAppend(const char *line)
+{
+    unsigned int length;
+
+    if (line == NULL)
+        return;
+    length = (unsigned int)strlen(line);
+    if (length >= sizeof(g_textureDiagBuffer))
+        return;
+    if (g_textureDiagBufferUsed + length >= sizeof(g_textureDiagBuffer))
+    {
+        g_textureDiagBuffer[g_textureDiagBufferUsed] = '\0';
+        writeLogFile(g_textureDiagBuffer);
+        g_textureDiagBufferUsed = 0;
+    }
+    memcpy(g_textureDiagBuffer + g_textureDiagBufferUsed, line, length);
+    g_textureDiagBufferUsed += length;
+}
+
+static void TextureDiagFlush(void)
+{
+    if (g_textureDiagBufferUsed == 0)
+        return;
+    g_textureDiagBuffer[g_textureDiagBufferUsed] = '\0';
+    writeLogFile(g_textureDiagBuffer);
+    g_textureDiagBufferUsed = 0;
+}
+#endif
+
 static void ResetVramReadbackState(void);
 static void BuildActiveMapFromDisplay(void);
 static inline unsigned short ReadGXRGB5A3PixelRaw(
     const unsigned char *buf, int texWidth, int px, int py);
 static inline unsigned short GXRGB5A3ToPSX15(unsigned short gx);
+void RestoreDispCopyInfo(void);
 extern GXRModeObj *vmode;     /*** Graphics Mode Object ***/
 
 #include "gpuDraw.c"
@@ -1159,6 +1201,12 @@ switch(lCommand)
     short sy;
     GXDisplayMap proposed;
     int txStarted = 0;
+#ifdef DISP_DEBUG
+    short diagOldCurrentX = PSXDisplay.DisplayPosition.x;
+    short diagOldCurrentY = PSXDisplay.DisplayPosition.y;
+    short diagOldPreviousX = PreviousPSXDisplay.DisplayPosition.x;
+    short diagOldPreviousY = PreviousPSXDisplay.DisplayPosition.y;
+#endif
 
     if(iGPUHeight==1024)
      {
@@ -1251,6 +1299,21 @@ switch(lCommand)
 
     if (txStarted)
         OnDisplayMappingChanged();
+
+#ifdef DISP_DEBUG
+    g_textureDiagEvent++;
+    sprintf(txtbuffer,
+            "TDI GP1 frame=%u event=%u req=%d,%d "
+            "old=%d,%d/%d,%d new=%d,%d/%d,%d fix8=%d\r\n",
+            g_textureDiagFrame, g_textureDiagEvent, sx, sy,
+            diagOldCurrentX, diagOldCurrentY,
+            diagOldPreviousX, diagOldPreviousY,
+            PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y,
+            PreviousPSXDisplay.DisplayPosition.x,
+            PreviousPSXDisplay.DisplayPosition.y,
+            (dwActFixes & 8) != 0);
+    TextureDiagAppend(txtbuffer);
+#endif
 
     bDisplayNotSet = TRUE;
 
@@ -2136,9 +2199,21 @@ static void flipEGL(void)
 {
     int presentSubmitted;
     #ifdef DISP_DEBUG
-    sprintf(txtbuffer, "flipEGL %d \r\n", canClearFrameBuf);
+    sprintf(txtbuffer,
+            "TDI PRESENT frame=%u events=%u draws=%u efbclears=%u "
+            "swapclear=%d shown=%d drawn=%d disp=%d,%d prev=%d,%d "
+            "%dx%d rgb=%d\r\n",
+            g_textureDiagFrame, g_textureDiagEvent, g_textureDiagDraw,
+            g_textureDiagEfbClears, canClearFrameBuf, canShowFps,
+            iDrawnSomething,
+            PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y,
+            PreviousPSXDisplay.DisplayPosition.x,
+            PreviousPSXDisplay.DisplayPosition.y,
+            PSXDisplay.DisplayMode.x, PSXDisplay.DisplayMode.y,
+            PSXDisplay.RGB24);
     DEBUG_print(txtbuffer, DBG_SPU3);
-    writeLogFile(txtbuffer);
+    TextureDiagAppend(txtbuffer);
+    TextureDiagFlush();
     #endif // DISP_DEBUG
 
     CapturePresentedEfbSnapshot();
@@ -2178,6 +2253,14 @@ static void flipEGL(void)
 
     extern void resetTexCacheInfo(void);
     resetTexCacheInfo();
+    ResetFramebufferTextureCapture();
+
+#ifdef DISP_DEBUG
+    g_textureDiagFrame++;
+    g_textureDiagDraw = 0;
+    g_textureDiagEvent = 0;
+    g_textureDiagEfbClears = 0;
+#endif
 }
 
 #include "../Gamecube/wiiSXconfig.h"

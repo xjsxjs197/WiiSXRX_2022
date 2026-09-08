@@ -974,6 +974,42 @@ static inline void SetRenderState ( unsigned int DrawAttributes )
 
 static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
 {
+#ifdef DISP_DEBUG
+    int diagTrace = FALSE;
+    int diagU0 = 0, diagV0 = 0, diagU1 = 0, diagV1 = 0;
+    int diagX0 = 0, diagY0 = 0, diagX1 = 0, diagY1 = 0;
+    unsigned int diagSourceHash = 0;
+    unsigned int diagTransparent = 0;
+    unsigned int diagStp = 0;
+    unsigned int diagSamples = 0;
+    uint64_t diagClutKey = 0;
+
+    if ( bDrawTextured && iSpriteTex )
+    {
+        int i;
+        int dx[4] = { lx0, lx1, lx2, lx3 };
+        int dy[4] = { ly0, ly1, ly2, ly3 };
+
+        diagU0 = diagU1 = gl_ux[0];
+        diagV0 = diagV1 = gl_vy[0];
+        diagX0 = diagX1 = dx[0];
+        diagY0 = diagY1 = dy[0];
+        for ( i = 1; i < 4; i++ )
+        {
+            if ( gl_ux[i] < diagU0 ) diagU0 = gl_ux[i];
+            if ( gl_ux[i] > diagU1 ) diagU1 = gl_ux[i];
+            if ( gl_vy[i] < diagV0 ) diagV0 = gl_vy[i];
+            if ( gl_vy[i] > diagV1 ) diagV1 = gl_vy[i];
+            if ( dx[i] < diagX0 ) diagX0 = dx[i];
+            if ( dx[i] > diagX1 ) diagX1 = dx[i];
+            if ( dy[i] < diagY0 ) diagY0 = dy[i];
+            if ( dy[i] > diagY1 ) diagY1 = dy[i];
+        }
+        if ( (diagX1 - diagX0 + 1) * (diagY1 - diagY0 + 1) >= 256 )
+            diagTrace = TRUE;
+    }
+#endif
+
     SetSemiTrans();
 
     glSetTextureMask( sSetMask ? 1 : 0 );
@@ -987,6 +1023,61 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         else if ( bUsingMovie ) { currTex = LoadTextureMovie(); loadTextureType = TEX_TYPE_MOV; }
         else                    { currTex = SelectSubTextureS ( GlobalTextTP, ulClutID ); loadTextureType = TEX_TYPE_SUB; }
         glSetTextureType(gl_ux[8], loadTextureType, texChgType);
+
+#ifdef DISP_DEBUG
+        if ( diagTrace )
+        {
+            g_textureDiagDraw++;
+            g_textureDiagEvent++;
+            if ( g_textureDiagDraw <= 16 )
+            {
+                int pixelsPerWord = GlobalTextTP == 0 ? 4 :
+                                    (GlobalTextTP == 1 ? 2 : 1);
+                int sourceX = ((GlobalTexturePage & 15) << 6) +
+                              diagU0 / pixelsPerWord;
+                int sourceY = ((GlobalTexturePage >> 4) << 8) + diagV0;
+                int sourceW = diagU1 / pixelsPerWord -
+                              diagU0 / pixelsPerWord + 1;
+
+                diagClutKey = BuildClutCacheKey( ulClutID, GlobalTextTP,
+                                                 DrawSemiTrans );
+                diagSourceHash = DebugTextureSourceStats(
+                    GlobalTexturePage, GlobalTextTP, ulClutID,
+                    diagU0, diagV0, diagU1 - diagU0 + 1,
+                    diagV1 - diagV0 + 1, &diagTransparent,
+                    &diagStp, &diagSamples );
+                sprintf ( txtbuffer,
+                          "TDI DRAW frame=%u event=%u seq=%u xy=%d,%d-%d,%d "
+                          "uv=%d,%d-%d,%d vram=%d,%d+%d,%d "
+                          "page=%d mode=%d clut=%04X semi=%d abr=%ld "
+                          "disp=%d,%d prev=%d,%d twin=%d opaque=%u "
+                          "key=%08X%08X sample=%08X zero=%u/%u stp=%u "
+                          "tex=%u type=%u change=%d atlas=%u,%u-%u,%u\r\n",
+                          g_textureDiagFrame, g_textureDiagEvent,
+                          g_textureDiagDraw,
+                          diagX0, diagY0, diagX1, diagY1,
+                          diagU0, diagV0, diagU1, diagV1,
+                          sourceX, sourceY, sourceW,
+                          diagV1 - diagV0 + 1,
+                          GlobalTexturePage, GlobalTextTP,
+                          (unsigned int)ulClutID,
+                          DrawSemiTrans, GlobalTextABR,
+                          PSXDisplay.DisplayPosition.x,
+                          PSXDisplay.DisplayPosition.y,
+                          PreviousPSXDisplay.DisplayPosition.x,
+                          PreviousPSXDisplay.DisplayPosition.y,
+                          bUsingTWin, (unsigned int)ubOpaqueDraw,
+                          (unsigned int)(diagClutKey >> 32),
+                          (unsigned int)diagClutKey,
+                          diagSourceHash, diagTransparent, diagSamples,
+                          diagStp, (unsigned int)currTex,
+                          (unsigned int)gl_ux[8], texChgType,
+                          (unsigned int)gl_ux[0], (unsigned int)gl_vy[0],
+                          (unsigned int)gl_ux[2], (unsigned int)gl_vy[2] );
+                TextureDiagAppend ( txtbuffer );
+            }
+        }
+#endif
 
         if ( gTexName != currTex )
         {
@@ -2371,11 +2462,6 @@ static void primLoadImage ( unsigned char * baseAddr )
             DEBUG_print ( txtbuffer, DBG_SPU1 );
             writeLogFile(txtbuffer);
         }
-        #endif // DISP_DEBUG
-        #if defined(DISP_DEBUG)
-        sprintf ( txtbuffer, "primLoadImage16 %d %d %d %d %d %d %d\r\n", VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height, PSXDisplay.DisplayMode.x * PSXDisplay.Range.x1 / 2560, PSXDisplay.Height, iSetMask );
-        DEBUG_print ( txtbuffer, DBG_SPU1 );
-        writeLogFile(txtbuffer);
         #endif // DISP_DEBUG
         clearMovieGarbageFlg = 0;
         clearMovieGarbageCnt = 0;
