@@ -1636,6 +1636,29 @@ int iFTex=512;
 static void ResetFramebufferTextureCapture(void)
 {
  gFramebufferTextureCaptured=FALSE;
+ gFramebufferTextureCoordsValid=FALSE;
+}
+
+/* AITD4's framebuffer feedback sprites also appear while their VRAM source is
+ * completely transparent.  Capturing and drawing the EFB for those sprites
+ * feeds the whole scene back over itself and softens it for no visual benefit.
+ * Check every 16-bit source texel: sampling would risk missing the small stale
+ * door/UI fragments which this workaround is intended to replace. */
+static BOOL FramebufferTextureSourceHasData(int x0,int y0,int x1,int y1)
+{
+ int x,y;
+
+ for(y=y0;y<y1;y++)
+  {
+   unsigned short *source=psxVuw+((y&iGPUHeightMask)*1024);
+
+   for(x=x0;x<x1;x++)
+    {
+     if(GETLE16(source+(x&0x3ff))!=0) return TRUE;
+    }
+  }
+
+ return FALSE;
 }
 
 /* Alone in the Dark 4 builds a display page in the EFB and immediately uses
@@ -1645,7 +1668,6 @@ static void ResetFramebufferTextureCapture(void)
  * operation and reuse it for the horizontally split pieces of that operation. */
 static GLuint CaptureFramebufferTexture(void)
 {
- int i;
  int didCapture=FALSE;
  int pageX, pageY;
  int srcX0, srcY0, srcX1, srcY1;
@@ -1655,6 +1677,7 @@ static GLuint CaptureFramebufferTexture(void)
 
  if(!(dwActFixes&AUTO_FIX_FRAMEBUFFER_TEXTURE)) return 0;
  if(!DrawSemiTrans || !iSpriteTex || PSXDisplay.RGB24) return 0;
+ if(GlobalTextTP!=2) return 0;
  if(PSXDisplay.InterlacedTest) return 0;
 
  pageX=(GlobalTexturePage&15)<<6;
@@ -1682,6 +1705,10 @@ static GLuint CaptureFramebufferTexture(void)
       srcY1<=displayY || srcY0>=displayY+displayH ||
       srcY0>displayY+2 || srcY1<displayY+displayH-2) return 0;
   }
+
+ /* A zero 16-bit source decodes as a fully transparent PSX texture.  Preserve
+  * that normal no-op instead of replacing it with a copy of the current EFB. */
+ if(!FramebufferTextureSourceHasData(srcX0,srcY0,srcX1,srcY1)) return 0;
 
  viewportX=rRatioRect.left;
  viewportY=iResY-(rRatioRect.top+rRatioRect.bottom);
@@ -1727,42 +1754,55 @@ static GLuint CaptureFramebufferTexture(void)
    texChgType=3;
   }
 
- /* Convert PSX display-page coordinates to the full EFB-copy texture.  OpenGX
-  * consumes GLubyte coordinates normalized over 0..255. */
- for(i=0;i<4;i++)
-  {
-   int physicalX=pageX+gl_ux[i];
-   int physicalY=pageY+gl_vy[i];
-   int efbX=viewportX+(physicalX-displayX)*viewportW/displayW;
-   int efbY=viewportY+(physicalY-displayY)*viewportH/displayH;
-   int texU=efbX*256/copyW;
-   int texV=efbY*256/copyH;
+ /* This texture is blended back over the EFB.  Quantizing its endpoints to the
+  * normal 0..255 byte UVs moves a 640-wide copy by several pixels, making an
+  * otherwise identical image look blurred.  Preserve the sprite edges as
+  * normalized floats and let assignTextureSprite() consume them directly. */
+ {
+  int sourceLeft=pageX+gl_ux[0];
+  int sourceTop=pageY+gl_vy[0];
+  int sourceRight=sourceLeft+sprtW;
+  int sourceBottom=sourceTop+sprtH;
+  float u0=((float)viewportX+
+            (float)(sourceLeft-displayX)*(float)viewportW/(float)displayW)/
+           (float)copyW;
+  float v0=((float)viewportY+
+            (float)(sourceTop-displayY)*(float)viewportH/(float)displayH)/
+           (float)copyH;
+  float u1=((float)viewportX+
+            (float)(sourceRight-displayX)*(float)viewportW/(float)displayW)/
+           (float)copyW;
+  float v1=((float)viewportY+
+            (float)(sourceBottom-displayY)*(float)viewportH/(float)displayH)/
+           (float)copyH;
 
-   if(texU<0) texU=0; else if(texU>255) texU=255;
-   if(texV<0) texV=0; else if(texV>255) texV=255;
-   gl_ux[i]=(GLubyte)texU;
-   gl_vy[i]=(GLubyte)texV;
-  }
+  if(u0<0.0f) u0=0.0f; else if(u0>1.0f) u0=1.0f;
+  if(v0<0.0f) v0=0.0f; else if(v0>1.0f) v0=1.0f;
+  if(u1<0.0f) u1=0.0f; else if(u1>1.0f) u1=1.0f;
+  if(v1<0.0f) v1=0.0f; else if(v1>1.0f) v1=1.0f;
 
- /* assignTextureSprite() reconstructs the right/bottom coordinate from these
-  * sizes after texture selection, so keep it aligned with the remapped UVs. */
- sprtW=(short)((int)gl_ux[1]-(int)gl_ux[0]);
- sprtH=(short)((int)gl_vy[2]-(int)gl_vy[0]);
+  gFramebufferTextureCoords[0][0]=gFramebufferTextureCoords[3][0]=u0;
+  gFramebufferTextureCoords[1][0]=gFramebufferTextureCoords[2][0]=u1;
+  gFramebufferTextureCoords[0][1]=gFramebufferTextureCoords[1][1]=v0;
+  gFramebufferTextureCoords[2][1]=gFramebufferTextureCoords[3][1]=v1;
+  gFramebufferTextureCoordsValid=TRUE;
+ }
 
- /* The full-screen background which AITD4 feeds back is produced from STP
-  * texels.  Keep it in the normal ABR pass instead of treating the captured
-  * image as opaque and applying the primitive modulation directly. */
- gl_ux[8]=2; /* TEX_TYPE_2: STP/ABR pass. */
+ /* Only a non-empty stale VRAM source reaches this point.  Type 2 retains the
+  * ABR/STP behavior which AITD4 uses for lightning and fade effects. */
+ gl_ux[8]=2;
  ubOpaqueDraw=0;
 
 #ifdef DISP_DEBUG
  sprintf(txtbuffer,
          "TDI FRAME_TEX frame=%u capture=%d src=%d,%d-%d,%d "
-         "display=%d,%d+%d,%d copy=%d,%d uv=%u,%u-%u,%u\r\n",
+         "display=%d,%d+%d,%d copy=%d,%d uv=%.6f,%.6f-%.6f,%.6f\r\n",
          g_textureDiagFrame,didCapture,
          srcX0,srcY0,srcX1,srcY1,displayX,displayY,displayW,displayH,
-         copyW,copyH,(unsigned int)gl_ux[0],(unsigned int)gl_vy[0],
-         (unsigned int)gl_ux[2],(unsigned int)gl_vy[2]);
+         copyW,copyH,gFramebufferTextureCoords[0][0],
+         gFramebufferTextureCoords[0][1],
+         gFramebufferTextureCoords[2][0],
+         gFramebufferTextureCoords[2][1]);
  TextureDiagAppend(txtbuffer);
 #endif
 

@@ -974,6 +974,9 @@ static inline void SetRenderState ( unsigned int DrawAttributes )
 
 static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
 {
+    /* CaptureFramebufferTexture() sets this again only for the current sprite. */
+    gFramebufferTextureCoordsValid = FALSE;
+
 #ifdef DISP_DEBUG
     int diagTrace = FALSE;
     int diagU0 = 0, diagV0 = 0, diagU1 = 0, diagV1 = 0;
@@ -1022,6 +1025,7 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         if ( bUsingTWin )       { currTex = LoadTextureWnd ( GlobalTexturePage, GlobalTextTP, ulClutID ); loadTextureType = TEX_TYPE_WIN; }
         else if ( bUsingMovie ) { currTex = LoadTextureMovie(); loadTextureType = TEX_TYPE_MOV; }
         else                    { currTex = SelectSubTextureS ( GlobalTextTP, ulClutID ); loadTextureType = TEX_TYPE_SUB; }
+
         glSetTextureType(gl_ux[8], loadTextureType, texChgType);
 
 #ifdef DISP_DEBUG
@@ -1050,6 +1054,7 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
                           "TDI DRAW frame=%u event=%u seq=%u xy=%d,%d-%d,%d "
                           "uv=%d,%d-%d,%d vram=%d,%d+%d,%d "
                           "page=%d mode=%d clut=%04X semi=%d abr=%ld "
+                          "rgb=%06X raw=%d "
                           "disp=%d,%d prev=%d,%d twin=%d opaque=%u "
                           "key=%08X%08X sample=%08X zero=%u/%u stp=%u "
                           "tex=%u type=%u change=%d atlas=%u,%u-%u,%u\r\n",
@@ -1062,6 +1067,7 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
                           GlobalTexturePage, GlobalTextTP,
                           (unsigned int)ulClutID,
                           DrawSemiTrans, GlobalTextABR,
+                          DrawAttributes & 0x00ffffffU, bDrawNonShaded,
                           PSXDisplay.DisplayPosition.x,
                           PSXDisplay.DisplayPosition.y,
                           PreviousPSXDisplay.DisplayPosition.x,

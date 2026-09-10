@@ -1073,7 +1073,18 @@ GLuint  gLastFMode=(GLuint)-1;
 
 void assignTextureSprite(void)
 {
- if(bUsingTWin)
+ if(gFramebufferTextureCoordsValid)
+  {
+   int i;
+
+   for(i=0;i<4;i++)
+    {
+     vertex[i].sow=gFramebufferTextureCoords[i][0];
+     vertex[i].tow=gFramebufferTextureCoords[i][1];
+   }
+   gFramebufferTextureCoordsValid=FALSE;
+  }
+ else if(bUsingTWin)
   {
    vertex[0].sow=vertex[3].sow=(float)gl_ux[0]/TWin.UScaleFactor;
    vertex[1].sow=vertex[2].sow=(float)sSprite_ux2/TWin.UScaleFactor;
@@ -1414,4 +1425,3 @@ void SetOGLDisplaySettings(BOOL DisplaySet)
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
-

@@ -179,6 +179,12 @@ static BOOL    skipPreviousDisplayCheckOnce = FALSE;
 
 static short   texChgType = 0;
 
+/* Framebuffer feedback uses the full EFB as its texture.  Keep its coordinates
+ * as floats; the normal PSX texture path intentionally stores 0..255 UVs in
+ * bytes, which is not precise enough to register a 640-pixel EFB copy. */
+static BOOL    gFramebufferTextureCoordsValid = FALSE;
+static float   gFramebufferTextureCoords[4][2];
+
 #ifdef DISP_DEBUG
 /* Texture-diagnostic frame number.  Primitive logs emitted before flipEGL()
  * carry the number of the frame which is about to be presented. */
