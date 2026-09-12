@@ -74,6 +74,7 @@ typedef struct {
     int   size;
     int   texWidth;
     int   texHeight;
+    int   copyScale;
 
     int vram_x, vram_y, vram_w, vram_h;
     int viewport_x, viewport_y, viewport_w, viewport_h;
@@ -1033,13 +1034,41 @@ static BOOL CanCaptureActiveEfb(void)
            !g_untrackedEfbWrite;
 }
 
+/* Dino Crisis 2 renders its normal 320x240 display into a 640x480 EFB.  A
+ * half-size RGB5A3 snapshot still retains one sample per PSX display pixel,
+ * while reducing the external-memory write to one quarter.  Keep every other
+ * game and any high-resolution/interlaced mapping on the established path. */
+static int GetSnapshotCopyScale(const GXDisplayMap *map)
+{
+    int vramW;
+    int vramH;
+
+    if (!(dwActFixes & AUTO_FIX_DINO_CRISIS2) ||
+        iResX != 640 || iResY != 480 || map == NULL)
+        return 1;
+
+    vramW = map->vram_x1 - map->vram_x0;
+    vramH = map->vram_y1 - map->vram_y0;
+    if (vramW <= 0 || vramH <= 0 || vramW > 320 || vramH > 240)
+        return 1;
+
+    if (map->viewport_x0 < 0 || map->viewport_y0 < 0 ||
+        map->viewport_x1 > iResX || map->viewport_y1 > iResY ||
+        ((map->viewport_x0 | map->viewport_y0 |
+          map->viewport_x1 | map->viewport_y1) & 1) != 0)
+        return 1;
+
+    return 2;
+}
+
 static int CaptureEfbSnapshotWithTiles(
     GXFrameSnapshot *snap, const GXDisplayMap *map,
     EfbTileState tile[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X],
     SnapshotSource source)
 {
-    int copyW = (iResX + 15) & ~15;
-    int copyH = (iResY + 1) & ~1;
+    int copyScale = GetSnapshotCopyScale(map);
+    int copyW = ((iResX + copyScale - 1) / copyScale + 15) & ~15;
+    int copyH = ((iResY + copyScale - 1) / copyScale + 1) & ~1;
     int size  = GX_GetTexBufferSize(copyW, copyH,
                                     GX_TF_RGB5A3, 0, GX_FALSE);
 
@@ -1073,6 +1102,7 @@ static int CaptureEfbSnapshotWithTiles(
     g_asyncSnapshot.size = size;
     g_asyncSnapshot.texWidth = copyW;
     g_asyncSnapshot.texHeight = copyH;
+    g_asyncSnapshot.copyScale = copyScale;
 
     g_asyncTarget = snap;
     g_asyncCaptureReady = FALSE;
@@ -1085,7 +1115,8 @@ static int CaptureEfbSnapshotWithTiles(
                      (vmode && vmode->aa) ? vmode->sample_pattern : NULL,
                      GX_FALSE, NULL);
     GX_SetTexCopySrc(0, 0, iResX, iResY);
-    GX_SetTexCopyDst(copyW, copyH, GX_TF_RGB5A3, GX_FALSE);
+    GX_SetTexCopyDst(copyW, copyH, GX_TF_RGB5A3,
+                     copyScale == 2 ? GX_TRUE : GX_FALSE);
     GX_CopyTex(MEM_K0_TO_K1(g_asyncSnapshot.pixels), GX_FALSE);
     GX_PixModeSync();
     GX_SetDrawSyncCallback(AsyncSnapshotDrawSync);
@@ -1707,6 +1738,12 @@ static int ReadSnapshotPixelRaw(const GXFrameSnapshot *snap,
     ty = snap->viewport_y +
          (ny * snap->viewport_h) / snap->vram_h;
 
+    if (snap->copyScale == 2)
+    {
+        tx >>= 1;
+        ty >>= 1;
+    }
+
     if (tx < 0 || tx >= snap->texWidth ||
         ty < 0 || ty >= snap->texHeight)
         return 0;
@@ -1999,7 +2036,8 @@ static int SnapshotsShareSamplingMap(const GXFrameSnapshot *a,
            a->viewport_x == b->viewport_x &&
            a->viewport_y == b->viewport_y &&
            a->viewport_w == b->viewport_w &&
-           a->viewport_h == b->viewport_h;
+           a->viewport_h == b->viewport_h &&
+           a->copyScale == b->copyScale;
 }
 
 static int SnapshotPixelDiffers(const GXFrameSnapshot *current,
