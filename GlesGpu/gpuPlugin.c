@@ -2204,6 +2204,15 @@ void CALLBACK GL_GPUrearmedCallbacks(const struct rearmed_cbs *_cbs)
 static void flipEGL(void)
 {
     int presentSubmitted;
+
+    /* Parasite Eve II alternates two PS1 VRAM display pages while the GX
+     * renderer has only one EFB. Keeping that EFB after a present allows a
+     * translucent full-screen warning effect from one page to become the
+     * blend destination of the other page. Restore the original clear-after-
+     * copy behavior only for this title. */
+    if (dwActFixes & AUTO_FIX_PE2_CLEAR_EFB)
+        canClearFrameBuf = TRUE;
+
     #ifdef DISP_DEBUG
     sprintf(txtbuffer,
             "TDI PRESENT frame=%u events=%u draws=%u efbclears=%u "

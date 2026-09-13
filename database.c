@@ -148,6 +148,18 @@ static const char * const special_game_hack_framebuffer_texture[] =
     "SLES02805", "SLES12805",
 };
 
+static const char * const special_game_hack_pe2_clear_efb[] =
+{
+    /* Parasite Eve II (all known regions and both discs). */
+    "SLUS01042", "SLUS01055",
+    "SLES02558", "SLES12558", "SLES02559", "SLES12559",
+    "SLES02560", "SLES12560", "SLES02561", "SLES12561",
+    "SLES02562", "SLES12562",
+    "SCPS45467", "SCPS45468",
+    "SLPS02480", "SLPS02481", "SLPS91479", "SLPS91480",
+    "SLPS02779", "SLPS02780",
+};
+
 #define HACK_ENTRY(var, list) \
     { #var, &Config.hacks.var, list, ARRAY_SIZE(list) }
 
@@ -393,6 +405,13 @@ void Apply_Hacks_Cdrom()
         if (strcmp(CdromId, special_game_hack_framebuffer_texture[i]) == 0)
         {
             Config.hacks.dwActFixes |= AUTO_FIX_FRAMEBUFFER_TEXTURE;
+            break;
+        }
+    }
+    for (i = 0; i < ARRAY_SIZE(special_game_hack_pe2_clear_efb); i++) {
+        if (strcmp(CdromId, special_game_hack_pe2_clear_efb[i]) == 0)
+        {
+            Config.hacks.dwActFixes |= AUTO_FIX_PE2_CLEAR_EFB;
             break;
         }
     }
