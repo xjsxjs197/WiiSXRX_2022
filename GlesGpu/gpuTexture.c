@@ -1661,22 +1661,22 @@ static BOOL FramebufferTextureSourceHasData(int x0,int y0,int x1,int y1)
  return FALSE;
 }
 
-/* Alone in the Dark 4 builds a display page in the EFB and immediately uses
- * that page as a 16-bit texture.  The GLES renderer deliberately does not
- * mirror ordinary GX draws into psxVuw, so decoding that texture from VRAM
- * returns an older door/UI image.  Capture the EFB once per source-page/ABR
- * operation and reuse it for the horizontally split pieces of that operation. */
+/* Some games build pixels in the EFB and immediately sample the same PSX VRAM
+ * area as a 16-bit texture.  The GLES renderer deliberately does not mirror
+ * ordinary GX draws into psxVuw, so normal decoding sees stale or empty data.
+ * Recognize only the proven game-specific operations and capture the EFB. */
 static GLuint CaptureFramebufferTexture(void)
 {
  int didCapture=FALSE;
+ int mgsCapture=FALSE;
  int pageX, pageY;
  int srcX0, srcY0, srcX1, srcY1;
+ int dstX0, dstY0, dstX1, dstY1;
  int displayX, displayY, displayW, displayH;
  int viewportX, viewportY, viewportW, viewportH;
  int copyW, copyH;
 
- if(!(dwActFixes&AUTO_FIX_FRAMEBUFFER_TEXTURE)) return 0;
- if(!DrawSemiTrans || !iSpriteTex || PSXDisplay.RGB24) return 0;
+ if(!DrawSemiTrans || PSXDisplay.RGB24) return 0;
  if(GlobalTextTP!=2) return 0;
  if(PSXDisplay.InterlacedTest) return 0;
 
@@ -1690,25 +1690,59 @@ static GLuint CaptureFramebufferTexture(void)
  displayW=PSXDisplay.DisplayMode.x;
  displayH=PSXDisplay.DisplayMode.y+PreviousPSXDisplay.DisplayModeNew.y;
 
- /* Restrict the workaround to the tall display-page strips seen in AITD4.
-  * The page can be split horizontally, so width alone is not a discriminator. */
  if(displayW<=0 || displayH<=0) return 0;
- displayX=PSXDisplay.DisplayPosition.x;
- displayY=PSXDisplay.DisplayPosition.y;
- if(srcX1<=displayX || srcX0>=displayX+displayW ||
-    srcY1<=displayY || srcY0>=displayY+displayH ||
-    srcY0>displayY+2 || srcY1<displayY+displayH-2)
+
+ dstX0=dstX1=lx0;
+ dstY0=dstY1=ly0;
+ if(lx1<dstX0) dstX0=lx1; else if(lx1>dstX1) dstX1=lx1;
+ if(ly1<dstY0) dstY0=ly1; else if(ly1>dstY1) dstY1=ly1;
+ if(lx2<dstX0) dstX0=lx2; else if(lx2>dstX1) dstX1=lx2;
+ if(ly2<dstY0) dstY0=ly2; else if(ly2>dstY1) dstY1=ly2;
+ if(lx3<dstX0) dstX0=lx3; else if(lx3>dstX1) dstX1=lx3;
+ if(ly3<dstY0) dstY0=ly3; else if(ly3>dstY1) dstY1=ly3;
+
+ /* Do not depend solely on a regional disc-ID list.  MGS's operation has a
+  * much narrower runtime signature: a flat semi-transparent FT4 copies an
+  * all-zero CPU-VRAM 211x19 strip from the page being built onto the fixed
+  * save-entry rectangle.  The pixels are zero only because they exist in the
+  * EFB, so this signature also excludes ordinary resident VRAM textures. */
+ displayX=PreviousPSXDisplay.DisplayPosition.x;
+ displayY=PreviousPSXDisplay.DisplayPosition.y;
+ if(!iSpriteTex && !bDrawSmoothShaded &&
+    displayW==320 && displayH>=200 && displayH<=256 &&
+    pageX==displayX && pageY==displayY &&
+    srcX0==pageX && srcX1==pageX+211 &&
+    srcY0==pageY+200 && srcY1==pageY+219 &&
+    dstX0==55 && dstX1==265 && dstY0==80 && dstY1==98 &&
+    !FramebufferTextureSourceHasData(srcX0,srcY0,srcX1,srcY1))
+  mgsCapture=TRUE;
+
+ if(!mgsCapture &&
+    (!(dwActFixes&AUTO_FIX_FRAMEBUFFER_TEXTURE) || !iSpriteTex))
+  return 0;
+
+ if(!mgsCapture)
   {
-   displayX=PreviousPSXDisplay.DisplayPosition.x;
-   displayY=PreviousPSXDisplay.DisplayPosition.y;
+   /* Restrict the AITD4 workaround to its tall display-page strips.  The
+    * page can be split horizontally, so width alone is not a discriminator. */
+   displayX=PSXDisplay.DisplayPosition.x;
+   displayY=PSXDisplay.DisplayPosition.y;
    if(srcX1<=displayX || srcX0>=displayX+displayW ||
       srcY1<=displayY || srcY0>=displayY+displayH ||
-      srcY0>displayY+2 || srcY1<displayY+displayH-2) return 0;
-  }
+      srcY0>displayY+2 || srcY1<displayY+displayH-2)
+    {
+     displayX=PreviousPSXDisplay.DisplayPosition.x;
+     displayY=PreviousPSXDisplay.DisplayPosition.y;
+     if(srcX1<=displayX || srcX0>=displayX+displayW ||
+        srcY1<=displayY || srcY0>=displayY+displayH ||
+        srcY0>displayY+2 || srcY1<displayY+displayH-2) return 0;
+    }
 
- /* A zero 16-bit source decodes as a fully transparent PSX texture.  Preserve
-  * that normal no-op instead of replacing it with a copy of the current EFB. */
- if(!FramebufferTextureSourceHasData(srcX0,srcY0,srcX1,srcY1)) return 0;
+   /* A zero 16-bit source normally decodes as a fully transparent texture.
+    * MGS is the opposite proven case: its CPU copy is zero because the source
+    * has just been produced in the EFB. */
+   if(!FramebufferTextureSourceHasData(srcX0,srcY0,srcX1,srcY1)) return 0;
+  }
 
  viewportX=rRatioRect.left;
  viewportY=iResY-(rRatioRect.top+rRatioRect.bottom);
@@ -1744,7 +1778,11 @@ static GLuint CaptureFramebufferTexture(void)
     gFramebufferTextureDisplayY!=displayY ||
     gFramebufferTextureAbr!=GlobalTextABR)
   {
-   if(!glCaptureFramebufferTexture(iResX,iResY)) return 0;
+   if(mgsCapture)
+    {
+     if(!glCaptureFramebufferIntensityTexture(iResX,iResY)) return 0;
+    }
+   else if(!glCaptureFramebufferTexture(iResX,iResY)) return 0;
    RestoreDispCopyInfo();
    gFramebufferTextureCaptured=TRUE;
    gFramebufferTextureDisplayX=displayX;
@@ -1754,42 +1792,60 @@ static GLuint CaptureFramebufferTexture(void)
    texChgType=3;
   }
 
- /* This texture is blended back over the EFB.  Quantizing its endpoints to the
-  * normal 0..255 byte UVs moves a 640-wide copy by several pixels, making an
-  * otherwise identical image look blurred.  Preserve the sprite edges as
-  * normalized floats and let assignTextureSprite() consume them directly. */
- {
-  int sourceLeft=pageX+gl_ux[0];
-  int sourceTop=pageY+gl_vy[0];
-  int sourceRight=sourceLeft+sprtW;
-  int sourceBottom=sourceTop+sprtH;
-  float u0=((float)viewportX+
-            (float)(sourceLeft-displayX)*(float)viewportW/(float)displayW)/
-           (float)copyW;
-  float v0=((float)viewportY+
-            (float)(sourceTop-displayY)*(float)viewportH/(float)displayH)/
-           (float)copyH;
-  float u1=((float)viewportX+
-            (float)(sourceRight-displayX)*(float)viewportW/(float)displayW)/
-           (float)copyW;
-  float v1=((float)viewportY+
-            (float)(sourceBottom-displayY)*(float)viewportH/(float)displayH)/
-           (float)copyH;
+ /* Preserve the EFB coordinates as normalized floats.  MGS needs all four
+  * polygon UVs; AITD4 uses the rectangular sprite edges. */
+ if(mgsCapture)
+  {
+   int i;
 
-  if(u0<0.0f) u0=0.0f; else if(u0>1.0f) u0=1.0f;
-  if(v0<0.0f) v0=0.0f; else if(v0>1.0f) v0=1.0f;
-  if(u1<0.0f) u1=0.0f; else if(u1>1.0f) u1=1.0f;
-  if(v1<0.0f) v1=0.0f; else if(v1>1.0f) v1=1.0f;
+   for(i=0;i<4;i++)
+    {
+     float u=((float)viewportX+
+              (float)(pageX+gl_ux[i]-displayX)*(float)viewportW/
+              (float)displayW)/(float)copyW;
+     float v=((float)viewportY+
+              (float)(pageY+gl_vy[i]-displayY)*(float)viewportH/
+              (float)displayH)/(float)copyH;
 
-  gFramebufferTextureCoords[0][0]=gFramebufferTextureCoords[3][0]=u0;
-  gFramebufferTextureCoords[1][0]=gFramebufferTextureCoords[2][0]=u1;
-  gFramebufferTextureCoords[0][1]=gFramebufferTextureCoords[1][1]=v0;
-  gFramebufferTextureCoords[2][1]=gFramebufferTextureCoords[3][1]=v1;
-  gFramebufferTextureCoordsValid=TRUE;
- }
+     if(u<0.0f) u=0.0f; else if(u>1.0f) u=1.0f;
+     if(v<0.0f) v=0.0f; else if(v>1.0f) v=1.0f;
+     gFramebufferTextureCoords[i][0]=u;
+     gFramebufferTextureCoords[i][1]=v;
+    }
+   gFramebufferTextureCoordsValid=TRUE;
+  }
+ else
+  {
+   int sourceLeft=pageX+gl_ux[0];
+   int sourceTop=pageY+gl_vy[0];
+   int sourceRight=sourceLeft+sprtW;
+   int sourceBottom=sourceTop+sprtH;
+   float u0=((float)viewportX+
+             (float)(sourceLeft-displayX)*(float)viewportW/(float)displayW)/
+            (float)copyW;
+   float v0=((float)viewportY+
+             (float)(sourceTop-displayY)*(float)viewportH/(float)displayH)/
+            (float)copyH;
+   float u1=((float)viewportX+
+             (float)(sourceRight-displayX)*(float)viewportW/(float)displayW)/
+            (float)copyW;
+   float v1=((float)viewportY+
+             (float)(sourceBottom-displayY)*(float)viewportH/(float)displayH)/
+            (float)copyH;
 
- /* Only a non-empty stale VRAM source reaches this point.  Type 2 retains the
-  * ABR/STP behavior which AITD4 uses for lightning and fade effects. */
+   if(u0<0.0f) u0=0.0f; else if(u0>1.0f) u0=1.0f;
+   if(v0<0.0f) v0=0.0f; else if(v0>1.0f) v0=1.0f;
+   if(u1<0.0f) u1=0.0f; else if(u1>1.0f) u1=1.0f;
+   if(v1<0.0f) v1=0.0f; else if(v1>1.0f) v1=1.0f;
+
+   gFramebufferTextureCoords[0][0]=gFramebufferTextureCoords[3][0]=u0;
+   gFramebufferTextureCoords[1][0]=gFramebufferTextureCoords[2][0]=u1;
+   gFramebufferTextureCoords[0][1]=gFramebufferTextureCoords[1][1]=v0;
+   gFramebufferTextureCoords[2][1]=gFramebufferTextureCoords[3][1]=v1;
+   gFramebufferTextureCoordsValid=TRUE;
+  }
+
+ /* Type 2 retains the PSX semi-transparency pass used by both feedback paths. */
  gl_ux[8]=2;
  ubOpaqueDraw=0;
 

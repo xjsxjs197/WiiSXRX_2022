@@ -1673,6 +1673,45 @@ int glCaptureFramebufferTexture( GLsizei srcWidth, GLsizei srcHeight )
     return 1;
 }
 
+/* MGS builds monochrome save-description text in an EFB scratch strip.  I8
+ * maps intensity to both color and alpha, preserving PSX zero-as-transparent
+ * semantics even though the RGB8 EFB itself has no alpha channel. */
+int glCaptureFramebufferIntensityTexture( GLsizei srcWidth, GLsizei srcHeight )
+{
+    gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
+
+    if (!currtex->data || currtex->w <= 0 || currtex->h <= 0 ||
+        srcWidth <= 0 || srcHeight <= 0)
+        return 0;
+
+    GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
+    GX_SetTexCopySrc(0, 0, srcWidth, srcHeight);
+    GX_SetTexCopyDst(currtex->w, currtex->h, GX_TF_I8, GX_FALSE);
+    GX_CopyTex(MEM_K0_TO_K1(currtex->data), GX_FALSE);
+    GX_PixModeSync();
+
+    /* This path is used only by MGS's save-description feedback operation.
+     * Unlike the regular display/readback copies, the copied pixels are the
+     * source of the immediately following draw.  Complete the copy before the
+     * texture object is installed. */
+    GX_DrawDone();
+
+    GX_InitTexObj(&currtex->texobj, currtex->data,
+                  currtex->w, currtex->h, GX_TF_I8,
+                  currtex->wraps, currtex->wrapt, GX_FALSE);
+    GX_InitTexObj(&currtex->semiTransTexobj, currtex->data,
+                  currtex->w, currtex->h, GX_TF_I8,
+                  currtex->wraps, currtex->wrapt, GX_FALSE);
+    if (originalMode == ORIGINALMODE_ENABLE ||
+        bilinearFilter != BILINEARFILTER_ENABLE)
+    {
+        GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
+        GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
+    }
+
+    return 1;
+}
+
 #define RESY_MAX 512    //Vmem height
 #define GXRESX_MAX 1366    //1024 * 1.33 for ARGB
 #define MOVIE_BUF_SIZE (GXRESX_MAX*RESY_MAX*2)

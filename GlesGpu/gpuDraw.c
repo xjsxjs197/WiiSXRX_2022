@@ -1206,7 +1206,18 @@ void assignTexture3(void)
 
 void assignTexture4(void)
 {
- if(bUsingTWin)
+ if(gFramebufferTextureCoordsValid)
+  {
+   int i;
+
+   for(i=0;i<4;i++)
+    {
+     vertex[i].sow=gFramebufferTextureCoords[i][0];
+     vertex[i].tow=gFramebufferTextureCoords[i][1];
+    }
+   gFramebufferTextureCoordsValid=FALSE;
+  }
+ else if(bUsingTWin)
   {
    vertex[0].sow=(float)gl_ux[0]/TWin.UScaleFactor;
    vertex[0].tow=(float)gl_vy[0]/TWin.VScaleFactor;

@@ -231,6 +231,7 @@ extern PSXRect_t     xrUploadAreaIL;
 extern PSXRect_t     xrUploadAreaRGB24;
 extern GLuint        gTexName;
 extern BOOL          bDrawNonShaded;
+extern BOOL          bDrawSmoothShaded;
 //extern GLubyte       ubGloColAlpha;
 //extern GLubyte       ubGloAlpha;
 extern short         sSprite_ux2;
