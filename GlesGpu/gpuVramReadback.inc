@@ -140,6 +140,13 @@ static u16 g_asyncNextToken = 0x5100;
  * image so materialization can copy only pixels changed by the GX draws. */
 static GXFrameSnapshot g_moveBaseline;
 
+/* Small synchronous staging buffer used by framebuffer-feedback MoveImage
+ * commands.  This is intentionally separate from the normal readback state
+ * machine: the command consumes the pixels immediately, while capturing the
+ * complete 640x480 EFB for each 64x64 source would be prohibitively costly. */
+static void *g_smallMoveCapturePixels;
+static int g_smallMoveCaptureSize;
+
 static GXDisplayMap g_activeMap;
 static EfbRebuildCandidate g_rebuildCandidate;
 static GXDisplayMap g_pendingPresentedMap;
@@ -1715,6 +1722,11 @@ static void ResetVramReadbackState(void)
         _mem2_free(g_moveBaseline.pixels);
     memset(&g_moveBaseline, 0, sizeof(g_moveBaseline));
 
+    if (g_smallMoveCapturePixels)
+        _mem2_free(g_smallMoveCapturePixels);
+    g_smallMoveCapturePixels = NULL;
+    g_smallMoveCaptureSize = 0;
+
 #ifdef DISP_DEBUG
     if (g_diagBaseline.pixels)
         _mem2_free(g_diagBaseline.pixels);
@@ -2212,6 +2224,97 @@ static void MergeReadbackToPsxVuwFiltered(
 static void MergeReadbackToPsxVuw(int x, int y, int w, int h)
 {
     MergeReadbackToPsxVuwFiltered(x, y, w, h, NULL, NULL);
+}
+
+/* Some games use GP0 80h as framebuffer feedback: they first render a page
+ * through GX, then immediately MoveImage a small rectangle from that page to
+ * texture VRAM.  psxVuw is stale at that point because the rendered page only
+ * exists in EFB.  Materialize just the requested 64x64 region instead of
+ * enabling the heavyweight full-frame readback machinery.
+ *
+ * The narrow 320x240 -> 640x480 mapping is deliberate.  GX's half-scale copy
+ * then produces exactly one RGB5A3 sample per PS1 pixel, with no second CPU
+ * resampling path and only 8 KiB transferred per command. */
+static int MaterializeSmallEfbMoveSource(int x, int y, int w, int h)
+{
+    const int displayX = PreviousPSXDisplay.DisplayPosition.x;
+    const int displayY = PreviousPSXDisplay.DisplayPosition.y;
+    const int displayW = PreviousPSXDisplay.DisplayEnd.x - displayX;
+    const int displayH = PreviousPSXDisplay.DisplayEnd.y - displayY;
+    const int viewportX = rRatioRect.left;
+    const int viewportY = iResY -
+                          (rRatioRect.top + rRatioRect.bottom);
+    const int viewportW = rRatioRect.right;
+    const int viewportH = rRatioRect.bottom;
+    int efbX0, efbY0, efbX1, efbY1;
+    int size;
+    int xx, yy;
+
+    if (w != 64 || h != 64 ||
+        displayW != 320 || displayH != 240 ||
+        iResX != 640 || iResY != 480 ||
+        (STATUSREG & GPUSTATUS_RGB24) || PreviousPSXDisplay.RGB24)
+        return 0;
+
+    if (x < displayX || y < displayY ||
+        x + w > PreviousPSXDisplay.DisplayEnd.x ||
+        y + h > PreviousPSXDisplay.DisplayEnd.y)
+        return 0;
+
+    efbX0 = viewportX + ((x - displayX) * viewportW) / displayW;
+    efbY0 = viewportY + ((y - displayY) * viewportH) / displayH;
+    efbX1 = viewportX + ((x + w - displayX) * viewportW) / displayW;
+    efbY1 = viewportY + ((y + h - displayY) * viewportH) / displayH;
+
+    /* GX_TRUE below requests the 2:1 copy filter.  Reject any mapping where
+     * that would not yield the exact PS1 source rectangle. */
+    if (efbX0 < 0 || efbY0 < 0 || efbX1 > iResX || efbY1 > iResY ||
+        efbX1 - efbX0 != w * 2 || efbY1 - efbY0 != h * 2)
+        return 0;
+
+    size = GX_GetTexBufferSize(w, h, GX_TF_RGB5A3, 0, GX_FALSE);
+    if (!g_smallMoveCapturePixels || g_smallMoveCaptureSize < size)
+    {
+        void *pixels = _mem2_malloc(size);
+
+        if (!pixels)
+            return 0;
+        if (g_smallMoveCapturePixels)
+            _mem2_free(g_smallMoveCapturePixels);
+        g_smallMoveCapturePixels = pixels;
+        g_smallMoveCaptureSize = size;
+    }
+
+    GX_SetCopyFilter(vmode ? vmode->aa : GX_FALSE,
+                     (vmode && vmode->aa) ? vmode->sample_pattern : NULL,
+                     GX_FALSE, NULL);
+    GX_SetTexCopySrc(efbX0, efbY0, efbX1 - efbX0, efbY1 - efbY0);
+    GX_SetTexCopyDst(w, h, GX_TF_RGB5A3, GX_TRUE);
+    GX_CopyTex(MEM_K0_TO_K1(g_smallMoveCapturePixels), GX_FALSE);
+    GX_PixModeSync();
+    RestoreDispCopyInfo();
+
+    /* GP0 80h consumes psxVuw as soon as this function returns, so this is a
+     * real read dependency and cannot use the frame-end asynchronous path. */
+    GX_DrawDone();
+    DCInvalidateRange(g_smallMoveCapturePixels, size);
+
+    for (yy = 0; yy < h; yy++)
+    {
+        for (xx = 0; xx < w; xx++)
+        {
+            unsigned short gx = ReadGXRGB5A3PixelRaw(
+                (const unsigned char *)g_smallMoveCapturePixels, w, xx, yy);
+            unsigned short psx = GXRGB5A3ToPSX15(gx);
+
+            PUTLE16(psxVuw + ((y + yy) << 10) + x + xx, psx);
+        }
+    }
+
+    /* The CPU backing changed; prevent any existing source-page texture from
+     * surviving if the game later samples this area directly. */
+    InvalidateTextureArea(x, y, w, h);
+    return 1;
 }
 
 /* GP0 80h reads VRAM internally; it does not pass through the C0 transfer

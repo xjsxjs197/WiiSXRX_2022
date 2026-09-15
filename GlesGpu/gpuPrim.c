@@ -3034,6 +3034,20 @@ static void primMoveImage ( unsigned char * baseAddr )
         MaterializeEfbForVramMove(imageX0, imageY0, imageSX, imageSY);
     }
 
+    /* Dino Crisis' distortion effect uses eight interleaved 64x64 feedback
+     * copies into page 8.  The source is the alternate 320x240 display page
+     * currently being built in EFB, so synchronize only that small rectangle
+     * before the normal CPU MoveImage implementation consumes it.  Check the
+     * host-order mask state: setMask16 is byte-swapped on Wii for direct OR
+     * into little-endian psxVuw and is not suitable for this comparison. */
+    if (!bCheckMask && sSetMask == 0x8000 &&
+        imageSX == 64 && imageSY == 64 &&
+        imageX1 == 512 && imageY1 == 0)
+    {
+        MaterializeSmallEfbMoveSource(imageX0, imageY0,
+                                      imageSX, imageSY);
+    }
+
 #ifdef DISP_DEBUG
     if (ReadbackEnabled() && imageSY >= 120)
     {
