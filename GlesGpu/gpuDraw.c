@@ -1305,6 +1305,8 @@ void SetOGLDisplaySettings(BOOL DisplaySet)
  static RECT rC   ={0,0,0,0};
  static int iOldX=0;
  static int iOldY=0;
+ int currentDisplayHit=FALSE;
+ int previousDisplayHit=FALSE;
  RECT r;float XS,YS;
 
  bDisplayNotSet = FALSE;
@@ -1342,6 +1344,31 @@ void SetOGLDisplaySettings(BOOL DisplaySet)
 
  PSXDisplay.GDrawOffset.y = PreviousPSXDisplay.DisplayPosition.y;
  PSXDisplay.GDrawOffset.x = PreviousPSXDisplay.DisplayPosition.x;
+
+ /* FF7/FF9 can draw battle UI into the current VRAM display page while the
+  * scene is still drawn into the previous page.  Selecting the base from the
+  * draw area keeps both command streams in screen coordinates without
+  * replaying or moving primitives. */
+ if(dwActFixes & (AUTO_FIX_FF7_DISPLAY_PAGE | AUTO_FIX_FF9))
+  {
+   currentDisplayHit =
+       PSXDisplay.DrawArea.x1 >= PSXDisplay.DisplayPosition.x &&
+       PSXDisplay.DrawArea.x0 < PSXDisplay.DisplayEnd.x &&
+       PSXDisplay.DrawArea.y1 >= PSXDisplay.DisplayPosition.y &&
+       PSXDisplay.DrawArea.y0 < PSXDisplay.DisplayEnd.y;
+   previousDisplayHit =
+       PSXDisplay.DrawArea.x1 >= PreviousPSXDisplay.DisplayPosition.x &&
+       PSXDisplay.DrawArea.x0 < PreviousPSXDisplay.DisplayEnd.x &&
+       PSXDisplay.DrawArea.y1 >= PreviousPSXDisplay.DisplayPosition.y &&
+       PSXDisplay.DrawArea.y0 < PreviousPSXDisplay.DisplayEnd.y;
+
+   if(currentDisplayHit && !previousDisplayHit)
+    {
+     PSXDisplay.GDrawOffset.x = PSXDisplay.DisplayPosition.x;
+     PSXDisplay.GDrawOffset.y = PSXDisplay.DisplayPosition.y;
+    }
+  }
+
  PSXDisplay.CumulOffset.x = PSXDisplay.DrawOffset.x - PSXDisplay.GDrawOffset.x+PreviousPSXDisplay.Range.x0;
  PSXDisplay.CumulOffset.y = PSXDisplay.DrawOffset.y - PSXDisplay.GDrawOffset.y+PreviousPSXDisplay.Range.y0;
 

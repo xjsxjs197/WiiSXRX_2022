@@ -99,6 +99,35 @@ static const char * const special_game_hack_db2[] =
     "SLUS01279", "SLPM86627", "SLES03221", "SLES03222", "SLES03223", "SLES03224", "SLES03225",
 };
 
+static const char * const special_game_hack_ff9[] =
+{
+    /* Final Fantasy IX (all four discs, all known regions). */
+    "SLUS01251", "SLUS01295", "SLUS01296", "SLUS01297",
+    "SLPS02000", "SLPS02001", "SLPS02002", "SLPS02003",
+    "SLPM87388", "SLPM87389", "SLPM87390", "SLPM87391",
+    "SLES02965", "SLES12965", "SLES22965", "SLES32965",
+    "SLES02966", "SLES12966", "SLES22966", "SLES32966",
+    "SLES02967", "SLES12967", "SLES22967", "SLES32967",
+    "SLES02968", "SLES12968", "SLES22968", "SLES32968",
+    "SLES02969", "SLES12969", "SLES22969", "SLES32969",
+};
+
+static const char * const special_game_hack_ff7_display_page[] =
+{
+    /* Final Fantasy VII (original and International releases). */
+    "SCUS94163", "SCUS94164", "SCUS94165",
+    "SLPS00700", "SLPS00701", "SLPS00702",
+    "SCPS45007", "SCPS45008", "SCPS45009",
+    "SLPS01057", "SLPS01058", "SLPS01059", "SLPS01060",
+    "SLPS91440", "SLPS91441", "SLPS91442", "SLPS91443",
+    "SLPM84020", "SLPM84021", "SLPM84022", "SLPM84023",
+    "SLPM87380", "SLPM87381", "SLPM87382", "SLPM87383",
+    "SCES00867", "SCES10867", "SCES20867",
+    "SCES00868", "SCES10868", "SCES20868",
+    "SCES00869", "SCES10869", "SCES20869",
+    "SCES00900", "SCES10900", "SCES20900",
+};
+
 //static const char * const special_game_hack_need_soft_title[] =
 //{
 //    // For GX gpu fix(need software primTitle)
@@ -370,6 +399,20 @@ void Apply_Hacks_Cdrom()
         if (strcmp(CdromId, special_game_hack_db2[i]) == 0)
         {
             Config.hacks.dwActFixes |= AUTO_FIX_DINO_CRISIS2;
+            break;
+        }
+    }
+    for (i = 0; i < ARRAY_SIZE(special_game_hack_ff9); i++) {
+        if (strcmp(CdromId, special_game_hack_ff9[i]) == 0)
+        {
+            Config.hacks.dwActFixes |= AUTO_FIX_FF9;
+            break;
+        }
+    }
+    for (i = 0; i < ARRAY_SIZE(special_game_hack_ff7_display_page); i++) {
+        if (strcmp(CdromId, special_game_hack_ff7_display_page[i]) == 0)
+        {
+            Config.hacks.dwActFixes |= AUTO_FIX_FF7_DISPLAY_PAGE;
             break;
         }
     }
