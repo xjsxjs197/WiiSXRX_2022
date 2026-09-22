@@ -391,43 +391,150 @@ void gteSWC2() {
 
 #endif // FLAGLESS
 
+/*
+ * RTPS/RTPT use a 44-bit accumulator internally.  Overflow is checked after
+ * each addition, and the result is sign-extended back to 44 bits before the
+ * next term is added.  Keeping this separate from A1/A2/A3 avoids changing
+ * the historical behaviour of the other GTE commands in this first stage.
+ */
+#define GTE_MAC123_MIN (-(s64)(1ULL << 43))
+#define GTE_MAC123_MAX ((s64)((1ULL << 43) - 1))
+#define GTE_FLAG_ERROR_MASK 0x7f87e000U
+
+static inline void gteCheckMAC123Overflow(psxCP2Regs *regs, int index, s64 value) {
+    static const u32 overflow_flags[3] = { 1U << 30, 1U << 29, 1U << 28 };
+    static const u32 underflow_flags[3] = { 1U << 27, 1U << 26, 1U << 25 };
+
+    if (value > GTE_MAC123_MAX)
+        gteFLAG |= overflow_flags[index];
+    else if (value < GTE_MAC123_MIN)
+        gteFLAG |= underflow_flags[index];
+}
+
+static inline s64 gteSignExtendMAC123(psxCP2Regs *regs, int index, s64 value) {
+    const u64 mask = (1ULL << 44) - 1;
+    const u64 sign = 1ULL << 43;
+    u64 wrapped;
+
+    gteCheckMAC123Overflow(regs, index, value);
+    wrapped = (u64)value & mask;
+    if (wrapped & sign)
+        return -(s64)((1ULL << 44) - wrapped);
+    return (s64)wrapped;
+}
+
+static inline s32 gteLimitIR123(psxCP2Regs *regs, s32 value, int lm, u32 flag) {
+    const s32 minimum = lm ? 0 : -0x8000;
+
+    if (value > 0x7fff) {
+        gteFLAG |= flag;
+        return 0x7fff;
+    }
+    if (value < minimum) {
+        gteFLAG |= flag;
+        return minimum;
+    }
+    return value;
+}
+
+static inline void gteCheckMAC0Overflow(psxCP2Regs *regs, s64 value) {
+    if (value > 0x7fffffffLL)
+        gteFLAG |= 1U << 16;
+    else if (value < -0x80000000LL)
+        gteFLAG |= 1U << 15;
+}
+
+static inline void gteUpdateErrorFlag(psxCP2Regs *regs) {
+    if (gteFLAG & GTE_FLAG_ERROR_MASK)
+        gteFLAG |= 1U << 31;
+}
+
+/* Execute the common transform/projection part for one RTPS/RTPT vertex. */
+static inline u32 gteRTPSVertex(psxCP2Regs *regs, s32 vx, s32 vy, s32 vz,
+                               int shift, int lm, u16 *sz, s16 *sx, s16 *sy) {
+    s64 x, y, z;
+    s64 screen_x, screen_y;
+    u32 quotient;
+
+    x = gteSignExtendMAC123(regs, 0,
+            (s64)gteTRX * 4096 + (s64)gteR11 * vx);
+    x = gteSignExtendMAC123(regs, 0, x + (s64)gteR12 * vy);
+    x = gteSignExtendMAC123(regs, 0, x + (s64)gteR13 * vz);
+
+    y = gteSignExtendMAC123(regs, 1,
+            (s64)gteTRY * 4096 + (s64)gteR21 * vx);
+    y = gteSignExtendMAC123(regs, 1, y + (s64)gteR22 * vy);
+    y = gteSignExtendMAC123(regs, 1, y + (s64)gteR23 * vz);
+
+    z = gteSignExtendMAC123(regs, 2,
+            (s64)gteTRZ * 4096 + (s64)gteR31 * vx);
+    z = gteSignExtendMAC123(regs, 2, z + (s64)gteR32 * vy);
+    z = gteSignExtendMAC123(regs, 2, z + (s64)gteR33 * vz);
+
+    /* Each final sum was checked and wrapped above; now apply SF and store. */
+    gteMAC1 = (s32)(x >> shift);
+    gteMAC2 = (s32)(y >> shift);
+    gteMAC3 = (s32)(z >> shift);
+
+    gteIR1 = (s16)gteLimitIR123(regs, gteMAC1, lm, 1U << 24);
+    gteIR2 = (s16)gteLimitIR123(regs, gteMAC2, lm, 1U << 23);
+
+    /*
+     * RTP has unusual IR3 flag behaviour: saturation is tested against
+     * Z>>12 regardless of SF, while the stored IR3 is clamped from MAC3.
+     */
+    (void)gteLimitIR123(regs, (s32)(z >> 12), 0, 1U << 22);
+    gteIR3 = (s16)gteLimitIR123(regs, gteMAC3, lm, 0);
+
+    *sz = (u16)limD((s32)(z >> 12));
+    quotient = limE(DIVIDE_INT(gteH, *sz));
+
+    screen_x = (s64)gteOFX + (s64)gteIR1 * quotient;
+    screen_y = (s64)gteOFY + (s64)gteIR2 * quotient;
+    gteCheckMAC0Overflow(regs, screen_x);
+    gteCheckMAC0Overflow(regs, screen_y);
+    *sx = (s16)limG1((s32)(screen_x >> 16));
+    *sy = (s16)limG2((s32)(screen_y >> 16));
+
+    return quotient;
+}
+
+static inline void gteRTPSDepthCue(psxCP2Regs *regs, u32 quotient) {
+    const s64 value = (s64)gteDQB + (s64)gteDQA * quotient;
+
+    gteCheckMAC0Overflow(regs, value);
+    gteMAC0 = (s32)value;
+    gteIR0 = (s16)limH((s32)(value >> 12));
+}
+
 
 
 void gteRTPS(psxCP2Regs *regs) {
-    int quotient;
-    s64 tmp;
+    const int shift = GTE_SF(gteop) ? 12 : 0;
+    const int lm = GTE_LM(gteop);
+    u32 quotient;
 
 #ifdef GTE_LOG
     GTE_LOG("GTE RTPS\n");
 #endif
     gteFLAG = 0;
 
-    gteMAC1 = A1((((s64)gteTRX << 12) + (gteR11 * gteVX0) + (gteR12 * gteVY0) + (gteR13 * gteVZ0)) >> 12);
-    gteMAC2 = A2((((s64)gteTRY << 12) + (gteR21 * gteVX0) + (gteR22 * gteVY0) + (gteR23 * gteVZ0)) >> 12);
-    gteMAC3 = A3((((s64)gteTRZ << 12) + (gteR31 * gteVX0) + (gteR32 * gteVY0) + (gteR33 * gteVZ0)) >> 12);
-    gteIR1 = limB1(gteMAC1, 0);
-    gteIR2 = limB2(gteMAC2, 0);
-    gteIR3 = limB3(gteMAC3, 0);
     gteSZ0 = gteSZ1;
     gteSZ1 = gteSZ2;
     gteSZ2 = gteSZ3;
-    gteSZ3 = limD(gteMAC3);
-    quotient = limE(DIVIDE_INT(gteH, gteSZ3));
     gteSXY0 = gteSXY1;
     gteSXY1 = gteSXY2;
-    gteSX2 = limG1(F((s64)gteOFX + ((s64)gteIR1 * quotient)) >> 16);
-    gteSY2 = limG2(F((s64)gteOFY + ((s64)gteIR2 * quotient)) >> 16);
-
-    tmp = (s64)gteDQB + ((s64)gteDQA * quotient);
-    gteMAC0 = F(tmp);
-    gteIR0 = limH(tmp >> 12);
+    quotient = gteRTPSVertex(regs, gteVX0, gteVY0, gteVZ0, shift, lm,
+                             &gteSZ3, &gteSX2, &gteSY2);
+    gteRTPSDepthCue(regs, quotient);
+    gteUpdateErrorFlag(regs);
 }
 
 void gteRTPT(psxCP2Regs *regs) {
-    int quotient;
+    const int shift = GTE_SF(gteop) ? 12 : 0;
+    const int lm = GTE_LM(gteop);
+    u32 quotient = 0;
     int v;
-    s32 vx, vy, vz;
-    s64 tmp;
 
 #ifdef GTE_LOG
     GTE_LOG("GTE RTPT\n");
@@ -436,24 +543,12 @@ void gteRTPT(psxCP2Regs *regs) {
 
     gteSZ0 = gteSZ3;
     for (v = 0; v < 3; v++) {
-        vx = VX(v);
-        vy = VY(v);
-        vz = VZ(v);
-        gteMAC1 = A1((((s64)gteTRX << 12) + (gteR11 * vx) + (gteR12 * vy) + (gteR13 * vz)) >> 12);
-        gteMAC2 = A2((((s64)gteTRY << 12) + (gteR21 * vx) + (gteR22 * vy) + (gteR23 * vz)) >> 12);
-        gteMAC3 = A3((((s64)gteTRZ << 12) + (gteR31 * vx) + (gteR32 * vy) + (gteR33 * vz)) >> 12);
-        gteIR1 = limB1(gteMAC1, 0);
-        gteIR2 = limB2(gteMAC2, 0);
-        gteIR3 = limB3(gteMAC3, 0);
-        fSZ(v) = limD(gteMAC3);
-        quotient = limE(DIVIDE_INT(gteH, fSZ(v)));
-        fSX(v) = limG1(F((s64)gteOFX + ((s64)gteIR1 * quotient)) >> 16);
-        fSY(v) = limG2(F((s64)gteOFY + ((s64)gteIR2 * quotient)) >> 16);
+        quotient = gteRTPSVertex(regs, VX(v), VY(v), VZ(v), shift, lm,
+                                 &fSZ(v), &fSX(v), &fSY(v));
     }
 
-    tmp = (s64)gteDQB + ((s64)gteDQA * quotient);
-    gteMAC0 = F(tmp);
-    gteIR0 = limH(tmp >> 12);
+    gteRTPSDepthCue(regs, quotient);
+    gteUpdateErrorFlag(regs);
 }
 
 void gteMVMVA(psxCP2Regs *regs) {
