@@ -400,6 +400,12 @@ void gteSWC2() {
 #define GTE_MAC123_MAX ((s64)((1ULL << 43) - 1))
 #define GTE_FLAG_ERROR_MASK 0x7f87e000U
 
+#if defined(__GNUC__)
+#define GTE_NOINLINE __attribute__((noinline, noclone))
+#else
+#define GTE_NOINLINE
+#endif
+
 static inline void gteCheckMAC123Overflow(psxCP2Regs *regs, int index, s64 value) {
     static const u32 overflow_flags[3] = { 1U << 30, 1U << 29, 1U << 28 };
     static const u32 underflow_flags[3] = { 1U << 27, 1U << 26, 1U << 25 };
@@ -413,34 +419,53 @@ static inline void gteCheckMAC123Overflow(psxCP2Regs *regs, int index, s64 value
 static inline s64 gteSignExtendMAC123(psxCP2Regs *regs, int index, s64 value) {
     const u64 mask = (1ULL << 44) - 1;
     const u64 sign = 1ULL << 43;
-    u64 wrapped;
+    const u64 wrapped = (u64)value & mask;
 
     gteCheckMAC123Overflow(regs, index, value);
-    wrapped = (u64)value & mask;
-    if (wrapped & sign)
-        return -(s64)((1ULL << 44) - wrapped);
-    return (s64)wrapped;
+    return (s64)(wrapped ^ sign) - (s64)sign;
 }
 
-static inline s32 gteLimitIR123(psxCP2Regs *regs, s32 value, int lm, u32 flag) {
-    const s32 minimum = lm ? 0 : -0x8000;
-
+static inline s32 gteLimitIR123LM0(psxCP2Regs *regs, s32 value, u32 flag) {
     if (value > 0x7fff) {
         gteFLAG |= flag;
         return 0x7fff;
     }
-    if (value < minimum) {
+    if (value < -0x8000) {
         gteFLAG |= flag;
-        return minimum;
+        return -0x8000;
     }
     return value;
+}
+
+static inline s32 gteLimitIR123LM1(psxCP2Regs *regs, s32 value, u32 flag) {
+    if (value > 0x7fff) {
+        gteFLAG |= flag;
+        return 0x7fff;
+    }
+    if (value < 0) {
+        gteFLAG |= flag;
+        return 0;
+    }
+    return value;
+}
+
+static inline s32 gteLimitIR123(psxCP2Regs *regs, s32 value, int lm, u32 flag) {
+    if (lm)
+        return gteLimitIR123LM1(regs, value, flag);
+    return gteLimitIR123LM0(regs, value, flag);
+}
+
+static inline s32 gteShiftMAC123(s64 value, int shift) {
+    if (shift == 12)
+        return (s32)(value >> 12);
+    return (s32)value;
 }
 
 static inline s32 gteSetMAC123(psxCP2Regs *regs, int index, s64 value, int shift) {
     s32 result;
 
     gteCheckMAC123Overflow(regs, index, value);
-    result = (s32)(value >> shift);
+    result = gteShiftMAC123(value, shift);
     ((s32 *)regs->CP2D.r)[25 + index] = result;
     return result;
 }
@@ -542,6 +567,17 @@ static inline void gteRTPSDepthCue(psxCP2Regs *regs, u32 quotient) {
     gteIR0 = (s16)limH((s32)(value >> 12));
 }
 
+/*
+ * Keep the three-vertex RTPT body shared.  noinline/noclone is intentional:
+ * otherwise PPC LTO expands the complete transform three times in gteRTPT.
+ * The one-vertex RTPS command still gets the original inline hot path.
+ */
+static GTE_NOINLINE u32 gteRTPTVertex(psxCP2Regs *regs, s32 vx, s32 vy,
+                                     s32 vz, int shift, int lm, u16 *sz,
+                                     s16 *sx, s16 *sy) {
+    return gteRTPSVertex(regs, vx, vy, vz, shift, lm, sz, sx, sy);
+}
+
 
 
 void gteRTPS(psxCP2Regs *regs) {
@@ -578,7 +614,7 @@ void gteRTPT(psxCP2Regs *regs) {
 
     gteSZ0 = gteSZ3;
     for (v = 0; v < 3; v++) {
-        quotient = gteRTPSVertex(regs, VX(v), VY(v), VZ(v), shift, lm,
+        quotient = gteRTPTVertex(regs, VX(v), VY(v), VZ(v), shift, lm,
                                  &fSZ(v), &fSX(v), &fSY(v));
     }
 
@@ -617,7 +653,7 @@ static inline void gteMVMVAFarColorBug(psxCP2Regs *regs, const s16 matrix[9],
                 (s64)translation[i] * 4096 + (s64)matrix[i * 3] * vx);
         s64 value;
 
-        (void)gteLimitIR123(regs, (s32)(intermediate >> shift), 0,
+        (void)gteLimitIR123(regs, gteShiftMAC123(intermediate, shift), 0,
                             saturation_flags[i]);
         value = gteSignExtendMAC123(regs, i,
                 (s64)matrix[i * 3 + 1] * vy);
@@ -828,6 +864,22 @@ static inline void gteNCDSVertex(psxCP2Regs *regs, s32 vx, s32 vy, s32 vz,
     gtePushRGBFromMAC(regs);
 }
 
+/* Share the complete per-vertex color pipelines in the triple commands. */
+static GTE_NOINLINE void gteNCTVertex(psxCP2Regs *regs, s32 vx, s32 vy,
+                                     s32 vz, int shift, int lm) {
+    gteNCSVertex(regs, vx, vy, vz, shift, lm);
+}
+
+static GTE_NOINLINE void gteNCCTVertex(psxCP2Regs *regs, s32 vx, s32 vy,
+                                      s32 vz, int shift, int lm) {
+    gteNCCSVertex(regs, vx, vy, vz, shift, lm);
+}
+
+static GTE_NOINLINE void gteNCDTVertex(psxCP2Regs *regs, s32 vx, s32 vy,
+                                      s32 vz, int shift, int lm) {
+    gteNCDSVertex(regs, vx, vy, vz, shift, lm);
+}
+
 void gteNCCS(psxCP2Regs *regs) {
     const int shift = GTE_SF(gteop) ? 12 : 0;
     const int lm = GTE_LM(gteop);
@@ -850,7 +902,7 @@ void gteNCCT(psxCP2Regs *regs) {
 #endif
     gteFLAG = 0;
     for (v = 0; v < 3; v++)
-        gteNCCSVertex(regs, VX(v), VY(v), VZ(v), shift, lm);
+        gteNCCTVertex(regs, VX(v), VY(v), VZ(v), shift, lm);
     gteUpdateErrorFlag(regs);
 }
 
@@ -876,7 +928,7 @@ void gteNCDT(psxCP2Regs *regs) {
 #endif
     gteFLAG = 0;
     for (v = 0; v < 3; v++)
-        gteNCDSVertex(regs, VX(v), VY(v), VZ(v), shift, lm);
+        gteNCDTVertex(regs, VX(v), VY(v), VZ(v), shift, lm);
     gteUpdateErrorFlag(regs);
 }
 
@@ -949,7 +1001,7 @@ void gteGPL(psxCP2Regs *regs) {
     const s32 mac1 = gteMAC1;
     const s32 mac2 = gteMAC2;
     const s32 mac3 = gteMAC3;
-    const s64 scale = (s64)1 << shift;
+    const s64 scale = (shift == 12) ? 4096 : 1;
 
 #ifdef GTE_LOG
     GTE_LOG("GTE GPL\n");
@@ -1028,7 +1080,7 @@ void gteNCT(psxCP2Regs *regs) {
     gteFLAG = 0;
 
     for (v = 0; v < 3; v++)
-        gteNCSVertex(regs, VX(v), VY(v), VZ(v), shift, lm);
+        gteNCTVertex(regs, VX(v), VY(v), VZ(v), shift, lm);
     gteUpdateErrorFlag(regs);
 }
 
