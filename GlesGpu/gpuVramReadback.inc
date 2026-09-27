@@ -266,6 +266,10 @@ static EfbDrawContext *TopEfbContext(void)
 
 static int BeginEfbDrawContext(void)
 {
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+    if (GlesVramTilingS2CommandActive())
+        return 0;
+#endif
     if (!ReadbackEnabled())
         return 0;
 
@@ -284,6 +288,10 @@ static int BeginEfbDrawContext(void)
 
 static void EndEfbDrawContext(void)
 {
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+    if (GlesVramTilingS2CommandActive())
+        return;
+#endif
     if (!ReadbackEnabled())
         return;
 
@@ -729,6 +737,14 @@ static void OnEfbDrawSubmitted(void)
     uint64_t seq;
 
     g_debugDrawSubmitted++;
+
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+    if (GlesVramTilingS2CommandActive())
+    {
+        GlesVramTilingS2NotifyDrawSubmitted();
+        return;
+    }
+#endif
 
     if (!ReadbackEnabled())
         return;

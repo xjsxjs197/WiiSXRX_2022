@@ -8,9 +8,13 @@
 //#define SDPRINT
 //#define PEOPS_SDLOG
 
-/* Temporary GLES texture investigation: suppress legacy Debug output and
- * allow only compact lines prefixed with "TDI " into debugLog.txt. */
+/* Temporary GLES texture investigation.  A build-specific diagnostic takes
+ * precedence so its own log prefix is not accidentally filtered out. */
+#if !defined(VRAM_APERTURE_DIAG_ONLY) && \
+    !defined(VRAM_TILING_DIAG_ONLY) && \
+    !defined(EFB_512_HEIGHT_TEST)
 #define TEXTURE_DIAG_ONLY
+#endif
 
 #define DBG_MEMFREEINFO 0
 #define DBG_CORE1	1
@@ -109,4 +113,3 @@ void printFunctionName();
 #endif
 
 #endif
-

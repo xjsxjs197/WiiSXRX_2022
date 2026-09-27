@@ -962,6 +962,101 @@ static void SetZMask4SP ( void )
 
 ////////////////////////////////////////////////////////////////////////
 
+#ifdef GLES_VRAM_LR_TILING_S6_EXPERIMENT
+/* Texture decoders and CLUT-key generation read psxVuw directly.  Make the
+ * exact texel/CLUT word ranges current before either a cache lookup or a
+ * cache miss can consume them.  This is the first S6 dependency barrier;
+ * already-current blocks make it a cheap metadata-only check. */
+static int PrepareTextureCpuRead(void)
+{
+    GlesVramRect textureRect;
+    GlesVramRect clutRect;
+    GlesVramS5Stats before;
+    GlesVramS5Stats after;
+    int pixelsPerWord;
+    int u0;
+    int u1;
+    int v0;
+    int v1;
+    int vertex;
+    int textureOk;
+    int clutOk = 1;
+
+    if (PSXDisplay.RGB24 || bUsingMovie)
+        return 1;
+
+    if (bUsingTWin)
+    {
+        u0 = TWin.Position.x0;
+        u1 = u0 + TWin.Position.x1 - 1;
+        v0 = TWin.Position.y0;
+        v1 = v0 + TWin.Position.y1 - 1;
+    }
+    else
+    {
+        u0 = u1 = gl_ux[0];
+        v0 = v1 = gl_vy[0];
+        for (vertex = 1; vertex < 4; vertex++)
+        {
+            if (gl_ux[vertex] < u0) u0 = gl_ux[vertex];
+            if (gl_ux[vertex] > u1) u1 = gl_ux[vertex];
+            if (gl_vy[vertex] < v0) v0 = gl_vy[vertex];
+            if (gl_vy[vertex] > v1) v1 = gl_vy[vertex];
+        }
+    }
+
+    if (u0 < 0) u0 = 0;
+    if (u1 > 255) u1 = 255;
+    if (v0 < 0) v0 = 0;
+    if (v1 > 255) v1 = 255;
+    if (u1 < u0 || v1 < v0)
+        return 0;
+
+    pixelsPerWord = GlobalTextTP == 0 ? 4 :
+                    (GlobalTextTP == 1 ? 2 : 1);
+    textureRect.x = ((GlobalTexturePage & 15) << 6) +
+                    u0 / pixelsPerWord;
+    textureRect.y = ((GlobalTexturePage >> 4) << 8) + v0;
+    textureRect.width = u1 / pixelsPerWord -
+                        u0 / pixelsPerWord + 1;
+    textureRect.height = v1 - v0 + 1;
+
+    GlesVramTilingS5GetStats(&before);
+    textureOk = GlesVramTilingS5EnsureCpuCurrent(psxVuw, &textureRect);
+    if (textureOk && GlobalTextTP != 2)
+    {
+        clutRect.x = (ulClutID << 4) & 0x3f0;
+        clutRect.y = (ulClutID >> 6) & CLUTYMASK;
+        clutRect.width = GlobalTextTP == 0 ? 16 : 256;
+        clutRect.height = 1;
+        clutOk = GlesVramTilingS5EnsureCpuCurrent(psxVuw, &clutRect);
+    }
+    GlesVramTilingS5GetStats(&after);
+
+#ifdef DISP_DEBUG
+    if (!textureOk || !clutOk ||
+        after.resolveCalls != before.resolveCalls)
+    {
+        sprintf(txtbuffer,
+                "TDI TEXSYNC frame=%u page=%d mode=%d "
+                "tex=%d,%d,%d,%d clut=%04X ok=%d/%d "
+                "resolve=%u wait=%u blocks=%u\r\n",
+                g_textureDiagFrame, GlobalTexturePage, GlobalTextTP,
+                textureRect.x, textureRect.y,
+                textureRect.width, textureRect.height,
+                (unsigned int)ulClutID, textureOk, clutOk,
+                after.resolveCalls - before.resolveCalls,
+                after.resolveWaits - before.resolveWaits,
+                after.resolvedBlocks - before.resolvedBlocks);
+        TextureDiagAppend(txtbuffer);
+    }
+#endif
+    return textureOk && clutOk;
+}
+#endif
+
+////////////////////////////////////////////////////////////////////////
+
 static inline void SetRenderState ( unsigned int DrawAttributes )
 {
     bDrawNonShaded = ( SHADETEXBIT ( DrawAttributes ) ) ? TRUE : FALSE;
@@ -1022,6 +1117,9 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
         texChgType = 0;
         int loadTextureType;
         GLuint currTex;
+#ifdef GLES_VRAM_LR_TILING_S6_EXPERIMENT
+        PrepareTextureCpuRead();
+#endif
         if ( bUsingTWin )       { currTex = LoadTextureWnd ( GlobalTexturePage, GlobalTextTP, ulClutID ); loadTextureType = TEX_TYPE_WIN; }
         else if ( bUsingMovie ) { currTex = LoadTextureMovie(); loadTextureType = TEX_TYPE_MOV; }
         else                    { currTex = SelectSubTextureS ( GlobalTextTP, ulClutID ); loadTextureType = TEX_TYPE_SUB; }
@@ -1822,6 +1920,15 @@ int UploadScreen ( int Position )
                 PSXDisplay.RGB24, xa, ya, xb, yb,
                 sourceNonZero, sourceHash);
         writeLogFile(txtbuffer);
+        if (PSXDisplay.RGB24)
+        {
+            sprintf(txtbuffer,
+                    "TDI RGB24_SRC frame=%u pos=%d area=%d,%d-%d,%d "
+                    "flags=%X nz=%u hash=%08X\r\n",
+                    g_textureDiagFrame, Position, xa, ya, xb, yb,
+                    RGB24Uploaded, sourceNonZero, sourceHash);
+            TextureDiagAppend(txtbuffer);
+        }
         if (!PSXDisplay.RGB24)
             DebugLogVramHalf("Upload", xa, ya, xb - xa, yb - ya);
     }
@@ -1899,6 +2006,16 @@ int UploadScreen ( int Position )
                         textureWidth, textureHeight,
                         textureNonZero, textureHash);
                 writeLogFile(txtbuffer);
+                if (PSXDisplay.RGB24)
+                {
+                    sprintf(txtbuffer,
+                            "TDI RGB24_TEX frame=%u part=%d,%d-%d,%d "
+                            "dim=%dx%d nz=%u hash=%08X\r\n",
+                            g_textureDiagFrame, lx0, ly0, lx2, ly2,
+                            textureWidth, textureHeight,
+                            textureNonZero, textureHash);
+                    TextureDiagAppend(txtbuffer);
+                }
             }
 #endif
 
@@ -2437,6 +2554,23 @@ static void primLoadImage ( unsigned char * baseAddr )
     VRAMWrite.Width  = GETLEs16 ( &sgpuData[4] );
     VRAMWrite.Height = GETLEs16 ( &sgpuData[5] );
 
+#ifdef GLES_VRAM_LR_TILING_S3_EXPERIMENT
+    /* RGB24/MDEC remains on the legacy UploadScreen path.  S4 only
+     * composites RGB15 tile backings, so claiming a RGB24 A0 here would
+     * suppress PrepareRGB24Upload() when FinishedVRAMWrite() runs. */
+    if (!PSXDisplay.RGB24 && !(STATUSREG & GPUSTATUS_RGB24))
+    {
+        GlesVramRect cpuWriteRect;
+        cpuWriteRect.x = VRAMWrite.x;
+        cpuWriteRect.y = VRAMWrite.y;
+        cpuWriteRect.width = VRAMWrite.Width;
+        cpuWriteRect.height = VRAMWrite.Height;
+        /* This runs before the A0 payload mutates psxVuw.  Partial writes to
+         * a GPU-new block can therefore preserve its untouched pixels. */
+        GlesVramTilingS3PrepareCpuWrite(psxVuw, &cpuWriteRect);
+    }
+#endif
+
     // clear movie garbage
     if (PSXDisplay.RGB24)
     {
@@ -2520,6 +2654,19 @@ static void PrepareRGB24Upload ( void )
     #if defined(DISP_DEBUG)
     sprintf ( txtbuffer, "PrepareRGB24Upload %x\r\n", RGB24Uploaded);
     writeLogFile ( txtbuffer );
+    sprintf(txtbuffer,
+            "TDI RGB24_PREP frame=%u write=%d,%d,%d,%d "
+            "cur=%d,%d-%d,%d prev=%d,%d-%d,%d flags=%X clear=%d\r\n",
+            g_textureDiagFrame,
+            VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width, VRAMWrite.Height,
+            PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y,
+            PSXDisplay.DisplayEnd.x, PSXDisplay.DisplayEnd.y,
+            PreviousPSXDisplay.DisplayPosition.x,
+            PreviousPSXDisplay.DisplayPosition.y,
+            PreviousPSXDisplay.DisplayEnd.x,
+            PreviousPSXDisplay.DisplayEnd.y,
+            RGB24Uploaded, canClearFrameBuf);
+    TextureDiagAppend(txtbuffer);
     #endif // DISP_DEBUG
 }
 
@@ -2695,11 +2842,40 @@ static void primStoreImage ( unsigned char * baseAddr )
 {
     unsigned short *sgpuData = ( ( unsigned short * ) baseAddr );
     MappingKind readMapping;
+#ifdef GLES_VRAM_LR_TILING_S5_EXPERIMENT
+    int s5ReadHandled = 0;
+#if defined(VRAM_TILING_DIAG_ONLY) && defined(DISP_DEBUG)
+    GlesVramS5Stats s5StatsBefore;
+    GlesVramS5Stats s5StatsAfter;
+    GlesVramTilingS5GetStats(&s5StatsBefore);
+#endif
+#endif
 
     VRAMRead.x      = GETLEs16 ( &sgpuData[2] ) & 0x03ff;
     VRAMRead.y      = GETLEs16 ( &sgpuData[3] ) &iGPUHeightMask;
     VRAMRead.Width  = GETLEs16 ( &sgpuData[4] );
     VRAMRead.Height = GETLEs16 ( &sgpuData[5] );
+
+#ifdef GLES_VRAM_LR_TILING_S5_EXPERIMENT
+    if (!PSXDisplay.RGB24)
+    {
+        GlesVramRect readRect;
+        int decodedWidth;
+        int decodedHeight;
+        GlesVramDecodeTransferSize(
+            (uint32_t)(uint16_t)VRAMRead.Width |
+            ((uint32_t)(uint16_t)VRAMRead.Height << 16),
+            &decodedWidth, &decodedHeight);
+        VRAMRead.Width = decodedWidth;
+        VRAMRead.Height = decodedHeight;
+        readRect.x = VRAMRead.x;
+        readRect.y = VRAMRead.y;
+        readRect.width = decodedWidth;
+        readRect.height = decodedHeight;
+        if (GlesVramTilingS5PrepareRead(psxVuw, &readRect))
+            s5ReadHandled = 1;
+    }
+#endif
 
     //#if defined(DISP_DEBUG)
     //sprintf ( txtbuffer, "primStoreImage %d %d %d %d\r\n", VRAMRead.x, VRAMRead.y, VRAMRead.Width, VRAMRead.Height );
@@ -2711,11 +2887,35 @@ static void primStoreImage ( unsigned char * baseAddr )
     VRAMRead.ColsRemaining = VRAMRead.Height;
 
     iDataReadMode = DR_VRAMTRANSFER;
+#ifdef GLES_VRAM_LR_TILING_S5_EXPERIMENT
+    g_readbackState = s5ReadHandled ? READBACK_DONE : READBACK_PENDING;
+    g_s5ReadActive = s5ReadHandled;
+#else
     g_readbackState = READBACK_PENDING;
+#endif
 
     readMapping = ClassifyReadMapping(VRAMRead.x, VRAMRead.y,
                                       VRAMRead.Width, VRAMRead.Height);
+#if defined(GLES_VRAM_LR_TILING_S5_EXPERIMENT) && \
+    defined(VRAM_TILING_DIAG_ONLY) && defined(DISP_DEBUG)
+    GlesVramTilingS5GetStats(&s5StatsAfter);
+    sprintf(txtbuffer,
+            "VTL C0 frame=%u rect=%d,%d,%d,%d handled=%d rgb24=%d "
+            "mapping=%d active=%d resolve=%u wait=%u blocks=%u\r\n",
+            g_s5TraceFrame, VRAMRead.x, VRAMRead.y,
+            VRAMRead.Width, VRAMRead.Height,
+            s5ReadHandled, PSXDisplay.RGB24, readMapping,
+            GlesVramTilingActiveTile(),
+            s5StatsAfter.resolveCalls - s5StatsBefore.resolveCalls,
+            s5StatsAfter.resolveWaits - s5StatsBefore.resolveWaits,
+            s5StatsAfter.resolvedBlocks - s5StatsBefore.resolvedBlocks);
+    TextureDiagAppend(txtbuffer);
+#endif
+#ifdef GLES_VRAM_LR_TILING_S5_EXPERIMENT
+    if (!s5ReadHandled && readMapping == MAPPING_PREVIOUS)
+#else
     if (readMapping == MAPPING_PREVIOUS)
+#endif
         ResolveCompletedRebuildForRead(VRAMRead.x, VRAMRead.y,
                                        VRAMRead.Width, VRAMRead.Height);
 
@@ -2746,6 +2946,40 @@ static void primStoreImage ( unsigned char * baseAddr )
 static inline void BlkFillArea(short x0, short y0, short width, short height, unsigned short fillCol)
 {
     int x, y;
+
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+    if (GlesVramTilingS2CommandActive())
+    {
+        GlesVramRect rect;
+        GlesVramTileSpan spans[GLES_VRAM_MAX_TILE_SPANS];
+        int spanCount;
+        int span;
+
+        if (width <= 0 || height <= 0 ||
+            width > GLES_VRAM_WIDTH || height > GLES_VRAM_HEIGHT)
+            return;
+
+        rect.x = x0;
+        rect.y = y0;
+        rect.width = width;
+        rect.height = height;
+        spanCount = GlesVramBuildTileSpans(&rect, spans);
+        for (span = 0; span < spanCount; span++)
+            InvalidateTextureArea(spans[span].vramRect.x,
+                                  spans[span].vramRect.y,
+                                  spans[span].vramRect.width,
+                                  spans[span].vramRect.height);
+
+        for (y = 0; y < height; y++)
+        {
+            unsigned short *row = psxVuw +
+                (((y0 + y) & iGPUHeightMask) << 10);
+            for (x = 0; x < width; x++)
+                PUTLE16(row + ((x0 + x) & 0x3ff), fillCol);
+        }
+        return;
+    }
+#endif
 
     if ( width <= 0 ) return;
     if ( height <= 0 ) return;
@@ -2836,6 +3070,49 @@ static void primBlkFill ( unsigned char * baseAddr )
     // mmm... will clean all stuff, also if not all _should_ be cleaned...
     BOOL clearNext = IsCompleteInsideNextScreen(sprtX, sprtY, sprtW, sprtH);
     BOOL clearCurrent = CLEAR_SCREEN(sprtX, sprtY, sprtX + sprtW, sprtY + sprtH);
+
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+    if (GlesVramTilingS2CommandActive())
+    {
+        /* S2 must submit the Fill quad through the tile draw wrapper.  The
+         * legacy full-screen glClear path has no primitive to replay. */
+        clearNext = FALSE;
+        clearCurrent = FALSE;
+    }
+#endif
+
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_LR_TILING_S7_ANIM_DIAG)
+    {
+        GlesVramRect fillRect;
+        unsigned int pages;
+        unsigned int displays;
+        fillRect.x = sprtX;
+        fillRect.y = sprtY;
+        fillRect.width = sprtW;
+        fillRect.height = sprtH;
+        pages = S7AnimDiagPageMask(&fillRect);
+        displays = S7AnimDiagDisplayMask(&fillRect);
+        if (pages != 0 || displays != 0)
+        {
+            S7AnimDiagBeginFrame();
+            if (g_s7AnimDiagFillCount < S7_ANIM_DIAG_LIMIT)
+            {
+                sprintf(txtbuffer,
+                        "TDI ANIM_FILL f=%u n=%u r=%d,%d,%d,%d "
+                        "p=%u d=%u t=%u seq=%u s2=%d clear=%d/%d\r\n",
+                        g_textureDiagFrame, g_s7AnimDiagFillCount,
+                        fillRect.x, fillRect.y,
+                        fillRect.width, fillRect.height,
+                        pages, displays, S7AnimDiagTileMask(&fillRect),
+                        (unsigned int)seq,
+                        GlesVramTilingS2CommandActive(),
+                        clearCurrent, clearNext);
+                TextureDiagAppend(txtbuffer);
+            }
+            g_s7AnimDiagFillCount++;
+        }
+    }
+#endif
 
     ctxOk = BeginEfbDrawContext();
     if (ctxOk)
@@ -3019,6 +3296,191 @@ static void primMoveImage ( unsigned char * baseAddr )
     }
 
     if ( ( imageX0 == imageX1 ) && ( imageY0 == imageY1 ) ) return;
+
+#ifdef GLES_VRAM_LR_TILING_S5_EXPERIMENT
+    if (!PSXDisplay.RGB24)
+    {
+        GlesVramRect sourceRect;
+        GlesVramRect destinationRect;
+        GlesVramTileSpan spans[GLES_VRAM_MAX_TILE_SPANS];
+        int decodedWidth;
+        int decodedHeight;
+        int spanCount;
+        int span;
+#if defined(DISP_DEBUG) && \
+    (defined(VRAM_TILING_DIAG_ONLY) || \
+     defined(GLES_VRAM_LR_TILING_S7_ANIM_DIAG))
+        GlesVramS5Stats s5StatsBefore;
+        GlesVramS5Stats s5StatsAfter;
+#ifdef VRAM_TILING_DIAG_ONLY
+        GlesVramTileSpan sourceSpans[GLES_VRAM_MAX_TILE_SPANS];
+        int sourceSpanCount;
+#endif
+        GlesVramTilingS5GetStats(&s5StatsBefore);
+#endif
+
+        GlesVramDecodeTransferSize(
+            (uint32_t)(uint16_t)imageSX |
+            ((uint32_t)(uint16_t)imageSY << 16),
+            &decodedWidth, &decodedHeight);
+        sourceRect.x = imageX0;
+        sourceRect.y = imageY0;
+        sourceRect.width = decodedWidth;
+        sourceRect.height = decodedHeight;
+        destinationRect.x = imageX1;
+        destinationRect.y = imageY1;
+        destinationRect.width = decodedWidth;
+        destinationRect.height = decodedHeight;
+        if (GlesVramTilingS5MoveImage(psxVuw, &sourceRect,
+                                     &destinationRect,
+                                     (uint16_t)sSetMask))
+        {
+            MarkCpuVramWrite(imageX1, imageY1,
+                             decodedWidth, decodedHeight);
+            spanCount = GlesVramBuildTileSpans(&destinationRect, spans);
+            for (span = 0; span < spanCount; span++)
+            {
+                InvalidateTextureArea(
+                    spans[span].vramRect.x,
+                    spans[span].vramRect.y,
+                    spans[span].vramRect.width,
+                    spans[span].vramRect.height);
+            }
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_LR_TILING_S7_ANIM_DIAG)
+            {
+                unsigned int sourcePages = S7AnimDiagPageMask(&sourceRect);
+                unsigned int destinationPages =
+                    S7AnimDiagPageMask(&destinationRect);
+                unsigned int sourceDisplays =
+                    S7AnimDiagDisplayMask(&sourceRect);
+                unsigned int destinationDisplays =
+                    S7AnimDiagDisplayMask(&destinationRect);
+                if (sourcePages != 0 || destinationPages != 0 ||
+                    sourceDisplays != 0 || destinationDisplays != 0)
+            {
+                    S7AnimDiagBeginFrame();
+                    if (g_s7AnimDiagMoveCount < S7_ANIM_DIAG_LIMIT)
+                    {
+                        GlesVramTilingS5GetStats(&s5StatsAfter);
+                        sprintf(txtbuffer,
+                                "TDI ANIM_MOVE f=%u n=%u ok=1 "
+                                "s=%d,%d d=%d,%d wh=%d,%d "
+                                "p=%u/%u v=%u/%u t=%u/%u "
+                                "res=%u/%u/%u\r\n",
+                                g_textureDiagFrame, g_s7AnimDiagMoveCount,
+                                sourceRect.x, sourceRect.y,
+                                destinationRect.x, destinationRect.y,
+                                decodedWidth, decodedHeight,
+                                sourcePages, destinationPages,
+                                sourceDisplays, destinationDisplays,
+                                S7AnimDiagTileMask(&sourceRect),
+                                S7AnimDiagTileMask(&destinationRect),
+                                s5StatsAfter.resolveCalls -
+                                    s5StatsBefore.resolveCalls,
+                                s5StatsAfter.resolveWaits -
+                                    s5StatsBefore.resolveWaits,
+                                s5StatsAfter.resolvedBlocks -
+                                    s5StatsBefore.resolvedBlocks);
+                        TextureDiagAppend(txtbuffer);
+                    }
+                    g_s7AnimDiagMoveCount++;
+                }
+            }
+#endif
+#if defined(VRAM_TILING_DIAG_ONLY) && defined(DISP_DEBUG)
+            sourceSpanCount = GlesVramBuildTileSpans(&sourceRect,
+                                                     sourceSpans);
+            GlesVramTilingS5GetStats(&s5StatsAfter);
+            sprintf(txtbuffer,
+                    "VTL MOVE frame=%u src=%d,%d,%d,%d dst=%d,%d "
+                    "srcSpans=%d dstSpans=%d mask=%04X active=%d "
+                    "resolve=%u wait=%u blocks=%u\r\n",
+                    g_s5TraceFrame,
+                    sourceRect.x, sourceRect.y,
+                    sourceRect.width, sourceRect.height,
+                    destinationRect.x, destinationRect.y,
+                    sourceSpanCount, spanCount,
+                    (unsigned int)(uint16_t)sSetMask,
+                    GlesVramTilingActiveTile(),
+                    s5StatsAfter.resolveCalls - s5StatsBefore.resolveCalls,
+                    s5StatsAfter.resolveWaits - s5StatsBefore.resolveWaits,
+                    s5StatsAfter.resolvedBlocks -
+                        s5StatsBefore.resolvedBlocks);
+            TextureDiagAppend(txtbuffer);
+#endif
+            return;
+        }
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_LR_TILING_S7_ANIM_DIAG)
+        {
+            unsigned int sourcePages = S7AnimDiagPageMask(&sourceRect);
+            unsigned int destinationPages =
+                S7AnimDiagPageMask(&destinationRect);
+            unsigned int sourceDisplays =
+                S7AnimDiagDisplayMask(&sourceRect);
+            unsigned int destinationDisplays =
+                S7AnimDiagDisplayMask(&destinationRect);
+            if (sourcePages != 0 || destinationPages != 0 ||
+                sourceDisplays != 0 || destinationDisplays != 0)
+            {
+                S7AnimDiagBeginFrame();
+                if (g_s7AnimDiagMoveCount < S7_ANIM_DIAG_LIMIT)
+                {
+                    GlesVramTilingS5GetStats(&s5StatsAfter);
+                    sprintf(txtbuffer,
+                            "TDI ANIM_MOVE f=%u n=%u ok=0 "
+                            "s=%d,%d d=%d,%d wh=%d,%d "
+                            "p=%u/%u v=%u/%u t=%u/%u "
+                            "res=%u/%u/%u\r\n",
+                            g_textureDiagFrame, g_s7AnimDiagMoveCount,
+                            sourceRect.x, sourceRect.y,
+                            destinationRect.x, destinationRect.y,
+                            decodedWidth, decodedHeight,
+                            sourcePages, destinationPages,
+                            sourceDisplays, destinationDisplays,
+                            S7AnimDiagTileMask(&sourceRect),
+                            S7AnimDiagTileMask(&destinationRect),
+                            s5StatsAfter.resolveCalls -
+                                s5StatsBefore.resolveCalls,
+                            s5StatsAfter.resolveWaits -
+                                s5StatsBefore.resolveWaits,
+                            s5StatsAfter.resolvedBlocks -
+                                s5StatsBefore.resolvedBlocks);
+                    TextureDiagAppend(txtbuffer);
+                }
+                g_s7AnimDiagMoveCount++;
+            }
+        }
+#endif
+#if defined(VRAM_TILING_DIAG_ONLY) && defined(DISP_DEBUG)
+        GlesVramTilingS5GetStats(&s5StatsAfter);
+        sprintf(txtbuffer,
+                "VTL MOVE_FALLBACK frame=%u reason=resolve "
+                "src=%d,%d,%d,%d dst=%d,%d active=%d "
+                "resolve=%u wait=%u blocks=%u\r\n",
+                g_s5TraceFrame,
+                sourceRect.x, sourceRect.y,
+                sourceRect.width, sourceRect.height,
+                destinationRect.x, destinationRect.y,
+                GlesVramTilingActiveTile(),
+                s5StatsAfter.resolveCalls - s5StatsBefore.resolveCalls,
+                s5StatsAfter.resolveWaits - s5StatsBefore.resolveWaits,
+                s5StatsAfter.resolvedBlocks - s5StatsBefore.resolvedBlocks);
+        TextureDiagAppend(txtbuffer);
+#endif
+    }
+#if defined(VRAM_TILING_DIAG_ONLY) && defined(DISP_DEBUG)
+    else
+    {
+        sprintf(txtbuffer,
+                "VTL MOVE_FALLBACK frame=%u reason=rgb24 "
+                "src=%d,%d raw=%d,%d dst=%d,%d\r\n",
+                g_s5TraceFrame, imageX0, imageY0, imageSX, imageSY,
+                imageX1, imageY1);
+        TextureDiagAppend(txtbuffer);
+    }
+#endif
+#endif
+
     if ( imageSX <= 0 ) return;
     if ( imageSY <= 0 ) return;
 

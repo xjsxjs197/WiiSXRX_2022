@@ -38,7 +38,8 @@ INCLUDES	:=
 
 CFLAGS	= -flto -Ofast -w -Wno-stringop-truncation -Wno-strict-aliasing -Wno-misleading-indentation -fpermissive $(MACHDEP) $(INCLUDE) -DUSE_LIBCHDR -D__GAMECUBE__ -DWII -DHW_RVL -D__ppc__ -D__BIG_ENDIAN__ -D__powerpc__ -DCPU_IS_BIG_ENDIAN=1 -DWORDS_BIGENDIAN=1 -DPACKAGE_VERSION=\"1.3.2\" -DHAVE_LROUND \
 		  -D__GX__ \
-		  -D_GNU_SOURCE -DDISP_DEBUG -DSHOW_DEBUG
+		  -D_GNU_SOURCE -DDISP_DEBUG -DSHOW_DEBUG \
+		  $(EXTRA_CFLAGS)
 
 CXXFLAGS	=	$(CFLAGS)
 
@@ -108,15 +109,15 @@ export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 #---------------------------------------------------------------------------------
 # build a list of library paths
 #---------------------------------------------------------------------------------
-export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
+export LIBPATHS	:=	-L../../deps/opengx/lib \
+					$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
 					-L$(LIBOGC_LIB) \
 					-L$(DEVKITPRO)/libogc/lib/wii, -L$(DEVKITPRO)/libfat/libogc/lib/wii \
 					-L../../deps/lightrec/lib \
 					-L../../deps/libchdr/deps/zstd-1.5.6/bin/lib \
 					-L../../deps/libchdr/deps/lzma-19.00/lib \
 					-L../../deps/libchdr/deps/zlib-1.3.1/bin/lib \
-					-L../../deps/libchdr/lib \
-					-L../../deps/opengx/lib
+					-L../../deps/libchdr/lib
 
 export OUTPUT	:=	$(CURDIR)/$(TARGET)
 .PHONY: $(BUILD) clean

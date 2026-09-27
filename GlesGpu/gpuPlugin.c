@@ -38,6 +38,7 @@
 
 #include "gpuExternals.h"
 #include "gpuPlugin.h"
+#include "gpuVramTiling.h"
 //#include "gpuDraw.h"
 //#include "gpuTexture.h"
 //#include "gpuPrim.h"
@@ -203,6 +204,11 @@ static void TextureDiagAppend(const char *line)
 
     if (line == NULL)
         return;
+#ifdef VRAM_TILING_DIAG_ONLY
+    if (strncmp(line, "VTL ", 4) != 0 &&
+        strncmp(line, "TDI ", 4) != 0)
+        return;
+#endif
     length = (unsigned int)strlen(line);
     if (length >= sizeof(g_textureDiagBuffer))
         return;
@@ -224,6 +230,506 @@ static void TextureDiagFlush(void)
     writeLogFile(g_textureDiagBuffer);
     g_textureDiagBufferUsed = 0;
 }
+
+#ifdef GLES_VRAM_LR_TILING_S7_ANIM_DIAG
+/* F1-style RGB15 movies update two 320x236 pages with small A0/80h
+ * transfers.  Keep this probe narrowly scoped to those pages so the SD log
+ * does not perturb unrelated rendering. */
+#define S7_ANIM_DIAG_LIMIT 64u
+static unsigned int g_s7AnimDiagFrame;
+static unsigned int g_s7AnimDiagA0Count;
+static unsigned int g_s7AnimDiagMoveCount;
+static unsigned int g_s7AnimDiagFillCount;
+
+static void S7AnimDiagBeginFrame(void)
+{
+    if (g_s7AnimDiagFrame == g_textureDiagFrame)
+        return;
+    g_s7AnimDiagFrame = g_textureDiagFrame;
+    g_s7AnimDiagA0Count = 0;
+    g_s7AnimDiagMoveCount = 0;
+    g_s7AnimDiagFillCount = 0;
+}
+
+static int S7AnimDiagRectsOverlap(const GlesVramRect *rect,
+                                  const GlesVramRect *target)
+{
+    GlesVramRectPiece pieces[GLES_VRAM_MAX_WRAP_PIECES];
+    int count;
+    int piece;
+
+    if (rect == NULL || target == NULL ||
+        target->width <= 0 || target->height <= 0)
+        return 0;
+    count = GlesVramSplitWrappedRect(rect, pieces);
+    for (piece = 0; piece < count; piece++)
+    {
+        const GlesVramRect *part = &pieces[piece].rect;
+        if (part->x < target->x + target->width &&
+            target->x < part->x + part->width &&
+            part->y < target->y + target->height &&
+            target->y < part->y + part->height)
+            return 1;
+    }
+    return 0;
+}
+
+static unsigned int S7AnimDiagPageMask(const GlesVramRect *rect)
+{
+    static const GlesVramRect pages[2] = {
+        {0, 0, 320, 236},
+        {512, 0, 320, 236}
+    };
+    GlesVramRectPiece pieces[GLES_VRAM_MAX_WRAP_PIECES];
+    unsigned int mask = 0;
+    int count;
+    int piece;
+    int page;
+
+    if (rect == NULL)
+        return 0;
+    count = GlesVramSplitWrappedRect(rect, pieces);
+    for (piece = 0; piece < count; piece++)
+    {
+        const GlesVramRect *part = &pieces[piece].rect;
+        for (page = 0; page < 2; page++)
+        {
+            if (part->x < pages[page].x + pages[page].width &&
+                pages[page].x < part->x + part->width &&
+                part->y < pages[page].y + pages[page].height &&
+                pages[page].y < part->y + part->height)
+                mask |= 1u << page;
+        }
+    }
+    return mask;
+}
+
+static unsigned int S7AnimDiagDisplayMask(const GlesVramRect *rect)
+{
+    GlesVramRect current;
+    GlesVramRect previous;
+    unsigned int mask = 0;
+
+    current.x = PSXDisplay.DisplayPosition.x;
+    current.y = PSXDisplay.DisplayPosition.y;
+    current.width = PSXDisplay.DisplayMode.x;
+    current.height = PSXDisplay.DisplayMode.y;
+    previous.x = PreviousPSXDisplay.DisplayPosition.x;
+    previous.y = PreviousPSXDisplay.DisplayPosition.y;
+    previous.width = PSXDisplay.DisplayMode.x;
+    previous.height = PSXDisplay.DisplayMode.y;
+    if (S7AnimDiagRectsOverlap(rect, &current))
+        mask |= 1u;
+    if (S7AnimDiagRectsOverlap(rect, &previous))
+        mask |= 2u;
+    return mask;
+}
+
+static unsigned int S7AnimDiagTileMask(const GlesVramRect *rect)
+{
+    GlesVramTileSpan spans[GLES_VRAM_MAX_TILE_SPANS];
+    unsigned int mask = 0;
+    int count;
+    int span;
+
+    if (rect == NULL)
+        return 0;
+    count = GlesVramBuildTileSpans(rect, spans);
+    for (span = 0; span < count; span++)
+    {
+        if (spans[span].tile == GLES_VRAM_TILE_LEFT)
+            mask |= 1u;
+        else if (spans[span].tile == GLES_VRAM_TILE_RIGHT)
+            mask |= 2u;
+    }
+    return mask;
+}
+#endif
+#endif
+
+#ifdef VRAM_APERTURE_DIAG
+/*
+ * PS VRAM aperture diagnostic.
+ *
+ * Keep this independent of the renderer's EFB tracking: the purpose is to
+ * observe the original GP0 command stream before any 640-pixel GX mapping is
+ * applied.  Data is aggregated for a whole presented frame, then written in
+ * one operation so SD I/O does not perturb command timing.
+ */
+typedef struct VramApertureRangeTag
+{
+    unsigned int rects;
+    unsigned int outsideFixed;
+    unsigned int wrapped;
+    int valid;
+    int x0, y0, x1, y1; /* Half-open bounds. */
+} VramApertureRange;
+
+static unsigned int g_vapFrame = 1;
+static unsigned int g_vapCommandCount[256];
+static VramApertureRange g_vapWriteRange[256];
+static VramApertureRange g_vapReadRange[256];
+
+static void VramApertureMergeBounds(VramApertureRange *range,
+                                    int x0, int y0, int x1, int y1)
+{
+    if (x1 <= x0 || y1 <= y0)
+        return;
+
+    if (!range->valid)
+    {
+        range->x0 = x0;
+        range->y0 = y0;
+        range->x1 = x1;
+        range->y1 = y1;
+        range->valid = 1;
+        return;
+    }
+
+    if (x0 < range->x0) range->x0 = x0;
+    if (y0 < range->y0) range->y0 = y0;
+    if (x1 > range->x1) range->x1 = x1;
+    if (y1 > range->y1) range->y1 = y1;
+}
+
+static void VramApertureTrackRect(VramApertureRange *range,
+                                  int x, int y, int width, int height,
+                                  int allowWrap)
+{
+    int x1, y1;
+
+    if (width <= 0 || height <= 0)
+        return;
+
+    range->rects++;
+    x1 = x + width;
+    y1 = y + height;
+
+    if (x < 0 || y < 0 || x1 > 640 || y1 > 480)
+        range->outsideFixed++;
+
+    if (allowWrap && (x1 > 1024 || y1 > 512))
+    {
+        /* A wrapped transfer touches both VRAM edges.  Represent that as the
+         * full affected axis; a single ordinary aperture cannot contain it. */
+        range->wrapped++;
+        if (x1 > 1024) { x = 0; x1 = 1024; }
+        if (y1 > 512)  { y = 0; y1 = 512; }
+    }
+
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x1 > 1024) x1 = 1024;
+    if (y1 > 512) y1 = 512;
+    VramApertureMergeBounds(range, x, y, x1, y1);
+}
+
+static int VramAperturePacketX(const unsigned long *packet, int index)
+{
+    unsigned long word = GETLE32(&packet[index]);
+    return (int)(short)(word & 0xffff);
+}
+
+static int VramAperturePacketY(const unsigned long *packet, int index)
+{
+    unsigned long word = GETLE32(&packet[index]);
+    return (int)(short)((word >> 16) & 0xffff);
+}
+
+static int VramApertureTransferWidth(unsigned long word)
+{
+    int width = (int)(word & 0xffff) & 0x3ff;
+    return width ? width : 1024;
+}
+
+static int VramApertureTransferHeight(unsigned long word)
+{
+    int height = (int)((word >> 16) & 0xffff) & 0x1ff;
+    return height ? height : 512;
+}
+
+static void VramApertureTrackPrimitive(unsigned char command,
+                                       const unsigned long *packet,
+                                       const unsigned char *indices,
+                                       int vertexCount)
+{
+    int i, x, y;
+    int minX = 32767, minY = 32767;
+    int maxX = -32768, maxY = -32768;
+    int clipX0, clipY0, clipX1, clipY1;
+
+    for (i = 0; i < vertexCount; i++)
+    {
+        x = VramAperturePacketX(packet, indices[i]) + PSXDisplay.DrawOffset.x;
+        y = VramAperturePacketY(packet, indices[i]) + PSXDisplay.DrawOffset.y;
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+    }
+
+    /* DrawArea has inclusive endpoints.  Clip the primitive bounding box to
+     * the pixels that can actually be written to PS VRAM. */
+    clipX0 = PSXDisplay.DrawArea.x0;
+    clipY0 = PSXDisplay.DrawArea.y0;
+    clipX1 = PSXDisplay.DrawArea.x1 + 1;
+    clipY1 = PSXDisplay.DrawArea.y1 + 1;
+    if (clipX0 < 0) clipX0 = 0;
+    if (clipY0 < 0) clipY0 = 0;
+    if (clipX1 > 1024) clipX1 = 1024;
+    if (clipY1 > 512) clipY1 = 512;
+    if (minX < clipX0) minX = clipX0;
+    if (minY < clipY0) minY = clipY0;
+    if (maxX + 1 > clipX1) maxX = clipX1 - 1;
+    if (maxY + 1 > clipY1) maxY = clipY1 - 1;
+
+    VramApertureTrackRect(&g_vapWriteRange[command], minX, minY,
+                          maxX - minX + 1, maxY - minY + 1, 0);
+}
+
+static int VramApertureIsPolylineEnd(unsigned long word)
+{
+    return (word & 0xF000F000) == 0x50005000;
+}
+
+static void VramApertureTrackPacket(unsigned char command,
+                                    const unsigned long *packet)
+{
+    static const unsigned char triF[]  = { 1, 2, 3 };
+    static const unsigned char triFT[] = { 1, 3, 5 };
+    static const unsigned char quadF[] = { 1, 2, 3, 4 };
+    static const unsigned char quadFT[] = { 1, 3, 5, 7 };
+    static const unsigned char triG[] = { 1, 3, 5 };
+    static const unsigned char triGT[] = { 1, 4, 7 };
+    static const unsigned char quadG[] = { 1, 3, 5, 7 };
+    static const unsigned char quadGT[] = { 1, 4, 7, 10 };
+    static const unsigned char lineF[] = { 1, 2 };
+    static const unsigned char lineG[] = { 1, 3 };
+    unsigned char polylineIndices[128];
+    unsigned long pos, size;
+    int i, vertices;
+    int x, y, width, height;
+
+    g_vapCommandCount[command]++;
+
+    if (command == 0x02)
+    {
+        pos = GETLE32(&packet[1]);
+        size = GETLE32(&packet[2]);
+        x = (int)(pos & 0x3f0);
+        y = (int)((pos >> 16) & 0x1ff);
+        width = ((int)(size & 0x3ff) + 15) & ~15;
+        height = (int)((size >> 16) & 0x1ff);
+        VramApertureTrackRect(&g_vapWriteRange[command], x, y,
+                              width, height, 1);
+    }
+    else if (command >= 0x20 && command <= 0x23)
+        VramApertureTrackPrimitive(command, packet, triF, 3);
+    else if (command >= 0x24 && command <= 0x27)
+        VramApertureTrackPrimitive(command, packet, triFT, 3);
+    else if (command >= 0x28 && command <= 0x2b)
+        VramApertureTrackPrimitive(command, packet, quadF, 4);
+    else if (command >= 0x2c && command <= 0x2f)
+        VramApertureTrackPrimitive(command, packet, quadFT, 4);
+    else if (command >= 0x30 && command <= 0x33)
+        VramApertureTrackPrimitive(command, packet, triG, 3);
+    else if (command >= 0x34 && command <= 0x37)
+        VramApertureTrackPrimitive(command, packet, triGT, 3);
+    else if (command >= 0x38 && command <= 0x3b)
+        VramApertureTrackPrimitive(command, packet, quadG, 4);
+    else if (command >= 0x3c && command <= 0x3f)
+        VramApertureTrackPrimitive(command, packet, quadGT, 4);
+    else if (command >= 0x40 && command <= 0x47)
+        VramApertureTrackPrimitive(command, packet, lineF, 2);
+    else if (command >= 0x48 && command <= 0x4f)
+    {
+        vertices = 0;
+        for (i = 1; i < 254 && vertices < 128; i++)
+        {
+            if (VramApertureIsPolylineEnd(GETLE32(&packet[i]))) break;
+            polylineIndices[vertices++] = (unsigned char)i;
+        }
+        if (vertices >= 2)
+            VramApertureTrackPrimitive(command, packet,
+                                       polylineIndices, vertices);
+    }
+    else if (command >= 0x50 && command <= 0x57)
+        VramApertureTrackPrimitive(command, packet, lineG, 2);
+    else if (command >= 0x58 && command <= 0x5f)
+    {
+        vertices = 0;
+        for (i = 1; i < 255 && vertices < 128; i += 2)
+        {
+            polylineIndices[vertices++] = (unsigned char)i;
+            if (i + 1 < 255 &&
+                VramApertureIsPolylineEnd(GETLE32(&packet[i + 1]))) break;
+        }
+        if (vertices >= 2)
+            VramApertureTrackPrimitive(command, packet,
+                                       polylineIndices, vertices);
+    }
+    else if (command >= 0x60 && command <= 0x67)
+    {
+        pos = GETLE32(&packet[1]);
+        size = GETLE32(&packet[(command & 4) ? 3 : 2]);
+        x = (int)(short)(pos & 0xffff) + PSXDisplay.DrawOffset.x;
+        y = (int)(short)(pos >> 16) + PSXDisplay.DrawOffset.y;
+        width = (int)(size & 0xffff);
+        height = (int)((size >> 16) & 0xffff);
+        VramApertureTrackRect(&g_vapWriteRange[command], x, y,
+                              width, height, 0);
+    }
+    else if (command >= 0x68 && command <= 0x7f)
+    {
+        pos = GETLE32(&packet[1]);
+        x = (int)(short)(pos & 0xffff) + PSXDisplay.DrawOffset.x;
+        y = (int)(short)(pos >> 16) + PSXDisplay.DrawOffset.y;
+        width = (command < 0x70) ? 1 : ((command < 0x78) ? 8 : 16);
+        height = width;
+        VramApertureTrackRect(&g_vapWriteRange[command], x, y,
+                              width, height, 0);
+    }
+    else if (command == 0x80)
+    {
+        unsigned long src = GETLE32(&packet[1]);
+        unsigned long dst = GETLE32(&packet[2]);
+        size = GETLE32(&packet[3]);
+        width = VramApertureTransferWidth(size);
+        height = VramApertureTransferHeight(size);
+        VramApertureTrackRect(&g_vapReadRange[command],
+                              (int)(src & 0x3ff),
+                              (int)((src >> 16) & 0x1ff),
+                              width, height, 1);
+        VramApertureTrackRect(&g_vapWriteRange[command],
+                              (int)(dst & 0x3ff),
+                              (int)((dst >> 16) & 0x1ff),
+                              width, height, 1);
+    }
+    else if (command == 0xa0 || command == 0xc0)
+    {
+        pos = GETLE32(&packet[1]);
+        size = GETLE32(&packet[2]);
+        width = VramApertureTransferWidth(size);
+        height = VramApertureTransferHeight(size);
+        VramApertureTrackRect(command == 0xa0 ?
+                              &g_vapWriteRange[command] :
+                              &g_vapReadRange[command],
+                              (int)(pos & 0x3ff),
+                              (int)((pos >> 16) & 0x1ff),
+                              width, height, 1);
+    }
+}
+
+static void VramApertureAppend(char *buffer, unsigned int capacity,
+                               unsigned int *used, const char *format, ...)
+{
+    va_list args;
+    int written;
+
+    if (*used >= capacity - 1)
+        return;
+    va_start(args, format);
+    written = vsnprintf(buffer + *used, capacity - *used, format, args);
+    va_end(args);
+    if (written < 0)
+        return;
+    if ((unsigned int)written >= capacity - *used)
+        *used = capacity - 1;
+    else
+        *used += (unsigned int)written;
+}
+
+static void VramApertureFlushFrame(void)
+{
+    static char buffer[32768];
+    VramApertureRange writeAll = {0}, readAll = {0};
+    unsigned int used = 0, total = 0;
+    int command;
+    int writeFit, readFit, apertureX, apertureY;
+
+    for (command = 0; command < 256; command++)
+    {
+        VramApertureRange *wr = &g_vapWriteRange[command];
+        VramApertureRange *rd = &g_vapReadRange[command];
+        total += g_vapCommandCount[command];
+        if (wr->valid)
+            VramApertureMergeBounds(&writeAll,
+                                    wr->x0, wr->y0, wr->x1, wr->y1);
+        if (rd->valid)
+            VramApertureMergeBounds(&readAll,
+                                    rd->x0, rd->y0, rd->x1, rd->y1);
+        writeAll.rects += wr->rects;
+        writeAll.outsideFixed += wr->outsideFixed;
+        writeAll.wrapped += wr->wrapped;
+        readAll.rects += rd->rects;
+        readAll.outsideFixed += rd->outsideFixed;
+        readAll.wrapped += rd->wrapped;
+    }
+
+    writeFit = !writeAll.valid ||
+               (writeAll.x1 - writeAll.x0 <= 640 &&
+                writeAll.y1 - writeAll.y0 <= 480 &&
+                writeAll.wrapped == 0);
+    readFit = !readAll.valid ||
+              (readAll.x1 - readAll.x0 <= 640 &&
+               readAll.y1 - readAll.y0 <= 480 &&
+               readAll.wrapped == 0);
+    apertureX = writeAll.valid ? writeAll.x0 : 0;
+    apertureY = writeAll.valid ? writeAll.y0 : 0;
+    if (apertureX > 384) apertureX = 384;
+    if (apertureY > 32) apertureY = 32;
+
+    VramApertureAppend(buffer, sizeof(buffer), &used,
+        "VAP FRAME=%u commands=%u display=%d,%d %dx%d "
+        "drawarea=%d,%d-%d,%d offset=%d,%d "
+        "write=%d,%d-%d,%d rects=%u outside640=%u wrap=%u fit=%d "
+        "aperture=%d,%d read=%d,%d-%d,%d rects=%u outside640=%u "
+        "wrap=%u fit=%d\r\n",
+        g_vapFrame, total,
+        PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y,
+        PSXDisplay.DisplayMode.x, PSXDisplay.DisplayMode.y,
+        PSXDisplay.DrawArea.x0, PSXDisplay.DrawArea.y0,
+        PSXDisplay.DrawArea.x1, PSXDisplay.DrawArea.y1,
+        PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y,
+        writeAll.valid ? writeAll.x0 : 0,
+        writeAll.valid ? writeAll.y0 : 0,
+        writeAll.valid ? writeAll.x1 : 0,
+        writeAll.valid ? writeAll.y1 : 0,
+        writeAll.rects, writeAll.outsideFixed, writeAll.wrapped, writeFit,
+        apertureX, apertureY,
+        readAll.valid ? readAll.x0 : 0,
+        readAll.valid ? readAll.y0 : 0,
+        readAll.valid ? readAll.x1 : 0,
+        readAll.valid ? readAll.y1 : 0,
+        readAll.rects, readAll.outsideFixed, readAll.wrapped, readFit);
+
+    for (command = 0; command < 256; command++)
+    {
+        VramApertureRange *wr = &g_vapWriteRange[command];
+        VramApertureRange *rd = &g_vapReadRange[command];
+        if (!g_vapCommandCount[command])
+            continue;
+        VramApertureAppend(buffer, sizeof(buffer), &used,
+            "VAP OP frame=%u cmd=%02X count=%u "
+            "write=%d,%d-%d,%d rects=%u outside640=%u wrap=%u "
+            "read=%d,%d-%d,%d rects=%u outside640=%u wrap=%u\r\n",
+            g_vapFrame, command, g_vapCommandCount[command],
+            wr->valid ? wr->x0 : 0, wr->valid ? wr->y0 : 0,
+            wr->valid ? wr->x1 : 0, wr->valid ? wr->y1 : 0,
+            wr->rects, wr->outsideFixed, wr->wrapped,
+            rd->valid ? rd->x0 : 0, rd->valid ? rd->y0 : 0,
+            rd->valid ? rd->x1 : 0, rd->valid ? rd->y1 : 0,
+            rd->rects, rd->outsideFixed, rd->wrapped);
+    }
+
+    buffer[used] = '\0';
+    if (used)
+        writeLogFile(buffer);
+    memset(g_vapCommandCount, 0, sizeof(g_vapCommandCount));
+    memset(g_vapWriteRange, 0, sizeof(g_vapWriteRange));
+    memset(g_vapReadRange, 0, sizeof(g_vapReadRange));
+    g_vapFrame++;
+}
 #endif
 
 static void ResetVramReadbackState(void);
@@ -233,14 +739,316 @@ static inline unsigned short ReadGXRGB5A3PixelRaw(
 static inline unsigned short GXRGB5A3ToPSX15(unsigned short gx);
 void RestoreDispCopyInfo(void);
 extern GXRModeObj *vmode;     /*** Graphics Mode Object ***/
+#ifdef GLES_VRAM_LR_TILING_S5_EXPERIMENT
+/* gpuPrim.c is included below and sets this only when S5 has already made
+ * the complete C0 rectangle current in psxVuw. */
+static int g_s5ReadActive;
+#ifdef VRAM_TILING_DIAG_ONLY
+/* Commands are logged before flipEGL(), so this names the frame they will
+ * contribute to rather than the previously presented frame. */
+static unsigned int g_s5TraceFrame = 1;
+#endif
+#endif
 
 #include "gpuDraw.c"
 #include "gpuTexture.c"
 #include "gpuVramReadback.inc"
+#include "gpuVramTilingS2.inc"
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+#define glPRIMdrawTexturedQuad GlesVramS2DrawTexturedQuad
+#define glPRIMdrawTexturedTri GlesVramS2DrawTexturedTri
+#define glPRIMdrawTexGouraudTriColor GlesVramS2DrawTexGouraudTriColor
+#define glPRIMdrawTexGouraudTriColorQuad GlesVramS2DrawTexGouraudTriColorQuad
+#define glPRIMdrawTri GlesVramS2DrawTri
+#define glPRIMdrawTri2 GlesVramS2DrawTri2
+#define glPRIMdrawGouraudTriColor GlesVramS2DrawGouraudTriColor
+#define glPRIMdrawGouraudTri2Color GlesVramS2DrawGouraudTri2Color
+#define glPRIMdrawFlatLine GlesVramS2DrawFlatLine
+#define glPRIMdrawGouraudLine GlesVramS2DrawGouraudLine
+#define glPRIMdrawQuad GlesVramS2DrawQuad
+#endif
 #include "gpuPrim.c"
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+#undef glPRIMdrawTexturedQuad
+#undef glPRIMdrawTexturedTri
+#undef glPRIMdrawTexGouraudTriColor
+#undef glPRIMdrawTexGouraudTriColorQuad
+#undef glPRIMdrawTri
+#undef glPRIMdrawTri2
+#undef glPRIMdrawGouraudTriColor
+#undef glPRIMdrawGouraudTri2Color
+#undef glPRIMdrawFlatLine
+#undef glPRIMdrawGouraudLine
+#undef glPRIMdrawQuad
+#endif
+
+#if defined(GLES_VRAM_LR_TILING_S2_TEST) || \
+    defined(GLES_VRAM_LR_TILING_S3_TEST)
+static void GlesVramS2SetTestColor(OGLVertex *vertex,
+                                   unsigned char red,
+                                   unsigned char green,
+                                   unsigned char blue)
+{
+    /* OpenGX's PS primitive entry points consume BGR byte order. */
+    vertex->c.col.r = blue;
+    vertex->c.col.g = green;
+    vertex->c.col.b = red;
+    vertex->c.col.a = 255;
+}
+
+static int GlesVramS2DrawTestQuad(int x0, int y0, int x1, int y1,
+                                 GXColor leftColor, GXColor rightColor)
+{
+    uint32_t packet[8];
+    GlesVramRect drawArea = {0, 0, GLES_VRAM_WIDTH, GLES_VRAM_HEIGHT};
+    GlesVramPoint drawOffset = {0, 0};
+    OGLVertex testVertex[4];
+
+    memset(packet, 0, sizeof(packet));
+    PUTLE32(&packet[0], 0x38000000u);
+    PUTLE32(&packet[1], ((uint32_t)(uint16_t)y0 << 16) |
+                        (uint16_t)x0);
+    PUTLE32(&packet[3], ((uint32_t)(uint16_t)y0 << 16) |
+                        (uint16_t)x1);
+    PUTLE32(&packet[5], ((uint32_t)(uint16_t)y1 << 16) |
+                        (uint16_t)x0);
+    PUTLE32(&packet[7], ((uint32_t)(uint16_t)y1 << 16) |
+                        (uint16_t)x1);
+    if (!GlesVramTilingS2BeginCommand(0x38, packet, 8,
+                                      &drawArea, &drawOffset, NULL))
+        return 0;
+
+    memset(testVertex, 0, sizeof(testVertex));
+    testVertex[0].x = (float)x0; testVertex[0].y = (float)y0;
+    testVertex[1].x = (float)x1; testVertex[1].y = (float)y0;
+    testVertex[2].x = (float)x0; testVertex[2].y = (float)y1;
+    testVertex[3].x = (float)x1; testVertex[3].y = (float)y1;
+    GlesVramS2SetTestColor(&testVertex[0],
+        leftColor.r, leftColor.g, leftColor.b);
+    GlesVramS2SetTestColor(&testVertex[1],
+        rightColor.r, rightColor.g, rightColor.b);
+    GlesVramS2SetTestColor(&testVertex[2],
+        leftColor.r, leftColor.g, leftColor.b);
+    GlesVramS2SetTestColor(&testVertex[3],
+        rightColor.r, rightColor.g, rightColor.b);
+
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_BLEND);
+    glAlphaFunc(GL_ALWAYS, 0.0f);
+    GlesVramS2DrawGouraudTri2Color(testVertex);
+    GlesVramTilingS2EndCommand();
+    return 1;
+}
+#endif
+
+#ifdef GLES_VRAM_LR_TILING_S2_TEST
+static void DrawGlesVramS2VisualTest(void)
+{
+    if (!GlesVramTilingS2VisualTestReady())
+    {
+        /* Establish valid black contents in both tiles before testing
+         * primitive writes. */
+        GlesVramTilingReset();
+        GlesVramTilingSelectTile(GLES_VRAM_TILE_LEFT);
+        GlesVramTilingMarkActiveDirty();
+        GlesVramTilingSelectTile(GLES_VRAM_TILE_RIGHT);
+        GlesVramTilingMarkActiveDirty();
+        GlesVramTilingSelectTile(GLES_VRAM_TILE_LEFT);
+
+        /* Logical X=576..704 crosses exactly through X=640.  Reusing the
+         * original four vertices in both passes must keep the red-blue
+         * Gouraud gradient continuous at the tile boundary. */
+        GlesVramS2DrawTestQuad(576, 80, 704, 432,
+            (GXColor){255, 0, 0, 255},
+            (GXColor){0, 0, 255, 255});
+
+        /* V8's observed off-screen range is around X=704..767, which maps to
+         * RIGHT local X=64..127.  Draw a solid green reference there. */
+        GlesVramS2DrawTestQuad(704, 448, 768, 496,
+            (GXColor){0, 255, 0, 255},
+            (GXColor){0, 255, 0, 255});
+
+        GlesVramTilingS2SaveAndDiscard();
+        GlesVramTilingS2SetVisualTestReady();
+    }
+
+    GlesVramTilingS2DrawDebugComposite();
+}
+#endif
+
+#ifdef GLES_VRAM_LR_TILING_S3_TEST
+static unsigned short GlesVramS3TestColor(int red, int green, int blue)
+{
+    return (unsigned short)((red & 31) |
+                            ((green & 31) << 5) |
+                            ((blue & 31) << 10));
+}
+
+static void GlesVramS3WriteTestRect(const GlesVramRect *rect,
+                                    unsigned short color)
+{
+    int x;
+    int y;
+    for (y = 0; y < rect->height; y++)
+    {
+        for (x = 0; x < rect->width; x++)
+        {
+            int px = (rect->x + x) & (GLES_VRAM_WIDTH - 1);
+            int py = (rect->y + y) & (GLES_VRAM_HEIGHT - 1);
+            PUTLE16(psxVuw + py * GLES_VRAM_WIDTH + px, color);
+        }
+    }
+}
+
+static void GlesVramS3WriteClutTest(const GlesVramRect *rect)
+{
+    int x;
+    int y;
+    for (y = 0; y < rect->height; y++)
+    {
+        for (x = 0; x < rect->width; x++)
+        {
+            unsigned short color = GlesVramS3TestColor(
+                (x & 1) ? 31 : x * 2,
+                (x & 2) ? 31 : 0,
+                (x & 4) ? 31 : (15 - x) * 2);
+            PUTLE16(psxVuw + (rect->y + y) * GLES_VRAM_WIDTH +
+                    rect->x + x, color);
+        }
+    }
+}
+
+static void DrawGlesVramS3VisualTest(void)
+{
+    if (!GlesVramTilingS3VisualTestReady())
+    {
+        GlesVramRect partial = {632, 104, 16, 48};
+        GlesVramRect clut = {704, 224, 16, 16};
+
+        /* Start from a known CPU-only black VRAM.  The first selection of
+         * each tile must lazily upload it instead of treating a clear EFB as
+         * authoritative. */
+        memset(psxVuw, 0, GLES_VRAM_WIDTH * GLES_VRAM_HEIGHT * 2);
+        GlesVramTilingReset();
+
+        /* GPU-new blue background straddles X=640. */
+        GlesVramS2DrawTestQuad(608, 64, 672, 192,
+            (GXColor){0, 0, 255, 255},
+            (GXColor){0, 0, 255, 255});
+        GlesVramTilingS2SaveAndDiscard();
+
+        /* This A0-like write only partially covers the blue blocks.  Prepare
+         * must resolve their untouched pixels before the CPU writes red. */
+        if (GlesVramTilingS3PrepareCpuWrite(psxVuw, &partial))
+        {
+            GlesVramS3WriteTestRect(
+                &partial, GlesVramS3TestColor(31, 0, 0));
+            GlesVramTilingS3FinishCpuWrite(&partial);
+        }
+
+        /* A full 16x16 CPU-only block on RIGHT models a small animated CLUT
+         * upload and must not force an immediate tile switch. */
+        if (GlesVramTilingS3PrepareCpuWrite(psxVuw, &clut))
+        {
+            GlesVramS3WriteClutTest(&clut);
+            GlesVramTilingS3FinishCpuWrite(&clut);
+        }
+
+        GlesVramTilingSelectTile(GLES_VRAM_TILE_LEFT);
+        GlesVramTilingS3CaptureEfbTestDiagnostics();
+        GlesVramTilingSelectTile(GLES_VRAM_TILE_RIGHT);
+        GlesVramTilingS2SaveAndDiscard();
+        GlesVramTilingS3CaptureTestDiagnostics();
+        GlesVramTilingS3SetVisualTestReady();
+    }
+
+    GlesVramTilingS2DrawDebugComposite();
+}
+#endif
 
 static void flipEGL(void);
 extern void (*ogx_draw_submitted_cb)(void);
+
+#ifdef EFB_512_HEIGHT_TEST
+/*
+ * Hardware validation for the PS VRAM tiling design.  Four colors are first
+ * written only to EFB rows 480..511, copied from that exact source rectangle,
+ * and then expanded over the normal 640x480 presentation area.  A stable
+ * four-band image proves both raster access and copy-engine access below row
+ * 480 without involving the XFB height.
+ */
+static GLuint g_efb512TestTexture = 0;
+
+static void DrawEfb512HeightTest(void)
+{
+    static const unsigned char colors[4][3] = {
+        { 255,   0,   0 },
+        {   0, 255,   0 },
+        {   0,   0, 255 },
+        { 255, 255, 255 }
+    };
+    OGLVertex quad[4];
+    int i;
+
+    /* Extend the game rendering state to the complete PS VRAM height. */
+    glViewport(0, 0, 640, 512);
+    glEnable(GL_SCISSOR_TEST);
+    for (i = 0; i < 4; i++)
+    {
+        glScissor(i * 160, 480, 160, 32);
+        glClearColor2(colors[i][0], colors[i][1], colors[i][2], 255);
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
+
+    if (!g_efb512TestTexture)
+    {
+        glGenTextures(1, &g_efb512TestTexture);
+        if (!g_efb512TestTexture)
+            return;
+        glBindTextureBef(GL_TEXTURE_2D, g_efb512TestTexture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glInitRGBATextures(640, 32);
+    }
+    else
+    {
+        glBindTextureBef(GL_TEXTURE_2D, g_efb512TestTexture);
+    }
+
+    if (!glCaptureFramebufferTextureRect(0, 480, 640, 32))
+        return;
+
+    RestoreDispCopyInfo();
+    glViewport(0, 0, 640, 480);
+    glScissor(0, 0, 640, 480);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, 640, 480, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    glMatrixMode(GL_TEXTURE);
+    glLoadIdentity();
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+    glAlphaFunc(GL_ALWAYS, 0.0f);
+    glEnable(GL_TEXTURE_2D);
+
+    memset(quad, 0, sizeof(quad));
+    quad[0].x = 0.0f;   quad[0].y = 0.0f;
+    quad[1].x = 640.0f; quad[1].y = 0.0f;
+    quad[2].x = 0.0f;   quad[2].y = 480.0f;
+    quad[3].x = 640.0f; quad[3].y = 480.0f;
+    quad[0].sow = 0.0f; quad[0].tow = 0.0f;
+    quad[1].sow = 1.0f; quad[1].tow = 0.0f;
+    quad[2].sow = 0.0f; quad[2].tow = 1.0f;
+    quad[3].sow = 1.0f; quad[3].tow = 1.0f;
+    glPRIMdrawTexturedQuad(quad, 0);
+
+    /* The next game primitive must rebuild its own projection/scissor state. */
+    bDisplayNotSet = TRUE;
+    RestoreDispCopyInfo();
+}
+#endif
 
 ////////////////////////////////////////////////////////////////////////
 // stuff to make this a true PDK module
@@ -375,6 +1183,7 @@ long CALLBACK GL_GPUshutdown()
       }
 
  vram_ptr_orig = NULL;
+ GlesVramTilingShutdown();
 
  return 0;
 }
@@ -433,9 +1242,59 @@ void GPUvSinc(void){
 updateDisplayGl();
 }
 
+static int TiledDisplayCpuUploadPending(void)
+{
+#if defined(GLES_VRAM_LR_TILING_S4_EXPERIMENT) && \
+    !defined(GLES_VRAM_LR_TILING_S4_TEST)
+    GlesVramRect displayRect;
+
+    if (PSXDisplay.Disabled || PSXDisplay.RGB24 ||
+        PSXDisplay.DisplayMode.x <= 0 || PSXDisplay.DisplayMode.y <= 0)
+        return 0;
+    displayRect.x = PSXDisplay.DisplayPosition.x;
+    displayRect.y = PSXDisplay.DisplayPosition.y;
+    displayRect.width = PSXDisplay.DisplayMode.x;
+    displayRect.height = PSXDisplay.DisplayMode.y;
+    return GlesVramTilingS3RectNeedsCpuUpload(&displayRect);
+#else
+    return 0;
+#endif
+}
+
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+static void PrepareRgb24PresentationEfb(void)
+{
+    int viewportY = iResY - (rRatioRect.top + rRatioRect.bottom);
+
+    /* S2/S4 use the EFB as a 640x512 tile workspace and leave OpenGX's
+     * private projection set to that workspace.  RGB24 UploadScreen emits
+     * display-local coordinates (normally 0..320 by 0..224), so explicitly
+     * restore the display projection before drawing the movie.  Clear the
+     * complete EFB first: unlike an RGB15 S4 present, the movie path does not
+     * otherwise cover pixels outside its quad, which exposed stale tile data
+     * around the top-left quarter of the picture. */
+    glScissor(0, 0, iResX, iResY); glError();
+    glClearColor2(0, 0, 0, 128); glError();
+    glClear(uiBufferBits); glError();
+
+    glViewport(rRatioRect.left, viewportY,
+               rRatioRect.right, rRatioRect.bottom); glError();
+    glScissor(rRatioRect.left, viewportY,
+              rRatioRect.right, rRatioRect.bottom); glError();
+    glMatrixMode(GL_PROJECTION); glError();
+    glLoadIdentity(); glError();
+    glOrtho(0, PSXDisplay.DisplayMode.x,
+            PSXDisplay.DisplayMode.y, 0, -1, 1); glError();
+    glMatrixMode(GL_MODELVIEW); glError();
+    glLoadIdentity(); glError();
+    glSetLoadMtxFlg();
+}
+#endif
+
 void updateDisplayGl(void)                               // UPDATE DISPLAY
 {
 BOOL bBlur=FALSE;
+BOOL tiledCpuUploadPending=FALSE;
 
 
 bFakeFrontBuffer=FALSE;
@@ -455,8 +1314,20 @@ iLastRGB24=0;
 
 if(PSXDisplay.RGB24)// && !bNeedUploadAfter)          // (mdec) upload wanted?
  {
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+      /* UploadScreen builds a presentation image rather than a PS VRAM
+       * tile.  Persist and detach the work EFB before reusing it, otherwise
+       * the next command can mistake the movie image for the active tile. */
+      GlesVramTilingS2SaveAndDiscard();
+#endif
       PrepareFullScreenUpload(-1);
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+      PrepareRgb24PresentationEfb();
+#endif
       UploadScreen(PSXDisplay.Interlaced);                // -> upload whole screen from psx vram
+#ifdef GLES_VRAM_LR_TILING_S7_EXPERIMENT
+      GlesVramTilingS7DiscardFrontPresentation();
+#endif
   bNeedUploadTest=FALSE;
   bNeedInterlaceUpdate=FALSE;
   bNeedUploadAfter=FALSE;
@@ -474,7 +1345,9 @@ if(bNeedInterlaceUpdate)                              // smaller upload?
   UploadScreen(TRUE);
  }
 
+#ifndef GLES_VRAM_LR_TILING_S2_EXPERIMENT
 if (dwActFixes & AUTO_FIX_FF9) bCheckFF9G4(NULL);                 // special game fix for FF9
+#endif
 
 if(PreviousPSXDisplay.Range.x0||                      // paint black borders around display area, if needed
    PreviousPSXDisplay.Range.y0)
@@ -532,11 +1405,31 @@ if(iSkipTwo)                                          // we are in skipping mood
 //----------------------------------------------------//
 // main buffer swapping (well, or skip it)
 
+tiledCpuUploadPending=TiledDisplayCpuUploadPending();
+
 if(UseFrameSkip)                                     // frame skipping active ?
  {
   if(!bSkipNextFrame)
    {
-    if(iDrawnSomething)     flipEGL();
+    if(iDrawnSomething || tiledCpuUploadPending)
+     {
+#if defined(VRAM_TILING_DIAG_ONLY) && defined(DISP_DEBUG)
+      if(tiledCpuUploadPending)
+       {
+        sprintf(txtbuffer,
+                "VTL CPU_PRESENT frame=%u via=display_update "
+                "disp=%d,%d,%d,%d drawn=%d\r\n",
+                g_s5TraceFrame,
+                PSXDisplay.DisplayPosition.x,
+                PSXDisplay.DisplayPosition.y,
+                PSXDisplay.DisplayMode.x,
+                PSXDisplay.DisplayMode.y,
+                iDrawnSomething);
+        TextureDiagAppend(txtbuffer);
+       }
+#endif
+      flipEGL();
+     }
    }
 //    if((fps_skip < fFrameRateHz) && !(bSkipNextFrame))
 //     {bSkipNextFrame = TRUE; fps_skip=fFrameRateHz;}
@@ -545,7 +1438,25 @@ if(UseFrameSkip)                                     // frame skipping active ?
  }
 else                                                  // no skip ?
  {
-  if(iDrawnSomething)  flipEGL();
+  if(iDrawnSomething || tiledCpuUploadPending)
+   {
+#if defined(VRAM_TILING_DIAG_ONLY) && defined(DISP_DEBUG)
+    if(tiledCpuUploadPending)
+     {
+      sprintf(txtbuffer,
+              "VTL CPU_PRESENT frame=%u via=display_update "
+              "disp=%d,%d,%d,%d drawn=%d\r\n",
+              g_s5TraceFrame,
+              PSXDisplay.DisplayPosition.x,
+              PSXDisplay.DisplayPosition.y,
+              PSXDisplay.DisplayMode.x,
+              PSXDisplay.DisplayMode.y,
+              iDrawnSomething);
+      TextureDiagAppend(txtbuffer);
+     }
+#endif
+    flipEGL();
+   }
  }
 
 iDrawnSomething=0;
@@ -1076,13 +1987,34 @@ else if(usFirstPos==1)                                // initial updates (after 
  }
  else
  {
+     int tiledCpuUploadPending;
+     int legacyUploaded;
+
      #ifdef DISP_DEBUG
      sprintf ( txtbuffer, "GPUupdateLace5 %x %d %d %d %x\r\n", iDrawnSomething, PSXDisplay.Interlaced, PSXDisplay.Disabled, PSXDisplay.InterlacedTest, RGB24Uploaded);
      writeLogFile ( txtbuffer );
      #endif // DISP_DEBUG
      GPUupdateLace5Flg = 0;
-     if (CheckFullScreenUpload() || (needFlipEGL == TRUE && (iDrawnSomething & 0x1) == 0))
+     tiledCpuUploadPending = TiledDisplayCpuUploadPending();
+     legacyUploaded = CheckFullScreenUpload();
+     if (tiledCpuUploadPending || legacyUploaded ||
+         (needFlipEGL == TRUE && (iDrawnSomething & 0x1) == 0))
      {
+#if defined(VRAM_TILING_DIAG_ONLY) && defined(DISP_DEBUG)
+         if (tiledCpuUploadPending)
+         {
+             sprintf(txtbuffer,
+                     "VTL CPU_PRESENT frame=%u via=update_lace "
+                     "disp=%d,%d,%d,%d drawn=%d legacy=%d\r\n",
+                     g_s5TraceFrame,
+                     PSXDisplay.DisplayPosition.x,
+                     PSXDisplay.DisplayPosition.y,
+                     PSXDisplay.DisplayMode.x,
+                     PSXDisplay.DisplayMode.y,
+                     iDrawnSomething, legacyUploaded);
+             TextureDiagAppend(txtbuffer);
+         }
+#endif
          GPUupdateLace5Flg = 1;
          flipEGL();
          iDrawnSomething = 0;
@@ -1143,6 +2075,7 @@ switch(lCommand)
   //--------------------------------------------------//
   // reset gpu
   case 0x00:
+   GlesVramTilingReset();
    memset(ulGPUInfoVals,0x00,16*sizeof(unsigned long));
    lGPUstatusRet=0x14802000;
    PSXDisplay.Disabled=1;
@@ -1538,8 +2471,13 @@ switch(lCommand)
 
 BOOL bNeedWriteUpload=FALSE;
 
-__inline void FinishedVRAMWrite(void)
+static inline void FinishedVRAMWrite(void)
 {
+#ifdef GLES_VRAM_LR_TILING_S3_EXPERIMENT
+ int s3Handled = 0;
+ GlesVramRect s3Rect;
+ uint64_t s3Sequence = 0;
+#endif
  if (ReadbackEnabled())
  {
   MarkCpuVramWrite(VRAMWrite.x, VRAMWrite.y,
@@ -1551,11 +2489,102 @@ __inline void FinishedVRAMWrite(void)
 #endif
  }
 
+#ifdef GLES_VRAM_LR_TILING_S3_EXPERIMENT
+ s3Rect.x = VRAMWrite.x;
+ s3Rect.y = VRAMWrite.y;
+ s3Rect.width = VRAMWrite.Width;
+ s3Rect.height = VRAMWrite.Height;
+ s3Sequence = GlesVramTilingS3FinishCpuWrite(&s3Rect);
+ if (s3Sequence != 0)
+  {
+   GlesVramTileSpan spans[GLES_VRAM_MAX_TILE_SPANS];
+   int count = GlesVramBuildTileSpans(&s3Rect, spans);
+   int span;
+   for (span = 0; span < count; span++)
+    InvalidateTextureArea(spans[span].vramRect.x,
+                          spans[span].vramRect.y,
+                          spans[span].vramRect.width,
+                          spans[span].vramRect.height);
+   s3Handled = 1;
+#if defined(VRAM_TILING_DIAG_ONLY) && defined(DISP_DEBUG)
+   {
+    GlesVramRect currentDisplay;
+    GlesVramRect previousDisplay;
+    int currentPending;
+    int previousPending;
+
+    currentDisplay.x = PSXDisplay.DisplayPosition.x;
+    currentDisplay.y = PSXDisplay.DisplayPosition.y;
+    currentDisplay.width = PSXDisplay.DisplayMode.x;
+    currentDisplay.height = PSXDisplay.DisplayMode.y;
+    previousDisplay.x = PreviousPSXDisplay.DisplayPosition.x;
+    previousDisplay.y = PreviousPSXDisplay.DisplayPosition.y;
+    previousDisplay.width = PSXDisplay.DisplayMode.x;
+    previousDisplay.height = PSXDisplay.DisplayMode.y;
+    currentPending = GlesVramTilingS3RectNeedsCpuUpload(&currentDisplay);
+    previousPending = GlesVramTilingS3RectNeedsCpuUpload(&previousDisplay);
+    sprintf(txtbuffer,
+            "VTL A0 frame=%u rect=%d,%d,%d,%d active=%d "
+            "cur=%d,%d pending=%d prev=%d,%d pending=%d\r\n",
+            g_s5TraceFrame,
+            s3Rect.x, s3Rect.y, s3Rect.width, s3Rect.height,
+            GlesVramTilingActiveTile(),
+            currentDisplay.x, currentDisplay.y, currentPending,
+            previousDisplay.x, previousDisplay.y, previousPending);
+    TextureDiagAppend(txtbuffer);
+   }
+#endif
+  }
+#if defined(VRAM_TILING_DIAG_ONLY) && defined(DISP_DEBUG)
+ else if (PSXDisplay.RGB24 || (STATUSREG & GPUSTATUS_RGB24))
+  {
+   sprintf(txtbuffer,
+           "VTL A0_LEGACY frame=%u reason=rgb24 rect=%d,%d,%d,%d "
+           "displayRgb=%d statusRgb=%d\r\n",
+           g_s5TraceFrame,
+           s3Rect.x, s3Rect.y, s3Rect.width, s3Rect.height,
+           PSXDisplay.RGB24,
+           (STATUSREG & GPUSTATUS_RGB24) != 0);
+   TextureDiagAppend(txtbuffer);
+  }
+#endif
+#endif
+
  if(bNeedWriteUpload)
   {
    bNeedWriteUpload=FALSE;
+#ifdef GLES_VRAM_LR_TILING_S3_EXPERIMENT
+   if (!s3Handled)
+#endif
    CheckWriteUpdate();
   }
+
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_LR_TILING_S7_ANIM_DIAG)
+ {
+  unsigned int pages = S7AnimDiagPageMask(&s3Rect);
+  unsigned int displays = S7AnimDiagDisplayMask(&s3Rect);
+  if (pages != 0 || displays != 0)
+   {
+    S7AnimDiagBeginFrame();
+    if (g_s7AnimDiagA0Count < S7_ANIM_DIAG_LIMIT)
+     {
+      unsigned int tiles = S7AnimDiagTileMask(&s3Rect);
+      sprintf(txtbuffer,
+              "TDI ANIM_A0 f=%u n=%u r=%d,%d,%d,%d p=%u d=%u t=%u "
+              "seq=%u handled=%d need=%d cur=%d prev=%d\r\n",
+              g_textureDiagFrame, g_s7AnimDiagA0Count,
+              s3Rect.x, s3Rect.y, s3Rect.width, s3Rect.height,
+              pages, displays, tiles,
+              (unsigned int)s3Sequence, s3Handled,
+              GlesVramTilingS3RectNeedsCpuUpload(&s3Rect),
+              PSXDisplay.DisplayPosition.x,
+              PreviousPSXDisplay.DisplayPosition.x);
+      TextureDiagAppend(txtbuffer);
+     }
+    g_s7AnimDiagA0Count++;
+   }
+ }
+#endif
 
  // set register to NORMAL operation
  iDataWriteMode = DR_NORMAL;
@@ -1568,6 +2597,9 @@ __inline void FinishedVRAMWrite(void)
 __inline void FinishedVRAMRead(void)
 {
  g_readbackState = READBACK_IDLE;
+#ifdef GLES_VRAM_LR_TILING_S5_EXPERIMENT
+ g_s5ReadActive = 0;
+#endif
 
  // set register to NORMAL operation
  iDataReadMode = DR_NORMAL;
@@ -1735,6 +2767,59 @@ if (g_readbackState == READBACK_PENDING)
 #endif
   g_readbackState = READBACK_DONE;
  }
+
+#ifdef GLES_VRAM_LR_TILING_S5_EXPERIMENT
+if (g_s5ReadActive)
+ {
+  for(i=0;i<iSize;i++)
+   {
+    int row;
+    int column;
+    unsigned long value;
+
+    if (VRAMRead.ColsRemaining <= 0 || VRAMRead.RowsRemaining <= 0)
+     {FinishedVRAMRead();goto ENDREAD_GL;}
+
+    row = VRAMRead.Height - VRAMRead.ColsRemaining;
+    column = VRAMRead.Width - VRAMRead.RowsRemaining;
+    value = (unsigned long)GETLE16(psxVuw +
+        (((VRAMRead.y + row) & iGPUHeightMask) << 10) +
+        ((VRAMRead.x + column) & 0x3ff));
+
+    VRAMRead.RowsRemaining--;
+    if (VRAMRead.RowsRemaining <= 0)
+     {
+      VRAMRead.RowsRemaining = VRAMRead.Width;
+      VRAMRead.ColsRemaining--;
+     }
+
+    /* The existing ABI always supplies a high halfword, even when the
+     * requested pixel count is odd.  Read the next logical VRAM location but
+     * do not consume it when the transfer ended after the low halfword. */
+    row = VRAMRead.Height - VRAMRead.ColsRemaining;
+    column = VRAMRead.Width - VRAMRead.RowsRemaining;
+    value |= (unsigned long)GETLE16(psxVuw +
+        (((VRAMRead.y + row) & iGPUHeightMask) << 10) +
+        ((VRAMRead.x + column) & 0x3ff)) << 16;
+    /* GL_GPUreadData() returns GPUdataRet rather than its temporary output
+     * word, so keep both read entry points consistent with the legacy path. */
+    GPUdataRet = value;
+    PUTLE32(pMem, GPUdataRet); pMem++;
+
+    if (VRAMRead.ColsRemaining <= 0)
+     {FinishedVRAMRead();goto ENDREAD_GL;}
+    VRAMRead.RowsRemaining--;
+    if (VRAMRead.RowsRemaining <= 0)
+     {
+      VRAMRead.RowsRemaining = VRAMRead.Width;
+      VRAMRead.ColsRemaining--;
+     }
+    if (VRAMRead.ColsRemaining <= 0)
+     {FinishedVRAMRead();goto ENDREAD_GL;}
+   }
+  goto ENDREAD_GL;
+ }
+#endif
 
 // adjust read ptr, if necessary
 while(VRAMRead.ImagePtr>=psxVuw_eom)
@@ -2016,10 +3101,50 @@ if(iDataWriteMode==DR_NORMAL)
 
     if(gpuDataP == gpuDataC)
      {
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+      int packetWords = gpuDataC;
+      int s2Command = 0;
+#endif
+#ifdef VRAM_APERTURE_DIAG
+      VramApertureTrackPacket(gpuCommand, gpuDataM);
+#endif
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+      if (!bSkipNextFrame)
+       {
+        GlesVramRect drawArea;
+        GlesVramRect frontDisplay;
+        GlesVramPoint drawOffset;
+        drawArea.x = PSXDisplay.DrawArea.x0;
+        drawArea.y = PSXDisplay.DrawArea.y0;
+        drawArea.width = PSXDisplay.DrawArea.x1 -
+                         PSXDisplay.DrawArea.x0 + 1;
+        drawArea.height = PSXDisplay.DrawArea.y1 -
+                          PSXDisplay.DrawArea.y0 + 1;
+        drawOffset.x = PSXDisplay.DrawOffset.x;
+        drawOffset.y = PSXDisplay.DrawOffset.y;
+        frontDisplay.x = PSXDisplay.DisplayPosition.x;
+        frontDisplay.y = PSXDisplay.DisplayPosition.y;
+        frontDisplay.width = PSXDisplay.DisplayMode.x;
+        frontDisplay.height = PSXDisplay.DisplayMode.y;
+        s2Command = GlesVramTilingS2BeginCommand(
+            gpuCommand, gpuDataM, packetWords,
+            &drawArea, &drawOffset, &frontDisplay);
+       }
+#endif
       gpuDataC=gpuDataP=0;
-      BeginEfbDrawContext();
-      primFunc[gpuCommand]((unsigned char *)gpuDataM);
-      EndEfbDrawContext();
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+      if (s2Command)
+       {
+        primFunc[gpuCommand]((unsigned char *)gpuDataM);
+        GlesVramTilingS2EndCommand();
+       }
+      else
+#endif
+       {
+        BeginEfbDrawContext();
+        primFunc[gpuCommand]((unsigned char *)gpuDataM);
+        EndEfbDrawContext();
+       }
 
        if (dwActFixes & AUTO_FIX_GPU_BUSY)      // hack for emulating "gpu busy" in some games
        iFakePrimBusy=4;
@@ -2204,6 +3329,48 @@ void CALLBACK GL_GPUrearmedCallbacks(const struct rearmed_cbs *_cbs)
 static void flipEGL(void)
 {
     int presentSubmitted;
+#if defined(GLES_VRAM_LR_TILING_S4_EXPERIMENT) && \
+    !defined(GLES_VRAM_LR_TILING_S4_TEST)
+    int s4Presented = 0;
+#endif
+#if defined(GLES_VRAM_LR_TILING_S5_EXPERIMENT) && defined(DISP_DEBUG) && \
+    !defined(VRAM_TILING_DIAG_ONLY)
+    static unsigned int s5DiagFrame;
+    static GlesVramS5Stats s5PreviousStats;
+#endif
+#if defined(GLES_VRAM_LR_TILING_S5_EXPERIMENT) && defined(DISP_DEBUG) && \
+    defined(VRAM_TILING_DIAG_ONLY)
+    static GlesVramS5Stats s5TracePreviousStats;
+#endif
+
+#ifdef VRAM_APERTURE_DIAG
+    VramApertureFlushFrame();
+#endif
+
+#if defined(GLES_VRAM_LR_TILING_S5_EXPERIMENT) && defined(DISP_DEBUG) && \
+    !defined(VRAM_TILING_DIAG_ONLY)
+    s5DiagFrame++;
+    if ((s5DiagFrame % 60u) == 0)
+    {
+        GlesVramS5Stats stats;
+        GlesVramTilingS5GetStats(&stats);
+        if (stats.moveCount < s5PreviousStats.moveCount ||
+            stats.c0Count < s5PreviousStats.c0Count ||
+            stats.resolveWaits < s5PreviousStats.resolveWaits)
+            memset(&s5PreviousStats, 0, sizeof(s5PreviousStats));
+        sprintf(txtbuffer,
+                "VTL S5 frames=60 move=%u c0=%u resolve=%u wait=%u "
+                "blocks=%u totalWait=%u\r\n",
+                stats.moveCount - s5PreviousStats.moveCount,
+                stats.c0Count - s5PreviousStats.c0Count,
+                stats.resolveCalls - s5PreviousStats.resolveCalls,
+                stats.resolveWaits - s5PreviousStats.resolveWaits,
+                stats.resolvedBlocks - s5PreviousStats.resolvedBlocks,
+                stats.resolveWaits);
+        writeLogFile(txtbuffer);
+        s5PreviousStats = stats;
+    }
+#endif
 
     /* Parasite Eve II alternates two PS1 VRAM display pages while the GX
      * renderer has only one EFB. Keeping that EFB after a present allows a
@@ -2228,10 +3395,255 @@ static void flipEGL(void)
             PSXDisplay.RGB24);
     DEBUG_print(txtbuffer, DBG_SPU3);
     TextureDiagAppend(txtbuffer);
+#ifdef GLES_VRAM_LR_TILING_S7_PIPELINE_DIAG
+    {
+        GlesVramS7XfbStats xfbStats;
+        if (GlesVramTilingS7DiagGetXfbStats(&xfbStats))
+        {
+            sprintf(txtbuffer,
+                    "TDI PIPE_XFB f=%u wh=%u,%u stride=%u bytes=%u "
+                    "hash=%08x luma=%08x active=%u range=%u,%u\r\n",
+                    xfbStats.frame, xfbStats.width, xfbStats.height,
+                    xfbStats.stridePixels, xfbStats.byteCount,
+                    xfbStats.hash, xfbStats.lumaHash,
+                    xfbStats.lumaActive,
+                    (unsigned int)xfbStats.lumaMin,
+                    (unsigned int)xfbStats.lumaMax);
+            TextureDiagAppend(txtbuffer);
+        }
+    }
+#endif
+#ifndef VRAM_TILING_DIAG_ONLY
+#ifndef GLES_VRAM_LR_TILING_S7_ANIM_DIAG
     TextureDiagFlush();
+#endif
+#endif
     #endif // DISP_DEBUG
 
+#if defined(GLES_VRAM_LR_TILING_S4_EXPERIMENT) && \
+    !defined(GLES_VRAM_LR_TILING_S4_TEST)
+    /* RGB24 has different byte packing and deliberately stays on the legacy
+     * path.  RGB15 display windows are reconstructed from the authoritative
+     * tile backings; presentation then owns the EFB and no tile remains
+     * active. */
+    if (!PSXDisplay.RGB24 &&
+        PSXDisplay.DisplayMode.x > 0 &&
+        PSXDisplay.DisplayMode.y > 0)
+    {
+        GlesVramRect displayRect;
+        GlesVramRect presentedRect;
+#if defined(DISP_DEBUG) && \
+    defined(GLES_VRAM_LR_TILING_S7_ANIM_DIAG)
+        int animUsedFront = 0;
+        int animNeedBefore;
+        int animActiveBefore;
+        GlesVramS7AnimStats animStats;
+#endif
+        displayRect.x = PSXDisplay.DisplayPosition.x;
+        displayRect.y = PSXDisplay.DisplayPosition.y;
+        displayRect.width = PSXDisplay.DisplayMode.x;
+        displayRect.height = PSXDisplay.DisplayMode.y;
+#ifdef GLES_VRAM_LR_TILING_S7_EXPERIMENT
+        #if defined(DISP_DEBUG) && \
+            defined(GLES_VRAM_LR_TILING_S7_ANIM_DIAG)
+        animUsedFront = GlesVramTilingS7SelectPresentation(
+            &displayRect, &presentedRect);
+        #else
+        GlesVramTilingS7SelectPresentation(&displayRect, &presentedRect);
+        #endif
+#else
+        presentedRect = displayRect;
+#endif
+#if defined(DISP_DEBUG) && \
+    defined(GLES_VRAM_LR_TILING_S7_ANIM_DIAG)
+        animNeedBefore = GlesVramTilingS3RectNeedsCpuUpload(&presentedRect);
+        animActiveBefore = (int)GlesVramTilingActiveTile();
+#endif
+        s4Presented = GlesVramTilingS4Present(&presentedRect, 640, 480);
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_LR_TILING_S7_ANIM_DIAG)
+        GlesVramTilingS7AnimGetAndResetStats(&animStats);
+        S7AnimDiagBeginFrame();
+        sprintf(txtbuffer,
+                "TDI ANIM_PRESENT f=%u req=%d,%d sel=%d,%d wh=%d,%d "
+                "front=%d act=%d p=%u t=%u need=%d/%d ok=%d "
+                "a0=%u mv=%u fill=%u\r\n",
+                g_textureDiagFrame,
+                displayRect.x, displayRect.y,
+                presentedRect.x, presentedRect.y,
+                presentedRect.width, presentedRect.height,
+                animUsedFront, animActiveBefore,
+                S7AnimDiagPageMask(&presentedRect),
+                S7AnimDiagTileMask(&presentedRect), animNeedBefore,
+                GlesVramTilingS3RectNeedsCpuUpload(&presentedRect),
+                s4Presented, g_s7AnimDiagA0Count,
+                g_s7AnimDiagMoveCount, g_s7AnimDiagFillCount);
+        TextureDiagAppend(txtbuffer);
+        {
+            int animTile;
+            for (animTile = 0; animTile < 2; animTile++)
+            {
+                const GlesVramRect *upload =
+                    &animStats.uploadBounds[animTile];
+                const GlesVramRect *gpu = &animStats.gpuBounds[animTile];
+                sprintf(txtbuffer,
+                        "TDI ANIM_WORK f=%u tile=%c "
+                        "up=%u,%u,%u commit=%u/%u "
+                        "ub=%d,%d,%d,%d hash=%08x/%08x match=%d "
+                        "gpu=%u gb=%d,%d,%d,%d "
+                        "io=%u,%u,%u,%u\r\n",
+                        g_textureDiagFrame, animTile == 0 ? 'L' : 'R',
+                        animStats.uploadCalls[animTile],
+                        animStats.uploadBlocks[animTile],
+                        animStats.uploadRuns[animTile],
+                        animStats.uploadCommits[animTile],
+                        animStats.uploadCommitFailures[animTile],
+                        upload->x, upload->y,
+                        upload->width, upload->height,
+                        animStats.uploadSourceHash[animTile],
+                        animStats.uploadStagingHash[animTile],
+                        animStats.uploadCalls[animTile] == 0 ||
+                            animStats.uploadSourceHash[animTile] ==
+                                animStats.uploadStagingHash[animTile],
+                        animStats.gpuPasses[animTile],
+                        gpu->x, gpu->y, gpu->width, gpu->height,
+                        animStats.tileSelects[animTile],
+                        animStats.saveCopies[animTile],
+                        animStats.restores[animTile],
+                        animStats.clears[animTile]);
+                TextureDiagAppend(txtbuffer);
+            }
+        }
+#ifdef GLES_VRAM_LR_TILING_S7_PIPELINE_DIAG
+        if (animStats.pipelineValid)
+        {
+            unsigned int diagSegment;
+            sprintf(txtbuffer,
+                    "TDI PIPE f=%u src=%08x/%u cpu=%08x/%u "
+                    "cpudiff=%u cb=%d,%d,%d,%d efb=%08x/%u "
+                    "efbdiff=%u eb=%d,%d,%d,%d "
+                    "owner=%u,%u,%u,%u pending=%u segs=%u\r\n",
+                    g_textureDiagFrame,
+                    animStats.sourceHash, animStats.sourceNonBlack,
+                    animStats.cpuHash, animStats.cpuComparable,
+                    animStats.cpuMismatch,
+                    animStats.cpuMismatchBounds.x,
+                    animStats.cpuMismatchBounds.y,
+                    animStats.cpuMismatchBounds.width,
+                    animStats.cpuMismatchBounds.height,
+                    animStats.efbHash, animStats.efbNonBlack,
+                    animStats.efbMismatch,
+                    animStats.efbMismatchBounds.x,
+                    animStats.efbMismatchBounds.y,
+                    animStats.efbMismatchBounds.width,
+                    animStats.efbMismatchBounds.height,
+                    animStats.ownerCpuOnly, animStats.ownerGpuOnly,
+                    animStats.ownerEqual, animStats.ownerInvalid,
+                    animStats.ownerNeedsUpload, animStats.segmentCount);
+            TextureDiagAppend(txtbuffer);
+            for (diagSegment = 0;
+                 diagSegment < animStats.segmentCount &&
+                 diagSegment < GLES_VRAM_MAX_DISPLAY_SEGMENTS;
+                 diagSegment++)
+            {
+                sprintf(txtbuffer,
+                        "TDI PIPE_SEG f=%u n=%u hash=%08x active=%u\r\n",
+                        g_textureDiagFrame, diagSegment,
+                        animStats.segmentHash[diagSegment],
+                        animStats.segmentNonBlack[diagSegment]);
+                TextureDiagAppend(txtbuffer);
+            }
+            sprintf(txtbuffer,
+                    "TDI PIPE_QUAD f=%u hash=%08x,%08x,%08x,%08x "
+                    "active=%u,%u,%u,%u\r\n",
+                    g_textureDiagFrame,
+                    animStats.efbQuadrantHash[0],
+                    animStats.efbQuadrantHash[1],
+                    animStats.efbQuadrantHash[2],
+                    animStats.efbQuadrantHash[3],
+                    animStats.efbQuadrantNonBlack[0],
+                    animStats.efbQuadrantNonBlack[1],
+                    animStats.efbQuadrantNonBlack[2],
+                    animStats.efbQuadrantNonBlack[3]);
+            TextureDiagAppend(txtbuffer);
+        }
+#endif
+#endif
+    }
+    if (!s4Presented)
+        CapturePresentedEfbSnapshot();
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_LR_TILING_S7_ANIM_DIAG)
+    TextureDiagFlush();
+#endif
+#else
     CapturePresentedEfbSnapshot();
+#endif
+
+#if defined(GLES_VRAM_LR_TILING_S5_EXPERIMENT) && \
+    defined(VRAM_TILING_DIAG_ONLY) && defined(DISP_DEBUG) && \
+    defined(GLES_VRAM_LR_TILING_S4_EXPERIMENT) && \
+    !defined(GLES_VRAM_LR_TILING_S4_TEST)
+    {
+        GlesVramS5Stats stats;
+        GlesVramDisplayPlan displayPlan;
+        GlesVramRect displayRect;
+        int displayPlanValid = 0;
+        int segment;
+
+        displayRect.x = PSXDisplay.DisplayPosition.x;
+        displayRect.y = PSXDisplay.DisplayPosition.y;
+        displayRect.width = PSXDisplay.DisplayMode.x;
+        displayRect.height = PSXDisplay.DisplayMode.y;
+        if (!PSXDisplay.RGB24 && displayRect.width > 0 &&
+            displayRect.height > 0)
+            displayPlanValid = GlesVramBuildDisplayPlan(&displayRect,
+                                                        &displayPlan);
+
+        GlesVramTilingS5GetStats(&stats);
+        if (stats.moveCount < s5TracePreviousStats.moveCount ||
+            stats.c0Count < s5TracePreviousStats.c0Count ||
+            stats.resolveWaits < s5TracePreviousStats.resolveWaits)
+            memset(&s5TracePreviousStats, 0,
+                   sizeof(s5TracePreviousStats));
+        sprintf(txtbuffer,
+                "VTL FRAME frame=%u disp=%d,%d,%d,%d prev=%d,%d "
+                "rgb24=%d presented=%d segments=%d active=%d drawn=%d "
+                "move=%u c0=%u resolve=%u wait=%u blocks=%u\r\n",
+                g_s5TraceFrame,
+                displayRect.x, displayRect.y,
+                displayRect.width, displayRect.height,
+                PreviousPSXDisplay.DisplayPosition.x,
+                PreviousPSXDisplay.DisplayPosition.y,
+                PSXDisplay.RGB24, s4Presented,
+                displayPlanValid ? displayPlan.segmentCount : 0,
+                GlesVramTilingActiveTile(), iDrawnSomething,
+                stats.moveCount - s5TracePreviousStats.moveCount,
+                stats.c0Count - s5TracePreviousStats.c0Count,
+                stats.resolveCalls - s5TracePreviousStats.resolveCalls,
+                stats.resolveWaits - s5TracePreviousStats.resolveWaits,
+                stats.resolvedBlocks - s5TracePreviousStats.resolvedBlocks);
+        TextureDiagAppend(txtbuffer);
+        if (displayPlanValid)
+        {
+            for (segment = 0; segment < displayPlan.segmentCount; segment++)
+            {
+                const GlesVramDisplaySegment *part =
+                    &displayPlan.segment[segment];
+                sprintf(txtbuffer,
+                        "VTL SEG frame=%u index=%d tile=%d "
+                        "src=%d,%d,%d,%d out=%d,%d,%d,%d\r\n",
+                        g_s5TraceFrame, segment, part->tile,
+                        part->sourceRect.x, part->sourceRect.y,
+                        part->sourceRect.width, part->sourceRect.height,
+                        part->outputRect.x, part->outputRect.y,
+                        part->outputRect.width, part->outputRect.height);
+                TextureDiagAppend(txtbuffer);
+            }
+        }
+        s5TracePreviousStats = stats;
+        TextureDiagFlush();
+        g_s5TraceFrame++;
+    }
+#endif
 
     if (canShowFps)
     {
@@ -2252,6 +3664,29 @@ static void flipEGL(void)
         }
     }
 
+#ifdef EFB_512_HEIGHT_TEST
+    DrawEfb512HeightTest();
+#endif
+
+#ifdef GLES_VRAM_LR_TILING_S1_TEST
+    GlesVramTilingRunS1VisualTest();
+#endif
+
+#ifdef GLES_VRAM_LR_TILING_S2_TEST
+    DrawGlesVramS2VisualTest();
+#endif
+
+#ifdef GLES_VRAM_LR_TILING_S3_TEST
+    DrawGlesVramS3VisualTest();
+#endif
+
+#ifdef GLES_VRAM_LR_TILING_S4_TEST
+    GlesVramTilingS4DrawVisualTest();
+#endif
+
+#ifdef GLES_VRAM_LR_TILING_S7_PIPELINE_DIAG
+    GlesVramTilingS7DiagSetPresentFrame(g_textureDiagFrame);
+#endif
     presentSubmitted = gx_vout_render(canClearFrameBuf);
 
     if (presentSubmitted && canClearFrameBuf)
@@ -2285,6 +3720,23 @@ long GL_GPUopen()
 {
  int ret;
 
+#ifdef VRAM_TILING_DIAG_ONLY
+ g_s5TraceFrame = 1;
+ g_textureDiagBufferUsed = 0;
+#ifdef GLES_VRAM_LR_TILING_S7_PIPELINE_DIAG
+ writeLogFile("VTL START build=S7_REGION_LOAD_FIX_DIAG\r\n");
+#else
+ writeLogFile("VTL START build=S5_DIAG_V2\r\n");
+#endif
+#endif
+
+#ifdef VRAM_APERTURE_DIAG
+ memset(g_vapCommandCount, 0, sizeof(g_vapCommandCount));
+ memset(g_vapWriteRange, 0, sizeof(g_vapWriteRange));
+ memset(g_vapReadRange, 0, sizeof(g_vapReadRange));
+ g_vapFrame = 1;
+#endif
+
  InitFPS();
 
  GPUsetframelimit(0);
@@ -2312,6 +3764,12 @@ long GL_GPUopen()
 
  ret = GLinitialize(NULL, NULL);
 
+ if (!GlesVramTilingInitialize())
+ {
+  GLcleanup();
+  return -1;
+ }
+
  gx_vout_open();
 
  ogx_draw_submitted_cb = OnEfbDrawSubmitted;
@@ -2323,6 +3781,7 @@ long GL_GPUclose(void)
 {
  ogx_draw_submitted_cb = NULL;
  ResetVramReadbackState();
+ GlesVramTilingShutdown();
  GLcleanup();                                          // close OGL
  return 0;
 }

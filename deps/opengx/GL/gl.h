@@ -1335,6 +1335,9 @@ GLAPI void GLAPIENTRY glGetTexImage( GLenum target, GLint level,
 GLAPI void GLAPIENTRY glGenTextures( GLsizei n, GLuint *textures );
 GLAPI void GLAPIENTRY glInitRGBATextures( GLsizei width, GLsizei height );
 GLAPI int GLAPIENTRY glCaptureFramebufferTexture( GLsizei srcWidth, GLsizei srcHeight );
+GLAPI int GLAPIENTRY glCaptureFramebufferTextureRect( GLint srcX, GLint srcY,
+                                                      GLsizei srcWidth,
+                                                      GLsizei srcHeight );
 GLAPI int GLAPIENTRY glCaptureFramebufferIntensityTexture( GLsizei srcWidth, GLsizei srcHeight );
 GLAPI void GLAPIENTRY glResetMovieTexPtr( void );
 GLAPI int GLAPIENTRY glInitMovieTextures( GLsizei width, GLsizei height, void * texData);
@@ -1351,6 +1354,8 @@ GLAPI void GLAPIENTRY glSetVramClearedFlg( void );
 GLAPI void GLAPIENTRY glSetTextureType( short textureSemiType, short loadTextureType, short textureChgType );
 GLAPI void GLAPIENTRY glChgTextureFilter( unsigned int gTexMovieName );
 GLAPI void GLAPIENTRY glSetLoadMtxFlg( void );
+/* Notify OpenGX that code outside the GL wrapper changed GX registers. */
+GLAPI void GLAPIENTRY glInvalidateGXState( void );
 GLAPI void GLAPIENTRY glCheckLoadTextureObj( int loadTextureType, int texChgType);
 GLAPI void GLAPIENTRY glResetCacheRegion( void );
 

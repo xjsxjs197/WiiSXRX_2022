@@ -689,6 +689,18 @@ void glSetLoadMtxFlg( void )
     needLoadMtx = 1;
 }
 
+void glInvalidateGXState( void )
+{
+    extern void resetTexCacheInfo(void);
+
+    glparamstate.dirty.all = ~0;
+    needLoadMtx = 1;
+    /* Direct GX texture loads use the same hardware cache regions as OpenGX.
+     * Forget the logical residency map so the next GL primitive reloads the
+     * texture object it actually needs. */
+    resetTexCacheInfo();
+}
+
 void glBindTextureBef(GLenum target, GLuint texture)
 {
     if (texture < 0 || texture >= _MAX_GL_TEX)
@@ -1670,6 +1682,35 @@ int glCaptureFramebufferTexture( GLsizei srcWidth, GLsizei srcHeight )
         GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
     }
 
+    return 1;
+}
+
+/* Capture an arbitrary EFB rectangle into the currently bound RGB5A3
+ * texture.  This is kept separate from the normal origin-based helper so the
+ * 640x512 EFB validation can prove that rows 480..511 are readable. */
+int glCaptureFramebufferTextureRect( GLint srcX, GLint srcY,
+                                     GLsizei srcWidth, GLsizei srcHeight )
+{
+    gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
+
+    if (!currtex->data || currtex->w <= 0 || currtex->h <= 0 ||
+        srcX < 0 || srcY < 0 || srcWidth <= 0 || srcHeight <= 0)
+        return 0;
+
+    GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
+    GX_SetTexCopySrc(srcX, srcY, srcWidth, srcHeight);
+    GX_SetTexCopyDst(currtex->w, currtex->h, GX_TF_RGB5A3, GX_FALSE);
+    GX_CopyTex(MEM_K0_TO_K1(currtex->data), GX_FALSE);
+    GX_PixModeSync();
+
+    GX_InitTexObj(&currtex->texobj, currtex->data,
+                  currtex->w, currtex->h, GX_TF_RGB5A3,
+                  currtex->wraps, currtex->wrapt, GX_FALSE);
+    GX_InitTexObj(&currtex->semiTransTexobj, currtex->data,
+                  currtex->w, currtex->h, GX_TF_RGB5A3,
+                  currtex->wraps, currtex->wrapt, GX_FALSE);
+    GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
+    GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
     return 1;
 }
 

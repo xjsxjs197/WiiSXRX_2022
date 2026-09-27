@@ -62,18 +62,53 @@ char *dump_filename = "/PSXISOS/debug.txt";
 FILE* fdebug = NULL;
 
 static FILE* fdebugLog = NULL;
-static char *debugLogFile = "sd:/wiisxrx/debugLog.txt";
+#ifdef VRAM_TILING_DIAG_ONLY
+/* This dedicated build exists only to capture the S5 trace, so do not depend
+ * on the legacy hidden CDDA-menu toggle to enable its output. */
+bool canWriteLog = true;
+static const char *debugLogFile;
+static const char *const debugLogPaths[] = {
+    "sd:/wiisxrx/debugLog.txt",
+    "usb:/wiisxrx/debugLog.txt",
+    "sd:/debugLog.txt",
+    "usb:/debugLog.txt"
+};
+#else
 bool canWriteLog = false;
+static const char *debugLogFile = "sd:/wiisxrx/debugLog.txt";
+#endif
 
 void openLogFile() {
+#ifdef VRAM_TILING_DIAG_ONLY
+    unsigned int path;
+
+    /* A settings callback in old Debug builds toggles this flag as a side
+     * effect of changing CDDA.  The dedicated trace must stay enabled. */
+    canWriteLog = true;
+    if (fdebugLog) return;
+
+    if (debugLogFile)
+        fdebugLog = fopen(debugLogFile, "a+");
+    if (fdebugLog) return;
+
+    debugLogFile = NULL;
+    for (path = 0; path < sizeof(debugLogPaths) / sizeof(debugLogPaths[0]);
+         path++) {
+        fdebugLog = fopen(debugLogPaths[path], "a+");
+        if (fdebugLog) {
+            debugLogFile = debugLogPaths[path];
+            break;
+        }
+    }
+#else
     if (!canWriteLog) return;
     if (!fdebugLog) {
         fdebugLog = fopen(debugLogFile, "a+");
     }
+#endif
 }
 
 void closeLogFile() {
-    if (!canWriteLog) return;
     if (fdebugLog) {
         fclose(fdebugLog);
         fdebugLog = NULL;
@@ -81,9 +116,21 @@ void closeLogFile() {
 }
 
 void writeLogFile(char* string) {
+#ifdef VRAM_TILING_DIAG_ONLY
+    canWriteLog = true;
+#else
     if (!canWriteLog) return;
+#endif
 
-#ifdef TEXTURE_DIAG_ONLY
+#if defined(EFB_512_HEIGHT_TEST)
+    (void)string;
+    return;
+#elif defined(VRAM_APERTURE_DIAG_ONLY)
+    if (!string || strncmp(string, "VAP ", 4) != 0) return;
+#elif defined(VRAM_TILING_DIAG_ONLY)
+    if (!string || (strncmp(string, "VTL ", 4) != 0 &&
+                    strncmp(string, "TDI ", 4) != 0)) return;
+#elif defined(TEXTURE_DIAG_ONLY)
     if (!string || strncmp(string, "TDI ", 4) != 0) return;
 #endif
 
@@ -91,9 +138,8 @@ void writeLogFile(char* string) {
 
     openLogFile();
 
-    if (canWriteLog) {
-        fprintf(fdebugLog, string);
-    }
+    if (!fdebugLog) return;
+    fputs(string, fdebugLog);
 
     closeLogFile();
 }
@@ -105,7 +151,8 @@ void printFunctionName() {
 
 void DEBUG_print(char* string,int pos){
 
-#ifdef TEXTURE_DIAG_ONLY
+#if defined(TEXTURE_DIAG_ONLY) || defined(VRAM_APERTURE_DIAG_ONLY) || \
+    defined(VRAM_TILING_DIAG_ONLY) || defined(EFB_512_HEIGHT_TEST)
     /* File diagnostics remain available through writeLogFile().  Avoid the
      * legacy on-screen Debug queue while measuring this timing-sensitive bug. */
     (void)string;

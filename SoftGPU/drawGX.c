@@ -35,6 +35,9 @@
 #include "../Gamecube/gc_input/controller.h"
 #include "../psxcounters.h"
 #include "../gpulib/plugin_lib.h"
+#ifdef GLES_VRAM_LR_TILING_S7_PIPELINE_DIAG
+#include "../GlesGpu/gpuVramTiling.h"
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////////
 // misc globals
@@ -141,6 +144,9 @@ static void gx_vout_copydone(void)
 	if (!gx_present_inflight)
 		return;
 
+#ifdef GLES_VRAM_LR_TILING_S7_PIPELINE_DIAG
+	GlesVramTilingS7DiagCompleteXfb();
+#endif
 	gc_vout_copydone();
 	gx_present_inflight = 0;
 }
@@ -176,6 +182,14 @@ int gx_vout_render(short canSwapFrameBuf)
 	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
 
 	gx_present_inflight = 1;
+#ifdef GLES_VRAM_LR_TILING_S7_PIPELINE_DIAG
+	{
+		extern GXRModeObj *vmode;
+		GlesVramTilingS7DiagBeginXfb(
+			xfb[FB_BACK], vmode->fbWidth, vmode->xfbHeight,
+			VIDEO_PadFramebufferWidth(vmode->fbWidth));
+	}
+#endif
 	GX_CopyDisp(xfb[FB_BACK], canSwapFrameBuf ? GX_TRUE : GX_FALSE);
 	GX_PixModeSync();
 	GX_SetDrawDoneCallback(gx_vout_copydone);

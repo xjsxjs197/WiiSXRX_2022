@@ -709,9 +709,29 @@ static __inline BOOL CheckCoord2()
 #define VERTEX_OFFX 0.2f
 #define VERTEX_OFFY 0.2f
 
+static inline int GlesVramPrimitiveOffsetX(void)
+{
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+ if(GlesVramTilingS2CommandActive())
+  return PSXDisplay.DrawOffset.x;
+#endif
+ return PSXDisplay.CumulOffset.x;
+}
+
+static inline int GlesVramPrimitiveOffsetY(void)
+{
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+ if(GlesVramTilingS2CommandActive())
+  return PSXDisplay.DrawOffset.y;
+#endif
+ return PSXDisplay.CumulOffset.y;
+}
+
 BOOL offsetline(void)
 {
  short x0,x1,y0,y1,dx,dy;float px,py;
+ int primitiveOffsetX;
+ int primitiveOffsetY;
 
  if(bDisplayNotSet)
   SetOGLDisplaySettings(1);
@@ -726,10 +746,12 @@ BOOL offsetline(void)
    if(CheckCoord2()) return TRUE;
   }
 
- x0 = (lx0 + PSXDisplay.CumulOffset.x)+1;
- x1 = (lx1 + PSXDisplay.CumulOffset.x)+1;
- y0 = (ly0 + PSXDisplay.CumulOffset.y)+1;
- y1 = (ly1 + PSXDisplay.CumulOffset.y)+1;
+ primitiveOffsetX = GlesVramPrimitiveOffsetX();
+ primitiveOffsetY = GlesVramPrimitiveOffsetY();
+ x0 = (lx0 + primitiveOffsetX)+1;
+ x1 = (lx1 + primitiveOffsetX)+1;
+ y0 = (ly0 + primitiveOffsetY)+1;
+ y1 = (ly1 + primitiveOffsetY)+1;
 
  dx=x1-x0;
  dy=y1-y0;
@@ -821,10 +843,10 @@ BOOL offset2(void)
    if(CheckCoord2()) return TRUE;
   }
 
- vertex[0].x=lx0+PSXDisplay.CumulOffset.x;
- vertex[1].x=lx1+PSXDisplay.CumulOffset.x;
- vertex[0].y=ly0+PSXDisplay.CumulOffset.y;
- vertex[1].y=ly1+PSXDisplay.CumulOffset.y;
+ vertex[0].x=lx0+GlesVramPrimitiveOffsetX();
+ vertex[1].x=lx1+GlesVramPrimitiveOffsetX();
+ vertex[0].y=ly0+GlesVramPrimitiveOffsetY();
+ vertex[1].y=ly1+GlesVramPrimitiveOffsetY();
 
  return FALSE;
 }
@@ -848,12 +870,12 @@ BOOL offset3(void)
    if(CheckCoord3()) return TRUE;
   }
 
- vertex[0].x=lx0+PSXDisplay.CumulOffset.x;
- vertex[1].x=lx1+PSXDisplay.CumulOffset.x;
- vertex[2].x=lx2+PSXDisplay.CumulOffset.x;
- vertex[0].y=ly0+PSXDisplay.CumulOffset.y;
- vertex[1].y=ly1+PSXDisplay.CumulOffset.y;
- vertex[2].y=ly2+PSXDisplay.CumulOffset.y;
+ vertex[0].x=lx0+GlesVramPrimitiveOffsetX();
+ vertex[1].x=lx1+GlesVramPrimitiveOffsetX();
+ vertex[2].x=lx2+GlesVramPrimitiveOffsetX();
+ vertex[0].y=ly0+GlesVramPrimitiveOffsetY();
+ vertex[1].y=ly1+GlesVramPrimitiveOffsetY();
+ vertex[2].y=ly2+GlesVramPrimitiveOffsetY();
 
  return FALSE;
 }
@@ -879,14 +901,14 @@ BOOL offset4(void)
    if(CheckCoord4()) return TRUE;
   }
 
- vertex[0].x=lx0+PSXDisplay.CumulOffset.x;
- vertex[1].x=lx1+PSXDisplay.CumulOffset.x;
- vertex[2].x=lx2+PSXDisplay.CumulOffset.x;
- vertex[3].x=lx3+PSXDisplay.CumulOffset.x;
- vertex[0].y=ly0+PSXDisplay.CumulOffset.y;
- vertex[1].y=ly1+PSXDisplay.CumulOffset.y;
- vertex[2].y=ly2+PSXDisplay.CumulOffset.y;
- vertex[3].y=ly3+PSXDisplay.CumulOffset.y;
+ vertex[0].x=lx0+GlesVramPrimitiveOffsetX();
+ vertex[1].x=lx1+GlesVramPrimitiveOffsetX();
+ vertex[2].x=lx2+GlesVramPrimitiveOffsetX();
+ vertex[3].x=lx3+GlesVramPrimitiveOffsetX();
+ vertex[0].y=ly0+GlesVramPrimitiveOffsetY();
+ vertex[1].y=ly1+GlesVramPrimitiveOffsetY();
+ vertex[2].y=ly2+GlesVramPrimitiveOffsetY();
+ vertex[3].y=ly3+GlesVramPrimitiveOffsetY();
 
  return FALSE;
 }
@@ -915,14 +937,14 @@ void offsetST(void)
  lx3 = lx0;
  lx1 = lx2 = lx0+sprtW;
 
- vertex[0].x=lx0+PSXDisplay.CumulOffset.x;
- vertex[1].x=lx1+PSXDisplay.CumulOffset.x;
- vertex[2].x=lx2+PSXDisplay.CumulOffset.x;
- vertex[3].x=lx3+PSXDisplay.CumulOffset.x;
- vertex[0].y=ly0+PSXDisplay.CumulOffset.y;
- vertex[1].y=ly1+PSXDisplay.CumulOffset.y;
- vertex[2].y=ly2+PSXDisplay.CumulOffset.y;
- vertex[3].y=ly3+PSXDisplay.CumulOffset.y;
+ vertex[0].x=lx0+GlesVramPrimitiveOffsetX();
+ vertex[1].x=lx1+GlesVramPrimitiveOffsetX();
+ vertex[2].x=lx2+GlesVramPrimitiveOffsetX();
+ vertex[3].x=lx3+GlesVramPrimitiveOffsetX();
+ vertex[0].y=ly0+GlesVramPrimitiveOffsetY();
+ vertex[1].y=ly1+GlesVramPrimitiveOffsetY();
+ vertex[2].y=ly2+GlesVramPrimitiveOffsetY();
+ vertex[3].y=ly3+GlesVramPrimitiveOffsetY();
 }
 
 /////////////////////////////////////////////////////////
@@ -1004,6 +1026,17 @@ void offsetBlk(void)
 {
  if(bDisplayNotSet)
   SetOGLDisplaySettings(1);
+
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+ if(GlesVramTilingS2CommandActive())
+  {
+   vertex[0].x=lx0; vertex[1].x=lx1;
+   vertex[2].x=lx2; vertex[3].x=lx3;
+   vertex[0].y=ly0; vertex[1].y=ly1;
+   vertex[2].y=ly2; vertex[3].y=ly3;
+   return;
+  }
+#endif
 
  vertex[0].x=lx0-PSXDisplay.GDrawOffset.x + PreviousPSXDisplay.Range.x0;
  vertex[1].x=lx1-PSXDisplay.GDrawOffset.x + PreviousPSXDisplay.Range.x0;
@@ -1305,9 +1338,21 @@ void SetOGLDisplaySettings(BOOL DisplaySet)
  static RECT rC   ={0,0,0,0};
  static int iOldX=0;
  static int iOldY=0;
+#ifndef GLES_VRAM_LR_TILING_S2_EXPERIMENT
  int currentDisplayHit=FALSE;
  int previousDisplayHit=FALSE;
+#endif
  RECT r;float XS,YS;
+
+#ifdef GLES_VRAM_LR_TILING_S2_EXPERIMENT
+ if(GlesVramTilingS2CommandActive())
+  {
+   /* The draw wrapper installs a tile projection and a pass-local scissor
+    * after the primitive has finished building its absolute vertices. */
+   bDisplayNotSet = FALSE;
+   return;
+  }
+#endif
 
  bDisplayNotSet = FALSE;
 
@@ -1345,10 +1390,10 @@ void SetOGLDisplaySettings(BOOL DisplaySet)
  PSXDisplay.GDrawOffset.y = PreviousPSXDisplay.DisplayPosition.y;
  PSXDisplay.GDrawOffset.x = PreviousPSXDisplay.DisplayPosition.x;
 
- /* FF7/FF9 can draw battle UI into the current VRAM display page while the
-  * scene is still drawn into the previous page.  Selecting the base from the
-  * draw area keeps both command streams in screen coordinates without
-  * replaying or moving primitives. */
+ /* The legacy single-EFB renderer needs this page-selection workaround.
+  * The tiling renderer keeps absolute PS VRAM coordinates and must not fold
+  * two physical pages into one work EFB. */
+#ifndef GLES_VRAM_LR_TILING_S2_EXPERIMENT
  if(dwActFixes & (AUTO_FIX_FF7_DISPLAY_PAGE | AUTO_FIX_FF9))
   {
    currentDisplayHit =
@@ -1368,6 +1413,7 @@ void SetOGLDisplaySettings(BOOL DisplaySet)
      PSXDisplay.GDrawOffset.y = PSXDisplay.DisplayPosition.y;
     }
   }
+#endif
 
  PSXDisplay.CumulOffset.x = PSXDisplay.DrawOffset.x - PSXDisplay.GDrawOffset.x+PreviousPSXDisplay.Range.x0;
  PSXDisplay.CumulOffset.y = PSXDisplay.DrawOffset.y - PSXDisplay.GDrawOffset.y+PreviousPSXDisplay.Range.y0;
