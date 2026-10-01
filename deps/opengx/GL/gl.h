@@ -1335,6 +1335,8 @@ GLAPI void GLAPIENTRY glGetTexImage( GLenum target, GLint level,
 GLAPI void GLAPIENTRY glGenTextures( GLsizei n, GLuint *textures );
 GLAPI void GLAPIENTRY glInitRGBATextures( GLsizei width, GLsizei height );
 GLAPI int GLAPIENTRY glCaptureFramebufferTexture( GLsizei srcWidth, GLsizei srcHeight );
+/* Notify OpenGX that code outside the GL wrapper changed GX registers. */
+GLAPI void GLAPIENTRY glInvalidateGXState( void );
 GLAPI int GLAPIENTRY glCaptureFramebufferIntensityTexture( GLsizei srcWidth, GLsizei srcHeight );
 GLAPI void GLAPIENTRY glResetMovieTexPtr( void );
 GLAPI int GLAPIENTRY glInitMovieTextures( GLsizei width, GLsizei height, void * texData);

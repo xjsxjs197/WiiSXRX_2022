@@ -16,6 +16,7 @@ extern "C" {
 #define AUTO_FIX_FRAMEBUFFER_TEXTURE 0x10000
 #define AUTO_FIX_PE2_CLEAR_EFB       0x20000
 #define AUTO_FIX_FF7_DISPLAY_PAGE    0x40000
+#define AUTO_FIX_DINO_CRISIS1        0x80000
 
 void Apply_Hacks_Cdrom(void);
 int check_unsatisfied_libcrypt(void);

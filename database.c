@@ -99,6 +99,16 @@ static const char * const special_game_hack_db2[] =
     "SLUS01279", "SLPM86627", "SLES03221", "SLES03222", "SLES03223", "SLES03224", "SLES03225",
 };
 
+#ifdef GLES_VRAM_COMMAND_FIXES
+static const char * const special_game_hack_dino_crisis1[] =
+{
+    /* Keep generic VRAM materialization out of Dino Crisis' menu MoveImage
+     * traffic; its verified 64x64 framebuffer feedback path remains active. */
+    "SLUS00922", "SLPS02180", "SLPM86903",
+    "SLES02207", "SLES02208", "SLES02209", "SLES02210", "SLES02211",
+};
+#endif
+
 static const char * const special_game_hack_ff9[] =
 {
     /* Final Fantasy IX (all four discs, all known regions). */
@@ -402,6 +412,15 @@ void Apply_Hacks_Cdrom()
             break;
         }
     }
+#ifdef GLES_VRAM_COMMAND_FIXES
+    for (i = 0; i < ARRAY_SIZE(special_game_hack_dino_crisis1); i++) {
+        if (strcmp(CdromId, special_game_hack_dino_crisis1[i]) == 0)
+        {
+            Config.hacks.dwActFixes |= AUTO_FIX_DINO_CRISIS1;
+            break;
+        }
+    }
+#endif
     for (i = 0; i < ARRAY_SIZE(special_game_hack_ff9); i++) {
         if (strcmp(CdromId, special_game_hack_ff9[i]) == 0)
         {

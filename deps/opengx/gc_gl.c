@@ -689,6 +689,15 @@ void glSetLoadMtxFlg( void )
     needLoadMtx = 1;
 }
 
+void glInvalidateGXState( void )
+{
+    extern void resetTexCacheInfo(void);
+
+    glparamstate.dirty.all = ~0;
+    needLoadMtx = 1;
+    resetTexCacheInfo();
+}
+
 void glBindTextureBef(GLenum target, GLuint texture)
 {
     if (texture < 0 || texture >= _MAX_GL_TEX)

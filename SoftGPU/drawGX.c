@@ -84,6 +84,16 @@ void switchToTVMode(short dWidth, short dHeight, bool retMenu);
 static int vsync_enable;
 static int new_frame;
 static volatile int gx_present_inflight;
+#ifdef DISP_DEBUG
+static unsigned int gx_diag_copy_submitted;
+static unsigned int gx_diag_copy_skipped;
+static unsigned int gx_diag_copy_completed;
+static unsigned int gx_diag_copy_published;
+static unsigned int gx_diag_requested_frame;
+static unsigned int gx_diag_submitted_frame;
+static volatile unsigned int gx_diag_completed_frame;
+static void * volatile gx_diag_completed_xfb;
+#endif
 
 static void gx_prepare_efb_pixel_state(void)
 {
@@ -120,6 +130,9 @@ static void gc_vout_vsync(unsigned int)
 
 		VIDEO_SetNextFramebuffer(xfb[FB_FRONT]);
 		VIDEO_Flush();
+#ifdef DISP_DEBUG
+		gx_diag_copy_published++;
+#endif
 	}
 }
 
@@ -143,6 +156,11 @@ static void gx_vout_copydone(void)
 
 	gc_vout_copydone();
 	gx_present_inflight = 0;
+#ifdef DISP_DEBUG
+	gx_diag_completed_xfb = xfb[FB_NEXT];
+	gx_diag_completed_frame = gx_diag_submitted_frame;
+	gx_diag_copy_completed++;
+#endif
 }
 
 static void gc_vout_drawdone(void)
@@ -167,7 +185,12 @@ int gx_vout_render(short canSwapFrameBuf)
 	/* Keep displaying the last completed XFB while the next copy is pending.
 	 * In particular, never rotate an XFB merely because GX_CopyDisp was queued. */
 	if (gx_present_inflight)
+	{
+#ifdef DISP_DEBUG
+		gx_diag_copy_skipped++;
+#endif
 		return 0;
+	}
 
 	// reset swap table from GUI/DEBUG
 	// To improve efficiency, the original BGR pixel format of PS is directly used
@@ -176,11 +199,100 @@ int gx_vout_render(short canSwapFrameBuf)
 	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
 
 	gx_present_inflight = 1;
+#ifdef DISP_DEBUG
+	gx_diag_submitted_frame = gx_diag_requested_frame;
+#endif
 	GX_CopyDisp(xfb[FB_BACK], canSwapFrameBuf ? GX_TRUE : GX_FALSE);
 	GX_PixModeSync();
 	GX_SetDrawDoneCallback(gx_vout_copydone);
 	GX_SetDrawDone();
+#ifdef DISP_DEBUG
+	gx_diag_copy_submitted++;
+#endif
 	return 1;
+}
+
+#ifdef DISP_DEBUG
+void gx_vout_set_diag_frame(unsigned int frame)
+{
+	gx_diag_requested_frame = frame;
+}
+
+/* Hash sparse samples from the XFB which GX has actually completed.  This is
+ * deliberately done from the emulation thread rather than the GX callback.
+ * Four quadrant hashes make a small bottom-left Loading image observable,
+ * while sampling every fourth pixel keeps the debug-only cost modest. */
+void gx_vout_get_present_hash(unsigned int *frame,
+			      unsigned int hash[4],
+			      unsigned int *samples)
+{
+	extern GXRModeObj *vmode;
+	void *completed = (void *)gx_diag_completed_xfb;
+	unsigned int completedFrame = gx_diag_completed_frame;
+	unsigned int localHash[4] = {
+		2166136261u, 2166136261u, 2166136261u, 2166136261u
+	};
+	unsigned int count = 0;
+	unsigned int width, height, size, x, y;
+	const unsigned char *pixels;
+
+	if (frame) *frame = completedFrame;
+	if (!completed || !vmode)
+	{
+		if (hash)
+			memcpy(hash, localHash, sizeof(localHash));
+		if (samples) *samples = 0;
+		return;
+	}
+
+	width = vmode->fbWidth;
+	height = vmode->xfbHeight;
+	size = VIDEO_GetFrameBufferSize(vmode);
+	DCInvalidateRange(completed, size);
+	pixels = (const unsigned char *)completed;
+	for (y = 0; y < height; y += 4)
+	{
+		for (x = 0; x < width; x += 4)
+		{
+			unsigned int offset = (y * width + x) * 2;
+			unsigned int value;
+			unsigned int quadrant;
+
+			if (offset + 1 >= size)
+				break;
+			value = ((unsigned int)pixels[offset] << 8) |
+				pixels[offset + 1];
+			quadrant = (x >= width / 2 ? 1u : 0u) |
+				(y >= height / 2 ? 2u : 0u);
+			localHash[quadrant] =
+				(localHash[quadrant] ^ value) * 16777619u;
+			count++;
+		}
+	}
+
+	if (hash)
+		memcpy(hash, localHash, sizeof(localHash));
+	if (samples) *samples = count;
+}
+#endif
+
+void gx_vout_get_diag(unsigned int *submitted, unsigned int *skipped,
+			      unsigned int *completed, unsigned int *published,
+			      int *inflight, int *ready)
+{
+#ifdef DISP_DEBUG
+	if (submitted) *submitted = gx_diag_copy_submitted;
+	if (skipped) *skipped = gx_diag_copy_skipped;
+	if (completed) *completed = gx_diag_copy_completed;
+	if (published) *published = gx_diag_copy_published;
+#else
+	if (submitted) *submitted = 0;
+	if (skipped) *skipped = 0;
+	if (completed) *completed = 0;
+	if (published) *published = 0;
+#endif
+	if (inflight) *inflight = gx_present_inflight;
+	if (ready) *ready = new_frame;
 }
 
 void gx_vout_wait_idle(void)
@@ -509,6 +621,12 @@ int gc_vout_open(void) {
 int gx_vout_open(void) {
 	new_frame = 0;
 	gx_present_inflight = 0;
+#ifdef DISP_DEBUG
+	gx_diag_copy_submitted = 0;
+	gx_diag_copy_skipped = 0;
+	gx_diag_copy_completed = 0;
+	gx_diag_copy_published = 0;
+#endif
 	VIDEO_SetPreRetraceCallback(gc_vout_vsync);
 	return 0;
 }

@@ -38,6 +38,12 @@
 
 #include "gpuExternals.h"
 #include "gpuPlugin.h"
+#include "gpuDrawFootprint.h"
+#include "gpuPendingUpload.h"
+#include "gpuVramReadDependency.h"
+#include "gpuVramCommandRect.h"
+#include "gpuVramCommandTransfer.h"
+#include "gpuNoSwapPageBacking.h"
 //#include "gpuDraw.h"
 //#include "gpuTexture.h"
 //#include "gpuPrim.h"
@@ -104,6 +110,32 @@ static unsigned long gpuDataM[256];
 static unsigned char gpuCommand = 0;
 static long          gpuDataC = 0;
 static long          gpuDataP = 0;
+#ifdef GLES_VRAM_COMMAND_FIXES
+static long          gpuDataWords = 0;
+static GlesGpuPendingUploadSet g_pendingCpuUploads;
+static int g_pendingCpuUploadsDisabled;
+static uint32_t g_pendingCpuUploadFlushes;
+static uint32_t g_pendingCpuUploadFallbacks;
+static GlesVramCommandRect g_deferredUnmappedPage;
+static int g_deferredUnmappedPageValid;
+
+static int GlesGpuPendingUploadsManaged(void);
+static void GlesGpuRegisterPendingCpuWrite(
+    int x,int y,int width,int height);
+static void GlesGpuRegisterDeferredUnmappedPage(
+    int x,int y,int width,int height);
+static void GlesGpuCommitPendingUploadRect(
+    int x0,int y0,int x1,int y1,uint32_t mapId);
+static void GlesGpuCommitPendingEfbWrite(
+    int x,int y,int width,int height);
+static void GlesGpuFlushPendingForDraw(
+    const GlesVramCommandRect *drawRect);
+static void GlesGpuFlushPendingForDisplay(void);
+static void GlesGpuResolveDeferredUnmappedPageForDraw(
+    const GlesVramCommandRect *drawRect);
+static void GlesGpuResolveDeferredUnmappedPageForDisplay(
+    int x,int y);
+#endif
 
 int             iDataWriteMode;
 int             iDataReadMode;
@@ -156,6 +188,7 @@ BOOL    canShowFps = FALSE;
 
 static BOOL    needUploadScreen = FALSE;
 static BOOL    uploadedScreen = FALSE;
+static BOOL    g_forceOpaqueMoveUpload = FALSE;
 static BOOL    needFlipEGL = FALSE;
 static unsigned short    RGB24Uploaded = 0;
 static unsigned short    GPUupdateLace5Flg = 0;
@@ -194,6 +227,62 @@ static unsigned int g_textureDiagEvent = 0;
 static unsigned int g_textureDiagEfbClears = 0;
 static char g_textureDiagBuffer[16384];
 static unsigned int g_textureDiagBufferUsed = 0;
+
+#if defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+typedef struct GlesVramFlowDiagFrameTag
+{
+    unsigned int fills;
+    unsigned int loads;
+    unsigned int moves;
+    unsigned int gp1Maps;
+    unsigned int coversActive;
+    unsigned int coversPrevious;
+    unsigned int coversCurrent;
+    int fillX, fillY, fillW, fillH;
+    unsigned int fillColor;
+    int fillCurrent, fillNext;
+    int fillContext, fillSubmitted;
+    int fillPendingManaged, fillPendingBefore, fillPendingAfter;
+    int loadX, loadY, loadW, loadH;
+    int moveX0, moveY0, moveX1, moveY1, moveW, moveH;
+    int moveUploaded;
+    unsigned int uploadScreenCalls;
+    unsigned int uploadFullCalls;
+    unsigned int uploadChunks;
+    int uploadPosition;
+    unsigned int uploadMapId;
+    int uploadDrawnBefore;
+    int uploadX0, uploadY0, uploadX1, uploadY1;
+    unsigned int uploadNonZeroPixels;
+    unsigned int uploadSourceHash;
+    unsigned int uploadTextureType;
+    unsigned int stpWrites;
+    int stpSet, stpCheck;
+    unsigned int baseCovers;
+    unsigned int baseOpcode, baseColor;
+    int baseRawX0, baseRawY0, baseRawX1, baseRawY1;
+    int baseVramX0, baseVramY0, baseVramX1, baseVramY1;
+    int baseEfbX0, baseEfbY0, baseEfbX1, baseEfbY1;
+    int baseSemi, baseAbr, baseMaskSet, baseMaskCheck;
+    int baseZMillionths, baseSubmitted;
+} GlesVramFlowDiagFrame;
+
+static GlesVramFlowDiagFrame g_vramFlowDiag;
+static uint32_t g_vramFlowPrevDrawCommands;
+static uint32_t g_vramFlowPrevDrawPixels;
+static uint32_t g_vramFlowPrevDrawActive;
+static uint32_t g_vramFlowPrevDrawPrevious;
+static uint32_t g_vramFlowPrevDrawCurrent;
+static uint32_t g_vramFlowPrevDrawOutside;
+static uint32_t g_vramFlowPrevDrawPending;
+static uint32_t g_vramFlowPrevEfbSubmits;
+static uint32_t g_vramFlowPrevReadCalls;
+static uint32_t g_vramFlowPrevReadFast;
+static uint32_t g_vramFlowPrevReadCaptures;
+static uint32_t g_vramFlowPrevReadUnresolved;
+static uint32_t g_vramFlowPrevPendingFlushes;
+static uint32_t g_vramFlowPrevPendingFallbacks;
+#endif
 
 /* SD open/close per line noticeably disturbs audio timing.  Accumulate one
  * frame of diagnostics and issue a single file write at presentation. */
@@ -239,6 +328,672 @@ extern GXRModeObj *vmode;     /*** Graphics Mode Object ***/
 #include "gpuVramReadback.inc"
 #include "gpuPrim.c"
 
+#ifdef GLES_VRAM_COMMAND_FIXES
+typedef struct GlesGpuDrawFootprintStatsTag
+{
+    uint32_t commands;
+    uint32_t withPixels;
+    uint32_t malformed;
+    uint32_t discarded;
+    uint32_t clipped;
+    uint32_t outside;
+    uint32_t polygon;
+    uint32_t line;
+    uint32_t rectangle;
+    uint32_t activeMapHits;
+    uint32_t previousDisplayHits;
+    uint32_t currentDisplayHits;
+    uint32_t pendingUploadHits;
+} GlesGpuDrawFootprintStats;
+
+/* M2 is observation-only. Keep counters available to a debugger without
+ * emitting per-command SD log traffic or changing rendering decisions. */
+static volatile GlesGpuDrawFootprintStats g_drawFootprintStats;
+static void GlesGpuPrepareNoSwapPageForDraw(
+ const GlesVramCommandRect *drawRect);
+
+/* The opcode alone is not enough here.  The normal table deliberately maps
+ * some nominal primitive encodings (for example 6Ch..6Fh) to primNI, and the
+ * skip-frame table maps all drawing commands to primNI or parser-only
+ * polyline handlers.  Observe only commands which the selected table will
+ * actually submit to GX; M3 must not build barriers for skipped draws. */
+static int GlesGpuSelectedHandlerMayDraw(void (*handler)(unsigned char *))
+{
+ return handler!=primNI &&
+        handler!=primLineFSkip &&
+        handler!=primLineGSkip;
+}
+
+static int GlesGpuDrawFootprintOverlaps(
+ const GlesVramCommandRect *footprint,
+ int x0,int y0,int x1,int y1)
+{
+ GlesVramCommandRect target;
+
+ target.x=x0;
+ target.y=y0;
+ target.width=x1-x0;
+ target.height=y1-y0;
+ return GlesVramCommandRectsOverlap(footprint,&target);
+}
+
+static int GlesGpuObserveDrawFootprint(
+ const void *packet,int wordCount,GlesGpuDrawFootprint *observed)
+{
+ GlesGpuDrawFootprintState state;
+ GlesGpuDrawFootprint footprint;
+
+ state.drawOffsetX=PSXDisplay.DrawOffset.x;
+ state.drawOffsetY=PSXDisplay.DrawOffset.y;
+ state.drawArea.x=PSXDisplay.DrawArea.x0;
+ state.drawArea.y=PSXDisplay.DrawArea.y0;
+ state.drawArea.width=PSXDisplay.DrawArea.x1-
+                      PSXDisplay.DrawArea.x0+1;
+ state.drawArea.height=PSXDisplay.DrawArea.y1-
+                       PSXDisplay.DrawArea.y0+1;
+ if(!GlesGpuPlanDrawFootprint(packet,wordCount,&state,&footprint))
+  return 0;
+
+ if(observed!=NULL)
+  *observed=footprint;
+
+ g_drawFootprintStats.commands++;
+ if(footprint.kind==GLES_GPU_DRAW_FOOTPRINT_POLYGON)
+  g_drawFootprintStats.polygon++;
+ else if(footprint.kind==GLES_GPU_DRAW_FOOTPRINT_LINE)
+  g_drawFootprintStats.line++;
+ else if(footprint.kind==GLES_GPU_DRAW_FOOTPRINT_RECTANGLE)
+  g_drawFootprintStats.rectangle++;
+ if(footprint.malformed)
+  g_drawFootprintStats.malformed++;
+ if(footprint.discarded)
+  g_drawFootprintStats.discarded++;
+ if(footprint.clipped)
+  g_drawFootprintStats.clipped++;
+ if(footprint.whollyOutside)
+  g_drawFootprintStats.outside++;
+ if(!footprint.hasPixels)
+  return 1;
+
+#ifdef GLES_VRAM_COMMAND_FIXES
+ GlesGpuPrepareNoSwapPageForDraw(&footprint.rect);
+ GlesGpuResolveDeferredUnmappedPageForDraw(&footprint.rect);
+#endif
+
+ g_drawFootprintStats.withPixels++;
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG)
+ if(g_activeMap.map_valid &&
+    footprint.rect.x<=g_activeMap.vram_x0 &&
+    footprint.rect.y<=g_activeMap.vram_y0 &&
+    footprint.rect.x+footprint.rect.width>=g_activeMap.vram_x1 &&
+    footprint.rect.y+footprint.rect.height>=g_activeMap.vram_y1)
+  g_vramFlowDiag.coversActive++;
+ if(footprint.rect.x<=PreviousPSXDisplay.DisplayPosition.x &&
+    footprint.rect.y<=PreviousPSXDisplay.DisplayPosition.y &&
+    footprint.rect.x+footprint.rect.width>=PreviousPSXDisplay.DisplayEnd.x &&
+    footprint.rect.y+footprint.rect.height>=PreviousPSXDisplay.DisplayEnd.y)
+  g_vramFlowDiag.coversPrevious++;
+ if(footprint.rect.x<=PSXDisplay.DisplayPosition.x &&
+    footprint.rect.y<=PSXDisplay.DisplayPosition.y &&
+    footprint.rect.x+footprint.rect.width>=PSXDisplay.DisplayEnd.x &&
+    footprint.rect.y+footprint.rect.height>=PSXDisplay.DisplayEnd.y)
+  g_vramFlowDiag.coversCurrent++;
+#endif
+ if(g_activeMap.map_valid &&
+    GlesGpuDrawFootprintOverlaps(
+     &footprint.rect,g_activeMap.vram_x0,g_activeMap.vram_y0,
+     g_activeMap.vram_x1,g_activeMap.vram_y1))
+  g_drawFootprintStats.activeMapHits++;
+ if(GlesGpuDrawFootprintOverlaps(
+     &footprint.rect,PreviousPSXDisplay.DisplayPosition.x,
+     PreviousPSXDisplay.DisplayPosition.y,
+     PreviousPSXDisplay.DisplayEnd.x,PreviousPSXDisplay.DisplayEnd.y))
+  g_drawFootprintStats.previousDisplayHits++;
+ if(GlesGpuDrawFootprintOverlaps(
+     &footprint.rect,PSXDisplay.DisplayPosition.x,
+     PSXDisplay.DisplayPosition.y,
+     PSXDisplay.DisplayEnd.x,PSXDisplay.DisplayEnd.y))
+  g_drawFootprintStats.currentDisplayHits++;
+ if((bNeedUploadAfter &&
+     GlesGpuDrawFootprintOverlaps(
+      &footprint.rect,xrUploadArea.x0,xrUploadArea.y0,
+      xrUploadArea.x1,xrUploadArea.y1)) ||
+    GlesGpuPendingUploadFindOldest(
+     &g_pendingCpuUploads,&footprint.rect,NULL,NULL))
+  g_drawFootprintStats.pendingUploadHits++;
+
+ GlesGpuFlushPendingForDraw(&footprint.rect);
+ return 1;
+}
+
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG)
+/* Log only anomalous commands and the command which supplies the full-page
+ * base.  Comparing the dispatcher-level footprint with the callback count,
+ * final GX vertices and ownership context distinguishes parser/cull failures
+ * from previous-page mapping and presentation failures without flooding the
+ * SD log with every primitive. */
+static void GlesGpuLogFlowCommandResult(
+ unsigned int opcode,int wordCount,
+ const GlesGpuDrawFootprint *footprint,unsigned int submittedBefore)
+{
+ EfbDrawContext *ctx;
+ unsigned int submitted;
+ int coversPrevious;
+
+ if(footprint==NULL || !footprint->hasPixels)
+  return;
+
+ submitted=g_debugDrawSubmitted-submittedBefore;
+ coversPrevious=
+  footprint->rect.x<=PreviousPSXDisplay.DisplayPosition.x &&
+  footprint->rect.y<=PreviousPSXDisplay.DisplayPosition.y &&
+  footprint->rect.x+footprint->rect.width>=
+   PreviousPSXDisplay.DisplayEnd.x &&
+  footprint->rect.y+footprint->rect.height>=
+   PreviousPSXDisplay.DisplayEnd.y;
+ if(submitted==1 &&
+    (!coversPrevious || g_vramFlowDiag.coversPrevious!=1))
+  return;
+
+ ctx=TopEfbContext();
+ sprintf(txtbuffer,
+         "FMC frame=%u op=%02X words=%d sub=%u kind=%d "
+         "fp=%d,%d,%d,%d flags=%d/%d/%d/%d coverPrev=%d "
+         "ctx=%d/%d/%d/%d:m%u:%d,%d-%d,%d "
+         "v=%d,%d;%d,%d;%d,%d;%d,%d "
+         "disp=%d,%d prev=%d,%d active=%u:%d,%d-%d,%d "
+         "area=%d,%d-%d,%d off=%d,%d\r\n",
+         g_textureDiagFrame,opcode,wordCount,submitted,
+         (int)footprint->kind,
+         footprint->rect.x,footprint->rect.y,
+         footprint->rect.width,footprint->rect.height,
+         footprint->malformed,footprint->discarded,
+         footprint->clipped,footprint->whollyOutside,coversPrevious,
+         ctx!=NULL,ctx!=NULL ? ctx->rectSet : 0,
+         ctx!=NULL ? ctx->submittedAny : 0,
+         ctx!=NULL ? ctx->pendingRender : 0,
+         ctx!=NULL ? ctx->mapId : 0,
+         ctx!=NULL ? ctx->x0 : 0,ctx!=NULL ? ctx->y0 : 0,
+         ctx!=NULL ? ctx->x1 : 0,ctx!=NULL ? ctx->y1 : 0,
+         (int)vertex[0].x,(int)vertex[0].y,
+         (int)vertex[1].x,(int)vertex[1].y,
+         (int)vertex[2].x,(int)vertex[2].y,
+         (int)vertex[3].x,(int)vertex[3].y,
+         PSXDisplay.DisplayPosition.x,PSXDisplay.DisplayPosition.y,
+         PreviousPSXDisplay.DisplayPosition.x,
+         PreviousPSXDisplay.DisplayPosition.y,
+         g_activeMap.map_id,g_activeMap.vram_x0,g_activeMap.vram_y0,
+         g_activeMap.vram_x1,g_activeMap.vram_y1,
+         PSXDisplay.DrawArea.x0,PSXDisplay.DrawArea.y0,
+         PSXDisplay.DrawArea.x1,PSXDisplay.DrawArea.y1,
+         PSXDisplay.DrawOffset.x,PSXDisplay.DrawOffset.y);
+ TextureDiagAppend(txtbuffer);
+}
+#endif
+
+static int GlesGpuDisplayRectMatchesActive(
+ int x0,int y0,int x1,int y1)
+{
+ return g_activeMap.map_valid &&
+        g_activeMap.vram_x0==x0 && g_activeMap.vram_y0==y0 &&
+        g_activeMap.vram_x1==x1 && g_activeMap.vram_y1==y1;
+}
+
+static int GlesGpuPendingActivePosition(void)
+{
+ if(GlesGpuDisplayRectMatchesActive(
+     PSXDisplay.DisplayPosition.x,PSXDisplay.DisplayPosition.y,
+     PSXDisplay.DisplayEnd.x,PSXDisplay.DisplayEnd.y))
+  return TRUE;
+ if(GlesGpuDisplayRectMatchesActive(
+     PreviousPSXDisplay.DisplayPosition.x,
+     PreviousPSXDisplay.DisplayPosition.y,
+     PreviousPSXDisplay.DisplayEnd.x,
+     PreviousPSXDisplay.DisplayEnd.y))
+  return FALSE;
+ return -2;
+}
+
+static int GlesGpuPendingActiveRect(GlesVramCommandRect *rect)
+{
+ if(rect==NULL || !g_activeMap.map_valid ||
+    g_activeMap.vram_x1<=g_activeMap.vram_x0 ||
+    g_activeMap.vram_y1<=g_activeMap.vram_y0)
+  return 0;
+ rect->x=g_activeMap.vram_x0;
+ rect->y=g_activeMap.vram_y0;
+ rect->width=g_activeMap.vram_x1-g_activeMap.vram_x0;
+ rect->height=g_activeMap.vram_y1-g_activeMap.vram_y0;
+ return 1;
+}
+
+static int GlesGpuPendingUploadsManaged(void)
+{
+ /* These games currently redirect draws between display pages in legacy
+  * handlers.  Until M5 removes those patches, keep their proven deferred
+  * upload path intact instead of guessing the target map twice.
+  *
+  * Dino Crisis 1/2 must also remain on their legacy MoveImage upload path.
+  * MoveImage calls UploadScreen(FALSE) for the previous display mapping.  A
+  * generic M3 pending item has no mapping identity, and therefore survives
+  * that upload when the previous map is not the active map.  Replaying the
+  * stale item after the page switch erases menu text and corrupts DC1's load
+  * menu.  M2/M3 Wii A/B testing confirmed this regression starts in M3. */
+ return !g_pendingCpuUploadsDisabled &&
+        !(dwActFixes & (AUTO_FIX_FF9 |
+                        AUTO_FIX_FF7_DISPLAY_PAGE |
+                        AUTO_FIX_NO_SWAP_BUF |
+                        AUTO_FIX_DINO_CRISIS1 |
+                        AUTO_FIX_DINO_CRISIS2));
+}
+
+static void GlesGpuGetDisplayPageRects(
+ GlesVramCommandRect *currentPage,
+ GlesVramCommandRect *previousPage)
+{
+ currentPage->x=PSXDisplay.DisplayPosition.x;
+ currentPage->y=PSXDisplay.DisplayPosition.y;
+ currentPage->width=PSXDisplay.DisplayEnd.x-
+                    PSXDisplay.DisplayPosition.x;
+ currentPage->height=PSXDisplay.DisplayEnd.y-
+                     PSXDisplay.DisplayPosition.y;
+ previousPage->x=PreviousPSXDisplay.DisplayPosition.x;
+ previousPage->y=PreviousPSXDisplay.DisplayPosition.y;
+ previousPage->width=PreviousPSXDisplay.DisplayEnd.x-
+                     PreviousPSXDisplay.DisplayPosition.x;
+ previousPage->height=PreviousPSXDisplay.DisplayEnd.y-
+                      PreviousPSXDisplay.DisplayPosition.y;
+}
+
+static void GlesGpuRegisterDeferredUnmappedPage(
+ int x,int y,int width,int height)
+{
+ GlesVramCommandRect writeRect;
+ GlesVramCommandRect currentPage;
+ GlesVramCommandRect previousPage;
+ GlesVramCommandRect candidate;
+ int displaySized;
+
+ /* The general pending uploader deliberately stays disabled for legacy
+  * no-swap-buffer games.  Retain only one complete, unmapped A0 page so it
+  * can be materialized after E3/E4/E5 reveal its actual draw mapping. */
+ if(!(dwActFixes&AUTO_FIX_NO_SWAP_BUF) || (dwActFixes&8) ||
+    PSXDisplay.RGB24 || PSXDisplay.Interlaced ||
+    PSXDisplay.InterlacedTest || width<=0 || height<=0)
+  {
+   g_deferredUnmappedPageValid=0;
+   return;
+  }
+
+ writeRect.x=x;
+ writeRect.y=y;
+ writeRect.width=width;
+ writeRect.height=height;
+ GlesGpuGetDisplayPageRects(&currentPage,&previousPage);
+ displaySized=
+  (width==currentPage.width && height==currentPage.height) ||
+  (width==previousPage.width && height==previousPage.height);
+ if(!displaySized)
+  return;
+
+ if(GlesVramCommandSelectUnmappedDisplayPageWrite(
+     &writeRect,&currentPage,&previousPage,&candidate))
+  {
+   g_deferredUnmappedPage=candidate;
+   g_deferredUnmappedPageValid=1;
+  }
+ else
+  g_deferredUnmappedPageValid=0;
+}
+
+static int GlesGpuUploadDeferredUnmappedPage(void)
+{
+ PSXRect_t savedUploadArea;
+ int uploaded;
+
+ if(!g_deferredUnmappedPageValid)
+  return 0;
+
+ savedUploadArea=xrUploadArea;
+ xrUploadArea.x0=g_deferredUnmappedPage.x;
+ xrUploadArea.y0=g_deferredUnmappedPage.y;
+ xrUploadArea.x1=g_deferredUnmappedPage.x+
+                 g_deferredUnmappedPage.width;
+ xrUploadArea.y1=g_deferredUnmappedPage.y+
+                 g_deferredUnmappedPage.height;
+ g_deferredUnmappedPageValid=0;
+ uploaded=UploadScreen(-1);
+ xrUploadArea=savedUploadArea;
+ return uploaded;
+}
+
+static void GlesGpuResolveDeferredUnmappedPageForDraw(
+ const GlesVramCommandRect *drawRect)
+{
+ GlesVramCommandRect drawPage;
+ GlesVramCommandRect currentPage;
+ GlesVramCommandRect previousPage;
+ GlesVramCommandRect uploadRect;
+
+ if(!g_deferredUnmappedPageValid || drawRect==NULL ||
+    !GlesVramCommandRectsOverlap(
+      &g_deferredUnmappedPage,drawRect))
+  return;
+
+ drawPage.x=PSXDisplay.DrawArea.x0;
+ drawPage.y=PSXDisplay.DrawArea.y0;
+ drawPage.width=PSXDisplay.DrawArea.x1-
+                PSXDisplay.DrawArea.x0+1;
+ drawPage.height=PSXDisplay.DrawArea.y1-
+                 PSXDisplay.DrawArea.y0+1;
+ GlesGpuGetDisplayPageRects(&currentPage,&previousPage);
+ if(GlesVramCommandSelectUnmappedFullDrawPage(
+     &g_deferredUnmappedPage,&drawPage,
+     PSXDisplay.DrawOffset.x,PSXDisplay.DrawOffset.y,
+     &currentPage,&previousPage,&uploadRect))
+  GlesGpuUploadDeferredUnmappedPage();
+ else
+  /* A draw touched the candidate without the exact page mapping.  It is no
+   * longer safe to replay the CPU page later because that could erase it. */
+  g_deferredUnmappedPageValid=0;
+}
+
+static void GlesGpuResolveDeferredUnmappedPageForDisplay(
+ int x,int y)
+{
+ int width;
+ int height;
+
+ if(!g_deferredUnmappedPageValid)
+  return;
+
+ width=PSXDisplay.DisplayMode.x;
+ height=PSXDisplay.DisplayMode.y+
+        PreviousPSXDisplay.DisplayModeNew.y;
+ if(g_deferredUnmappedPage.x==x &&
+    g_deferredUnmappedPage.y==y &&
+    g_deferredUnmappedPage.width==width &&
+    g_deferredUnmappedPage.height==height)
+  GlesGpuUploadDeferredUnmappedPage();
+ /* A game may issue one or more intermediate GP1 display positions between
+  * the A0 transfer and the page which consumes it.  Keep the candidate on a
+  * mismatch; a later overlapping draw, a replacement full-page A0, RGB24 /
+  * interlace transition, or GPU reset will invalidate it safely. */
+}
+
+static void GlesGpuPendingFallback(
+ const GlesVramCommandRect *extraRect)
+{
+ int haveBounds=0;
+ int x0=0,y0=0,x1=0,y1=0;
+ int index;
+
+ for(index=0;index<g_pendingCpuUploads.count;index++)
+  {
+   const GlesVramCommandRect *rect=
+    &g_pendingCpuUploads.item[index].rect;
+   int rectX1=rect->x+rect->width;
+   int rectY1=rect->y+rect->height;
+   if(!haveBounds)
+    {x0=rect->x;y0=rect->y;x1=rectX1;y1=rectY1;haveBounds=1;}
+   else
+    {
+     if(rect->x<x0) x0=rect->x;
+     if(rect->y<y0) y0=rect->y;
+     if(rectX1>x1) x1=rectX1;
+     if(rectY1>y1) y1=rectY1;
+    }
+  }
+ if(extraRect!=NULL && extraRect->width>0 && extraRect->height>0)
+  {
+   GlesVramCommandRectPiece piece[
+    GLES_VRAM_COMMAND_MAX_WRAP_PIECES];
+   int count=GlesVramCommandSplitWrappedRect(extraRect,piece);
+   for(index=0;index<count;index++)
+    {
+     const GlesVramCommandRect *rect=&piece[index].rect;
+     int rectX1=rect->x+rect->width;
+     int rectY1=rect->y+rect->height;
+     if(!haveBounds)
+      {x0=rect->x;y0=rect->y;x1=rectX1;y1=rectY1;haveBounds=1;}
+     else
+      {
+       if(rect->x<x0) x0=rect->x;
+       if(rect->y<y0) y0=rect->y;
+       if(rectX1>x1) x1=rectX1;
+       if(rectY1>y1) y1=rectY1;
+      }
+    }
+  }
+ if(haveBounds)
+  {
+   xrUploadArea.x0=x0;
+   xrUploadArea.y0=y0;
+   xrUploadArea.x1=x1;
+   xrUploadArea.y1=y1;
+   bNeedUploadAfter=TRUE;
+  }
+ GlesGpuPendingUploadReset(&g_pendingCpuUploads);
+ g_pendingCpuUploadsDisabled=1;
+ g_pendingCpuUploadFallbacks++;
+}
+
+static void GlesGpuRegisterPendingCpuWrite(
+ int x,int y,int width,int height)
+{
+ GlesVramCommandRect rect;
+
+ if(!GlesGpuPendingUploadsManaged() || PSXDisplay.RGB24 ||
+    PSXDisplay.InterlacedTest ||
+    width<=0 || height<=0)
+  return;
+ rect.x=x;
+ rect.y=y;
+ rect.width=width;
+ rect.height=height;
+ if(!GlesGpuPendingUploadAddWrapped(&g_pendingCpuUploads,&rect))
+  GlesGpuPendingFallback(&rect);
+}
+
+static void GlesGpuCommitPendingUploadRect(
+ int x0,int y0,int x1,int y1,uint32_t mapId)
+{
+ GlesVramCommandRect rect;
+
+ if(!GlesGpuPendingUploadsManaged() || PSXDisplay.RGB24 ||
+    !g_activeMap.map_valid || mapId!=g_activeMap.map_id)
+  return;
+ rect.x=x0;
+ rect.y=y0;
+ rect.width=x1-x0;
+ rect.height=y1-y0;
+ if(rect.width<=0 || rect.height<=0)
+  return;
+ if(!GlesGpuPendingUploadSubtract(&g_pendingCpuUploads,&rect))
+  GlesGpuPendingFallback(NULL);
+}
+
+static void GlesGpuCommitPendingEfbWrite(
+ int x,int y,int width,int height)
+{
+ GlesVramCommandRect writeRect;
+ GlesVramCommandRect activeRect;
+ GlesVramCommandRect intersection;
+
+ if(!GlesGpuPendingUploadsManaged() || width<=0 || height<=0 ||
+    !GlesGpuPendingActiveRect(&activeRect))
+  return;
+ writeRect.x=x;
+ writeRect.y=y;
+ writeRect.width=width;
+ writeRect.height=height;
+ if(!GlesVramCommandIntersectRects(
+     &writeRect,&activeRect,&intersection))
+  return;
+ if(!GlesGpuPendingUploadSubtract(
+     &g_pendingCpuUploads,&intersection))
+  GlesGpuPendingFallback(NULL);
+}
+
+static int GlesGpuFlushOnePending(const GlesVramCommandRect *query)
+{
+ GlesGpuPendingUploadSet after;
+ GlesVramCommandRect activeRect;
+ GlesVramCommandRect clippedQuery;
+ GlesVramCommandRect uploadRect;
+ PSXRect_t savedUploadArea;
+ uint32_t oldestOrder=0;
+ int itemIndex=-1;
+ int index;
+ int position;
+ int uploaded;
+
+ if(!GlesGpuPendingUploadsManaged() ||
+    g_pendingCpuUploads.count<=0 || query==NULL ||
+    !GlesGpuPendingActiveRect(&activeRect) ||
+    !GlesVramCommandIntersectRects(
+      query,&activeRect,&clippedQuery))
+  return 0;
+ position=GlesGpuPendingActivePosition();
+ if(position!=TRUE && position!=FALSE)
+  return 0;
+ for(index=0;index<g_pendingCpuUploads.count;index++)
+  {
+   GlesVramCommandRect candidate;
+   if(!GlesVramCommandRectsOverlap(
+       &g_pendingCpuUploads.item[index].rect,&clippedQuery) ||
+      !GlesVramCommandIntersectRects(
+       &g_pendingCpuUploads.item[index].rect,
+       &activeRect,&candidate) ||
+      candidate.width<=1 || candidate.height<=1)
+    continue;
+   if(itemIndex<0 ||
+      g_pendingCpuUploads.item[index].order<oldestOrder)
+    {
+     itemIndex=index;
+     oldestOrder=g_pendingCpuUploads.item[index].order;
+     uploadRect=candidate;
+    }
+  }
+
+ /* UploadScreen intentionally cannot submit a 1-pixel-wide GX texture.
+  * Leave such dependencies pending instead of falsely marking them clean. */
+ if(itemIndex<0)
+  return 0;
+
+ after=g_pendingCpuUploads;
+ if(!GlesGpuPendingUploadSubtract(&after,&uploadRect))
+  {
+   GlesGpuPendingFallback(NULL);
+   return 0;
+  }
+
+ savedUploadArea=xrUploadArea;
+ xrUploadArea.x0=uploadRect.x;
+ xrUploadArea.y0=uploadRect.y;
+ xrUploadArea.x1=uploadRect.x+uploadRect.width;
+ xrUploadArea.y1=uploadRect.y+uploadRect.height;
+ uploaded=UploadScreen(position);
+ xrUploadArea=savedUploadArea;
+ if(!uploaded)
+  return 0;
+
+ /* UploadScreen also commits this rectangle through its normal completion
+  * hook.  Assigning the precomputed remainder is idempotent and guarantees
+  * that a split cannot fail after pixels have already reached the EFB. */
+ g_pendingCpuUploads=after;
+ g_pendingCpuUploadFlushes++;
+ return 1;
+}
+
+static void GlesGpuFlushPendingQuery(
+ const GlesVramCommandRect *query)
+{
+ int guard=GLES_GPU_PENDING_UPLOAD_CAPACITY*2;
+
+ while(guard-->0 && GlesGpuFlushOnePending(query))
+  {}
+}
+
+static void GlesGpuFlushPendingForDraw(
+ const GlesVramCommandRect *drawRect)
+{
+ GlesGpuFlushPendingQuery(drawRect);
+}
+
+static void GlesGpuFlushPendingForDisplay(void)
+{
+ GlesVramCommandRect activeRect;
+
+ if(PSXDisplay.RGB24 ||
+    !GlesGpuPendingActiveRect(&activeRect))
+  return;
+ GlesGpuFlushPendingQuery(&activeRect);
+}
+
+static void GlesGpuPrepareNoSwapPageForDraw(
+ const GlesVramCommandRect *drawRect)
+{
+ PSXRect_t savedUploadArea;
+ int prepareResult;
+ int targetX;
+
+ /* Vagrant Story's second Loading screen alternates two horizontal
+  * 320x224 pages.  Unlike the normal direct renderer, its full-page
+  * semitransparent pass needs the old contents of the page being drawn.
+  * Keep this backing path deliberately narrower than AUTO_FIX_NO_SWAP_BUF
+  * itself: other resolutions and mask/depth scenes retain the proven legacy
+  * behavior. */
+ if(!(dwActFixes&AUTO_FIX_NO_SWAP_BUF) || drawRect==NULL ||
+    PSXDisplay.RGB24 || PSXDisplay.Interlaced ||
+    PSXDisplay.DisplayMode.x!=320 || PSXDisplay.DisplayMode.y!=224 ||
+    iSetMask!=0 || bCheckMask ||
+    PSXDisplay.DisplayPosition.y!=0 ||
+    PreviousPSXDisplay.DisplayPosition.y!=0 ||
+    !((PSXDisplay.DisplayPosition.x==0 &&
+       PreviousPSXDisplay.DisplayPosition.x==320) ||
+      (PSXDisplay.DisplayPosition.x==320 &&
+       PreviousPSXDisplay.DisplayPosition.x==0)))
+  {
+   GlesGpuNoSwapPageReset();
+   return;
+  }
+
+ targetX=PreviousPSXDisplay.DisplayPosition.x;
+ if(PSXDisplay.DrawArea.x0!=targetX ||
+    PSXDisplay.DrawArea.y0!=0 ||
+    PSXDisplay.DrawArea.x1!=targetX+319 ||
+    PSXDisplay.DrawArea.y1!=223 ||
+    PSXDisplay.DrawOffset.x!=targetX ||
+    PSXDisplay.DrawOffset.y!=0 ||
+    drawRect->x<targetX || drawRect->y<0 ||
+    drawRect->x+drawRect->width>targetX+320 ||
+    drawRect->y+drawRect->height>224)
+  {
+   GlesGpuNoSwapPageReset();
+   return;
+  }
+
+ prepareResult=GlesGpuNoSwapPagePrepare(
+  targetX,0,iResX,iResY);
+ if(prepareResult==GLES_GPU_NO_SWAP_PAGE_NEEDS_VRAM)
+  {
+   /* The EFB still contains the preceding 512x480 title screen when this
+    * double-buffered sequence begins.  Materialize the selected PS1 page
+    * from VRAM before applying its incremental/subtractive draw commands.
+    * Position -1 maps this explicit rectangle to the whole EFB instead of
+    * depending on a display-position command which is issued afterwards. */
+   savedUploadArea=xrUploadArea;
+   xrUploadArea.x0=targetX;
+   xrUploadArea.y0=0;
+   xrUploadArea.x1=targetX+320;
+   xrUploadArea.y1=224;
+   UploadScreen(-1);
+   xrUploadArea=savedUploadArea;
+  }
+}
+#endif
+
 static void flipEGL(void);
 extern void (*ogx_draw_submitted_cb)(void);
 
@@ -266,6 +1021,33 @@ extern uint8_t globalVram[VRAM_SIZE + (VRAM_ALIGN - 1)];
 long CALLBACK GL_GPUinit()
 {
 memset(ulStatusControl,0,256*sizeof(unsigned long));
+#ifdef GLES_VRAM_COMMAND_FIXES
+memset((void *)&g_drawFootprintStats,0,sizeof(g_drawFootprintStats));
+gpuDataWords=0;
+GlesGpuPendingUploadReset(&g_pendingCpuUploads);
+GlesGpuNoSwapPageReset();
+g_pendingCpuUploadsDisabled=0;
+g_pendingCpuUploadFlushes=0;
+g_pendingCpuUploadFallbacks=0;
+g_deferredUnmappedPageValid=0;
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+memset(&g_vramFlowDiag,0,sizeof(g_vramFlowDiag));
+g_vramFlowPrevDrawCommands=0;
+g_vramFlowPrevDrawPixels=0;
+g_vramFlowPrevDrawActive=0;
+g_vramFlowPrevDrawPrevious=0;
+g_vramFlowPrevDrawCurrent=0;
+g_vramFlowPrevDrawOutside=0;
+g_vramFlowPrevDrawPending=0;
+g_vramFlowPrevEfbSubmits=0;
+g_vramFlowPrevReadCalls=0;
+g_vramFlowPrevReadFast=0;
+g_vramFlowPrevReadCaptures=0;
+g_vramFlowPrevReadUnresolved=0;
+g_vramFlowPrevPendingFlushes=0;
+g_vramFlowPrevPendingFallbacks=0;
+#endif
+#endif
 
 bChangeRes=FALSE;
 bWindowMode=FALSE;
@@ -440,6 +1222,12 @@ BOOL bBlur=FALSE;
 
 bFakeFrontBuffer=FALSE;
 bRenderFrontBuffer=FALSE;
+
+#ifdef GLES_VRAM_COMMAND_FIXES
+/* CPU-new pixels must reach the active display map before borders, debug
+ * overlays and presentation content can contaminate the EFB. */
+GlesGpuFlushPendingForDisplay();
+#endif
 
 //if(iRenderFVR)                                        // frame buffer read fix mode still active?
 // {
@@ -1156,6 +1944,16 @@ switch(lCommand)
    PSXDisplay.RGB24=FALSE;
    PSXDisplay.Interlaced=FALSE;
    bUsingTWin = FALSE;
+#ifdef GLES_VRAM_COMMAND_FIXES
+   GlesGpuPendingUploadReset(&g_pendingCpuUploads);
+   GlesGpuNoSwapPageReset();
+   g_pendingCpuUploadsDisabled=0;
+   g_deferredUnmappedPageValid=0;
+   bNeedUploadAfter=FALSE;
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+   memset(&g_vramFlowDiag,0,sizeof(g_vramFlowDiag));
+#endif
+#endif
    return;
 
   // dis/enable display
@@ -1232,6 +2030,10 @@ switch(lCommand)
 
     if(sx>1000) sx=0;
 
+#ifdef GLES_VRAM_COMMAND_FIXES
+    GlesGpuResolveDeferredUnmappedPageForDisplay(sx,sy);
+#endif
+
     if(usFirstPos)
      {
       usFirstPos--;
@@ -1307,6 +2109,9 @@ switch(lCommand)
         OnDisplayMappingChanged();
 
 #ifdef DISP_DEBUG
+#if defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+    g_vramFlowDiag.gp1Maps++;
+#endif
     g_textureDiagEvent++;
     sprintf(txtbuffer,
             "TDI GP1 frame=%u event=%u req=%d,%d "
@@ -1538,9 +2343,40 @@ switch(lCommand)
 
 BOOL bNeedWriteUpload=FALSE;
 
-__inline void FinishedVRAMWrite(void)
+#ifdef GLES_VRAM_COMMAND_FIXES
+static void GlesVramCommandAdvanceTransfer(VRAMLoad_t *transfer)
 {
- if (ReadbackEnabled())
+ transfer->RowsRemaining--;
+ if(transfer->RowsRemaining<=0)
+  {
+   transfer->RowsRemaining=transfer->Width;
+   transfer->ColsRemaining--;
+  }
+}
+
+static void GlesVramCommandWriteTransferPixel(unsigned short value)
+{
+ int row=VRAMWrite.Height-VRAMWrite.ColsRemaining;
+ int column=VRAMWrite.Width-VRAMWrite.RowsRemaining;
+ GlesVramCommandWritePixel(psxVuw,
+                           VRAMWrite.x+column,
+                           VRAMWrite.y+row,
+                           value,sSetMask!=0,bCheckMask);
+ GlesVramCommandAdvanceTransfer(&VRAMWrite);
+}
+
+#endif
+
+static __inline void FinishedVRAMWrite(void)
+{
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+ g_vramFlowDiag.loads++;
+ g_vramFlowDiag.loadX=VRAMWrite.x;
+ g_vramFlowDiag.loadY=VRAMWrite.y;
+ g_vramFlowDiag.loadW=VRAMWrite.Width;
+ g_vramFlowDiag.loadH=VRAMWrite.Height;
+#endif
+ if (VramOwnershipTrackingEnabled())
  {
   MarkCpuVramWrite(VRAMWrite.x, VRAMWrite.y,
                    VRAMWrite.Width, VRAMWrite.Height);
@@ -1550,6 +2386,13 @@ __inline void FinishedVRAMWrite(void)
                     VRAMWrite.Width, VRAMWrite.Height);
 #endif
  }
+
+#ifdef GLES_VRAM_COMMAND_FIXES
+ GlesGpuRegisterPendingCpuWrite(
+  VRAMWrite.x,VRAMWrite.y,VRAMWrite.Width,VRAMWrite.Height);
+ GlesGpuRegisterDeferredUnmappedPage(
+  VRAMWrite.x,VRAMWrite.y,VRAMWrite.Width,VRAMWrite.Height);
+#endif
 
  if(bNeedWriteUpload)
   {
@@ -1565,7 +2408,7 @@ __inline void FinishedVRAMWrite(void)
  VRAMWrite.RowsRemaining = 0;
 }
 
-__inline void FinishedVRAMRead(void)
+static __inline void FinishedVRAMRead(void)
 {
  g_readbackState = READBACK_IDLE;
 
@@ -1675,8 +2518,16 @@ int i;
 #ifdef DISP_DEBUG
 static unsigned int readCallCount;
 readCallCount++;
-if (readCallCount <= 4 || iDataReadMode == DR_VRAMTRANSFER ||
+#ifdef GLES_VRAM_COMMAND_FIXES
+if (readCallCount <= 4 ||
+    (ReadbackEnabled() &&
+     (iDataReadMode == DR_VRAMTRANSFER ||
+      g_readbackState == READBACK_PENDING)))
+#else
+if (readCallCount <= 4 ||
+    iDataReadMode == DR_VRAMTRANSFER ||
     g_readbackState == READBACK_PENDING)
+#endif
  {
   sprintf(txtbuffer,
           "VRB READ call=%u size=%d mode=%d state=%d enabled=%d "
@@ -1694,6 +2545,11 @@ GPUIsBusy;
 
 if (g_readbackState == READBACK_PENDING)
  {
+#ifdef GLES_VRAM_COMMAND_FIXES
+  GlesGpuEnsureCpuCurrent(VRAMRead.x, VRAMRead.y,
+                          VRAMRead.Width, VRAMRead.Height,
+                          VRAM_READ_REASON_C0);
+#else
   g_lastReadMapping = ClassifyReadMapping(VRAMRead.x, VRAMRead.y,
                                           VRAMRead.Width, VRAMRead.Height);
   if (g_lastReadMapping == MAPPING_CURRENT)
@@ -1706,8 +2562,13 @@ if (g_readbackState == READBACK_PENDING)
    g_lastCaptureResult = (g_lastReadMapping == MAPPING_PREVIOUS) ? -5 : -6;
   MergeReadbackToPsxVuw(VRAMRead.x, VRAMRead.y,
                         VRAMRead.Width, VRAMRead.Height);
+#endif
 #ifdef DISP_DEBUG
-  sprintf(txtbuffer,
+#ifdef GLES_VRAM_COMMAND_FIXES
+  if (ReadbackEnabled())
+   {
+#endif
+    sprintf(txtbuffer,
           "VRB RESULT kind=%d capture=%d merged=%u src=%u/%u/%u "
           "changed=%u old=%08X new=%08X "
           "maskOnly=%u rgbChanged=%u mask=%u/%u "
@@ -1731,11 +2592,42 @@ if (g_readbackState == READBACK_PENDING)
           CountSnapshotTiles(LIVE_SNAP(), EFB_TILE_FULL),
           PREV_SNAP()->valid, PREV_SNAP()->map_id, PREV_SNAP()->source,
           CountSnapshotTiles(PREV_SNAP(), EFB_TILE_FULL));
-  writeLogFile(txtbuffer);
+    writeLogFile(txtbuffer);
+#ifdef GLES_VRAM_COMMAND_FIXES
+   }
+#endif
 #endif
   g_readbackState = READBACK_DONE;
  }
 
+#ifdef GLES_VRAM_COMMAND_FIXES
+for(i=0;i<iSize;i++)
+ {
+  uint32_t packed;
+  int pixelOffset;
+  int pixelsRead;
+
+  if(VRAMRead.ColsRemaining<=0 || VRAMRead.RowsRemaining<=0)
+   {FinishedVRAMRead();goto ENDREAD_GL;}
+
+  pixelOffset=(VRAMRead.Height-VRAMRead.ColsRemaining)*VRAMRead.Width+
+              (VRAMRead.Width-VRAMRead.RowsRemaining);
+  pixelsRead=GlesVramCommandReadTransferWord(
+   psxVuw,VRAMRead.x,VRAMRead.y,VRAMRead.Width,VRAMRead.Height,
+   pixelOffset,&packed);
+  if(pixelsRead<=0)
+   {FinishedVRAMRead();goto ENDREAD_GL;}
+  GPUdataRet=(unsigned long)packed;
+  PUTLE32(pMem,GPUdataRet);pMem++;
+
+  GlesVramCommandAdvanceTransfer(&VRAMRead);
+  if(pixelsRead==2)
+   GlesVramCommandAdvanceTransfer(&VRAMRead);
+  if(VRAMRead.ColsRemaining<=0)
+   {FinishedVRAMRead();goto ENDREAD_GL;}
+ }
+goto ENDREAD_GL;
+#else
 // adjust read ptr, if necessary
 while(VRAMRead.ImagePtr>=psxVuw_eom)
  VRAMRead.ImagePtr-=iGPUHeight*1024;
@@ -1794,6 +2686,7 @@ for(i=0;i<iSize;i++)
    }
   else {FinishedVRAMRead();goto ENDREAD_GL;}
  }
+#endif
 
 ENDREAD_GL:
 GPUIsIdle;
@@ -1905,6 +2798,32 @@ if(iDataWriteMode==DR_VRAMTRANSFER)
 //    writeLogFile(txtbuffer);
 //    #endif // DISP_DEBUG
 
+#ifdef GLES_VRAM_COMMAND_FIXES
+  while(VRAMWrite.ColsRemaining>0)
+   {
+    while(VRAMWrite.RowsRemaining>0)
+     {
+      if(i>=iSize) {goto ENDVRAM_GL;}
+      i++;
+      gdata=GETLE32(pMem);pMem++;
+
+      GlesVramCommandWriteTransferPixel((unsigned short)gdata);
+      if(VRAMWrite.ColsRemaining<=0)
+       {
+        FinishedVRAMWrite();
+        goto ENDVRAM_GL;
+       }
+
+      GlesVramCommandWriteTransferPixel((unsigned short)(gdata>>16));
+      if(VRAMWrite.ColsRemaining<=0)
+       {
+        FinishedVRAMWrite();
+        goto ENDVRAM_GL;
+       }
+     }
+   }
+  FinishedVRAMWrite();
+#else
   // make sure we are in vram
   while(VRAMWrite.ImagePtr>=psxVuw_eom)
    VRAMWrite.ImagePtr-=iGPUHeight*1024;
@@ -1965,6 +2884,7 @@ if(iDataWriteMode==DR_VRAMTRANSFER)
    }
 
   FinishedVRAMWrite();
+#endif
  }
 
 ENDVRAM_GL:
@@ -1996,12 +2916,18 @@ if(iDataWriteMode==DR_NORMAL)
         gpuCommand = command;
          PUTLE32(&gpuDataM[0], gdata);
         gpuDataP = 1;
+#ifdef GLES_VRAM_COMMAND_FIXES
+        gpuDataWords=1;
+#endif
        }
       else continue;
      }
     else
      {
        PUTLE32(&gpuDataM[gpuDataP], gdata);
+#ifdef GLES_VRAM_COMMAND_FIXES
+       gpuDataWords=gpuDataP+1;
+#endif
       if(gpuDataC>128)
        {
         if((gpuDataC==254 && gpuDataP>=3) ||
@@ -2016,9 +2942,37 @@ if(iDataWriteMode==DR_NORMAL)
 
     if(gpuDataP == gpuDataC)
      {
+#ifdef GLES_VRAM_COMMAND_FIXES
+      long packetWords=gpuDataWords;
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG)
+      GlesGpuDrawFootprint flowFootprint;
+      int flowFootprintValid=0;
+      unsigned int flowSubmittedBefore;
+#endif
+#endif
       gpuDataC=gpuDataP=0;
+#ifdef GLES_VRAM_COMMAND_FIXES
+      gpuDataWords=0;
+      if(GlesGpuSelectedHandlerMayDraw(primFunc[gpuCommand]))
+       {
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG)
+        flowFootprintValid=GlesGpuObserveDrawFootprint(
+         gpuDataM,(int)packetWords,&flowFootprint);
+#else
+       GlesGpuObserveDrawFootprint(gpuDataM,(int)packetWords,NULL);
+#endif
+       }
+#endif
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+      flowSubmittedBefore=g_debugDrawSubmitted;
+#endif
       BeginEfbDrawContext();
       primFunc[gpuCommand]((unsigned char *)gpuDataM);
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+      if(flowFootprintValid)
+       GlesGpuLogFlowCommandResult(
+        gpuCommand,(int)packetWords,&flowFootprint,flowSubmittedBefore);
+#endif
       EndEfbDrawContext();
 
        if (dwActFixes & AUTO_FIX_GPU_BUSY)      // hack for emulating "gpu busy" in some games
@@ -2214,6 +3168,116 @@ static void flipEGL(void)
         canClearFrameBuf = TRUE;
 
     #ifdef DISP_DEBUG
+#if defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+    sprintf(txtbuffer,
+            "FMD FRAME=%u cmd=F%u/A%u/M%u/G%u "
+            "fill=%d,%d,%d,%d:%d/%d/%d:%d:%d>%d:%06X "
+            "a0=%d,%d,%d,%d move=%d,%d>%d,%d,%d,%d:u%d "
+            "disp=%d,%d,%d,%d prev=%d,%d,%d,%d "
+            "active=%d/%u:%d,%d-%d,%d "
+            "area=%d,%d-%d,%d off=%d,%d screen=%d,%d-%d,%d "
+            "draw=%u/%u/%u/%u/%u/%u/%u/%u cover=%u/%u/%u "
+            "read=%u/%u/%u/%u:%d/%d "
+            "pending=%d/%d:%u/%u flags=%d/%d/%d:%d,%d-%d,%d:%d "
+            "upload=%u/%u/%u:p%d:m%u:b%x:%d,%d-%d,%d:n%u:h%08X:t%u "
+            "stp=%u:%d/%d base=%u:%02X/%06X:"
+            "%d,%d-%d,%d>%d,%d-%d,%d>%d,%d-%d,%d:"
+            "%d/%d/%d/%d:z%d:s%d\r\n",
+            g_textureDiagFrame,
+            g_vramFlowDiag.fills, g_vramFlowDiag.loads,
+            g_vramFlowDiag.moves, g_vramFlowDiag.gp1Maps,
+            g_vramFlowDiag.fillX, g_vramFlowDiag.fillY,
+            g_vramFlowDiag.fillW, g_vramFlowDiag.fillH,
+            g_vramFlowDiag.fillCurrent, g_vramFlowDiag.fillNext,
+            g_vramFlowDiag.fillSubmitted,
+            g_vramFlowDiag.fillPendingManaged,
+            g_vramFlowDiag.fillPendingBefore,
+            g_vramFlowDiag.fillPendingAfter,
+            g_vramFlowDiag.fillColor & 0x00ffffffU,
+            g_vramFlowDiag.loadX, g_vramFlowDiag.loadY,
+            g_vramFlowDiag.loadW, g_vramFlowDiag.loadH,
+            g_vramFlowDiag.moveX0, g_vramFlowDiag.moveY0,
+            g_vramFlowDiag.moveX1, g_vramFlowDiag.moveY1,
+            g_vramFlowDiag.moveW, g_vramFlowDiag.moveH,
+            g_vramFlowDiag.moveUploaded,
+            PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y,
+            PSXDisplay.DisplayEnd.x, PSXDisplay.DisplayEnd.y,
+            PreviousPSXDisplay.DisplayPosition.x,
+            PreviousPSXDisplay.DisplayPosition.y,
+            PreviousPSXDisplay.DisplayEnd.x,
+            PreviousPSXDisplay.DisplayEnd.y,
+            g_activeMap.map_valid, g_activeMap.map_id,
+            g_activeMap.vram_x0, g_activeMap.vram_y0,
+            g_activeMap.vram_x1, g_activeMap.vram_y1,
+            PSXDisplay.DrawArea.x0, PSXDisplay.DrawArea.y0,
+            PSXDisplay.DrawArea.x1, PSXDisplay.DrawArea.y1,
+            PSXDisplay.DrawOffset.x, PSXDisplay.DrawOffset.y,
+            screenX, screenY, screenX1, screenY1,
+            g_drawFootprintStats.commands-g_vramFlowPrevDrawCommands,
+            g_drawFootprintStats.withPixels-g_vramFlowPrevDrawPixels,
+            g_debugDrawSubmitted-g_vramFlowPrevEfbSubmits,
+            g_drawFootprintStats.activeMapHits-g_vramFlowPrevDrawActive,
+            g_drawFootprintStats.previousDisplayHits-g_vramFlowPrevDrawPrevious,
+            g_drawFootprintStats.currentDisplayHits-g_vramFlowPrevDrawCurrent,
+            g_drawFootprintStats.outside-g_vramFlowPrevDrawOutside,
+            g_drawFootprintStats.pendingUploadHits-g_vramFlowPrevDrawPending,
+            g_vramFlowDiag.coversActive,
+            g_vramFlowDiag.coversPrevious,
+            g_vramFlowDiag.coversCurrent,
+            g_readBarrierCalls-g_vramFlowPrevReadCalls,
+            g_readBarrierFastPaths-g_vramFlowPrevReadFast,
+            g_readBarrierCaptures-g_vramFlowPrevReadCaptures,
+            g_readBarrierUnresolved-g_vramFlowPrevReadUnresolved,
+            g_lastReadMapping, g_lastCaptureResult,
+            GlesGpuPendingUploadsManaged(), g_pendingCpuUploads.count,
+            g_pendingCpuUploadFlushes-g_vramFlowPrevPendingFlushes,
+            g_pendingCpuUploadFallbacks-g_vramFlowPrevPendingFallbacks,
+            lClearOnSwap, canClearFrameBuf, bNeedUploadAfter,
+            xrUploadArea.x0, xrUploadArea.y0,
+            xrUploadArea.x1, xrUploadArea.y1, needFlipEGL,
+            g_vramFlowDiag.uploadScreenCalls,
+            g_vramFlowDiag.uploadFullCalls,
+            g_vramFlowDiag.uploadChunks,
+            g_vramFlowDiag.uploadPosition,
+            g_vramFlowDiag.uploadMapId,
+            g_vramFlowDiag.uploadDrawnBefore,
+            g_vramFlowDiag.uploadX0, g_vramFlowDiag.uploadY0,
+            g_vramFlowDiag.uploadX1, g_vramFlowDiag.uploadY1,
+            g_vramFlowDiag.uploadNonZeroPixels,
+            g_vramFlowDiag.uploadSourceHash,
+            g_vramFlowDiag.uploadTextureType,
+            g_vramFlowDiag.stpWrites,
+            g_vramFlowDiag.stpSet, g_vramFlowDiag.stpCheck,
+            g_vramFlowDiag.baseCovers,
+            g_vramFlowDiag.baseOpcode, g_vramFlowDiag.baseColor,
+            g_vramFlowDiag.baseRawX0, g_vramFlowDiag.baseRawY0,
+            g_vramFlowDiag.baseRawX1, g_vramFlowDiag.baseRawY1,
+            g_vramFlowDiag.baseVramX0, g_vramFlowDiag.baseVramY0,
+            g_vramFlowDiag.baseVramX1, g_vramFlowDiag.baseVramY1,
+            g_vramFlowDiag.baseEfbX0, g_vramFlowDiag.baseEfbY0,
+            g_vramFlowDiag.baseEfbX1, g_vramFlowDiag.baseEfbY1,
+            g_vramFlowDiag.baseSemi, g_vramFlowDiag.baseAbr,
+            g_vramFlowDiag.baseMaskSet,
+            g_vramFlowDiag.baseMaskCheck,
+            g_vramFlowDiag.baseZMillionths,
+            g_vramFlowDiag.baseSubmitted);
+    TextureDiagAppend(txtbuffer);
+    g_vramFlowPrevDrawCommands=g_drawFootprintStats.commands;
+    g_vramFlowPrevDrawPixels=g_drawFootprintStats.withPixels;
+    g_vramFlowPrevDrawActive=g_drawFootprintStats.activeMapHits;
+    g_vramFlowPrevDrawPrevious=g_drawFootprintStats.previousDisplayHits;
+    g_vramFlowPrevDrawCurrent=g_drawFootprintStats.currentDisplayHits;
+    g_vramFlowPrevDrawOutside=g_drawFootprintStats.outside;
+    g_vramFlowPrevDrawPending=g_drawFootprintStats.pendingUploadHits;
+    g_vramFlowPrevEfbSubmits=g_debugDrawSubmitted;
+    g_vramFlowPrevReadCalls=g_readBarrierCalls;
+    g_vramFlowPrevReadFast=g_readBarrierFastPaths;
+    g_vramFlowPrevReadCaptures=g_readBarrierCaptures;
+    g_vramFlowPrevReadUnresolved=g_readBarrierUnresolved;
+    g_vramFlowPrevPendingFlushes=g_pendingCpuUploadFlushes;
+    g_vramFlowPrevPendingFallbacks=g_pendingCpuUploadFallbacks;
+    memset(&g_vramFlowDiag,0,sizeof(g_vramFlowDiag));
+#endif
     sprintf(txtbuffer,
             "TDI PRESENT frame=%u events=%u draws=%u efbclears=%u "
             "swapclear=%d shown=%d drawn=%d disp=%d,%d prev=%d,%d "
@@ -2228,7 +3292,6 @@ static void flipEGL(void)
             PSXDisplay.RGB24);
     DEBUG_print(txtbuffer, DBG_SPU3);
     TextureDiagAppend(txtbuffer);
-    TextureDiagFlush();
     #endif // DISP_DEBUG
 
     CapturePresentedEfbSnapshot();
@@ -2252,7 +3315,45 @@ static void flipEGL(void)
         }
     }
 
+#ifdef DISP_DEBUG
+#if defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+    gx_vout_set_diag_frame(g_textureDiagFrame);
+#endif
+#endif
     presentSubmitted = gx_vout_render(canClearFrameBuf);
+
+#ifdef DISP_DEBUG
+#if defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+    {
+        unsigned int copySubmitted;
+        unsigned int copySkipped;
+        unsigned int copyCompleted;
+        unsigned int copyPublished;
+        int copyInflight;
+        int copyReady;
+        unsigned int copiedFrame;
+        unsigned int copiedHash[4];
+        unsigned int copiedSamples;
+
+        gx_vout_get_diag(&copySubmitted, &copySkipped,
+                         &copyCompleted, &copyPublished,
+                         &copyInflight, &copyReady);
+        gx_vout_get_present_hash(&copiedFrame, copiedHash,
+                                 &copiedSamples);
+        sprintf(txtbuffer,
+                "TDI COPY frame=%u result=%d totals=%u/%u/%u/%u "
+                "inflight=%d ready=%d xfb=%u:%u:"
+                "%08X/%08X/%08X/%08X\r\n",
+                g_textureDiagFrame, presentSubmitted,
+                copySubmitted, copySkipped, copyCompleted, copyPublished,
+                copyInflight, copyReady, copiedFrame, copiedSamples,
+                copiedHash[0], copiedHash[1],
+                copiedHash[2], copiedHash[3]);
+        TextureDiagAppend(txtbuffer);
+    }
+#endif
+    TextureDiagFlush();
+#endif
 
     if (presentSubmitted && canClearFrameBuf)
         EfbDiscardedAfterPresent();
@@ -2322,6 +3423,7 @@ long GL_GPUopen()
 long GL_GPUclose(void)
 {
  ogx_draw_submitted_cb = NULL;
+ GlesGpuNoSwapPageShutdown();
  ResetVramReadbackState();
  GLcleanup();                                          // close OGL
  return 0;

@@ -1054,7 +1054,7 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
                           "TDI DRAW frame=%u event=%u seq=%u xy=%d,%d-%d,%d "
                           "uv=%d,%d-%d,%d vram=%d,%d+%d,%d "
                           "page=%d mode=%d clut=%04X semi=%d abr=%ld "
-                          "rgb=%06X raw=%d "
+                          "rgb=%06X raw=%d mask=%d/%d "
                           "disp=%d,%d prev=%d,%d twin=%d opaque=%u "
                           "key=%08X%08X sample=%08X zero=%u/%u stp=%u "
                           "tex=%u type=%u change=%d atlas=%u,%u-%u,%u\r\n",
@@ -1068,6 +1068,7 @@ static void SetRenderMode ( unsigned int DrawAttributes, BOOL bSCol )
                           (unsigned int)ulClutID,
                           DrawSemiTrans, GlobalTextABR,
                           DrawAttributes & 0x00ffffffU, bDrawNonShaded,
+                          iSetMask, bCheckMask,
                           PSXDisplay.DisplayPosition.x,
                           PSXDisplay.DisplayPosition.y,
                           PreviousPSXDisplay.DisplayPosition.x,
@@ -1799,6 +1800,7 @@ int UploadScreen ( int Position )
 #ifdef DISP_DEBUG
     {
         unsigned int sourceNonZero = 0;
+        unsigned int sourceNonZeroPixels = 0;
         unsigned int sourceHash = 2166136261u;
         int sourceBytesPerRow = (xb - xa) * (PSXDisplay.RGB24 ? 3 : 2);
         int sourceY;
@@ -1817,6 +1819,14 @@ int UploadScreen ( int Position )
                     sourceNonZero++;
                 sourceHash = (sourceHash ^ value) * 16777619u;
             }
+            if (!PSXDisplay.RGB24)
+            {
+                int sourcePixel;
+
+                for (sourcePixel = xa; sourcePixel < xb; sourcePixel++)
+                    if (GETLE16(&psxVuw[(sourceY << 10) + sourcePixel]))
+                        sourceNonZeroPixels++;
+            }
         }
         sprintf(txtbuffer, "UpSrc rgb=%d rect=%d,%d-%d,%d nz=%u hash=%08X\r\n",
                 PSXDisplay.RGB24, xa, ya, xb, yb,
@@ -1824,6 +1834,40 @@ int UploadScreen ( int Position )
         writeLogFile(txtbuffer);
         if (!PSXDisplay.RGB24)
             DebugLogVramHalf("Upload", xa, ya, xb - xa, yb - ya);
+#if defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+        {
+            int fullUpload = 0;
+
+            if (Position == FALSE)
+                fullUpload =
+                    xa <= PreviousPSXDisplay.DisplayPosition.x &&
+                    ya <= PreviousPSXDisplay.DisplayPosition.y &&
+                    xb >= PreviousPSXDisplay.DisplayEnd.x &&
+                    yb >= PreviousPSXDisplay.DisplayEnd.y;
+            else if (Position == TRUE)
+                fullUpload =
+                    xa <= PSXDisplay.DisplayPosition.x &&
+                    ya <= PSXDisplay.DisplayPosition.y &&
+                    xb >= PSXDisplay.DisplayEnd.x &&
+                    yb >= PSXDisplay.DisplayEnd.y;
+
+            g_vramFlowDiag.uploadScreenCalls++;
+            if (fullUpload || g_vramFlowDiag.uploadFullCalls == 0)
+            {
+                if (fullUpload)
+                    g_vramFlowDiag.uploadFullCalls++;
+                g_vramFlowDiag.uploadPosition = Position;
+                g_vramFlowDiag.uploadMapId = uploadMapId;
+                g_vramFlowDiag.uploadDrawnBefore = drawnBeforeUpload;
+                g_vramFlowDiag.uploadX0 = xa;
+                g_vramFlowDiag.uploadY0 = ya;
+                g_vramFlowDiag.uploadX1 = xb;
+                g_vramFlowDiag.uploadY1 = yb;
+                g_vramFlowDiag.uploadNonZeroPixels = sourceNonZeroPixels;
+                g_vramFlowDiag.uploadSourceHash = sourceHash;
+            }
+        }
+#endif
     }
 #endif
 
@@ -1874,6 +1918,11 @@ int UploadScreen ( int Position )
             SetRenderMode ( ( unsigned int ) 0x01000000, FALSE ); // upload texture data
             offsetScreenUpload ( Position );
             assignTextureVRAMWrite();
+
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+            g_vramFlowDiag.uploadChunks++;
+            g_vramFlowDiag.uploadTextureType |= (unsigned int)gl_ux[8];
+#endif
 
 #ifdef DISP_DEBUG
             {
@@ -1989,6 +2038,11 @@ int UploadScreen ( int Position )
     writeLogFile ( txtbuffer );
     #endif // DISP_DEBUG
 
+#ifdef GLES_VRAM_COMMAND_FIXES
+    GlesGpuCommitPendingUploadRect(
+        xa, ya, xb, yb, uploadMapId);
+#endif
+
     return 1;
 }
 
@@ -2082,6 +2136,11 @@ static inline void cmdSTP ( unsigned char * baseAddr )
         glError();
         iDepthFunc = 1;
     }
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+    g_vramFlowDiag.stpWrites++;
+    g_vramFlowDiag.stpSet = iSetMask;
+    g_vramFlowDiag.stpCheck = bCheckMask;
+#endif
     #if defined(DISP_DEBUG)
     sprintf ( txtbuffer, "cmdSTP %d %d\r\n", iSetMask, bCheckMask);
     writeLogFile(txtbuffer);
@@ -2434,8 +2493,30 @@ static void primLoadImage ( unsigned char * baseAddr )
 
     VRAMWrite.x      = GETLEs16 ( &sgpuData[2] ) & 0x03ff;
     VRAMWrite.y      = GETLEs16 ( &sgpuData[3] ) &iGPUHeightMask;
+#ifdef GLES_VRAM_COMMAND_FIXES
+    {
+        int decodedWidth;
+        int decodedHeight;
+        uint32_t sizeWord = (uint32_t)(uint16_t)GETLEs16(&sgpuData[4]) |
+            ((uint32_t)(uint16_t)GETLEs16(&sgpuData[5]) << 16);
+        GlesVramCommandDecodeTransferSize(sizeWord,
+                                          &decodedWidth, &decodedHeight);
+        VRAMWrite.Width = decodedWidth;
+        VRAMWrite.Height = decodedHeight;
+    }
+#else
     VRAMWrite.Width  = GETLEs16 ( &sgpuData[4] );
     VRAMWrite.Height = GETLEs16 ( &sgpuData[5] );
+#endif
+
+#ifdef GLES_VRAM_COMMAND_FIXES
+    /* E6 check-mask makes A0 read the old destination bit before deciding
+     * whether each incoming pixel may be written. */
+    if (bCheckMask && !PSXDisplay.RGB24)
+        GlesGpuEnsureCpuCurrent(VRAMWrite.x, VRAMWrite.y,
+                                VRAMWrite.Width, VRAMWrite.Height,
+                                VRAM_READ_REASON_MASK_TARGET);
+#endif
 
     // clear movie garbage
     if (PSXDisplay.RGB24)
@@ -2532,7 +2613,30 @@ void CheckWriteUpdate()
     if ( VRAMWrite.Width )   iX = 1;
     if ( VRAMWrite.Height )  iY = 1;
 
+#ifdef GLES_VRAM_COMMAND_FIXES
+    {
+        GlesVramCommandRect writeRect;
+        GlesVramCommandRectPiece pieces[
+            GLES_VRAM_COMMAND_MAX_WRAP_PIECES];
+        int pieceCount;
+        int piece;
+
+        writeRect.x = VRAMWrite.x;
+        writeRect.y = VRAMWrite.y;
+        writeRect.width = VRAMWrite.Width;
+        writeRect.height = VRAMWrite.Height;
+        pieceCount = GlesVramCommandSplitWrappedRect(&writeRect, pieces);
+        for (piece = 0; piece < pieceCount; piece++)
+        {
+            InvalidateTextureArea(pieces[piece].rect.x,
+                                  pieces[piece].rect.y,
+                                  pieces[piece].rect.width,
+                                  pieces[piece].rect.height);
+        }
+    }
+#else
     InvalidateTextureArea ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width - iX, VRAMWrite.Height - iY );
+#endif
 
     #if defined(DISP_DEBUG)
     sprintf ( txtbuffer, "CheckWriteUpdate %d %d %d %d %d %d %d %d %d %d %d %d\r\n",
@@ -2636,6 +2740,13 @@ void CheckWriteUpdate()
                 return;
             }
 
+#ifdef GLES_VRAM_COMMAND_FIXES
+            if (GlesGpuPendingUploadsManaged())
+            {
+                bNeedUploadAfter = FALSE;
+            }
+            else
+#endif
             if ( !bNeedUploadAfter )
             {
                 bNeedUploadAfter = TRUE;
@@ -2698,8 +2809,21 @@ static void primStoreImage ( unsigned char * baseAddr )
 
     VRAMRead.x      = GETLEs16 ( &sgpuData[2] ) & 0x03ff;
     VRAMRead.y      = GETLEs16 ( &sgpuData[3] ) &iGPUHeightMask;
+#ifdef GLES_VRAM_COMMAND_FIXES
+    {
+        int decodedWidth;
+        int decodedHeight;
+        uint32_t sizeWord = (uint32_t)(uint16_t)GETLEs16(&sgpuData[4]) |
+            ((uint32_t)(uint16_t)GETLEs16(&sgpuData[5]) << 16);
+        GlesVramCommandDecodeTransferSize(sizeWord,
+                                          &decodedWidth, &decodedHeight);
+        VRAMRead.Width = decodedWidth;
+        VRAMRead.Height = decodedHeight;
+    }
+#else
     VRAMRead.Width  = GETLEs16 ( &sgpuData[4] );
     VRAMRead.Height = GETLEs16 ( &sgpuData[5] );
+#endif
 
     //#if defined(DISP_DEBUG)
     //sprintf ( txtbuffer, "primStoreImage %d %d %d %d\r\n", VRAMRead.x, VRAMRead.y, VRAMRead.Width, VRAMRead.Height );
@@ -2720,10 +2844,14 @@ static void primStoreImage ( unsigned char * baseAddr )
                                        VRAMRead.Width, VRAMRead.Height);
 
     #ifdef DISP_DEBUG
-    DebugLogC0Selection(VRAMRead.x, VRAMRead.y,
-                        VRAMRead.Width, VRAMRead.Height,
-                        readMapping);
-    sprintf(txtbuffer,
+    #ifdef GLES_VRAM_COMMAND_FIXES
+    if (ReadbackEnabled())
+    {
+    #endif
+        DebugLogC0Selection(VRAMRead.x, VRAMRead.y,
+                            VRAMRead.Width, VRAMRead.Height,
+                            readMapping);
+        sprintf(txtbuffer,
             "VRB C0 kind=%d enabled=%d fixes=%08x rect=%d,%d %dx%d "
             "map=%u mv=%d cv=%d dirty=%d full=%d partial=%d\r\n",
             readMapping, ReadbackEnabled(), dwActFixes,
@@ -2732,7 +2860,10 @@ static void primStoreImage ( unsigned char * baseAddr )
             g_activeMap.content_valid, g_activeMap.content_dirty,
             CountEfbTiles(EFB_TILE_FULL),
             CountEfbTiles(EFB_TILE_PARTIAL));
-    writeLogFile(txtbuffer);
+        writeLogFile(txtbuffer);
+    #ifdef GLES_VRAM_COMMAND_FIXES
+    }
+    #endif
     #endif
 
     STATUSREG |= GPUSTATUS_READYFORVRAM;
@@ -2745,6 +2876,27 @@ static void primStoreImage ( unsigned char * baseAddr )
 
 static inline void BlkFillArea(short x0, short y0, short width, short height, unsigned short fillCol)
 {
+#ifdef GLES_VRAM_COMMAND_FIXES
+    GlesVramCommandRect rect;
+    GlesVramCommandRectPiece pieces[GLES_VRAM_COMMAND_MAX_WRAP_PIECES];
+    int pieceCount;
+    int piece;
+
+    rect.x = x0;
+    rect.y = y0;
+    rect.width = width;
+    rect.height = height;
+    if (!GlesVramCommandFill(psxVuw, x0, y0, width, height, fillCol))
+        return;
+    pieceCount = GlesVramCommandSplitWrappedRect(&rect, pieces);
+    for (piece = 0; piece < pieceCount; piece++)
+    {
+        InvalidateTextureArea(pieces[piece].rect.x,
+                              pieces[piece].rect.y,
+                              pieces[piece].rect.width,
+                              pieces[piece].rect.height);
+    }
+#else
     int x, y;
 
     if ( width <= 0 ) return;
@@ -2778,6 +2930,7 @@ static inline void BlkFillArea(short x0, short y0, short width, short height, un
                 PUTLE16(ptr++, fillCol);
         }
     }
+#endif
 }
 
 static void primBlkFill ( unsigned char * baseAddr )
@@ -2837,6 +2990,19 @@ static void primBlkFill ( unsigned char * baseAddr )
     BOOL clearNext = IsCompleteInsideNextScreen(sprtX, sprtY, sprtW, sprtH);
     BOOL clearCurrent = CLEAR_SCREEN(sprtX, sprtY, sprtX + sprtW, sprtY + sprtH);
 
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+    g_vramFlowDiag.fills++;
+    g_vramFlowDiag.fillX = sprtX;
+    g_vramFlowDiag.fillY = sprtY;
+    g_vramFlowDiag.fillW = sprtW;
+    g_vramFlowDiag.fillH = sprtH;
+    g_vramFlowDiag.fillColor = GETLE32(&gpuData[0]);
+    g_vramFlowDiag.fillCurrent = clearCurrent;
+    g_vramFlowDiag.fillNext = clearNext;
+    g_vramFlowDiag.fillPendingManaged = GlesGpuPendingUploadsManaged();
+    g_vramFlowDiag.fillPendingBefore = g_pendingCpuUploads.count;
+#endif
+
     ctxOk = BeginEfbDrawContext();
     if (ctxOk)
     {
@@ -2847,7 +3013,10 @@ static void primBlkFill ( unsigned char * baseAddr )
         if (clearCurrent)
         {
             TopEfbContext()->coverage = EFB_TILE_FULL;
-            TopEfbContext()->presentationRebuild = 1;
+#ifdef GLES_VRAM_COMMAND_FIXES
+            if (ReadbackEnabled())
+#endif
+                TopEfbContext()->presentationRebuild = 1;
         }
         else
             TopEfbContext()->coverage = EFB_TILE_PARTIAL;
@@ -2920,6 +3089,31 @@ static void primBlkFill ( unsigned char * baseAddr )
         glPRIMdrawQuad ( &vertex[0] );
     }
 
+#ifdef GLES_VRAM_COMMAND_FIXES
+    {
+        unsigned short fillCol = BGR24to16(GETLE32(&gpuData[0]));
+        int efbWidth;
+        int efbHeight;
+
+        BlkFillArea(sprtX, sprtY, sprtW, sprtH, fillCol);
+        GlesGpuRegisterPendingCpuWrite(
+            sprtX, sprtY, sprtW, sprtH);
+        MarkCpuVramWriteWithSeq(seq, sprtX, sprtY, sprtW, sprtH);
+        efbWidth = sprtW;
+        efbHeight = sprtH;
+        if (efbWidth > 1024 - sprtX)
+            efbWidth = 1024 - sprtX;
+        if (efbHeight > 512 - sprtY)
+            efbHeight = 512 - sprtY;
+        if (clearCurrent || !clearNext)
+            GlesGpuCommitPendingEfbWrite(
+                sprtX, sprtY, efbWidth, efbHeight);
+#ifdef DISP_DEBUG
+        if (sprtH >= 120)
+            DebugLogVramHalf("BlkFill", sprtX, sprtY, sprtW, sprtH);
+#endif
+    }
+#else
     if (!clearNext)
     {
         // use software blkFill
@@ -2931,6 +3125,35 @@ static void primBlkFill ( unsigned char * baseAddr )
             DebugLogVramHalf("BlkFill", sprtX, sprtY, sprtW, sprtH);
 #endif
     }
+#endif
+
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+    g_vramFlowDiag.fillContext = ctxOk;
+    g_vramFlowDiag.fillSubmitted =
+        ctxOk && TopEfbContext() != NULL && TopEfbContext()->submittedAny;
+    g_vramFlowDiag.fillPendingAfter = g_pendingCpuUploads.count;
+    sprintf(txtbuffer,
+            "FMD FILL frame=%u seq=%u rect=%d,%d,%d,%d color=%06X "
+            "current=%d next=%d context=%d submitted=%d "
+            "pending=%d:%d>%d disp=%d,%d prev=%d,%d active=%d/%u:%d,%d-%d,%d "
+            "flags=%d/%d/%d\r\n",
+            g_textureDiagFrame, (unsigned int)seq,
+            sprtX, sprtY, sprtW, sprtH,
+            (unsigned int)(GETLE32(&gpuData[0]) & 0x00ffffffU),
+            clearCurrent, clearNext, ctxOk,
+            g_vramFlowDiag.fillSubmitted,
+            GlesGpuPendingUploadsManaged(),
+            g_vramFlowDiag.fillPendingBefore,
+            g_vramFlowDiag.fillPendingAfter,
+            PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y,
+            PreviousPSXDisplay.DisplayPosition.x,
+            PreviousPSXDisplay.DisplayPosition.y,
+            g_activeMap.map_valid, g_activeMap.map_id,
+            g_activeMap.vram_x0, g_activeMap.vram_y0,
+            g_activeMap.vram_x1, g_activeMap.vram_y1,
+            lClearOnSwap, canClearFrameBuf, bNeedUploadAfter);
+    TextureDiagAppend(txtbuffer);
+#endif
 
     EndEfbDrawContext();
 }
@@ -2982,12 +3205,24 @@ static void MoveImageWrapped ( short imageX0, short imageY0,
     }
 }
 
-////////////////////////////////////////////////////////////////////////
+static int UploadMovedScreen(void)
+{
+    BOOL previousForceOpaque = g_forceOpaqueMoveUpload;
+    int uploaded;
+
+    g_forceOpaqueMoveUpload = TRUE;
+    uploaded = UploadScreen(FALSE);
+    g_forceOpaqueMoveUpload = previousForceOpaque;
+    return uploaded;
+}
 
 static void primMoveImage ( unsigned char * baseAddr )
 {
     short *sgpuData = ( ( short * ) baseAddr );
     short imageY0, imageX0, imageY1, imageX1, imageSX, imageSY, i, j;
+#ifdef GLES_VRAM_COMMAND_FIXES
+    int sourceHandledByLegacyPath = 0;
+#endif
 
     long setMask32 = GETLEs32(&lSetMask);
     short setMask16 = GETLEs16(&sSetMask);
@@ -2996,8 +3231,21 @@ static void primMoveImage ( unsigned char * baseAddr )
     imageY0 = GETLEs16 ( &sgpuData[3] ) &iGPUHeightMask;
     imageX1 = GETLEs16 ( &sgpuData[4] ) & 0x03ff;
     imageY1 = GETLEs16 ( &sgpuData[5] ) &iGPUHeightMask;
+#ifdef GLES_VRAM_COMMAND_FIXES
+    {
+        int decodedWidth;
+        int decodedHeight;
+        uint32_t sizeWord = (uint32_t)(uint16_t)GETLEs16(&sgpuData[6]) |
+            ((uint32_t)(uint16_t)GETLEs16(&sgpuData[7]) << 16);
+        GlesVramCommandDecodeTransferSize(sizeWord,
+                                          &decodedWidth, &decodedHeight);
+        imageSX = decodedWidth;
+        imageSY = decodedHeight;
+    }
+#else
     imageSX = GETLEs16 ( &sgpuData[6] );
     imageSY = GETLEs16 ( &sgpuData[7] );
+#endif
 
     #if defined(DISP_DEBUG) && defined(CMD_LOG_2D)
     logType = 1;
@@ -3018,13 +3266,28 @@ static void primMoveImage ( unsigned char * baseAddr )
         iDrawnSomething &= ~0x8;
     }
 
+#ifdef GLES_VRAM_COMMAND_FIXES
+    if ( ( imageX0 == imageX1 ) && ( imageY0 == imageY1 ) &&
+         sSetMask == 0 ) return;
+#else
     if ( ( imageX0 == imageX1 ) && ( imageY0 == imageY1 ) ) return;
+#endif
     if ( imageSX <= 0 ) return;
     if ( imageSY <= 0 ) return;
 
-    /* Only DC2's five full-height strip copies are proven to consume GX-only
-     * EFB content.  Applying the read barrier to unrelated 80h commands can
-     * replace CPU-uploaded animation data with a pending EFB snapshot. */
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+    g_vramFlowDiag.moves++;
+    g_vramFlowDiag.moveX0 = imageX0;
+    g_vramFlowDiag.moveY0 = imageY0;
+    g_vramFlowDiag.moveX1 = imageX1;
+    g_vramFlowDiag.moveY1 = imageY1;
+    g_vramFlowDiag.moveW = imageSX;
+    g_vramFlowDiag.moveH = imageSY;
+    g_vramFlowDiag.moveUploaded = 0;
+#endif
+
+    /* Keep DC2's delta-filtered path: a generic full-tile merge would copy
+     * unchanged RGB5A3 background pixels and recreate 16x16 blocks. */
     if ((dwActFixes & AUTO_FIX_DINO_CRISIS2) &&
         imageSX == 64 && imageSY == 240 &&
         imageX1 == 448 && imageY1 == 256 &&
@@ -3032,6 +3295,9 @@ static void primMoveImage ( unsigned char * baseAddr )
         (imageY0 == 0 || imageY0 == 256))
     {
         MaterializeEfbForVramMove(imageX0, imageY0, imageSX, imageSY);
+#ifdef GLES_VRAM_COMMAND_FIXES
+        sourceHandledByLegacyPath = 1;
+#endif
     }
 
     /* Dino Crisis' distortion effect uses eight interleaved 64x64 feedback
@@ -3044,9 +3310,25 @@ static void primMoveImage ( unsigned char * baseAddr )
         imageSX == 64 && imageSY == 64 &&
         imageX1 == 512 && imageY1 == 0)
     {
-        MaterializeSmallEfbMoveSource(imageX0, imageY0,
-                                      imageSX, imageSY);
+#ifdef GLES_VRAM_COMMAND_FIXES
+        int materialized = MaterializeSmallEfbMoveSource(
+            imageX0, imageY0, imageSX, imageSY);
+        if (materialized)
+            sourceHandledByLegacyPath = 1;
+#else
+        MaterializeSmallEfbMoveSource(
+            imageX0, imageY0, imageSX, imageSY);
+#endif
     }
+
+#ifdef GLES_VRAM_COMMAND_FIXES
+    if (!sourceHandledByLegacyPath)
+        GlesGpuEnsureCpuCurrent(imageX0, imageY0, imageSX, imageSY,
+                                VRAM_READ_REASON_MOVE);
+    if (bCheckMask)
+        GlesGpuEnsureCpuCurrent(imageX1, imageY1, imageSX, imageSY,
+                                VRAM_READ_REASON_MASK_TARGET);
+#endif
 
 #ifdef DISP_DEBUG
     if (ReadbackEnabled() && imageSY >= 120)
@@ -3056,6 +3338,14 @@ static void primMoveImage ( unsigned char * baseAddr )
     }
 #endif
 
+#ifdef GLES_VRAM_COMMAND_FIXES
+    GlesVramCommandCopy(psxVuw,
+                        imageX0, imageY0, imageX1, imageY1,
+                        imageSX, imageSY,
+                        sSetMask != 0, bCheckMask);
+    GlesGpuRegisterPendingCpuWrite(
+        imageX1, imageY1, imageSX, imageSY);
+#else
     if ( ( imageY0 + imageSY ) > iGPUHeight ||
             ( imageX0 + imageSX ) > 1024       ||
             ( imageY1 + imageSY ) > iGPUHeight ||
@@ -3102,6 +3392,7 @@ static void primMoveImage ( unsigned char * baseAddr )
             DSTPtr += LineOffset;
         }
     }
+#endif
 
     MarkCpuVramWrite(imageX1, imageY1, imageSX, imageSY);
 
@@ -3115,7 +3406,32 @@ static void primMoveImage ( unsigned char * baseAddr )
 
     if ( !PSXDisplay.RGB24 )
     {
+#ifdef GLES_VRAM_COMMAND_FIXES
+        GlesVramCommandRect destinationRect;
+        GlesVramCommandRectPiece destinationPieces[
+            GLES_VRAM_COMMAND_MAX_WRAP_PIECES];
+        int destinationPieceCount;
+        int destinationPiece;
+
+        destinationRect.x = imageX1;
+        destinationRect.y = imageY1;
+        destinationRect.width = imageSX;
+        destinationRect.height = imageSY;
+        destinationPieceCount = GlesVramCommandSplitWrappedRect(
+            &destinationRect, destinationPieces);
+        for (destinationPiece = 0;
+             destinationPiece < destinationPieceCount;
+             destinationPiece++)
+        {
+            InvalidateTextureArea(
+                destinationPieces[destinationPiece].rect.x,
+                destinationPieces[destinationPiece].rect.y,
+                destinationPieces[destinationPiece].rect.width,
+                destinationPieces[destinationPiece].rect.height);
+        }
+#else
         InvalidateTextureArea ( imageX1, imageY1, imageSX - 1, imageSY - 1 );
+#endif
 
         int uploaded = 0;
         if ( CheckAgainstScreen ( imageX1, imageY1, imageSX, imageSY ) )
@@ -3125,7 +3441,7 @@ static void primMoveImage ( unsigned char * baseAddr )
 //            || (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
 //                && screenX1 == PSXDisplay.DisplayEnd.x && screenY1 == PSXDisplay.DisplayEnd.y))
             {
-                uploaded = UploadScreen ( FALSE );
+                uploaded = UploadMovedScreen();
                 if (uploaded &&
                     ResolveUploadMapId(FALSE) == g_activeMap.map_id)
                     needFlipEGL = TRUE;
@@ -3177,7 +3493,7 @@ static void primMoveImage ( unsigned char * baseAddr )
             xrUploadArea.y0 = imageY1;
             xrUploadArea.x1 = imageX1 + imageSX;
             xrUploadArea.y1 = imageY1 + imageSY;
-            uploaded = UploadScreen ( FALSE );
+            uploaded = UploadMovedScreen();
             if (uploaded &&
                 ResolveUploadMapId(FALSE) == g_activeMap.map_id)
             {
@@ -3189,6 +3505,9 @@ static void primMoveImage ( unsigned char * baseAddr )
             writeLogFile ( txtbuffer );
             #endif // DISP_DEBUG
         }
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+        g_vramFlowDiag.moveUploaded = uploaded;
+#endif
 //        else if ( iOffscreenDrawing )
 //        {
 //            if ( CheckAgainstFrontScreen ( imageX1, imageY1, imageSX, imageSY ) )
@@ -4260,6 +4579,10 @@ static void primPolyF4 ( unsigned char *baseAddr )
 
     unsigned int *gpuData = ( ( unsigned int * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+    int diagBaseSelected = 0;
+    unsigned int diagBaseSubmitBefore = 0;
+#endif
 
     lx0 = GETLEs16 ( &sgpuData[2] );
     ly0 = GETLEs16 ( &sgpuData[3] );
@@ -4302,6 +4625,65 @@ static void primPolyF4 ( unsigned char *baseAddr )
     SetRenderMode ( GETLE32 ( &gpuData[0] ), FALSE );
     SetZMask4NT();
 
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+    {
+        int rawX0 = min(lx0, min(lx1, min(lx2, lx3)));
+        int rawY0 = min(ly0, min(ly1, min(ly2, ly3)));
+        int rawX1 = max(lx0, max(lx1, max(lx2, lx3)));
+        int rawY1 = max(ly0, max(ly1, max(ly2, ly3)));
+        int vramX0 = rawX0 + PSXDisplay.DrawOffset.x;
+        int vramY0 = rawY0 + PSXDisplay.DrawOffset.y;
+        int vramX1 = rawX1 + PSXDisplay.DrawOffset.x;
+        int vramY1 = rawY1 + PSXDisplay.DrawOffset.y;
+
+        if (vramX0 <= PreviousPSXDisplay.DisplayPosition.x &&
+            vramY0 <= PreviousPSXDisplay.DisplayPosition.y &&
+            vramX1 >= PreviousPSXDisplay.DisplayEnd.x &&
+            vramY1 >= PreviousPSXDisplay.DisplayEnd.y)
+        {
+            int efbX0 = min((int)vertex[0].x,
+                            min((int)vertex[1].x,
+                                min((int)vertex[2].x, (int)vertex[3].x)));
+            int efbY0 = min((int)vertex[0].y,
+                            min((int)vertex[1].y,
+                                min((int)vertex[2].y, (int)vertex[3].y)));
+            int efbX1 = max((int)vertex[0].x,
+                            max((int)vertex[1].x,
+                                max((int)vertex[2].x, (int)vertex[3].x)));
+            int efbY1 = max((int)vertex[0].y,
+                            max((int)vertex[1].y,
+                                max((int)vertex[2].y, (int)vertex[3].y)));
+
+            g_vramFlowDiag.baseCovers++;
+            if (g_vramFlowDiag.baseCovers == 1)
+            {
+                g_vramFlowDiag.baseOpcode = GETLE32(&gpuData[0]) >> 24;
+                g_vramFlowDiag.baseColor = GETLE32(&gpuData[0]) & 0x00ffffffU;
+                g_vramFlowDiag.baseRawX0 = rawX0;
+                g_vramFlowDiag.baseRawY0 = rawY0;
+                g_vramFlowDiag.baseRawX1 = rawX1;
+                g_vramFlowDiag.baseRawY1 = rawY1;
+                g_vramFlowDiag.baseVramX0 = vramX0;
+                g_vramFlowDiag.baseVramY0 = vramY0;
+                g_vramFlowDiag.baseVramX1 = vramX1;
+                g_vramFlowDiag.baseVramY1 = vramY1;
+                g_vramFlowDiag.baseEfbX0 = efbX0;
+                g_vramFlowDiag.baseEfbY0 = efbY0;
+                g_vramFlowDiag.baseEfbX1 = efbX1;
+                g_vramFlowDiag.baseEfbY1 = efbY1;
+                g_vramFlowDiag.baseSemi = DrawSemiTrans;
+                g_vramFlowDiag.baseAbr = GlobalTextABR;
+                g_vramFlowDiag.baseMaskSet = iSetMask;
+                g_vramFlowDiag.baseMaskCheck = bCheckMask;
+                g_vramFlowDiag.baseZMillionths =
+                    (int)(vertex[0].z * 1000000.0f);
+                diagBaseSelected = 1;
+                diagBaseSubmitBefore = g_debugDrawSubmitted;
+            }
+        }
+    }
+#endif
+
     vertex[0].c.lcol = gpuData[0] | 0xFF;
     //vertex[0].c.col.a = 0xFF;
     SETCOL ( vertex[0] );
@@ -4313,6 +4695,12 @@ static void primPolyF4 ( unsigned char *baseAddr )
 
     SetEfbDrawContextFromVertices(4, 1);
     glPRIMdrawTri2 ( &vertex[0] );
+
+#if defined(DISP_DEBUG) && defined(GLES_VRAM_FLOW_DIAG) && defined(GLES_VRAM_COMMAND_FIXES)
+    if (diagBaseSelected)
+        g_vramFlowDiag.baseSubmitted =
+            (int)(g_debugDrawSubmitted - diagBaseSubmitBefore);
+#endif
 
     iDrawnSomething |= 0x1;
 }

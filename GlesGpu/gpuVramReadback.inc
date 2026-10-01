@@ -48,6 +48,14 @@ typedef enum {
     CAPTURE_QUEUED = 2
 } CaptureResult;
 
+typedef enum {
+    VRAM_READ_REASON_C0,
+    VRAM_READ_REASON_MOVE,
+    VRAM_READ_REASON_MASK_TARGET,
+    VRAM_READ_REASON_TEXTURE,
+    VRAM_READ_REASON_CLUT
+} VramReadReason;
+
 typedef struct {
     uint64_t seq;
     EfbTileCover cover;
@@ -159,6 +167,10 @@ static uint64_t g_writeSeq;
 static uint64_t g_captureOrder;
 
 static uint64_t g_psxWriteTileEpoch[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
+#ifdef GLES_VRAM_COMMAND_FIXES
+static uint64_t g_psxMaterializedTileEpoch[VRAM_READBACK_TILE_Y]
+                                               [VRAM_READBACK_TILE_X];
+#endif
 static EfbTileState g_efbTileState[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
 static EfbTileState g_pendingPresentedTile[VRAM_READBACK_TILE_Y][VRAM_READBACK_TILE_X];
 
@@ -170,6 +182,12 @@ static BOOL g_untrackedEfbWrite;
 static ReadbackState g_readbackState;
 static int g_lastCaptureResult;
 static MappingKind g_lastReadMapping;
+#ifdef GLES_VRAM_COMMAND_FIXES
+static uint32_t g_readBarrierCalls;
+static uint32_t g_readBarrierFastPaths;
+static uint32_t g_readBarrierCaptures;
+static uint32_t g_readBarrierUnresolved;
+#endif
 #ifdef DISP_DEBUG
 static unsigned int g_lastMergedPixels;
 static unsigned int g_lastMergedChangedPixels;
@@ -209,6 +227,38 @@ static BOOL ReadbackEnabled(void)
 {
 	return (dwActFixes & AUTO_FIX_VRAM_READBACK) != 0;
 }
+
+/* M4 keeps ownership tracking available for every game, but deliberately
+ * does not enable the legacy frame-end snapshot stream.  Generic reads only
+ * wait for GX after a queried tile proves that EFB is the newer producer. */
+#ifdef GLES_VRAM_COMMAND_FIXES
+/* Both Dino Crisis games use ordinary MoveImage commands for menu/work VRAM
+ * inside coordinates which also overlap the single active EFB mapping.  The
+ * EFB is not authoritative for those commands.  Preserve their proven,
+ * narrowly-scoped feedback paths instead of recursively materializing the
+ * menu image into its own source data. */
+static BOOL GlesGpuUsesLegacyDinoReadback(void)
+{
+    return (dwActFixes & (AUTO_FIX_DINO_CRISIS1 |
+                          AUTO_FIX_DINO_CRISIS2)) != 0;
+}
+
+static BOOL VramOwnershipTrackingEnabled(void)
+{
+    /* M4 normally tracks ownership for every title.  Dino Crisis 1 did not
+     * participate in that machinery in the verified M3 build, while Dino
+     * Crisis 2 already participated through AUTO_FIX_VRAM_READBACK.  Keep
+     * those exact M3 boundaries; bypassing EnsureCpuCurrent() alone is not
+     * sufficient because draw contexts and upload epochs also affect the
+     * legacy Dino snapshots. */
+    if (GlesGpuUsesLegacyDinoReadback())
+        return ReadbackEnabled();
+
+    return TRUE;
+}
+#else
+#define VramOwnershipTrackingEnabled ReadbackEnabled
+#endif
 
 #ifdef DISP_DEBUG
 static void DebugLogVramHalf(const char *tag, int x, int y, int w, int h)
@@ -266,7 +316,7 @@ static EfbDrawContext *TopEfbContext(void)
 
 static int BeginEfbDrawContext(void)
 {
-    if (!ReadbackEnabled())
+    if (!VramOwnershipTrackingEnabled())
         return 0;
 
     if (g_efbContextDepth >= EFB_DRAW_CONTEXT_DEPTH)
@@ -284,7 +334,7 @@ static int BeginEfbDrawContext(void)
 
 static void EndEfbDrawContext(void)
 {
-    if (!ReadbackEnabled())
+    if (!VramOwnershipTrackingEnabled())
         return;
 
     if (g_efbOverflowDepth > 0)
@@ -370,7 +420,6 @@ static void SetEfbDrawContextFromVertices(int count, int addDrawOffset)
         drawMap = &g_pendingPresentedMap;
         usePending = 1;
     }
-
     if (x0 < drawMap->vram_x0) x0 = drawMap->vram_x0;
     if (y0 < drawMap->vram_y0) y0 = drawMap->vram_y0;
     if (x1 > drawMap->vram_x1) x1 = drawMap->vram_x1;
@@ -401,7 +450,7 @@ static void SetEfbDrawContextFromVertices(int count, int addDrawOffset)
 
 static uint64_t BeginCommandWrite(void)
 {
-    if (!ReadbackEnabled())
+    if (!VramOwnershipTrackingEnabled())
         return 0;
 
     return ++g_writeSeq;
@@ -410,7 +459,7 @@ static uint64_t BeginCommandWrite(void)
 static void MarkCpuVramWriteWithSeq(uint64_t seq,
                                     int x, int y, int w, int h)
 {
-    if (!ReadbackEnabled())
+    if (!VramOwnershipTrackingEnabled())
         return;
 
     if (w <= 0 || h <= 0)
@@ -434,7 +483,7 @@ static void MarkCpuVramWriteWithSeq(uint64_t seq,
 
 static void MarkCpuVramWrite(int x, int y, int w, int h)
 {
-    if (!ReadbackEnabled())
+    if (!VramOwnershipTrackingEnabled())
         return;
 
     MarkCpuVramWriteWithSeq(++g_writeSeq, x, y, w, h);
@@ -493,6 +542,25 @@ static void MarkEfbTilesUpload(uint64_t seq,
                                int x0, int y0, int x1, int y1)
 {
     MarkEfbTilesFull(seq, x0, y0, x1, y1);
+#ifdef GLES_VRAM_COMMAND_FIXES
+    if (!GlesGpuUsesLegacyDinoReadback())
+    {
+        int tx0 = x0 >> 4;
+        int tx1 = (x1 - 1) >> 4;
+        int ty0 = y0 >> 4;
+        int ty1 = (y1 - 1) >> 4;
+        int ty;
+        int tx;
+
+        /* UploadScreen copies psxVuw into EFB; it is not a newer color
+         * producer.  Keep its coverage proof, but use the corresponding CPU
+         * epoch so a later Move/C0 does not capture data already in psxVuw. */
+        for (ty = ty0; ty <= ty1; ty++)
+            for (tx = tx0; tx <= tx1; tx++)
+                g_efbTileState[ty & 31][tx & 63].seq =
+                    g_psxWriteTileEpoch[ty & 31][tx & 63];
+    }
+#endif
 }
 
 static void MarkTileArrayFull(EfbTileState tile[VRAM_READBACK_TILE_Y]
@@ -657,7 +725,17 @@ static int SnapshotOwnsTile(const GXFrameSnapshot *snap,
     uint64_t cpu = g_psxWriteTileEpoch[ty][tx];
 
     if (efb->cover == EFB_TILE_FULL)
+    {
+#ifdef GLES_VRAM_COMMAND_FIXES
+        if (GlesGpuUsesLegacyDinoReadback())
+            return efb->seq != 0 && efb->seq >= cpu;
+
+        return GlesGpuVramReadSnapshotMayWrite(
+            cpu, g_psxMaterializedTileEpoch[ty][tx], efb->seq, 1);
+#else
         return efb->seq != 0 && efb->seq >= cpu;
+#endif
+    }
 
     return 0;
 }
@@ -729,8 +807,9 @@ static void OnEfbDrawSubmitted(void)
     uint64_t seq;
 
     g_debugDrawSubmitted++;
+    GlesGpuNoSwapPageMarkDrawn();
 
-    if (!ReadbackEnabled())
+    if (!VramOwnershipTrackingEnabled())
         return;
 
     if (g_efbOverflowDepth > 0)
@@ -888,7 +967,7 @@ static void OnEfbClearSubmitted(void)
     TextureDiagAppend(txtbuffer);
 #endif
 
-    if (!ReadbackEnabled())
+    if (!VramOwnershipTrackingEnabled())
         return;
 
     if (g_efbOverflowDepth > 0)
@@ -1022,7 +1101,7 @@ static int CompletePendingAsyncSnapshotForRead(void)
 
 static BOOL CanCaptureActiveEfb(void)
 {
-    if (!ReadbackEnabled())
+    if (!VramOwnershipTrackingEnabled())
         return FALSE;
     if (STATUSREG & GPUSTATUS_RGB24)
         return FALSE;
@@ -1270,6 +1349,14 @@ static int CapturePresentedEfbSnapshot(void)
     GXFrameSnapshot *slot;
     int captureResult;
 
+#ifdef GLES_VRAM_COMMAND_FIXES
+    /* The old per-frame snapshot stream remains restricted to games which
+     * explicitly require previous-page reconstruction.  M4 current-page
+     * reads use TryCaptureLiveFrame() only after a real dependency is found. */
+    if (!ReadbackEnabled())
+        return 0;
+#endif
+
     if (g_pendingPresentedReady)
     {
         if (!ReadbackEnabled() ||
@@ -1482,7 +1569,7 @@ static void TryCaptureLiveFrame(void)
 {
     g_lastCaptureResult = 0;
 
-    if (!ReadbackEnabled())
+    if (!VramOwnershipTrackingEnabled())
     {
         g_lastCaptureResult = -1;
         return;
@@ -1669,6 +1756,10 @@ static void ResetVramReadbackState(void)
 #endif
 
     memset(g_psxWriteTileEpoch, 0, sizeof(g_psxWriteTileEpoch));
+#ifdef GLES_VRAM_COMMAND_FIXES
+    memset(g_psxMaterializedTileEpoch, 0,
+           sizeof(g_psxMaterializedTileEpoch));
+#endif
     memset(g_efbTileState, 0, sizeof(g_efbTileState));
     memset(&g_pendingPresentedMap, 0, sizeof(g_pendingPresentedMap));
     memset(g_pendingPresentedTile, 0, sizeof(g_pendingPresentedTile));
@@ -1684,6 +1775,12 @@ static void ResetVramReadbackState(void)
     g_readbackState = READBACK_IDLE;
     g_lastCaptureResult = 0;
     g_lastReadMapping = MAPPING_UNKNOWN;
+#ifdef GLES_VRAM_COMMAND_FIXES
+    g_readBarrierCalls = 0;
+    g_readBarrierFastPaths = 0;
+    g_readBarrierCaptures = 0;
+    g_readBarrierUnresolved = 0;
+#endif
 #ifdef DISP_DEBUG
     g_lastMergedPixels = 0;
     g_lastMergedChangedPixels = 0;
@@ -2100,7 +2197,7 @@ static void MergeReadbackToPsxVuwFiltered(
     g_lastMergedRebuildPixels = 0;
 #endif
 
-    if (!ReadbackEnabled())
+    if (!VramOwnershipTrackingEnabled())
         return;
 
     mapping = ClassifyReadMapping(x, y, w, h);
@@ -2225,6 +2322,296 @@ static void MergeReadbackToPsxVuw(int x, int y, int w, int h)
 {
     MergeReadbackToPsxVuwFiltered(x, y, w, h, NULL, NULL);
 }
+
+#ifdef GLES_VRAM_COMMAND_FIXES
+typedef struct GlesGpuReadDependencySummaryTag
+{
+    int fullNewerTiles;
+    int partialNewerTiles;
+} GlesGpuReadDependencySummary;
+
+static void GlesGpuSummarizeReadPiece(
+    const GlesVramCommandRect *piece,
+    GlesGpuReadDependencySummary *summary)
+{
+    int tx0 = piece->x >> 4;
+    int tx1 = (piece->x + piece->width - 1) >> 4;
+    int ty0 = piece->y >> 4;
+    int ty1 = (piece->y + piece->height - 1) >> 4;
+    int ty;
+    int tx;
+
+    for (ty = ty0; ty <= ty1; ty++)
+        for (tx = tx0; tx <= tx1; tx++)
+        {
+            const EfbTileState *efb =
+                &g_efbTileState[ty & 31][tx & 63];
+            GlesGpuVramReadTileInput input;
+            GlesGpuVramReadTileState state;
+
+            input.cpuWriteSequence =
+                g_psxWriteTileEpoch[ty & 31][tx & 63];
+            input.materializedSequence =
+                g_psxMaterializedTileEpoch[ty & 31][tx & 63];
+            input.efbWriteSequence = efb->seq;
+            input.efbHasFullCoverage = efb->cover == EFB_TILE_FULL;
+            input.efbHasPartialCoverage = efb->cover == EFB_TILE_PARTIAL;
+            state = GlesGpuVramReadClassifyTile(&input);
+            if (state == GLES_GPU_VRAM_READ_GPU_NEW_FULL)
+                summary->fullNewerTiles++;
+            else if (state == GLES_GPU_VRAM_READ_GPU_NEW_PARTIAL)
+                summary->partialNewerTiles++;
+        }
+}
+
+static GlesGpuReadDependencySummary GlesGpuSummarizeReadDependency(
+    int x, int y, int w, int h)
+{
+    GlesGpuReadDependencySummary summary;
+    GlesVramCommandRect rect;
+    GlesVramCommandRectPiece pieces[GLES_VRAM_COMMAND_MAX_WRAP_PIECES];
+    int count;
+    int index;
+
+    memset(&summary, 0, sizeof(summary));
+    rect.x = x;
+    rect.y = y;
+    rect.width = w;
+    rect.height = h;
+    count = GlesVramCommandSplitWrappedRect(&rect, pieces);
+    for (index = 0; index < count; index++)
+        GlesGpuSummarizeReadPiece(&pieces[index].rect, &summary);
+    return summary;
+}
+
+static int GlesGpuSnapshotResolvesReadPiece(
+    const GlesVramCommandRect *piece,
+    MappingKind mapping,
+    uint32_t mapId)
+{
+    int tx0 = piece->x >> 4;
+    int tx1 = (piece->x + piece->width - 1) >> 4;
+    int ty0 = piece->y >> 4;
+    int ty1 = (piece->y + piece->height - 1) >> 4;
+    int ty;
+    int tx;
+
+    for (ty = ty0; ty <= ty1; ty++)
+        for (tx = tx0; tx <= tx1; tx++)
+        {
+            const EfbTileState *efb =
+                &g_efbTileState[ty & 31][tx & 63];
+            GlesGpuVramReadTileInput input;
+            GXFrameSnapshot *snapshot;
+            int px;
+            int py;
+
+            input.cpuWriteSequence =
+                g_psxWriteTileEpoch[ty & 31][tx & 63];
+            input.materializedSequence =
+                g_psxMaterializedTileEpoch[ty & 31][tx & 63];
+            input.efbWriteSequence = efb->seq;
+            input.efbHasFullCoverage = efb->cover == EFB_TILE_FULL;
+            input.efbHasPartialCoverage = efb->cover == EFB_TILE_PARTIAL;
+            if (GlesGpuVramReadClassifyTile(&input) !=
+                GLES_GPU_VRAM_READ_GPU_NEW_FULL)
+                continue;
+
+            /* Any pixel in a FULL tile selects the same ownership record.
+             * Choose one inside both the tile and the requested piece. */
+            px = max(piece->x, tx << 4);
+            py = max(piece->y, ty << 4);
+            snapshot = BestOwningSnapshotForPixel(px, py, mapping, mapId);
+            if (snapshot == NULL ||
+                snapshot->efbTile[ty & 31][tx & 63].seq < efb->seq)
+                return 0;
+        }
+    return 1;
+}
+
+static int GlesGpuSnapshotsResolveRead(
+    int x, int y, int w, int h,
+    MappingKind mapping,
+    uint32_t mapId)
+{
+    GlesVramCommandRect rect;
+    GlesVramCommandRectPiece pieces[GLES_VRAM_COMMAND_MAX_WRAP_PIECES];
+    int count;
+    int index;
+
+    rect.x = x;
+    rect.y = y;
+    rect.width = w;
+    rect.height = h;
+    count = GlesVramCommandSplitWrappedRect(&rect, pieces);
+    if (count <= 0)
+        return 0;
+    for (index = 0; index < count; index++)
+        if (!GlesGpuSnapshotResolvesReadPiece(
+                &pieces[index].rect, mapping, mapId))
+            return 0;
+    return 1;
+}
+
+static void GlesGpuMarkMaterializedPiece(
+    const GlesVramCommandRect *piece)
+{
+    int tx0 = (piece->x + VRAM_READBACK_TILE_SIZE - 1) >> 4;
+    int tx1 = ((piece->x + piece->width) >> 4) - 1;
+    int ty0 = (piece->y + VRAM_READBACK_TILE_SIZE - 1) >> 4;
+    int ty1 = ((piece->y + piece->height) >> 4) - 1;
+    int ty;
+    int tx;
+
+    /* A tile epoch summarizes all 256 pixels.  Edge tiles are deliberately
+     * left unresolved when the read rectangle covers only part of them. */
+    for (ty = ty0; ty <= ty1; ty++)
+        for (tx = tx0; tx <= tx1; tx++)
+        {
+            const EfbTileState *efb =
+                &g_efbTileState[ty & 31][tx & 63];
+            GlesGpuVramReadTileInput input;
+
+            input.cpuWriteSequence =
+                g_psxWriteTileEpoch[ty & 31][tx & 63];
+            input.materializedSequence =
+                g_psxMaterializedTileEpoch[ty & 31][tx & 63];
+            input.efbWriteSequence = efb->seq;
+            input.efbHasFullCoverage = efb->cover == EFB_TILE_FULL;
+            input.efbHasPartialCoverage = efb->cover == EFB_TILE_PARTIAL;
+            if (GlesGpuVramReadClassifyTile(&input) ==
+                GLES_GPU_VRAM_READ_GPU_NEW_FULL)
+                g_psxMaterializedTileEpoch[ty & 31][tx & 63] = efb->seq;
+        }
+}
+
+static void GlesGpuMarkMaterializedFullTiles(int x, int y, int w, int h)
+{
+    GlesVramCommandRect rect;
+    GlesVramCommandRectPiece pieces[GLES_VRAM_COMMAND_MAX_WRAP_PIECES];
+    int count;
+    int index;
+
+    rect.x = x;
+    rect.y = y;
+    rect.width = w;
+    rect.height = h;
+    count = GlesVramCommandSplitWrappedRect(&rect, pieces);
+    for (index = 0; index < count; index++)
+        GlesGpuMarkMaterializedPiece(&pieces[index].rect);
+}
+
+static void GlesGpuRunLegacyC0Readback(int x, int y, int w, int h)
+{
+    g_lastReadMapping = ClassifyReadMapping(x, y, w, h);
+    if (g_lastReadMapping == MAPPING_CURRENT)
+        TryCaptureLiveFrame();
+    else if (g_lastReadMapping == MAPPING_PREVIOUS &&
+             TryCapturePreviousReadRect(x, y, w, h))
+        g_lastCaptureResult = 3;
+    else
+        g_lastCaptureResult =
+            (g_lastReadMapping == MAPPING_PREVIOUS) ? -5 : -6;
+    MergeReadbackToPsxVuw(x, y, w, h);
+}
+
+/*
+ * Synchronize CPU VRAM only for a proven read-after-GX dependency.  FULL
+ * ownership is required because a partial polygon footprint cannot prove
+ * that every CPU pixel in its 16x16 tile is represented by EFB.  Such tiles
+ * remain explicitly unresolved rather than overwriting newer CPU data.
+ */
+static int GlesGpuEnsureCpuCurrent(
+    int x, int y, int w, int h,
+    VramReadReason reason)
+{
+    GlesGpuReadDependencySummary summary;
+    MappingKind mapping;
+    uint32_t mapId;
+    int resolved;
+
+    /* Keep the established Dino Crisis readback paths.  C0 retains the exact
+     * legacy behaviour for readback-enabled DC2; Move and mask reads remain
+     * with the established DC1/DC2 command-shape patches.  This branch must
+     * precede PublishCompletedAsyncSnapshot(), which is part of M4 rather than
+     * the legacy Dino timeline.  The separate menu regression begins in M3's
+     * mapping-less pending-upload replay and is handled by excluding both
+     * games from GlesGpuPendingUploadsManaged(). */
+    g_readBarrierCalls++;
+    if (GlesGpuUsesLegacyDinoReadback())
+    {
+        if (reason == VRAM_READ_REASON_C0 && ReadbackEnabled())
+            GlesGpuRunLegacyC0Readback(x, y, w, h);
+        else
+            g_readBarrierFastPaths++;
+        return 1;
+    }
+
+    PublishCompletedAsyncSnapshot();
+    if (!VramOwnershipTrackingEnabled() || w <= 0 || h <= 0)
+    {
+        g_readBarrierFastPaths++;
+        return 1;
+    }
+
+    mapping = ClassifyReadMapping(x, y, w, h);
+    g_lastReadMapping = mapping;
+    if (mapping == MAPPING_PREVIOUS && ReadbackEnabled())
+    {
+        if (TryCapturePreviousReadRect(x, y, w, h))
+            g_lastCaptureResult = 3;
+        else
+            g_lastCaptureResult = -5;
+        MergeReadbackToPsxVuw(x, y, w, h);
+        return 1;
+    }
+    if (mapping != MAPPING_CURRENT)
+    {
+        /* Previous-page reconstruction remains with the established game
+         * patches; generic M4 never guesses an EFB mapping after it changed. */
+        g_readBarrierFastPaths++;
+        return mapping == MAPPING_UNKNOWN;
+    }
+
+    summary = GlesGpuSummarizeReadDependency(x, y, w, h);
+    if (summary.fullNewerTiles == 0)
+    {
+        if (summary.partialNewerTiles != 0)
+        {
+            g_readBarrierUnresolved++;
+            return 0;
+        }
+        g_readBarrierFastPaths++;
+        return 1;
+    }
+
+    mapId = g_activeMap.map_id;
+    resolved = GlesGpuSnapshotsResolveRead(
+        x, y, w, h, mapping, mapId);
+    if (!resolved)
+    {
+        TryCaptureLiveFrame();
+        resolved = GlesGpuSnapshotsResolveRead(
+            x, y, w, h, mapping, mapId);
+        if (resolved)
+            g_readBarrierCaptures++;
+    }
+    if (!resolved)
+    {
+        g_readBarrierUnresolved++;
+        return 0;
+    }
+
+    MergeReadbackToPsxVuw(x, y, w, h);
+    GlesGpuMarkMaterializedFullTiles(x, y, w, h);
+    if (summary.partialNewerTiles != 0)
+    {
+        g_readBarrierUnresolved++;
+        return 0;
+    }
+    return 1;
+}
+#endif
 
 /* Some games use GP0 80h as framebuffer feedback: they first render a page
  * through GX, then immediately MoveImage a small rectangle from that page to

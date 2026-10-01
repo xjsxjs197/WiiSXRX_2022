@@ -438,6 +438,15 @@ extern int           iTileCheat;
 
 extern void gc_vout_render(void);
 extern int gx_vout_render(short canSwapFrameBuf);
+extern void gx_vout_get_diag(unsigned int *submitted, unsigned int *skipped,
+                             unsigned int *completed, unsigned int *published,
+                             int *inflight, int *ready);
+#ifdef DISP_DEBUG
+extern void gx_vout_set_diag_frame(unsigned int frame);
+extern void gx_vout_get_present_hash(unsigned int *frame,
+                                     unsigned int hash[4],
+                                     unsigned int *samples);
+#endif
 extern void gx_vout_wait_idle(void);
 extern void gc_vout_disabled(void);
 extern void showFpsAndDebugInfo(void);
