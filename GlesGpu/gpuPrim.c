@@ -2982,6 +2982,17 @@ static void MoveImageWrapped ( short imageX0, short imageY0,
     }
 }
 
+static int UploadMovedScreen(void)
+{
+    BOOL previousForceOpaque = g_forceOpaqueMoveUpload;
+    int uploaded;
+
+    g_forceOpaqueMoveUpload = TRUE;
+    uploaded = UploadScreen(FALSE);
+    g_forceOpaqueMoveUpload = previousForceOpaque;
+    return uploaded;
+}
+
 ////////////////////////////////////////////////////////////////////////
 
 static void primMoveImage ( unsigned char * baseAddr )
@@ -3125,7 +3136,7 @@ static void primMoveImage ( unsigned char * baseAddr )
 //            || (screenX == PSXDisplay.DisplayPosition.x && screenY == PSXDisplay.DisplayPosition.y
 //                && screenX1 == PSXDisplay.DisplayEnd.x && screenY1 == PSXDisplay.DisplayEnd.y))
             {
-                uploaded = UploadScreen ( FALSE );
+                uploaded = UploadMovedScreen();
                 if (uploaded &&
                     ResolveUploadMapId(FALSE) == g_activeMap.map_id)
                     needFlipEGL = TRUE;
@@ -3177,7 +3188,7 @@ static void primMoveImage ( unsigned char * baseAddr )
             xrUploadArea.y0 = imageY1;
             xrUploadArea.x1 = imageX1 + imageSX;
             xrUploadArea.y1 = imageY1 + imageSY;
-            uploaded = UploadScreen ( FALSE );
+            uploaded = UploadMovedScreen();
             if (uploaded &&
                 ResolveUploadMapId(FALSE) == g_activeMap.map_id)
             {

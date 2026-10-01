@@ -156,6 +156,7 @@ BOOL    canShowFps = FALSE;
 
 static BOOL    needUploadScreen = FALSE;
 static BOOL    uploadedScreen = FALSE;
+static BOOL    g_forceOpaqueMoveUpload = FALSE;
 static BOOL    needFlipEGL = FALSE;
 static unsigned short    RGB24Uploaded = 0;
 static unsigned short    GPUupdateLace5Flg = 0;

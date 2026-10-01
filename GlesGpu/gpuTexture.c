@@ -1541,7 +1541,15 @@ GLuint LoadTextureMovie(void)
          startxy=((1024)*column)+xrMovieArea.x0;
          for(row=xrMovieArea.x0;row<xrMovieArea.x1;row++)
          {
-             *ta++ = LTCOL(GETLE16(&psxVuw[startxy++]));
+             unsigned int uploadPixel =
+                 LTCOL(GETLE16(&psxVuw[startxy++]));
+
+             /* A MoveImage display upload must overwrite retained EFB pixels
+              * even where the copied PS1 value is 0000.  Ordinary display
+              * uploads retain their established transparency rules. */
+             if (g_forceOpaqueMoveUpload)
+                 uploadPixel |= 0x8000;
+             *ta++ = uploadPixel;
          }
         }
 
