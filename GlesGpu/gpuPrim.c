@@ -1651,11 +1651,36 @@ int UploadScreen ( int Position )
     int drawnBeforeUpload;
     int externalRebuildUpload;
     int externalRebuildComplete;
+#ifdef DISP_DEBUG
+    int vslUpload = 0;
+#endif
 
     if ( xrUploadArea.x0 > 1023 ) xrUploadArea.x0 = 1023;
     if ( xrUploadArea.x1 > 1024 ) xrUploadArea.x1 = 1024;
     if ( xrUploadArea.y0 > iGPUHeightMask )  xrUploadArea.y0 = iGPUHeightMask;
     if ( xrUploadArea.y1 > iGPUHeight )      xrUploadArea.y1 = iGPUHeight;
+
+#ifdef DISP_DEBUG
+    if (PSXDisplay.DisplayPosition.x == 512 &&
+        PSXDisplay.DisplayPosition.y == 0 &&
+        xrUploadArea.x0 <= 678 && xrUploadArea.x1 >= 858 &&
+        xrUploadArea.y0 <= 376 && xrUploadArea.y1 >= 400)
+    {
+        vslUpload = (xrUploadArea.x0 == 678 && xrUploadArea.x1 == 858 &&
+                     xrUploadArea.y0 == 376 && xrUploadArea.y1 == 400) ? 1 : 2;
+        sprintf(txtbuffer,
+                "TDI VSL US_BEGIN frame=%u tag=%d pos=%d area=%d,%d-%d,%d "
+                "cur=%d,%d prev=%d,%d displaySet=%d skip=%d drawn=%x\r\n",
+                g_textureDiagFrame, vslUpload, Position,
+                xrUploadArea.x0, xrUploadArea.y0,
+                xrUploadArea.x1, xrUploadArea.y1,
+                PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y,
+                PreviousPSXDisplay.DisplayPosition.x,
+                PreviousPSXDisplay.DisplayPosition.y,
+                !bDisplayNotSet, bSkipNextFrame, iDrawnSomething);
+        TextureDiagAppend(txtbuffer);
+    }
+#endif
 
     if ( xrUploadArea.x0 == xrUploadArea.x1 ) return 0;
     if ( xrUploadArea.y0 == xrUploadArea.y1 ) return 0;
@@ -1797,6 +1822,7 @@ int UploadScreen ( int Position )
     xb = xrUploadArea.x1;
 
 #ifdef DISP_DEBUG
+    if (vslUpload)
     {
         unsigned int sourceNonZero = 0;
         unsigned int sourceHash = 2166136261u;
@@ -1818,10 +1844,12 @@ int UploadScreen ( int Position )
                 sourceHash = (sourceHash ^ value) * 16777619u;
             }
         }
-        sprintf(txtbuffer, "UpSrc rgb=%d rect=%d,%d-%d,%d nz=%u hash=%08X\r\n",
+        sprintf(txtbuffer, "TDI VSL SOURCE frame=%u tag=%d rgb=%d "
+                "rect=%d,%d-%d,%d nz=%u hash=%08X\r\n",
+                g_textureDiagFrame, vslUpload,
                 PSXDisplay.RGB24, xa, ya, xb, yb,
                 sourceNonZero, sourceHash);
-        writeLogFile(txtbuffer);
+        TextureDiagAppend(txtbuffer);
         if (!PSXDisplay.RGB24)
             DebugLogVramHalf("Upload", xa, ya, xb - xa, yb - ya);
     }
@@ -1876,6 +1904,28 @@ int UploadScreen ( int Position )
             assignTextureVRAMWrite();
 
 #ifdef DISP_DEBUG
+            if (vslUpload)
+            {
+                sprintf(txtbuffer,
+                        "TDI VSL US_PART frame=%u tag=%d src=%d,%d-%d,%d "
+                        "vertex=%d,%d %d,%d %d,%d %d,%d "
+                        "range=%d,%d mode=%dx%d\r\n",
+                        g_textureDiagFrame, vslUpload,
+                        xrMovieArea.x0, xrMovieArea.y0,
+                        xrMovieArea.x1, xrMovieArea.y1,
+                        (int)vertex[0].x, (int)vertex[0].y,
+                        (int)vertex[1].x, (int)vertex[1].y,
+                        (int)vertex[2].x, (int)vertex[2].y,
+                        (int)vertex[3].x, (int)vertex[3].y,
+                        PreviousPSXDisplay.Range.x0,
+                        PreviousPSXDisplay.Range.y0,
+                        PSXDisplay.DisplayMode.x, PSXDisplay.DisplayMode.y);
+                TextureDiagAppend(txtbuffer);
+            }
+#endif
+
+#ifdef DISP_DEBUG
+            if (vslUpload)
             {
                 const unsigned char *textureBytes = texturepart;
                 unsigned int textureNonZero = 0;
@@ -1894,11 +1944,13 @@ int UploadScreen ( int Position )
                     textureHash = (textureHash ^ value) * 16777619u;
                 }
                 sprintf(txtbuffer,
-                        "UpTex part=%d,%d-%d,%d id=%u type=%d dim=%dx%d nz=%u hash=%08X\r\n",
+                        "TDI VSL TEXTURE frame=%u tag=%d part=%d,%d-%d,%d "
+                        "id=%u type=%d dim=%dx%d nz=%u hash=%08X\r\n",
+                        g_textureDiagFrame, vslUpload,
                         lx0, ly0, lx2, ly2, gTexName, gl_ux[8],
                         textureWidth, textureHeight,
                         textureNonZero, textureHash);
-                writeLogFile(txtbuffer);
+                TextureDiagAppend(txtbuffer);
             }
 #endif
 
@@ -1984,6 +2036,16 @@ int UploadScreen ( int Position )
     }
 
     #if defined(DISP_DEBUG)
+    if (vslUpload)
+    {
+        sprintf(txtbuffer,
+                "TDI VSL US_END frame=%u tag=%d pos=%d drawn=%x "
+                "external=%d complete=%d\r\n",
+                g_textureDiagFrame, vslUpload, Position,
+                iDrawnSomething, externalRebuildUpload,
+                externalRebuildComplete);
+        TextureDiagAppend(txtbuffer);
+    }
     sprintf ( txtbuffer, "UploadScreen end\r\n");
     DEBUG_print ( txtbuffer, DBG_GPU3 );
     writeLogFile ( txtbuffer );
@@ -2982,15 +3044,20 @@ static void MoveImageWrapped ( short imageX0, short imageY0,
     }
 }
 
-static int UploadMovedScreen(void)
+static int UploadScreenOpaque(int Position)
 {
     BOOL previousForceOpaque = g_forceOpaqueMoveUpload;
     int uploaded;
 
     g_forceOpaqueMoveUpload = TRUE;
-    uploaded = UploadScreen(FALSE);
+    uploaded = UploadScreen(Position);
     g_forceOpaqueMoveUpload = previousForceOpaque;
     return uploaded;
+}
+
+static int UploadMovedScreen(void)
+{
+    return UploadScreenOpaque(FALSE);
 }
 
 ////////////////////////////////////////////////////////////////////////

@@ -1544,8 +1544,8 @@ GLuint LoadTextureMovie(void)
              unsigned int uploadPixel =
                  LTCOL(GETLE16(&psxVuw[startxy++]));
 
-             /* A MoveImage display upload must overwrite retained EFB pixels
-              * even where the copied PS1 value is 0000.  Ordinary display
+             /* An opaque display-page upload must overwrite retained EFB
+              * pixels even where the PS1 value is 0000. Ordinary display
               * uploads retain their established transparency rules. */
              if (g_forceOpaqueMoveUpload)
                  uploadPixel |= 0x8000;

@@ -234,11 +234,53 @@ static inline unsigned short ReadGXRGB5A3PixelRaw(
 static inline unsigned short GXRGB5A3ToPSX15(unsigned short gx);
 void RestoreDispCopyInfo(void);
 extern GXRModeObj *vmode;     /*** Graphics Mode Object ***/
+extern volatile unsigned int gx_present_diag_submitted;
+extern volatile unsigned int gx_present_diag_rejected;
+extern volatile unsigned int gx_present_diag_completed;
 
 #include "gpuDraw.c"
 #include "gpuTexture.c"
 #include "gpuVramReadback.inc"
 #include "gpuPrim.c"
+
+extern int iSkipTwo;
+static BOOL g_vagrantLoadingPagePending = FALSE;
+
+/* Vagrant Story prepares the post-title Loading screen in the otherwise
+ * off-screen 512-pixel VRAM page.  GP1(05) selects the page before GP1(08)
+ * installs its final 512x480 interlaced mode, so materialization must wait
+ * for the following Loading A0 upload and the end of the RGB transition. */
+static int MaterializeVagrantLoadingPage(void)
+{
+ int vagrantFixes=AUTO_FIX_NO_SWAP_BUF|AUTO_FIX_VRAM_READBACK;
+ int uploaded;
+
+ if((dwActFixes&vagrantFixes)!=vagrantFixes ||
+    iSkipTwo || bSkipNextFrame || PSXDisplay.Disabled ||
+    PSXDisplay.RGB24 || !PSXDisplay.Interlaced ||
+    PSXDisplay.DisplayPosition.x!=512 ||
+    PSXDisplay.DisplayPosition.y!=0 ||
+    PSXDisplay.DisplayEnd.x!=1024 ||
+    PSXDisplay.DisplayEnd.y!=480)
+  return 0;
+
+ /* The A0 completion point has the final GP1(05)+GP1(08) mapping. */
+ BuildActiveMapFromDisplay();
+ PrepareFullScreenUpload(TRUE);
+ uploaded=UploadScreenOpaque(TRUE);
+#ifdef DISP_DEBUG
+ sprintf(txtbuffer,
+         "TDI VSL UPLOAD frame=%u result=%d area=%d,%d-%d,%d drawn=%x "
+         "map=%u opaque=%d\r\n",
+         g_textureDiagFrame, uploaded,
+         xrUploadArea.x0, xrUploadArea.y0,
+         xrUploadArea.x1, xrUploadArea.y1,
+         iDrawnSomething, g_activeMap.map_id,
+         1);
+ writeLogFile(txtbuffer);
+#endif
+ return uploaded;
+}
 
 static void flipEGL(void);
 extern void (*ogx_draw_submitted_cb)(void);
@@ -502,6 +544,20 @@ if(PSXDisplay.Disabled)                               // display disabled?
 
 if(iSkipTwo)                                          // we are in skipping mood?
  {
+#ifdef DISP_DEBUG
+  if((dwActFixes&(AUTO_FIX_NO_SWAP_BUF|AUTO_FIX_VRAM_READBACK))==
+        (AUTO_FIX_NO_SWAP_BUF|AUTO_FIX_VRAM_READBACK) &&
+     PSXDisplay.DisplayPosition.x==512 &&
+     PSXDisplay.DisplayPosition.y==0)
+   {
+    sprintf(txtbuffer,
+            "TDI VSL SKIP_CLEAR frame=%u skip=%d lastRgb=%d rgb=%d "
+            "drawnBefore=%x\r\n",
+            g_textureDiagFrame, iSkipTwo, iLastRGB24,
+            PSXDisplay.RGB24, iDrawnSomething);
+    writeLogFile(txtbuffer);
+   }
+#endif
   iSkipTwo--;
   iDrawnSomething=0;                                  // -> simply lie about something drawn
  }
@@ -1157,6 +1213,7 @@ switch(lCommand)
    PSXDisplay.RGB24=FALSE;
    PSXDisplay.Interlaced=FALSE;
    bUsingTWin = FALSE;
+   g_vagrantLoadingPagePending=FALSE;
    return;
 
   // dis/enable display
@@ -1206,11 +1263,11 @@ switch(lCommand)
    {
     short sx=(short)(gdata & 0x3ff);
     short sy;
+    short oldCurrentX = PSXDisplay.DisplayPosition.x;
+    short oldCurrentY = PSXDisplay.DisplayPosition.y;
     GXDisplayMap proposed;
     int txStarted = 0;
 #ifdef DISP_DEBUG
-    short diagOldCurrentX = PSXDisplay.DisplayPosition.x;
-    short diagOldCurrentY = PSXDisplay.DisplayPosition.y;
     short diagOldPreviousX = PreviousPSXDisplay.DisplayPosition.x;
     short diagOldPreviousY = PreviousPSXDisplay.DisplayPosition.y;
 #endif
@@ -1307,13 +1364,56 @@ switch(lCommand)
     if (txStarted)
         OnDisplayMappingChanged();
 
+    if(oldCurrentX!=PSXDisplay.DisplayPosition.x ||
+       oldCurrentY!=PSXDisplay.DisplayPosition.y)
+     {
+#ifdef DISP_DEBUG
+      if(sx==512 && sy==0)
+       {
+        sprintf(txtbuffer,
+                "TDI VSL GP105 frame=%u old=%d,%d cur=%d,%d end=%d,%d "
+                "mode=%dx%d rgb=%d interlace=%d disabled=%d "
+                "skip=%d lastRgb=%d drawn=%x frameSkip=%d offscreen=%d "
+                "fixes=%08lx\r\n",
+                g_textureDiagFrame, oldCurrentX, oldCurrentY,
+                PSXDisplay.DisplayPosition.x,
+                PSXDisplay.DisplayPosition.y,
+                PSXDisplay.DisplayEnd.x, PSXDisplay.DisplayEnd.y,
+                PSXDisplay.DisplayMode.x, PSXDisplay.DisplayMode.y,
+                PSXDisplay.RGB24, PSXDisplay.Interlaced,
+                PSXDisplay.Disabled, iSkipTwo, iLastRGB24,
+                iDrawnSomething, bSkipNextFrame, iOffscreenDrawing,
+                dwActFixes);
+        writeLogFile(txtbuffer);
+       }
+#endif
+      if((dwActFixes&(AUTO_FIX_NO_SWAP_BUF|AUTO_FIX_VRAM_READBACK))==
+           (AUTO_FIX_NO_SWAP_BUF|AUTO_FIX_VRAM_READBACK) &&
+         PSXDisplay.DisplayPosition.x==512 &&
+         PSXDisplay.DisplayPosition.y==0)
+       g_vagrantLoadingPagePending=TRUE;
+      else
+       g_vagrantLoadingPagePending=FALSE;
+#ifdef DISP_DEBUG
+      if(sx==512 && sy==0)
+       {
+        sprintf(txtbuffer,
+                "TDI VSL GP105_RESULT frame=%u pending=%d skip=%d "
+                "lastRgb=%d drawn=%x\r\n",
+                g_textureDiagFrame, g_vagrantLoadingPagePending,
+                iSkipTwo, iLastRGB24, iDrawnSomething);
+        writeLogFile(txtbuffer);
+       }
+#endif
+     }
+
 #ifdef DISP_DEBUG
     g_textureDiagEvent++;
     sprintf(txtbuffer,
             "TDI GP1 frame=%u event=%u req=%d,%d "
             "old=%d,%d/%d,%d new=%d,%d/%d,%d fix8=%d\r\n",
             g_textureDiagFrame, g_textureDiagEvent, sx, sy,
-            diagOldCurrentX, diagOldCurrentY,
+            oldCurrentX, oldCurrentY,
             diagOldPreviousX, diagOldPreviousY,
             PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y,
             PreviousPSXDisplay.DisplayPosition.x,
@@ -1539,8 +1639,47 @@ switch(lCommand)
 
 BOOL bNeedWriteUpload=FALSE;
 
-__inline void FinishedVRAMWrite(void)
+void FinishedVRAMWrite(void)
 {
+ int vagrantLoadingA0 =
+     VRAMWrite.x == 678 && VRAMWrite.y == 376 &&
+     VRAMWrite.Width == 180 && VRAMWrite.Height == 24;
+#ifdef DISP_DEBUG
+ unsigned int vslHash = 2166136261u;
+ unsigned int vslNonZero = 0;
+ unsigned int vslX;
+ unsigned int vslY;
+ int vslLoadingA0 = vagrantLoadingA0;
+
+ if (vslLoadingA0)
+ {
+  for (vslY = 376; vslY < 400; vslY++)
+  {
+   for (vslX = 678; vslX < 858; vslX++)
+   {
+    unsigned short value = GETLE16(&psxVuw[(vslY << 10) + vslX]);
+    unsigned int lo = value & 0xff;
+    unsigned int hi = value >> 8;
+
+    if (value != 0)
+     vslNonZero++;
+    vslHash = (vslHash ^ lo) * 16777619u;
+    vslHash = (vslHash ^ hi) * 16777619u;
+   }
+  }
+  sprintf(txtbuffer,
+          "TDI VSL A0_BEFORE frame=%u rect=%d,%d %dx%d nz=%u hash=%08X "
+          "cur=%d,%d prev=%d,%d drawn=%x need=%d mapdirty=%d\r\n",
+          g_textureDiagFrame, VRAMWrite.x, VRAMWrite.y,
+          VRAMWrite.Width, VRAMWrite.Height, vslNonZero, vslHash,
+          PSXDisplay.DisplayPosition.x, PSXDisplay.DisplayPosition.y,
+          PreviousPSXDisplay.DisplayPosition.x,
+          PreviousPSXDisplay.DisplayPosition.y,
+          iDrawnSomething, bNeedWriteUpload, bDisplayNotSet);
+  TextureDiagAppend(txtbuffer);
+ }
+#endif
+
  if (ReadbackEnabled())
  {
   MarkCpuVramWrite(VRAMWrite.x, VRAMWrite.y,
@@ -1557,6 +1696,38 @@ __inline void FinishedVRAMWrite(void)
    bNeedWriteUpload=FALSE;
    CheckWriteUpdate();
   }
+
+ if(vagrantLoadingA0 && g_vagrantLoadingPagePending)
+  {
+   int materialized=MaterializeVagrantLoadingPage();
+   if(materialized)
+    g_vagrantLoadingPagePending=FALSE;
+#ifdef DISP_DEBUG
+   sprintf(txtbuffer,
+           "TDI VSL A0_COMMIT frame=%u materialized=%d pending=%d "
+           "mode=%dx%d interlace=%d skip=%d drawn=%x\r\n",
+           g_textureDiagFrame, materialized,
+           g_vagrantLoadingPagePending,
+           PSXDisplay.DisplayMode.x, PSXDisplay.DisplayMode.y,
+           PSXDisplay.Interlaced, iSkipTwo, iDrawnSomething);
+   TextureDiagAppend(txtbuffer);
+#endif
+  }
+
+#ifdef DISP_DEBUG
+ if (vslLoadingA0)
+ {
+  sprintf(txtbuffer,
+          "TDI VSL A0_AFTER frame=%u drawn=%x area=%d,%d-%d,%d "
+          "needScreen=%d uploadAfter=%d needFlip=%d mapdirty=%d\r\n",
+          g_textureDiagFrame, iDrawnSomething,
+          xrUploadArea.x0, xrUploadArea.y0,
+          xrUploadArea.x1, xrUploadArea.y1,
+          needUploadScreen, bNeedUploadAfter, needFlipEGL,
+          bDisplayNotSet);
+  TextureDiagAppend(txtbuffer);
+ }
+#endif
 
  // set register to NORMAL operation
  iDataWriteMode = DR_NORMAL;
@@ -2255,6 +2426,23 @@ static void flipEGL(void)
 
     presentSubmitted = gx_vout_render(canClearFrameBuf);
 
+#ifdef DISP_DEBUG
+    if (PSXDisplay.DisplayPosition.x == 512 &&
+        PSXDisplay.DisplayPosition.y == 0 &&
+        PSXDisplay.DisplayMode.x == 512 &&
+        PSXDisplay.DisplayMode.y == 480)
+    {
+        sprintf(txtbuffer,
+                "TDI VSL GX_RESULT frame=%u accepted=%d submit=%u "
+                "reject=%u complete=%u needBefore=%d clear=%d\r\n",
+                g_textureDiagFrame, presentSubmitted,
+                gx_present_diag_submitted, gx_present_diag_rejected,
+                gx_present_diag_completed, needFlipEGL, canClearFrameBuf);
+        TextureDiagAppend(txtbuffer);
+        TextureDiagFlush();
+    }
+#endif
+
     if (presentSubmitted && canClearFrameBuf)
         EfbDiscardedAfterPresent();
 
@@ -2308,6 +2496,7 @@ long GL_GPUopen()
  bSetClip = TRUE;
  CSTEXTURE = CSVERTEX = CSCOLOR = 0;
  canClearFrameBuf = FALSE;
+ g_vagrantLoadingPagePending = FALSE;
 
  InitializeTextureStore();                             // init texture mem
 

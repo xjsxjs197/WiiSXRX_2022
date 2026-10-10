@@ -84,6 +84,9 @@ void switchToTVMode(short dWidth, short dHeight, bool retMenu);
 static int vsync_enable;
 static int new_frame;
 static volatile int gx_present_inflight;
+volatile unsigned int gx_present_diag_submitted;
+volatile unsigned int gx_present_diag_rejected;
+volatile unsigned int gx_present_diag_completed;
 
 static void gx_prepare_efb_pixel_state(void)
 {
@@ -143,6 +146,7 @@ static void gx_vout_copydone(void)
 
 	gc_vout_copydone();
 	gx_present_inflight = 0;
+	gx_present_diag_completed++;
 }
 
 static void gc_vout_drawdone(void)
@@ -167,7 +171,10 @@ int gx_vout_render(short canSwapFrameBuf)
 	/* Keep displaying the last completed XFB while the next copy is pending.
 	 * In particular, never rotate an XFB merely because GX_CopyDisp was queued. */
 	if (gx_present_inflight)
+	{
+		gx_present_diag_rejected++;
 		return 0;
+	}
 
 	// reset swap table from GUI/DEBUG
 	// To improve efficiency, the original BGR pixel format of PS is directly used
@@ -176,6 +183,7 @@ int gx_vout_render(short canSwapFrameBuf)
 	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
 
 	gx_present_inflight = 1;
+	gx_present_diag_submitted++;
 	GX_CopyDisp(xfb[FB_BACK], canSwapFrameBuf ? GX_TRUE : GX_FALSE);
 	GX_PixModeSync();
 	GX_SetDrawDoneCallback(gx_vout_copydone);
@@ -198,6 +206,7 @@ void gx_vout_wait_idle(void)
 	{
 		gc_vout_copydone();
 		gx_present_inflight = 0;
+		gx_present_diag_completed++;
 	}
 
 	if (new_frame)
