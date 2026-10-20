@@ -577,3 +577,12 @@ msgstr "Interpolación"
 
 msgid "GPU Plugin"
 msgstr "Plugin GPU"
+
+msgid "Scanlines"
+msgstr "Scanlines"
+
+msgid "Scanlines Off"
+msgstr "Sin Scanlines"
+
+msgid "Line Shift"
+msgstr "Desplazar Línea"

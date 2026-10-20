@@ -234,6 +234,7 @@ void cpu_deinit();
 
 extern "C" {
 extern int SaveMcd(int mcd, fileBrowser_file *savepath);
+void scanlines_restore_copy_filter(void);
 void pauseAudio(void);  void pauseInput(void);
 void resumeAudio(void); void resumeInput(void);
 void go(void);
@@ -312,6 +313,7 @@ void Func_PlayGame()
 	_break();
 #endif
 	menuActive = 1;
+	scanlines_restore_copy_filter();
 	pauseInput();
 	pauseAudio();
 
