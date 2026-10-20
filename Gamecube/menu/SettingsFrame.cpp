@@ -86,6 +86,8 @@ void Func_DitheringAlways();
 void Func_ScalingNone();
 void Func_Scaling2xSai();
 void Func_ForceNTSC();
+void Func_Scanlines();
+void Func_ScanlineShift();
 
 void Func_ConfigureInput();
 void Func_ConfigureButtons();
@@ -151,9 +153,10 @@ void psxResetRcntRate();
 void pl_chg_psxtype(int is_pal_);
 void gpuChangePsxType();
 void setSpuInterpolation(int spuInterpolation);
+void scanlines_restore_copy_filter(void);
 }
 
-#define NUM_FRAME_BUTTONS 67
+#define NUM_FRAME_BUTTONS 69
 #define NUM_TAB_BUTTONS 5
 #define FRAME_BUTTONS settingsFrameButtons
 #define FRAME_STRINGS settingsFrameStrings
@@ -314,6 +317,19 @@ static char TEXTURE_FILTER_STRINGS[3][24] =
       "Bilinear"
       };
 
+// Scanlines: built from translated words, e.g. "Scanlines 30%", "Line Shift 1"
+static char SCANLINE_STRING[32];
+static char SCANLINE_SHIFT_STRING[32];
+
+static void updateScanlineStrings()
+{
+	if (scanlines == SCANLINES_OFF)
+		snprintf(SCANLINE_STRING, sizeof(SCANLINE_STRING), "%s", gettext("Scanlines Off"));
+	else
+		snprintf(SCANLINE_STRING, sizeof(SCANLINE_STRING), "%s %d%%", gettext("Scanlines"), scanlines * 10);
+	snprintf(SCANLINE_SHIFT_STRING, sizeof(SCANLINE_SHIFT_STRING), "%s %d", gettext("Line Shift"), scanlineShift);
+}
+
 struct ButtonInfo
 {
 	menu::Button	*button;
@@ -352,12 +368,12 @@ struct ButtonInfo
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[14],	300.0,	400.0,	 70.0,	56.0,	54,	 0,	14,	62,	Func_SaveSettingsUSB,	Func_ReturnFromSettingsFrame }, // Save Settings: USB
 
 	//Buttons for Video Tab (starts at button[16])
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[24],	200.0,	100.0,	 75.0,	56.0,	 1,	18,	17,	17,	Func_ShowFpsOn,			Func_ReturnFromSettingsFrame }, // Show FPS: On
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	295.0,	100.0,	 75.0,	56.0,	 1,	19,	16,	16,	Func_ShowFpsOff,		Func_ReturnFromSettingsFrame }, // Show FPS: Off
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[24],	200.0,	100.0,	 75.0,	56.0,	 1,	18,	68,	17,	Func_ShowFpsOn,			Func_ReturnFromSettingsFrame }, // Show FPS: On
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	295.0,	100.0,	 75.0,	56.0,	 1,	19,	16,	68,	Func_ShowFpsOff,		Func_ReturnFromSettingsFrame }, // Show FPS: Off
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[26],	200.0,	160.0,	 75.0,	56.0,	16,	20,	63,	19,	Func_FpsLimitAuto,		Func_ReturnFromSettingsFrame }, // FPS Limit: Auto
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	295.0,	160.0,	 75.0,	56.0,	17,	21,	18,	63,	Func_FpsLimitOff,		Func_ReturnFromSettingsFrame }, // FPS Limit: Off
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[24],	200.0,	220.0,	 75.0,	56.0,	18,	23,	21,	21,	Func_FrameSkipOn,		Func_ReturnFromSettingsFrame }, // Frame Skip: On
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	295.0,	220.0,	 75.0,	56.0,	19,	23,	20,	20,	Func_FrameSkipOff,		Func_ReturnFromSettingsFrame }, // Frame Skip: Off
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[24],	200.0,	220.0,	 75.0,	56.0,	18,	23,	67,	21,	Func_FrameSkipOn,		Func_ReturnFromSettingsFrame }, // Frame Skip: On
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[25],	295.0,	220.0,	 75.0,	56.0,	19,	23,	20,	67,	Func_FrameSkipOff,		Func_ReturnFromSettingsFrame }, // Frame Skip: Off
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[27],	200.0,	280.0,	 135.0,	56.0,	20,	25,	57,	23,	Func_ScreenMode,		Func_ReturnFromSettingsFrame }, // ScreenMode: 4:3/16:9/Force16:9
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[67],	355.0,	280.0,	 135.0,	56.0,	20,	26,	22,	57,	Func_Interlaced,		Func_ReturnFromSettingsFrame }, // Interlaced Mode
 	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[68],	440.0,	400.0,	110.0,	56.0,	27,	 1,	29,	28,	Func_DeflickerFilter,	Func_ReturnFromSettingsFrame }, // Filters: Deflicker Filter
@@ -405,11 +421,15 @@ struct ButtonInfo
 
 	//Buttons for ... (starts at button[62]) ..was[65]
 	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[77],	385.0,	400.0,	 140.0,	56.0,	54,	 0,	15,	14,	Func_SaveSettingsSeparately,	Func_ReturnFromSettingsFrame }, // Save Settings: Separately
-	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[78],	390.0,	160.0,	160.0,	56.0,	17,	21,	19,	18,	Func_ForceNTSC,			Func_ReturnFromSettingsFrame },  // Force NTSC toggle
+	{	NULL,	BTN_A_SEL,	FRAME_STRINGS[78],	390.0,	160.0,	160.0,	56.0,	68,	67,	19,	18,	Func_ForceNTSC,			Func_ReturnFromSettingsFrame },  // Force NTSC toggle
 
 	{	NULL,	BTN_A_SEL,	GPU_PLUGIN_STRINGS[1],	215.0,	160.0,	140.0,	56.0,	 5,	 7,	 66, 65,Func_UseOldSoftGpu,		Func_ReturnFromSettingsFrame }, // GpuPlugin: Old Soft
 	{	NULL,	BTN_A_SEL,	GPU_PLUGIN_STRINGS[2],	365.0,	160.0,	130.0,	56.0,	 6,	 9,	 64, 66,Func_UseNewSoftGpu,		Func_ReturnFromSettingsFrame }, // GpuPlugin: New Soft
 	{	NULL,	BTN_A_SEL,	GPU_PLUGIN_STRINGS[3],	505.0,	160.0,	130.0,	56.0,	 6,	 9,	 65, 64,Func_UseOpenGxGpu,		Func_ReturnFromSettingsFrame }, // GpuPlugin: OpenGX
+
+	//Buttons for Video Tab (starts at button[67])
+	{	NULL,	BTN_A_NRM,	SCANLINE_STRING,	390.0,	220.0,	200.0,	56.0,	63,	23,	21,	20,	Func_Scanlines,			Func_ReturnFromSettingsFrame }, // Scanlines: Off/10%..100%
+	{	NULL,	BTN_A_NRM,	SCANLINE_SHIFT_STRING,	390.0,	100.0,	200.0,	56.0,	 1,	63,	17,	16,	Func_ScanlineShift,		Func_ReturnFromSettingsFrame }, // Scanline Shift: 0/1
 };
 
 struct TextBoxInfo
@@ -631,6 +651,14 @@ void SettingsFrame::activateSubmenu(int submenu)
             if (forceNTSC == FORCENTSC_ENABLE)FRAME_BUTTONS[63].button->setSelected(true);
             FRAME_BUTTONS[63].button->setVisible(true);
 			FRAME_BUTTONS[63].button->setActive(true);
+
+			// Scanlines
+			updateScanlineStrings();
+			for (int i = 67; i < 69; i++)
+			{
+				FRAME_BUTTONS[i].button->setVisible(true);
+				FRAME_BUTTONS[i].button->setActive(true);
+			}
 
 			break;
 		case SUBMENU_INPUT:
@@ -1098,6 +1126,7 @@ void Func_ExecuteBios()
 	menuActive = 0;
 	SysStartCPU();
 	menuActive = 1;
+	scanlines_restore_copy_filter();
 	pauseInput();
 	pauseAudio();
 	continueRemovalThread();
@@ -1388,6 +1417,24 @@ void Func_BilinearFilter()
         extern unsigned int gTexMovieName;
         glChgTextureFilter(gTexMovieName);
     }
+}
+
+void Func_Scanlines()
+{
+	scanlines++;
+	if (scanlines > SCANLINES_MAX)
+	{
+		scanlines = SCANLINES_OFF;
+	}
+
+	updateScanlineStrings();
+}
+
+void Func_ScanlineShift()
+{
+	scanlineShift = (scanlineShift == SCANLINESHIFT_0) ? SCANLINESHIFT_1 : SCANLINESHIFT_0;
+
+	updateScanlineStrings();
 }
 
 void Func_TrapFilter()

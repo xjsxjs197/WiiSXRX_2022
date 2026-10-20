@@ -580,3 +580,12 @@ msgstr "Interpolazione"
 
 msgid "Simple"
 msgstr "Semplice"
+
+msgid "Scanlines"
+msgstr "Scanline"
+
+msgid "Scanlines Off"
+msgstr "Senza Scanline"
+
+msgid "Line Shift"
+msgstr "Sposta Linea"

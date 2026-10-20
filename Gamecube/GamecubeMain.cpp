@@ -148,6 +148,8 @@ char lightGun = 0;
 char memCard[2];
 char forceNTSC = 0;
 char gpuPlugin = 0;
+char scanlines = 0;
+char scanlineShift = 0;
 
 #define CONFIG_STRING_TYPE 0
 #define CONFIG_STRING_SIZE 256
@@ -233,7 +235,9 @@ static struct {
   { "PadLightgun9", &padLightgun[8], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
   { "PadLightgun10", &padLightgun[9], PADLIGHTGUN_DISABLE, PADLIGHTGUN_ENABLE },
   { "ForceNTSC", &forceNTSC, FORCENTSC_DISABLE, FORCENTSC_ENABLE },
-  { "gpuPlugin", &gpuPlugin, OLD_SOFT, OPEN_GX }
+  { "gpuPlugin", &gpuPlugin, OLD_SOFT, OPEN_GX },
+  { "ScanlineLevel", &scanlines, SCANLINES_OFF, SCANLINES_MAX },
+  { "ScanlineShift", &scanlineShift, SCANLINESHIFT_0, SCANLINESHIFT_1 }
 };
 void handleConfigPair(char* kv);
 void readConfig(FILE* f);
@@ -391,6 +395,8 @@ void loadSettings(int argc, char *argv[])
 	forceNTSC 		 = FORCENTSC_DISABLE;
 	gpuPlugin        = OLD_SOFT;
 	gpuPtr           = &oldSoftGpu;
+	scanlines        = SCANLINES_OFF;
+	scanlineShift    = SCANLINESHIFT_0;
 
 	//PCSX-specific defaults
 	memset(&Config, 0, sizeof(PcsxConfig));

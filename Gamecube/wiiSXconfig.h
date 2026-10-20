@@ -324,6 +324,21 @@ enum forceNTSC
 	FORCENTSC_ENABLE
 };
 
+// Darkness of the dark scanlines in steps of 10%
+extern char scanlines;
+enum scanlines
+{
+	SCANLINES_OFF=0,
+	SCANLINES_MAX=10
+};
+
+extern char scanlineShift;
+enum scanlineShift
+{
+	SCANLINESHIFT_0=0,
+	SCANLINESHIFT_1
+};
+
 extern char gpuPlugin;
 enum gpuPlugin
 {

@@ -233,6 +233,68 @@ void showFpsAndDebugInfo(void)
 }
 
 ////////////////////////////////////////////////////////////////////////
+// Scanlines: a small I8 texture with alternating bright/dark rows is
+// multiplied over the frame in a second TEV stage, one texel per EFB line.
+////////////////////////////////////////////////////////////////////////
+extern GXTexRegion texCacheRegionS[8];
+
+static u8 scanlineTexture[8 * 4] __attribute__((aligned(32)));
+static GXTexObj scanlineTexObj;
+static int scanlineTexLevel = -1;
+static int scanlineCopyFilterOff = 0;
+
+static void scanlines_update_texture(void)
+{
+	int row;
+	u8 dark;
+
+	if (scanlineTexLevel == scanlines)
+		return;
+	scanlineTexLevel = scanlines;
+
+	dark = 255 * (SCANLINES_MAX - scanlines) / SCANLINES_MAX;
+	for (row = 0; row < 4; row++)
+		memset(scanlineTexture + row * 8, (row & 1) ? dark : 0xFF, 8);
+	DCFlushRange(scanlineTexture, sizeof(scanlineTexture));
+
+	GX_InitTexObj(&scanlineTexObj, scanlineTexture, 8, 4, GX_TF_I8, GX_REPEAT, GX_REPEAT, GX_FALSE);
+	GX_InitTexObjFilterMode(&scanlineTexObj, GX_NEAR, GX_NEAR);
+}
+
+// Returns the number of EFB lines the frame covers when scanlines are drawn,
+// or 0 when they must stay off: 240p mode, EFB scaled on copy (PAL 576),
+// or a frame that does not fit at exactly 2x (PAL 256 lines, hi-res 480).
+static int scanlines_target_height(int height)
+{
+	extern GXRModeObj *vmode;
+
+	if (scanlines == SCANLINES_OFF || originalMode == ORIGINALMODE_ENABLE || !vmode)
+		return 0;
+	if (vmode->efbHeight != vmode->xfbHeight)
+		return 0;
+	if (height * 2 > vmode->efbHeight)
+		return 0;
+	return height * 2;
+}
+
+// The vertical copy filter blends neighbouring lines (deflicker in 480i
+// modes), which would wash the scanlines out.
+static void scanlines_set_copy_filter(int off)
+{
+	extern GXRModeObj *vmode;
+
+	if (scanlineCopyFilterOff == off || !vmode)
+		return;
+	scanlineCopyFilterOff = off;
+	GX_SetCopyFilter(vmode->aa, vmode->sample_pattern, off ? GX_FALSE : GX_TRUE, vmode->vfilter);
+}
+
+// Called when leaving the game for the menu.
+void scanlines_restore_copy_filter(void)
+{
+	scanlines_set_copy_filter(0);
+}
+
 static int screen_w, screen_h;
 
 static void GX_Flip(const void *buffer, int pitch, u8 fmt,
@@ -403,16 +465,57 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 	float ycoord = 1.0;
 	if(screenMode == SCREENMODE_16x9_PILLARBOX) xcoord = 640.0/848.0;
 
+	// With scanlines the frame is drawn at exactly 2x, centred with black
+	// borders, so each game line covers one bright and one dark EFB line.
+	int scanlineLines = scanlines_target_height(height);
+	float slTop = 0.0, slBottom = 0.0;
+	scanlines_set_copy_filter(scanlineLines != 0);
+	if (scanlineLines)
+	{
+		extern GXRModeObj *vmode;
+		ycoord = (float)scanlineLines / vmode->efbHeight;
+		// A quarter-texel bias keeps every EFB line inside one texture row.
+		slTop = (scanlineShift + 0.25f) / 4.0f;
+		slBottom = slTop + scanlineLines / 4.0f;
+
+		scanlines_update_texture();
+		GX_LoadTexObjPreloaded(&scanlineTexObj, &texCacheRegionS[1], GX_TEXMAP1);
+		GX_InvalidateTexAll();
+
+		GX_SetNumTevStages(2);
+		GX_SetTevOrder(GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLORNULL);
+		GX_SetTevSwapMode(GX_TEVSTAGE1, GX_TEV_SWAP0, GX_TEV_SWAP0);
+		GX_SetTevColorIn(GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_CPREV, GX_CC_TEXC, GX_CC_ZERO);
+		GX_SetTevColorOp(GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+		GX_SetTevAlphaIn(GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV);
+		GX_SetTevAlphaOp(GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+
+		GX_SetVtxDesc(GX_VA_TEX1, GX_DIRECT);
+		GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX1, GX_TEX_ST, GX_F32, 0);
+		GX_SetNumTexGens(2);
+		GX_SetTexCoordGen(GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY);
+	}
+
 	GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
 	  GX_Position2f32(-xcoord, ycoord);
 	  GX_TexCoord2f32( 0.0, 0.0);
+	  if (scanlineLines) GX_TexCoord2f32(0.0, slTop);
 	  GX_Position2f32( xcoord, ycoord);
 	  GX_TexCoord2f32( 1.0, 0.0);
+	  if (scanlineLines) GX_TexCoord2f32(1.0, slTop);
 	  GX_Position2f32( xcoord,-ycoord);
 	  GX_TexCoord2f32( 1.0, 1.0);
+	  if (scanlineLines) GX_TexCoord2f32(1.0, slBottom);
 	  GX_Position2f32(-xcoord,-ycoord);
 	  GX_TexCoord2f32( 0.0, 1.0);
+	  if (scanlineLines) GX_TexCoord2f32(0.0, slBottom);
 	GX_End();
+
+	if (scanlineLines)
+	{
+		GX_SetNumTevStages(1);
+		GX_SetNumTexGens(1);
+	}
 
 	if (lightGun){
 

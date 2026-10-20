@@ -622,3 +622,12 @@ msgstr "硬件渲染"
 
 msgid "Near"
 msgstr "临近采样"
+
+msgid "Scanlines"
+msgstr "扫描线"
+
+msgid "Scanlines Off"
+msgstr "扫描线关闭"
+
+msgid "Line Shift"
+msgstr "扫描线偏移"

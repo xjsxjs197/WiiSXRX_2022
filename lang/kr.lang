@@ -628,3 +628,12 @@ msgstr "가우시안"
 
 msgid "Enable Memcard"
 msgstr "Memcard 활성화"
+
+msgid "Scanlines"
+msgstr "스캔라인"
+
+msgid "Scanlines Off"
+msgstr "스캔라인 끔"
+
+msgid "Line Shift"
+msgstr "라인 이동"
