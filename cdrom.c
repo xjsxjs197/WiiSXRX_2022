@@ -1980,7 +1980,7 @@ int cdrFreeze(gzFile f, int Mode) {
 				CDR_play(cdr.SetSectorPlay);
 		}
 		if (!cdr.Muted)
-			ll = cdr.AttenuatorLeftToLeft, lr = cdr.AttenuatorLeftToLeft,
+			ll = cdr.AttenuatorLeftToLeft, lr = cdr.AttenuatorLeftToRight,
 			rl = cdr.AttenuatorRightToLeft, rr = cdr.AttenuatorRightToRight;
 		SPU_setCDvol(ll, lr, rl, rr, psxRegs.cycle);
 	}
