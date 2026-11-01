@@ -35,6 +35,7 @@
 #include "../Gamecube/gc_input/controller.h"
 #include "../psxcounters.h"
 #include "../gpulib/plugin_lib.h"
+#include "extrainput_compat.h"
 
 ////////////////////////////////////////////////////////////////////////////////////
 // misc globals

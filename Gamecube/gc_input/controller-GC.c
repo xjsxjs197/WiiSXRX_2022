@@ -29,6 +29,7 @@
 #include <ogc/pad.h>
 #include "controller.h"
 #include "../wiiSXconfig.h"
+#include "extrainput_compat.h"
 
 enum {
 	ANALOG_AS_ANALOG = 1, C_STICK_AS_ANALOG = 2,

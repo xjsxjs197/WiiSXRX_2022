@@ -53,6 +53,7 @@ extern "C" {
 }
 #include <ogc/dvd.h>
 #include "../../HidController/KernelHID.h"
+#include "extrainput_compat.h"
 
 void Func_LoadROM();
 void Func_CurrentROM();

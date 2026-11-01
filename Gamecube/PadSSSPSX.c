@@ -42,6 +42,7 @@
 #include "gc_input/controller.h"
 #include "wiiSXconfig.h"
 #include "PadSSSPSX.h"
+#include "extrainput_compat.h"
 
 /* Scale factor of analog sticks / 128 */
 #define ANALOG_SCALE_FACTOR 180

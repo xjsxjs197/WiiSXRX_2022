@@ -29,6 +29,7 @@
 #include <wiiuse/wpad.h>
 #include "controller.h"
 #include "../wiiSXconfig.h"
+#include "extrainput_compat.h"
 
 #ifndef PI
 #define PI 3.14159f

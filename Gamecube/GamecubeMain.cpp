@@ -497,6 +497,7 @@ void video_mode_init(GXRModeObj *videomode, u32 *fb1, u32 *fb2, u32 *fb3)
 // Plugin structure
 extern "C" {
 #include "GamecubePlugins.h"
+#include "extrainput_compat.h"
 PluginTable plugins[] =
 	{ PLUGIN_SLOT_0,
 	  PLUGIN_SLOT_1,

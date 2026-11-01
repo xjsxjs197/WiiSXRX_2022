@@ -35,6 +35,7 @@
 #include "../Gamecube/DEBUG.h"
 #include "../Gamecube/wiiSXconfig.h"
 #include "../Gamecube/gc_input/controller.h"
+#include "extrainput_compat.h"
 
 ////////////////////////////////////////////////////////////////////////////////////
 // misc globals

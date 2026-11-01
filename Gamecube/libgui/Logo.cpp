@@ -22,6 +22,7 @@
 #include "GraphicsGX.h"
 #include <math.h>
 #include "ogc/lwp_watchdog.h"
+#include "extrainput_compat.h"
 
 namespace menu {
 

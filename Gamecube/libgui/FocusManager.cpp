@@ -24,6 +24,7 @@
 #include "IPLFont.h"
 
 #include "../../HidController/KernelHID.h"
+#include "extrainput_compat.h"
 
 namespace menu {
 
