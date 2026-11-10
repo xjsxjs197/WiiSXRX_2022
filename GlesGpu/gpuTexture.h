@@ -38,7 +38,23 @@ void           InitializeTextureStore();
 void           CleanupTextureStore();
 GLuint         LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId);
 GLuint         LoadTextureMovie(void);
+
+typedef enum TextureInvalidateReasonTag
+{
+ TEX_INVALIDATE_OTHER=0,
+ TEX_INVALIDATE_UPLOAD,
+ TEX_INVALIDATE_MOVE,
+ TEX_INVALIDATE_BLOCK_FILL,
+ TEX_INVALIDATE_TITLE_FILL,
+ TEX_INVALIDATE_DISPLAY,
+ TEX_INVALIDATE_READBACK,
+ TEX_INVALIDATE_DRAW,
+ TEX_INVALIDATE_REASON_COUNT
+} TextureInvalidateReason;
+
 void           InvalidateTextureArea(int imageX0,int imageY0,int imageX1,int imageY1);
+void           InvalidateTextureAreaTagged(int imageX0,int imageY0,int imageX1,int imageY1,
+                                           TextureInvalidateReason reason);
 void           InvalidateTextureAreaEx(void);
 void           LoadTexturePage(int pageid, int mode, short cx, short cy);
 void           ResetTextureArea(BOOL bDelTex);

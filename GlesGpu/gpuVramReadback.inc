@@ -2218,7 +2218,8 @@ static void MergeReadbackToPsxVuwFiltered(
     for (ty = 0; ty < VRAM_READBACK_TILE_Y; ty++)
         for (tx = 0; tx < VRAM_READBACK_TILE_X; tx++)
             if (writtenTile[ty][tx])
-                InvalidateTextureArea(tx * 16, ty * 16, 16, 16);
+                InvalidateTextureAreaTagged(tx * 16, ty * 16, 16, 16,
+                                            TEX_INVALIDATE_READBACK);
 }
 
 static void MergeReadbackToPsxVuw(int x, int y, int w, int h)
@@ -2313,7 +2314,7 @@ static int MaterializeSmallEfbMoveSource(int x, int y, int w, int h)
 
     /* The CPU backing changed; prevent any existing source-page texture from
      * surviving if the game later samples this area directly. */
-    InvalidateTextureArea(x, y, w, h);
+    InvalidateTextureAreaTagged(x, y, w, h, TEX_INVALIDATE_READBACK);
     return 1;
 }
 

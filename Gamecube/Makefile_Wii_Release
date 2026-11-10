@@ -40,6 +40,22 @@ CFLAGS	= -flto -Ofast -w -Wno-stringop-truncation -Wno-strict-aliasing -Wno-misl
 		  -D__GX__ \
 		  -D_GNU_SOURCE -DNDEBUG
 
+ifeq ($(GX_TEXPATH_PROFILE),1)
+CFLAGS	+= -DGX_TEXPATH_PROFILE
+endif
+
+ifeq ($(GX_TEXPATH_PHASE1A),1)
+CFLAGS	+= -DGX_TEXPATH_PHASE1A
+endif
+
+ifeq ($(GX_TEXPATH_PHASE1C),1)
+CFLAGS	+= -DGX_TEXPATH_PHASE1C
+endif
+
+ifneq ($(strip $(GX_TEXPATH_ATLAS_COUNT)),)
+CFLAGS	+= -DGX_TEXPATH_ATLAS_COUNT=$(GX_TEXPATH_ATLAS_COUNT)
+endif
+
 CXXFLAGS	=	$(CFLAGS)
 
 ASFLAGS := -DHW_RVL
@@ -141,7 +157,7 @@ DEPENDS	:=	$(OFILES:.o=.d)
 #---------------------------------------------------------------------------------
 # main targets
 #---------------------------------------------------------------------------------
-$(OUTPUT).elf: $(OFILES)
+$(OUTPUT).elf: $(OFILES) ../../deps/opengx/lib/libOpengx.a
 
 #---------------------------------------------------------------------------------
 # This rule links in binary data with the .jpg extension

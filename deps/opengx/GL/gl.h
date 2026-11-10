@@ -1354,6 +1354,31 @@ GLAPI void GLAPIENTRY glSetLoadMtxFlg( void );
 GLAPI void GLAPIENTRY glCheckLoadTextureObj( int loadTextureType, int texChgType);
 GLAPI void GLAPIENTRY glResetCacheRegion( void );
 
+/* Optional GX texture-path profiling. Counters are populated only when the
+ * renderer is built with GX_TEXPATH_PROFILE; the accessors remain available
+ * so diagnostic code does not need a second set of declarations. */
+typedef struct OGXTextureProfileStatsTag
+{
+    unsigned int texImageCalls;
+    unsigned int texSubImageCalls;
+    unsigned int textureUploadDrawDoneCalls;
+    unsigned int textureUploadSyncSkips;
+    unsigned int textureUploadResidentWaits;
+    unsigned int tmemHits;
+    unsigned int tmemChangedReloads;
+    unsigned int tmemFreeLoads;
+    unsigned int tmemFullResets;
+    unsigned int tmemSingleEvictions;
+    unsigned int tmemEvictionFences;
+    unsigned int tmemEvictionWaits;
+    unsigned int tmemExternalRestores;
+    unsigned long long uploadedTexels;
+    unsigned long long uploadedBytes;
+} OGXTextureProfileStats;
+
+GLAPI void GLAPIENTRY glGetTextureProfileStats( OGXTextureProfileStats *stats );
+GLAPI void GLAPIENTRY glResetTextureProfileStats( void );
+
 GLAPI void GLAPIENTRY glPRIMdrawTexturedQuad( void* vertexAdr, int changePointOrder );
 GLAPI void GLAPIENTRY glPRIMdrawTexturedTri( void* vertexAdr );
 GLAPI void GLAPIENTRY glPRIMdrawTexGouraudTriColor( void* vertexAdr );

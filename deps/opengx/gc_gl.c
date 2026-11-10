@@ -68,7 +68,44 @@ POSSIBILITY OF SUCH DAMAGE.
 #define TEX_TYPE_2  0x2
 
 void (*ogx_draw_submitted_cb)(void);
-#define OGX_DRAW_SUBMITTED() do { if (ogx_draw_submitted_cb) ogx_draw_submitted_cb(); } while (0)
+#ifdef GX_TEXPATH_PHASE1A
+static void ogxTmemDrawSubmitted(void);
+#define OGX_TMEM_DRAW_SUBMITTED() ogxTmemDrawSubmitted()
+#else
+#define OGX_TMEM_DRAW_SUBMITTED() ((void)0)
+#endif
+#define OGX_DRAW_SUBMITTED() do { \
+    OGX_TMEM_DRAW_SUBMITTED(); \
+    if (ogx_draw_submitted_cb) ogx_draw_submitted_cb(); \
+} while (0)
+
+#ifdef GX_TEXPATH_PROFILE
+static OGXTextureProfileStats ogxTextureProfileStats;
+#define OGX_TEX_PROFILE_INC(field) (++ogxTextureProfileStats.field)
+#define OGX_TEX_PROFILE_ADD(field, value) \
+    (ogxTextureProfileStats.field += (unsigned long long)(value))
+#else
+#define OGX_TEX_PROFILE_INC(field) ((void)0)
+#define OGX_TEX_PROFILE_ADD(field, value) ((void)0)
+#endif
+
+void glGetTextureProfileStats(OGXTextureProfileStats *stats)
+{
+    if (!stats)
+        return;
+#ifdef GX_TEXPATH_PROFILE
+    *stats = ogxTextureProfileStats;
+#else
+    memset(stats, 0, sizeof(*stats));
+#endif
+}
+
+void glResetTextureProfileStats(void)
+{
+#ifdef GX_TEXPATH_PROFILE
+    memset(&ogxTextureProfileStats, 0, sizeof(ogxTextureProfileStats));
+#endif
+}
 
 //#define DISP_DEBUG
 
@@ -747,6 +784,262 @@ extern short      texCacheUsedInfo[8];
 static short gxTexMap = GX_TEXMAP0;
 static short gxTexMapSemi = GX_TEXMAP1;
 
+#if defined(GX_TEXPATH_PHASE1C) && !defined(GX_TEXPATH_PHASE1A)
+#error GX_TEXPATH_PHASE1C requires GX_TEXPATH_PHASE1A residency tracking
+#endif
+
+#ifdef GX_TEXPATH_PHASE1A
+/*
+ * Each entry is one independent 128 KiB cache region and its index is also
+ * the GX_TEXMAP register set used for the draw.  The regions have no fixed
+ * semantic role: opaque and semi-transparent texture objects both occupy any
+ * free entry.
+ *
+ * Reusing a region merely because it is least-recently-used is not enough.
+ * The GP can still be sampling it after the CPU has submitted the draw.  A
+ * DrawSync token is therefore associated with every region used since the
+ * previous eviction attempt.  Only regions whose token has reached the GP
+ * are eligible for replacement.  GX_DrawDone remains the correctness
+ * fallback when all eight regions are still in flight.
+ */
+static unsigned int ogxTmemUseSerial;
+static unsigned int ogxTmemLastUse[8];
+static unsigned short ogxTmemLastFence[8];
+static unsigned char ogxTmemFenceValid[8];
+static unsigned char ogxTmemPendingMask;
+static unsigned short ogxTmemNextFence = 1;
+static unsigned short ogxTmemOutstandingFence;
+static unsigned char ogxTmemOutstandingFenceValid;
+static unsigned char ogxTmemFenceRequest;
+static short ogxTmemDrawRegion = -1;
+
+/* Start retiring a pending batch while a few immediately reusable regions
+ * still remain.  Those regions provide CPU-side slack for the GP to reach the
+ * token without forcing an immediate GX_DrawDone. */
+#define OGX_TMEM_SAFE_LOW_WATERMARK 3
+
+static void ogxTmemFencePendingRegions(void);
+static void ogxTmemServiceFenceRequest(void);
+
+static void ogxTmemResetTracking(void)
+{
+    memset(ogxTmemLastUse, 0, sizeof(ogxTmemLastUse));
+    memset(ogxTmemLastFence, 0, sizeof(ogxTmemLastFence));
+    memset(ogxTmemFenceValid, 0, sizeof(ogxTmemFenceValid));
+    ogxTmemPendingMask = 0;
+    ogxTmemOutstandingFence = 0;
+    ogxTmemOutstandingFenceValid = 0;
+    ogxTmemFenceRequest = 0;
+    ogxTmemDrawRegion = -1;
+}
+
+static int ogxTmemAllRegionsFree(void)
+{
+    int i;
+    for (i = 0; i < 8; i++)
+        if (texCacheUsedInfo[i] != -1)
+            return 0;
+    return 1;
+}
+
+static void ogxTmemDrawSubmitted(void)
+{
+    int freeCount = 0;
+    int i;
+
+    if (ogxTmemDrawRegion < 0 || ogxTmemDrawRegion >= 8)
+        return;
+
+    ogxTmemLastUse[ogxTmemDrawRegion] = ++ogxTmemUseSerial;
+    ogxTmemPendingMask |= (unsigned char)(1U << ogxTmemDrawRegion);
+    ogxTmemDrawRegion = -1;
+
+    /* Some optimized draw paths invoke this callback between GX_Begin and
+     * GX_End.  Never emit GX commands here.  Only request a fence; the next
+     * _ogx_apply_state call services it at a command-stream-safe boundary. */
+    if (!ogxTmemOutstandingFenceValid)
+    {
+        for (i = 0; i < 8; i++)
+            if (texCacheUsedInfo[i] == -1)
+                freeCount++;
+
+        if (freeCount <= OGX_TMEM_SAFE_LOW_WATERMARK)
+            ogxTmemFenceRequest = 1;
+    }
+}
+
+static void ogxTmemServiceFenceRequest(void)
+{
+    if (!ogxTmemFenceRequest)
+        return;
+
+    ogxTmemFenceRequest = 0;
+    ogxTmemFencePendingRegions();
+}
+
+static void ogxTmemFencePendingRegions(void)
+{
+    unsigned char mask = ogxTmemPendingMask;
+    unsigned short token;
+    int i;
+
+    if (!mask || ogxTmemOutstandingFenceValid)
+        return;
+
+    token = ogxTmemNextFence++;
+    if (ogxTmemNextFence == 0)
+        ogxTmemNextFence = 1;
+
+    GX_SetDrawSync(token);
+    GX_Flush();
+    OGX_TEX_PROFILE_INC(tmemEvictionFences);
+    ogxTmemOutstandingFence = token;
+    ogxTmemOutstandingFenceValid = 1;
+    ogxTmemFenceRequest = 0;
+
+    for (i = 0; i < 8; i++)
+    {
+        if (mask & (1U << i))
+        {
+            ogxTmemLastFence[i] = token;
+            ogxTmemFenceValid[i] = 1;
+        }
+    }
+    ogxTmemPendingMask = 0;
+}
+
+static int ogxTmemFenceReached(unsigned short completed,
+                               unsigned short required)
+{
+    /* DrawSync tokens are ordered.  A signed modular comparison is valid as
+     * long as fewer than 32768 fences are outstanding; FIFO back-pressure
+     * keeps the real outstanding count far below that limit. */
+    return (short)(completed - required) >= 0;
+}
+
+static void ogxTmemRefreshOutstandingFence(unsigned short completed)
+{
+    if (ogxTmemOutstandingFenceValid &&
+        ogxTmemFenceReached(completed, ogxTmemOutstandingFence))
+    {
+        ogxTmemOutstandingFenceValid = 0;
+    }
+}
+
+static int ogxTmemFindCompletedVictim(unsigned short completed)
+{
+    unsigned int oldest = 0xffffffffU;
+    int victim = -1;
+    int i;
+
+    for (i = 0; i < 8; i++)
+    {
+        /* A completed old fence is not sufficient if this region has been
+         * used again since that fence was submitted. */
+        if (!(ogxTmemPendingMask & (1U << i)) &&
+            (!ogxTmemFenceValid[i] ||
+             ogxTmemFenceReached(completed, ogxTmemLastFence[i])) &&
+            ogxTmemLastUse[i] < oldest)
+        {
+            oldest = ogxTmemLastUse[i];
+            victim = i;
+        }
+    }
+
+    return victim;
+}
+
+static int ogxTmemCountCompletedVictims(unsigned short completed)
+{
+    int count = 0;
+    int i;
+
+    for (i = 0; i < 8; i++)
+    {
+        if (!(ogxTmemPendingMask & (1U << i)) &&
+            (!ogxTmemFenceValid[i] ||
+             ogxTmemFenceReached(completed, ogxTmemLastFence[i])))
+        {
+            count++;
+        }
+    }
+
+    return count;
+}
+
+static int ogxTmemChooseVictim(void)
+{
+    unsigned short completed;
+    unsigned int oldest;
+    int victim;
+    int i;
+
+    /* Retire the one outstanding batch and reuse work already proven
+     * complete.  If the safe pool is approaching exhaustion, fence the next
+     * pending batch now, while there are still regions available to consume.
+     * This is deliberately done before selecting the victim so the GP gets
+     * several subsequent evictions worth of time to reach the new token. */
+    completed = GX_GetDrawSync();
+    ogxTmemRefreshOutstandingFence(completed);
+    victim = ogxTmemFindCompletedVictim(completed);
+    if (victim >= 0)
+    {
+        if (ogxTmemCountCompletedVictims(completed) <=
+                OGX_TMEM_SAFE_LOW_WATERMARK &&
+            ogxTmemPendingMask && !ogxTmemOutstandingFenceValid)
+        {
+            ogxTmemFencePendingRegions();
+        }
+        return victim;
+    }
+
+    /* The safe pool ran dry before the proactively submitted token completed
+     * (or before an initial token could be seeded).  Do not submit a token and
+     * immediately poll it: that cannot create useful overlap.  Preserve the
+     * original correctness guarantee with the synchronous fallback. */
+    GX_DrawDone();
+    OGX_TEX_PROFILE_INC(tmemEvictionWaits);
+    ogxTmemPendingMask = 0;
+    memset(ogxTmemFenceValid, 0, sizeof(ogxTmemFenceValid));
+    ogxTmemOutstandingFence = 0;
+    ogxTmemOutstandingFenceValid = 0;
+    ogxTmemFenceRequest = 0;
+    oldest = 0xffffffffU;
+    victim = -1;
+    for (i = 0; i < 8; i++)
+    {
+        if (ogxTmemLastUse[i] < oldest)
+        {
+            oldest = ogxTmemLastUse[i];
+            victim = i;
+        }
+    }
+
+    return victim;
+}
+#endif
+
+#ifdef GX_TEXPATH_PHASE1C
+/* glTexSubImage2D writes both the opaque atlas backing and, when present, its
+ * semi-transparent companion.  A CPU write is immediately safe when neither
+ * object is assigned to one of the eight tracked TMEM regions.  All OpenGX
+ * game draws pass through checkLoadTextureObj(), which records that assignment
+ * before the draw is submitted. */
+static int ogxTextureUploadIsResident(short textureId)
+{
+    int i;
+    for (i = 0; i < 8; i++)
+    {
+        if (texCacheUsedInfo[i] == textureId ||
+            texCacheUsedInfo[i] == textureId + _MAX_GL_TEX)
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+#endif
+
 void glResetCacheRegion()
 {
     int oldTexId = texCacheUsedInfo[0];
@@ -764,6 +1057,17 @@ void glResetCacheRegion()
             GX_InvalidateTexRegion(&texCacheRegionS[0]);
             GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[0], 0);
         }
+#ifdef GX_TEXPATH_PHASE1A
+        /* The caller has just used region/map 0 outside this allocator.
+         * Restoring the resident object fixes the hardware state; marking
+         * the region pending ensures its external draw and this restore are
+         * covered by the next DrawSync fence before region 0 is evicted. */
+        ogxTmemLastUse[0] = ++ogxTmemUseSerial;
+        ogxTmemPendingMask |= 1U;
+        if (!ogxTmemOutstandingFenceValid)
+            ogxTmemFenceRequest = 1;
+#endif
+        OGX_TEX_PROFILE_INC(tmemExternalRestores);
     }
 }
 
@@ -773,14 +1077,23 @@ static void checkLoadTextureObj( int textureType )
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
 
     int i;
+#ifdef GX_TEXPATH_PHASE1A
+    /* A global reset is used only after GX_DrawDone (initialization and CPU
+     * texture updates) when Phase 1A is enabled.  Observe it lazily here so
+     * the tracking metadata is reset at the same safe boundary. */
+    if (ogxTmemAllRegionsFree())
+        ogxTmemResetTracking();
+#endif
     // check loaded texture cache
     for (i = 0; i < 8; i++)
     {
         if (textureType == TEX_TYPE_1 && texCacheUsedInfo[i] == (curTexId + _MAX_GL_TEX))
         {
+            OGX_TEX_PROFILE_INC(tmemHits);
             gxTexMapSemi = i;
             if (texChgType)
             {
+                OGX_TEX_PROFILE_INC(tmemChangedReloads);
                 texChgType = 0;
                 GX_InvalidateTexRegion(&texCacheRegionS[i]);
                 GX_LoadTexObjPreloaded(&currtex->semiTransTexobj, &texCacheRegionS[i], gxTexMapSemi);
@@ -789,9 +1102,11 @@ static void checkLoadTextureObj( int textureType )
         }
         else if (textureType == TEX_TYPE_2 && texCacheUsedInfo[i] == curTexId)
         {
+            OGX_TEX_PROFILE_INC(tmemHits);
             gxTexMap = i;
             if (texChgType)
             {
+                OGX_TEX_PROFILE_INC(tmemChangedReloads);
                 texChgType = 0;
                 GX_InvalidateTexRegion(&texCacheRegionS[i]);
                 GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[i], gxTexMap);
@@ -805,6 +1120,7 @@ static void checkLoadTextureObj( int textureType )
     {
         if (texCacheUsedInfo[i] == -1)
         {
+            OGX_TEX_PROFILE_INC(tmemFreeLoads);
             if (textureType == TEX_TYPE_1)
             {
                 gxTexMapSemi = i;
@@ -828,7 +1144,35 @@ static void checkLoadTextureObj( int textureType )
     writeLogFile(txtbuffer);
     #endif // DISP_DEBUG
 
-    // no free texture cache, run GX_DrawDone and clear texture cache
+    // no free texture cache
+#ifdef GX_TEXPATH_PHASE1A
+    {
+        int victim = ogxTmemChooseVictim();
+
+        OGX_TEX_PROFILE_INC(tmemSingleEvictions);
+        GX_InvalidateTexRegion(&texCacheRegionS[victim]);
+        if (textureType == TEX_TYPE_1)
+        {
+            gxTexMapSemi = victim;
+            GX_LoadTexObjPreloaded(&currtex->semiTransTexobj,
+                                   &texCacheRegionS[victim], victim);
+            texCacheUsedInfo[victim] = curTexId + _MAX_GL_TEX;
+        }
+        else
+        {
+            gxTexMap = victim;
+            GX_LoadTexObjPreloaded(&currtex->texobj,
+                                   &texCacheRegionS[victim], victim);
+            texCacheUsedInfo[victim] = curTexId;
+        }
+        ogxTmemLastUse[victim] = 0;
+        ogxTmemFenceValid[victim] = 0;
+        ogxTmemPendingMask &= (unsigned char)~(1U << victim);
+        return;
+    }
+#else
+    // Legacy behavior: wait for the GP, then discard all eight assignments.
+    OGX_TEX_PROFILE_INC(tmemFullResets);
     GX_DrawDone();
     resetTexCacheInfo();
 
@@ -846,12 +1190,19 @@ static void checkLoadTextureObj( int textureType )
         GX_LoadTexObjPreloaded(&currtex->texobj, &texCacheRegionS[0], 0);
         texCacheUsedInfo[0] = curTexId;
     }
+#endif
 }
 
 void glDeleteTextures(GLsizei n, const GLuint *textures)
 {
     const GLuint *texlist = textures;
     GX_DrawDone();
+#ifdef GX_TEXPATH_PHASE1A
+    /* Phase 1A keeps assignments across presents.  Do not retain an entry
+     * whose GL texture name may be recycled after its backing storage is
+     * freed.  This is already a completed-GP boundary. */
+    resetTexCacheInfo();
+#endif
     while (n-- > 0) {
         int i = *texlist++;
         if (!(i < 0 || i >= _MAX_GL_TEX)) {
@@ -1955,9 +2306,34 @@ int glTexSubImage2D(GLenum target, GLint level,
                    const GLvoid *data )
 {
     int textureType = 0;
-    //GX_WaitDrawDone();
+    OGX_TEX_PROFILE_INC(texSubImageCalls);
+    OGX_TEX_PROFILE_ADD(uploadedTexels,
+                        (unsigned long long)width * (unsigned long long)height);
+    OGX_TEX_PROFILE_ADD(uploadedBytes,
+                        (unsigned long long)width * (unsigned long long)height * 2ULL);
+#ifdef GX_TEXPATH_PHASE1C
+    if (ogxTextureUploadIsResident(glparamstate.glcurtex))
+    {
+        /* Keep the original conservative boundary for a backing which GX may
+         * still be fetching.  The first phase deliberately does not alter the
+         * resident case, making any regression easy to isolate. */
+        OGX_TEX_PROFILE_INC(textureUploadResidentWaits);
+        OGX_TEX_PROFILE_INC(textureUploadDrawDoneCalls);
+        GX_DrawDone();
+        resetTexCacheInfo();
+    }
+    else
+    {
+        /* None of the eight regions references this texture.  Updating its
+         * MEM2 backing cannot affect an in-flight draw; the next use will load
+         * the freshly flushed data through checkLoadTextureObj(). */
+        OGX_TEX_PROFILE_INC(textureUploadSyncSkips);
+    }
+#else
+    OGX_TEX_PROFILE_INC(textureUploadDrawDoneCalls);
     GX_DrawDone();
     resetTexCacheInfo();
+#endif
 
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
     unsigned char * semiTransBufPtr = (currtex->semiTransData == 0 ? semiTransBuf : currtex->semiTransData);
@@ -2084,6 +2460,12 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
         return 0; // FIXME Implement non 2D textures
 
     int textureType = 0;
+    OGX_TEX_PROFILE_INC(texImageCalls);
+    OGX_TEX_PROFILE_INC(textureUploadDrawDoneCalls);
+    OGX_TEX_PROFILE_ADD(uploadedTexels,
+                        (unsigned long long)width * (unsigned long long)height);
+    OGX_TEX_PROFILE_ADD(uploadedBytes,
+                        (unsigned long long)width * (unsigned long long)height * 2ULL);
     //GX_DrawDone(); // Very ugly, we should have a list of used textures and only wait if we are using the curr tex.
                    // This way we are sure that we are not modifying a texture which is being drawn
     //GX_WaitDrawDone();
@@ -2777,6 +3159,10 @@ static void setup_texture_stage(u8 stage, u8 raster_color, u8 raster_alpha,
         #endif // DISP_DEBUG
     }
 
+#ifdef GX_TEXPATH_PHASE1A
+    ogxTmemDrawRegion = gxTexMapTmp;
+#endif
+
     GX_SetTevOrder(stage, GX_TEXCOORD0, gxTexMapTmp, channel);
     // Set up the data for the TEXCOORD0 (use a identity matrix, TODO: allow user texture matrices)
     GX_SetNumTexGens(1);
@@ -2895,6 +3281,15 @@ static inline void setComnBlendMode()
 
 static inline int _ogx_apply_state(int texen, int color_enabled)
 {
+#ifdef GX_TEXPATH_PHASE1A
+    /* A failed/texture-disabled state application must not inherit the region
+     * selected by an earlier draw. */
+    ogxTmemDrawRegion = -1;
+    /* This function is entered before GX_Begin on every OpenGX draw path, so
+     * it is safe to append a requested DrawSync token to the FIFO here. */
+    ogxTmemServiceFenceRequest();
+#endif
+
     // Set up the OGL state to GX state
     GX_SetZMode(GX_TRUE, glparamstate.zfunc, GX_TRUE);
 
@@ -3107,6 +3502,7 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
         draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
                             count, glparamstate.normal_enabled, color_provide, texen, loop);
         GX_End();
+        OGX_DRAW_SUBMITTED();
     }
 
     if (glparamstate.blendenabled && texen)
@@ -3119,6 +3515,7 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
             draw_arrays_general(ptr_pos, ptr_normal, ptr_texc, ptr_color,
                                 count, glparamstate.normal_enabled, color_provide, texen, loop);
             GX_End();
+            OGX_DRAW_SUBMITTED();
         }
     }
 }

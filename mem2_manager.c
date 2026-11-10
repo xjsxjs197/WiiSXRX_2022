@@ -66,6 +66,29 @@ static uint32_t __lwp_heap_block_size(heap_cntrl *theheap, void *ptr)
 #define ROUNDUP32(v) (((uint32_t)(v) + 0x1f) & ~0x1f)
 
 static heap_cntrl gx_mem2_heap;
+static uint32_t gx_mem2_failures;
+static uint32_t gx_mem2_last_fail_size;
+static uint32_t gx_mem2_largest_fail_size;
+static uintptr_t gx_mem2_last_fail_caller;
+
+static void *gx_mem2_allocate(uint32_t size, uintptr_t caller)
+{
+   void *ptr;
+
+   if (size == 0)
+      return NULL;
+
+   ptr = __lwp_heap_allocate(&gx_mem2_heap, size);
+   if (!ptr)
+   {
+      gx_mem2_failures++;
+      gx_mem2_last_fail_size = size;
+      if (size > gx_mem2_largest_fail_size)
+         gx_mem2_largest_fail_size = size;
+      gx_mem2_last_fail_caller = caller;
+   }
+   return ptr;
+}
 
 bool gx_init_mem2(void)
 {
@@ -96,6 +119,10 @@ bool gx_init_mem2(void)
 
    SYS_SetArena2Hi(newArena2Hi);
    __lwp_heap_init(&gx_mem2_heap, heap_ptr, oldArena2Hi - newArena2Hi - 1024 * 1024, 32);
+   gx_mem2_failures = 0;
+   gx_mem2_last_fail_size = 0;
+   gx_mem2_largest_fail_size = 0;
+   gx_mem2_last_fail_caller = 0;
 
    _CPU_ISR_Restore(level);
 
@@ -104,14 +131,13 @@ bool gx_init_mem2(void)
 
 void *_mem2_memalign(uint8_t align, uint32_t size)
 {
-   if (size == 0)
-      return NULL;
-   return __lwp_heap_allocate(&gx_mem2_heap, size);
+   (void)align;
+   return gx_mem2_allocate(size, (uintptr_t)__builtin_return_address(0));
 }
 
 void *_mem2_malloc(uint32_t size)
 {
-   return _mem2_memalign(32, size);
+   return gx_mem2_allocate(size, (uintptr_t)__builtin_return_address(0));
 }
 
 void _mem2_free(void *ptr)
@@ -204,4 +230,24 @@ uint32_t gx_mem2_total(void)
    heap_iblock info;
    __lwp_heap_getinfo(&gx_mem2_heap, &info);
    return info.used_size + info.free_size;
+}
+
+uint32_t gx_mem2_allocation_failures(void)
+{
+   return gx_mem2_failures;
+}
+
+uint32_t gx_mem2_last_failed_size(void)
+{
+   return gx_mem2_last_fail_size;
+}
+
+uint32_t gx_mem2_largest_failed_size(void)
+{
+   return gx_mem2_largest_fail_size;
+}
+
+uintptr_t gx_mem2_last_failed_caller(void)
+{
+   return gx_mem2_last_fail_caller;
 }
