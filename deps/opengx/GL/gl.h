@@ -1372,12 +1372,40 @@ typedef struct OGXTextureProfileStatsTag
     unsigned int tmemEvictionFences;
     unsigned int tmemEvictionWaits;
     unsigned int tmemExternalRestores;
+    unsigned int textureFlushRangeCalls;
+    unsigned int directSubImageCalls;
     unsigned long long uploadedTexels;
     unsigned long long uploadedBytes;
+    unsigned long long textureFlushedBytes;
+    unsigned long long directDecodedTexels;
 } OGXTextureProfileStats;
+
+/* Native GX_TF_RGB5A3 subimage mapping.  The caller writes 16-bit texels in
+ * GX 4x4 tiled order directly into opaqueData/semiTransData, then passes the
+ * accumulated TEX_TYPE bit mask to glEndRGB5A3DirectSubImage(). */
+typedef struct OGXRGB5A3DirectMapTag
+{
+    void *opaqueData;
+    void *semiTransData;
+    unsigned int textureWidth;
+    unsigned int textureHeight;
+    unsigned int blockWidth;
+    int textureId;
+    int xoffset;
+    int yoffset;
+    int width;
+    int height;
+    unsigned char blendEnabled;
+    unsigned char semiTransUsesScratch;
+} OGXRGB5A3DirectMap;
 
 GLAPI void GLAPIENTRY glGetTextureProfileStats( OGXTextureProfileStats *stats );
 GLAPI void GLAPIENTRY glResetTextureProfileStats( void );
+GLAPI int GLAPIENTRY glBeginRGB5A3DirectSubImage(
+    GLint xoffset, GLint yoffset, GLsizei width, GLsizei height,
+    OGXRGB5A3DirectMap *map );
+GLAPI int GLAPIENTRY glEndRGB5A3DirectSubImage(
+    OGXRGB5A3DirectMap *map, int textureType );
 
 GLAPI void GLAPIENTRY glPRIMdrawTexturedQuad( void* vertexAdr, int changePointOrder );
 GLAPI void GLAPIENTRY glPRIMdrawTexturedTri( void* vertexAdr );

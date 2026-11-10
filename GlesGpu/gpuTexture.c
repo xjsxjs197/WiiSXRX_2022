@@ -147,6 +147,7 @@ struct textureSubCacheEntryTagS *CheckTextureInSubSCache(
 void            LoadSubTexturePageSort(int pageid, int mode, short cx, short cy);
 //void            LoadPackedSubTexturePageSort(int pageid, int mode, short cx, short cy);
 void            DefineSubTextureSort(void);
+static void     PrepareSubTextureSortTexture(void);
 
 ////////////////////////////////////////////////////////////////////////
 // some globals
@@ -506,7 +507,7 @@ static void DumpAndResetGXTexturePathProfile(void)
  sprintf(txtbuffer,
          "TDI GXTEX seq=%u cdid=%s frame=%u sub=%u/%u/%u wnd=%u/%u/%u repl=%u "
          "decode=%llu,%llu,%llu image=%u subimage=%u upload=%llu/%llu "
-         "drawdone=%u uploadsync=%u/%u tmem=%u/%u/%u/%u "
+         "direct=%u/%llu flush=%u/%llu drawdone=%u uploadsync=%u/%u tmem=%u/%u/%u/%u "
          "evict=%u/%u/%u restore=%u\r\n",
          gxTextureProfileSession,currentId,
          g_textureDiagFrame,
@@ -524,6 +525,10 @@ static void DumpAndResetGXTexturePathProfile(void)
          ogxStats.texSubImageCalls,
          ogxStats.uploadedTexels,
          ogxStats.uploadedBytes,
+         ogxStats.directSubImageCalls,
+         ogxStats.directDecodedTexels,
+         ogxStats.textureFlushRangeCalls,
+         ogxStats.textureFlushedBytes,
          ogxStats.textureUploadDrawDoneCalls,
          ogxStats.textureUploadSyncSkips,
          ogxStats.textureUploadResidentWaits,
@@ -2605,6 +2610,181 @@ GLuint Fake15BitTexture(void)
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
+#ifdef GX_TEXPATH_PHASE1E
+#define GX_DIRECT_TEX_TYPE_SEMI    0x1
+#define GX_DIRECT_TEX_TYPE_OPAQUE  0x2
+
+static inline unsigned short *DirectRGB5A3Pixel(void *data,
+                                                unsigned int blockWidth,
+                                                unsigned int x,
+                                                unsigned int y)
+{
+ unsigned int tileOffset=(((y>>2)*blockWidth)+(x>>2))*32;
+ unsigned int pixelOffset=((((y&3)*4)+(x&3))*2);
+ return (unsigned short *)((unsigned char *)data+tileOffset+pixelOffset);
+}
+
+static inline void PutDirectRGB5A3Pixel(OGXRGB5A3DirectMap *map,
+                                        unsigned int x,unsigned int y,
+                                        unsigned short pixel,
+                                        int *textureType)
+{
+ unsigned short *opaque=DirectRGB5A3Pixel(map->opaqueData,map->blockWidth,x,y);
+ unsigned short *semi=DirectRGB5A3Pixel(map->semiTransData,map->blockWidth,x,y);
+
+ if(!pixel)
+  {
+   *opaque=0;
+   *semi=0;
+  }
+ else if(map->blendEnabled && !(pixel&0x8000))
+  {
+   *opaque=0;
+   *semi=pixel|0x8000;
+   *textureType|=GX_DIRECT_TEX_TYPE_SEMI;
+  }
+ else
+  {
+   *opaque=pixel|0x8000;
+   *semi=0;
+   *textureType|=GX_DIRECT_TEX_TYPE_OPAQUE;
+  }
+}
+
+static inline void CopyDirectRGB5A3Pixel(OGXRGB5A3DirectMap *map,
+                                         unsigned int dstX,unsigned int dstY,
+                                         unsigned int srcX,unsigned int srcY)
+{
+ *DirectRGB5A3Pixel(map->opaqueData,map->blockWidth,dstX,dstY)=
+  *DirectRGB5A3Pixel(map->opaqueData,map->blockWidth,srcX,srcY);
+ *DirectRGB5A3Pixel(map->semiTransData,map->blockWidth,dstX,dstY)=
+  *DirectRGB5A3Pixel(map->semiTransData,map->blockWidth,srcX,srcY);
+}
+
+static int CanLoadSubTexturePageSortDirect(void)
+{
+ if(!iFilterType) return 1;
+ if(iFilterType!=2 && iFilterType!=4 && iFilterType!=6) return 1;
+ if((iFilterType==4 || iFilterType==6) &&
+    ly0==ly1 && ly2==ly3 && lx0==lx3 && lx1==lx2) return 1;
+ return 0;
+}
+
+/* Decode a normal cached PSX texture directly into the MEM2 GX_TF_RGB5A3
+ * atlas.  This removes texturepart's 32-bit linear staging write and the
+ * second linear-to-tiled conversion pass. */
+static int LoadSubTexturePageSortDirect(int pageid,int mode,short cx,short cy)
+{
+ OGXRGB5A3DirectMap map;
+ unsigned short palette[256];
+ unsigned int x1=gl_ux[7],x2=gl_ux[6],y1=gl_ux[5],y2=gl_ux[4];
+ unsigned int dx=x2-x1+1,dy=y2-y1+1;
+ unsigned int hasX=(XTexS!=0),hasY=(YTexS!=0);
+ unsigned int finalX=XTexS-hasX,finalY=YTexS-hasY;
+ unsigned int finalW=dx+(hasX?2:0),finalH=dy+(hasY?2:0);
+ unsigned int dataX=finalX+hasX,dataY=finalY+hasY;
+ unsigned int palstart=(unsigned int)cx+((unsigned int)cy<<10);
+ unsigned int x,y,index,raw,start,n_xi,n_yi;
+ int pmult=pageid/16;
+ int textureType=0;
+ unsigned int (*LTCOL)(unsigned int)=TCF[DrawSemiTrans];
+
+ if(mode<0 || mode>2) return 0;
+
+ PrepareSubTextureSortTexture();
+ if(!glBeginRGB5A3DirectSubImage(finalX,finalY,finalW,finalH,&map))
+  return 0;
+
+ ubOpaqueDraw=0;
+ GX_TEXPATH_ADD_DECODED(mode,dx*dy);
+
+ if(mode==0 || (mode==1 && (GlobalTextIL || dx*dy>384)))
+  {
+   unsigned int colors=(mode==0)?16:256;
+   for(index=0;index<colors;index++)
+    palette[index]=(unsigned short)LTCOL(GETLE16(psxVuw+palstart+index));
+  }
+
+ if(mode==0)
+  {
+   start=((pageid-16*pmult)<<7)+524288*pmult;
+   for(y=y1;y<=y2;y++)
+    for(x=x1;x<=x2;x++)
+     {
+      if(GlobalTextIL)
+       {
+        n_xi=((x>>2)&~0x3c)+((y<<2)&0x3c);
+        n_yi=(y&~0xf)+((x>>4)&0xf);
+        raw=GETLE16(psxVuw+((GlobalTextAddrY+n_yi)*1024)+
+                    GlobalTextAddrX+n_xi);
+        index=(raw>>((x&3)<<2))&0xf;
+       }
+      else
+       {
+        raw=*(psxVub+start+(y<<11)+(x>>1));
+        index=(raw>>((x&1)<<2))&0xf;
+       }
+      PutDirectRGB5A3Pixel(&map,dataX+(x-x1),dataY+(y-y1),
+                           palette[index],&textureType);
+     }
+  }
+ else if(mode==1)
+  {
+   start=((pageid-16*pmult)<<7)+524288*pmult;
+   for(y=y1;y<=y2;y++)
+    for(x=x1;x<=x2;x++)
+     {
+      if(GlobalTextIL)
+       {
+        n_xi=((x>>1)&~0x78)+((x<<2)&0x40)+((y<<3)&0x38);
+        n_yi=(y&~7)+((x>>5)&7);
+        raw=GETLE16(psxVuw+((GlobalTextAddrY+n_yi)*1024)+
+                    GlobalTextAddrX+n_xi);
+        index=(raw>>((x&1)<<3))&0xff;
+       }
+      else
+       index=*(psxVub+start+(y<<11)+x);
+
+      if(GlobalTextIL || dx*dy>384)
+       raw=palette[index];
+      else
+       raw=(unsigned short)LTCOL(GETLE16(psxVuw+palstart+index));
+      PutDirectRGB5A3Pixel(&map,dataX+(x-x1),dataY+(y-y1),
+                           (unsigned short)raw,&textureType);
+     }
+  }
+ else
+  {
+   start=((pageid-16*pmult)<<6)+262144*pmult;
+   for(y=y1;y<=y2;y++)
+    for(x=x1;x<=x2;x++)
+     {
+      raw=(unsigned short)LTCOL(GETLE16(psxVuw+start+(y<<10)+x));
+      PutDirectRGB5A3Pixel(&map,dataX+(x-x1),dataY+(y-y1),
+                           (unsigned short)raw,&textureType);
+     }
+  }
+
+ if(hasY)
+  for(x=finalX;x<finalX+finalW;x++)
+   {
+    CopyDirectRGB5A3Pixel(&map,x,finalY,x,dataY);
+    CopyDirectRGB5A3Pixel(&map,x,finalY+finalH-1,x,dataY+dy-1);
+   }
+ if(hasX)
+  for(y=finalY;y<finalY+finalH;y++)
+   {
+    CopyDirectRGB5A3Pixel(&map,finalX,y,dataX,y);
+    CopyDirectRGB5A3Pixel(&map,finalX+finalW-1,y,dataX+dx-1,y);
+   }
+
+ XTexS=finalX;YTexS=finalY;DXTexS=finalW;DYTexS=finalH;
+ gl_ux[8]=(GLubyte)glEndRGB5A3DirectSubImage(&map,textureType);
+ glError();
+ return 1;
+}
+#endif
+
 void LoadSubTexturePageSort(int pageid, int mode, short cx, short cy)
 {
  unsigned int  start,row,column,j,sxh,sxm;
@@ -2624,6 +2804,11 @@ void LoadSubTexturePageSort(int pageid, int mode, short cx, short cy)
  unsigned int (*LTCOL)(unsigned int);
  unsigned int a,r,g,b,cnt,h;
  unsigned int scol[8];
+
+#ifdef GX_TEXPATH_PHASE1E
+ if(CanLoadSubTexturePageSortDirect() &&
+    LoadSubTexturePageSortDirect(pageid,mode,cx,cy)) return;
+#endif
 
  LTCOL=TCF[DrawSemiTrans];
 
@@ -3301,9 +3486,9 @@ void LoadSubTexturePageSort(int pageid, int mode, short cx, short cy)
 
 /////////////////////////////////////////////////////////////////////////////
 
-void DefineSubTextureSort(void)
+static void PrepareSubTextureSortTexture(void)
 {
-    glSetRGB24( 0 );
+ glSetRGB24( 0 );
 
  if(!gTexName)
   {
@@ -3330,7 +3515,13 @@ void DefineSubTextureSort(void)
  else
  {
      glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
-  }
+ }
+}
+
+void DefineSubTextureSort(void)
+{
+  PrepareSubTextureSortTexture();
+
   #ifdef DISP_DEBUG
   //int oldWidth, oldHeight;
   //glGetTextureInfo(gTexName, &oldWidth, &oldHeight);

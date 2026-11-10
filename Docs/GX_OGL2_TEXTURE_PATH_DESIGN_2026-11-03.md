@@ -363,6 +363,31 @@ make GX_TEXPATH_PROFILE=1 GX_TEXPATH_PHASE1A=1 \
 若画面正确且 skip 占比高，再考虑利用已经完成的 region fence 进一步减少
 residentWait；第一版不改变 resident 情况，便于隔离正确性回归。
 
+#### Phase 1D：subimage 只刷新实际修改的 GX tile（2026-11-10）
+
+旧 `glTexSubImage2D()` 在任意大小的子纹理更新后都会对整张 256×256
+RGB5A3 atlas 执行 `DCFlushRange()`，即每次至少刷新 128 KiB；已有半透明
+backing 时还可能再刷新 128 KiB。Phase 1D 利用 GX RGB5A3 的 4×4 tile
+恰好为 32 字节这一布局，按受影响的 tile 行刷新：
+
+1. 将更新矩形向外取整到 4×4 tile 边界；
+2. 每个 tile 行只刷新 `[tileX0,tileX1)` 对应的连续 32 字节块；
+3. 非 4 像素对齐的更新同样刷新其覆盖到的完整 tile，保证相邻像素的 cache
+   line 一致性；
+4. 半透明 backing 首次分配仍需刷新整张 atlas，后续更新改为局部刷新；
+5. 保留旧的整张刷新路径作为编译开关关闭时的回退。
+
+编译时使用：
+
+```sh
+make GX_TEXPATH_PROFILE=1 GX_TEXPATH_PHASE1A=1 \
+     GX_TEXPATH_PHASE1C=1 GX_TEXPATH_PHASE1D=1 GPU=GX Wii
+```
+
+`GXTEX flush=ranges/bytes` 记录实际 `DCFlushRange()` 调用数和刷新字节数。
+Phase 1D 可能增加很窄子纹理的 flush 调用次数，但应大幅减少总刷新字节；
+验收时同时比较 `flush`、`subimage` 和帧时间，不能只看调用数。
+
 #### Phase 1A.2：复用已经完成的栅栏
 
 初版在每次缓存满时先给全部 pending region 创建 DrawSync token，再寻找可
@@ -406,6 +431,24 @@ Phase 1A.3 保持同一个编译开关，但将栅栏改为提前调度：
 低水位 3 是首轮测试值。下一轮主要比较 `evict=single/fence/wait` 中的
 `wait/fence` 和 `wait/single`；若等待仍集中出现，可根据真机数据调整为 4，
 若 fence 过多而等待已经很低，则可尝试降为 2。
+
+### Phase 1E：普通 atlas 直接解码
+
+首轮实现仅接管 `LoadSubTexturePageSort()` 中原本会立即调用
+`DefineSubTextureSort()` 的普通 4-bit、8-bit、15-bit 子纹理：
+
+- 直接从 PSX VRAM/CLUT 解码到 MEM2 中的 GX 4x4 tiled RGB5A3 atlas；
+- 省去 256x256 32-bit `texturepart` 中间缓冲写入，以及随后一次
+  linear-to-tiled 转换读取；
+- 保留旧的透明/不透明双 backing、gutter 复制、Phase 1C 同步判断和
+  Phase 1D 范围 flush；
+- 过滤器特殊分支、texture window、movie/framebuffer texture 继续使用
+  legacy path；关闭 `GX_TEXPATH_PHASE1E` 即可完整回退；
+- Phase 1E 依赖 Phase 1D，避免直接写入后重新退化为整张 128 KiB flush。
+
+日志新增 `direct=调用次数/直接写入纹素数`。统一测试时应同时观察
+`subimage`、`upload`、`flush` 和帧时间；Phase 1E 的首要验收项是画面一致，
+其次才是 CPU 转换开销及长帧是否下降。
 
 ### Phase 2：Indirect window 最近邻原型
 

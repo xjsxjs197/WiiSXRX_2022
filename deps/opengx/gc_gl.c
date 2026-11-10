@@ -67,6 +67,10 @@ POSSIBILITY OF SUCH DAMAGE.
 #define TEX_TYPE_1  0x1
 #define TEX_TYPE_2  0x2
 
+#if defined(GX_TEXPATH_PHASE1E) && !defined(GX_TEXPATH_PHASE1D)
+#error GX_TEXPATH_PHASE1E requires GX_TEXPATH_PHASE1D
+#endif
+
 void (*ogx_draw_submitted_cb)(void);
 #ifdef GX_TEXPATH_PHASE1A
 static void ogxTmemDrawSubmitted(void);
@@ -2068,10 +2072,147 @@ int glCaptureFramebufferIntensityTexture( GLsizei srcWidth, GLsizei srcHeight )
 #define MOVIE_BUF_SIZE (GXRESX_MAX*RESY_MAX*2)
 #define W_BLOCK(w) (((w + 3) & ~(unsigned int)3) >> 2)
 
+static void ogxFlushProfiledRange(void *address, unsigned int bytes)
+{
+    if (!address || bytes == 0)
+        return;
+
+    DCFlushRange(address, bytes);
+    OGX_TEX_PROFILE_INC(textureFlushRangeCalls);
+    OGX_TEX_PROFILE_ADD(textureFlushedBytes, bytes);
+}
+
+static void ogxFlushRGB5A3SubImage(void *data,
+                                   unsigned int textureWidth,
+                                   unsigned int textureHeight,
+                                   int xoffset, int yoffset,
+                                   int width, int height)
+{
+#ifdef GX_TEXPATH_PHASE1D
+    long long xend = (long long)xoffset + width;
+    long long yend = (long long)yoffset + height;
+    unsigned int blockWidth;
+    unsigned int blockX0;
+    unsigned int blockX1;
+    unsigned int blockY0;
+    unsigned int blockY1;
+    unsigned int blockY;
+    unsigned int rowBytes;
+
+    if (!data || width <= 0 || height <= 0 ||
+        xend <= 0 || yend <= 0 ||
+        xoffset >= (int)textureWidth || yoffset >= (int)textureHeight)
+        return;
+
+    if (xoffset < 0)
+        xoffset = 0;
+    if (yoffset < 0)
+        yoffset = 0;
+    if (xend > textureWidth)
+        xend = textureWidth;
+    if (yend > textureHeight)
+        yend = textureHeight;
+
+    blockWidth = W_BLOCK(textureWidth);
+    blockX0 = (unsigned int)xoffset >> 2;
+    blockX1 = ((unsigned int)xend + 3) >> 2;
+    blockY0 = (unsigned int)yoffset >> 2;
+    blockY1 = ((unsigned int)yend + 3) >> 2;
+    rowBytes = (blockX1 - blockX0) * 32;
+
+    /* GX_TF_RGB5A3 stores each 4x4 tile in one 32-byte cache line.  Flush only
+     * the tile rows touched by this subimage; adjacent atlas allocations stay
+     * outside both the write and cache-maintenance range. */
+    for (blockY = blockY0; blockY < blockY1; blockY++)
+    {
+        unsigned char *row = (unsigned char *)data +
+            (blockY * blockWidth + blockX0) * 32;
+        ogxFlushProfiledRange(row, rowBytes);
+    }
+#else
+    (void)xoffset;
+    (void)yoffset;
+    (void)width;
+    (void)height;
+    ogxFlushProfiledRange(data, textureWidth * textureHeight * 2);
+#endif
+}
+
 extern unsigned char GXtexture[MOVIE_BUF_SIZE];
 static unsigned char *movieTexPtr;
 static int movieUsedSize = 0;
 static unsigned char semiTransBuf[256 * 256 * 2];
+
+static void ogxPrepareRGB5A3SubImageUpdate(int textureId,
+                                           int width, int height)
+{
+    OGX_TEX_PROFILE_INC(texSubImageCalls);
+    OGX_TEX_PROFILE_ADD(uploadedTexels,
+                        (unsigned long long)width * (unsigned long long)height);
+    OGX_TEX_PROFILE_ADD(uploadedBytes,
+                        (unsigned long long)width * (unsigned long long)height * 2ULL);
+#ifdef GX_TEXPATH_PHASE1C
+    if (ogxTextureUploadIsResident(textureId))
+    {
+        /* Keep the original conservative boundary for a backing which GX may
+         * still be fetching. */
+        OGX_TEX_PROFILE_INC(textureUploadResidentWaits);
+        OGX_TEX_PROFILE_INC(textureUploadDrawDoneCalls);
+        GX_DrawDone();
+        resetTexCacheInfo();
+    }
+    else
+    {
+        /* A non-resident MEM2 backing can be changed without waiting for GX. */
+        OGX_TEX_PROFILE_INC(textureUploadSyncSkips);
+    }
+#else
+    OGX_TEX_PROFILE_INC(textureUploadDrawDoneCalls);
+    GX_DrawDone();
+    resetTexCacheInfo();
+#endif
+}
+
+static int ogxFinishRGB5A3SubImageUpdate(gltexture_ *currtex,
+                                         int textureType,
+                                         int xoffset, int yoffset,
+                                         int width, int height)
+{
+    ogxFlushRGB5A3SubImage(currtex->data, currtex->w, currtex->h,
+                           xoffset, yoffset, width, height);
+
+    if (textureType & TEX_TYPE_1)
+    {
+        if (currtex->semiTransData == 0)
+        {
+            currtex->semiTransData = _mem2_memalign(32, currtex->w * currtex->h * 2);
+            if (!currtex->semiTransData)
+                return textureType;
+
+            GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
+                          currtex->w, currtex->h, GX_TF_RGB5A3,
+                          currtex->wraps, currtex->wrapt, GX_FALSE);
+            if (originalMode == ORIGINALMODE_ENABLE ||
+                bilinearFilter == BILINEARFILTER_NEAR)
+            {
+                GX_InitTexObjFilterMode(&currtex->semiTransTexobj,
+                                        GX_NEAR, GX_NEAR);
+            }
+            memcpy(currtex->semiTransData, semiTransBuf,
+                   currtex->w * currtex->h * 2);
+            ogxFlushProfiledRange(currtex->semiTransData,
+                                  currtex->w * currtex->h * 2);
+        }
+        else
+        {
+            ogxFlushRGB5A3SubImage(currtex->semiTransData,
+                                   currtex->w, currtex->h,
+                                   xoffset, yoffset, width, height);
+        }
+    }
+
+    return textureType;
+}
 
 // 4b texel scrambling, opengx conversion: src(argb) -> dst(ar...gb)
 // for movie
@@ -2306,34 +2447,9 @@ int glTexSubImage2D(GLenum target, GLint level,
                    const GLvoid *data )
 {
     int textureType = 0;
-    OGX_TEX_PROFILE_INC(texSubImageCalls);
-    OGX_TEX_PROFILE_ADD(uploadedTexels,
-                        (unsigned long long)width * (unsigned long long)height);
-    OGX_TEX_PROFILE_ADD(uploadedBytes,
-                        (unsigned long long)width * (unsigned long long)height * 2ULL);
-#ifdef GX_TEXPATH_PHASE1C
-    if (ogxTextureUploadIsResident(glparamstate.glcurtex))
-    {
-        /* Keep the original conservative boundary for a backing which GX may
-         * still be fetching.  The first phase deliberately does not alter the
-         * resident case, making any regression easy to isolate. */
-        OGX_TEX_PROFILE_INC(textureUploadResidentWaits);
-        OGX_TEX_PROFILE_INC(textureUploadDrawDoneCalls);
-        GX_DrawDone();
-        resetTexCacheInfo();
-    }
-    else
-    {
-        /* None of the eight regions references this texture.  Updating its
-         * MEM2 backing cannot affect an in-flight draw; the next use will load
-         * the freshly flushed data through checkLoadTextureObj(). */
-        OGX_TEX_PROFILE_INC(textureUploadSyncSkips);
-    }
-#else
-    OGX_TEX_PROFILE_INC(textureUploadDrawDoneCalls);
-    GX_DrawDone();
-    resetTexCacheInfo();
-#endif
+    const GLint uploadXoffset = xoffset;
+    const GLint uploadYoffset = yoffset;
+    ogxPrepareRGB5A3SubImageUpdate(glparamstate.glcurtex, width, height);
 
     gltexture_ *currtex = &texture_list[glparamstate.glcurtex];
     unsigned char * semiTransBufPtr = (currtex->semiTransData == 0 ? semiTransBuf : currtex->semiTransData);
@@ -2343,7 +2459,6 @@ int glTexSubImage2D(GLenum target, GLint level,
         // The position happens to be the integer position of the Block
         int startOffset = ((yoffset >> 2) * W_BLOCK(currtex->w) + (xoffset >> 2)) * 32;
         textureType = _ogx_scramble_4b_sub((unsigned char *)data, currtex->data + startOffset, semiTransBufPtr + startOffset, glparamstate.blendenabled, width, height, currtex->w);
-        DCFlushRange(currtex->data , currtex->w * currtex->h * 2);
     }
     else
     {
@@ -2425,28 +2540,67 @@ int glTexSubImage2D(GLenum target, GLint level,
             yoffset += copyHe;
             xoffset = oldXoffset;
         }
-
-        DCFlushRange(currtex->data , currtex->w * currtex->h * 2);
     }
 
-    if (textureType & TEX_TYPE_1)
-    {
-        if (currtex->semiTransData == 0)
-        {
-            currtex->semiTransData = _mem2_memalign(32, currtex->w * currtex->h * 2);
-            GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
-                        currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
-            if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_NEAR)
-            {
-                GX_InitTexObjFilterMode(&currtex->semiTransTexobj, GX_NEAR, GX_NEAR);
-            }
-            memcpy(currtex->semiTransData, semiTransBuf, currtex->w * currtex->h * 2);
-        }
-        DCFlushRange(currtex->semiTransData , currtex->w * currtex->h * 2);
-    }
-
-    return textureType;
+    return ogxFinishRGB5A3SubImageUpdate(currtex, textureType,
+                                         uploadXoffset, uploadYoffset,
+                                         width, height);
 }
+
+#ifdef GX_TEXPATH_PHASE1E
+int glBeginRGB5A3DirectSubImage(GLint xoffset, GLint yoffset,
+                               GLsizei width, GLsizei height,
+                               OGXRGB5A3DirectMap *map)
+{
+    gltexture_ *currtex;
+
+    if (!map)
+        return 0;
+    memset(map, 0, sizeof(*map));
+
+    currtex = &texture_list[glparamstate.glcurtex];
+    if (!currtex->used || !currtex->data || currtex->w <= 0 || currtex->h <= 0 ||
+        xoffset < 0 || yoffset < 0 || width <= 0 || height <= 0 ||
+        xoffset + width > currtex->w || yoffset + height > currtex->h)
+        return 0;
+
+    ogxPrepareRGB5A3SubImageUpdate(glparamstate.glcurtex, width, height);
+    OGX_TEX_PROFILE_INC(directSubImageCalls);
+    OGX_TEX_PROFILE_ADD(directDecodedTexels,
+                        (unsigned long long)width * (unsigned long long)height);
+
+    map->opaqueData = currtex->data;
+    map->semiTransData = currtex->semiTransData ?
+                         currtex->semiTransData : semiTransBuf;
+    map->textureWidth = currtex->w;
+    map->textureHeight = currtex->h;
+    map->blockWidth = W_BLOCK(currtex->w);
+    map->textureId = glparamstate.glcurtex;
+    map->xoffset = xoffset;
+    map->yoffset = yoffset;
+    map->width = width;
+    map->height = height;
+    map->blendEnabled = glparamstate.blendenabled ? 1 : 0;
+    map->semiTransUsesScratch = currtex->semiTransData ? 0 : 1;
+    return 1;
+}
+
+int glEndRGB5A3DirectSubImage(OGXRGB5A3DirectMap *map, int textureType)
+{
+    gltexture_ *currtex;
+
+    if (!map || map->textureId < 0 || map->textureId >= _MAX_GL_TEX)
+        return textureType;
+
+    currtex = &texture_list[map->textureId];
+    if (!currtex->used || currtex->data != map->opaqueData)
+        return textureType;
+
+    return ogxFinishRGB5A3SubImageUpdate(currtex, textureType,
+                                         map->xoffset, map->yoffset,
+                                         map->width, map->height);
+}
+#endif
 
 // Create a Image Texture
 int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height,
