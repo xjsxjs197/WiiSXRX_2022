@@ -128,16 +128,16 @@ static const char * const special_game_hack_ff7_display_page[] =
     "SCES00900", "SCES10900", "SCES20900",
 };
 
-//static const char * const special_game_hack_need_soft_title[] =
-//{
-//    // For GX gpu fix(need software primTitle)
-//    /* BRAVE FENCER MUSASHIDEN */
-//    "SLPS01490", "SLPS01491", "SCPS45291", "SLUS00726", "SLUS90029",
-//    /* VAGRANT STORY */
-//    "SLPS02377", "SCPS45486", "SLPS91457", "SLPM87393", "SLUS01040",
-//    /* PRO PINBALL - TIMESHOCK! */
-//    "SLUS00639", "SLES00606",
-//};
+static const char * const special_game_hack_need_soft_title[] =
+{
+    // For GX gpu fix(need software primTitle)
+    /* BRAVE FENCER MUSASHIDEN */
+    "SLPS01490", "SLPS01491", "SCPS45291", "SLUS00726", "SLUS90029",
+    /* VAGRANT STORY */
+    "SLPS02377", "SCPS45486", "SLPS91457", "SLPM87393", "SLUS01040",
+    /* PRO PINBALL - TIMESHOCK! */
+    "SLUS00639", "SLES00606",
+};
 
 static const char * const special_game_hack_chrono_cross[] =
 {
@@ -416,13 +416,13 @@ void Apply_Hacks_Cdrom()
             break;
         }
     }
-//    for (i = 0; i < ARRAY_SIZE(special_game_hack_need_soft_title); i++) {
-//        if (strcmp(CdromId, special_game_hack_need_soft_title[i]) == 0)
-//        {
-//            Config.hacks.dwActFixes |= AUTO_FIX_NEED_SOFT_TITLE;
-//            break;
-//        }
-//    }
+    for (i = 0; i < ARRAY_SIZE(special_game_hack_need_soft_title); i++) {
+        if (strcmp(CdromId, special_game_hack_need_soft_title[i]) == 0)
+        {
+            Config.hacks.dwActFixes |= AUTO_FIX_NEED_SOFT_TITLE;
+            break;
+        }
+    }
     for (i = 0; i < ARRAY_SIZE(special_game_hack_chrono_cross); i++) {
         if (strcmp(CdromId, special_game_hack_chrono_cross[i]) == 0)
         {

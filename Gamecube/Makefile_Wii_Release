@@ -32,6 +32,24 @@ DATA		:=	data
 
 INCLUDES	:=
 
+# Keep direct Gamecube builds aligned with the top-level production defaults.
+GX_TEXPATH_PROFILE ?= 0
+GX_TEXPATH_PHASE1A ?= 1
+GX_TEXPATH_PHASE1C ?= 1
+GX_TEXPATH_PHASE1D ?= 1
+GX_TEXPATH_PHASE1E ?= 1
+GX_TEXPATH_ATLAS_COUNT ?= 96
+
+export GX_TEXPATH_PROFILE
+export GX_TEXPATH_PHASE1A
+export GX_TEXPATH_PHASE1C
+export GX_TEXPATH_PHASE1D
+export GX_TEXPATH_PHASE1E
+export GX_TEXPATH_ATLAS_COUNT
+
+GX_TEXPATH_CONFIG := profile$(GX_TEXPATH_PROFILE)-a$(GX_TEXPATH_PHASE1A)-c$(GX_TEXPATH_PHASE1C)-d$(GX_TEXPATH_PHASE1D)-e$(GX_TEXPATH_PHASE1E)-atlas$(GX_TEXPATH_ATLAS_COUNT)
+GX_TEXPATH_STAMP := .gx-build-$(GX_TEXPATH_CONFIG)
+
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
@@ -39,6 +57,30 @@ INCLUDES	:=
 CFLAGS	= -flto -Ofast -w -Wno-stringop-truncation -Wno-strict-aliasing -Wno-misleading-indentation -fpermissive $(MACHDEP) $(INCLUDE) -DUSE_LIBCHDR -D__GAMECUBE__ -DWII -DHW_RVL -D__ppc__ -D__BIG_ENDIAN__ -D__powerpc__ -DCPU_IS_BIG_ENDIAN=1 -DWORDS_BIGENDIAN=1 -DPACKAGE_VERSION=\"1.3.2\" -DHAVE_LROUND \
 		  -D__GX__ \
 		  -D_GNU_SOURCE -DNDEBUG
+
+ifeq ($(GX_TEXPATH_PROFILE),1)
+CFLAGS	+= -DGX_TEXPATH_PROFILE
+endif
+
+ifeq ($(GX_TEXPATH_PHASE1A),1)
+CFLAGS	+= -DGX_TEXPATH_PHASE1A
+endif
+
+ifeq ($(GX_TEXPATH_PHASE1C),1)
+CFLAGS	+= -DGX_TEXPATH_PHASE1C
+endif
+
+ifeq ($(GX_TEXPATH_PHASE1D),1)
+CFLAGS	+= -DGX_TEXPATH_PHASE1D
+endif
+
+ifeq ($(GX_TEXPATH_PHASE1E),1)
+CFLAGS	+= -DGX_TEXPATH_PHASE1E
+endif
+
+ifneq ($(strip $(GX_TEXPATH_ATLAS_COUNT)),)
+CFLAGS	+= -DGX_TEXPATH_ATLAS_COUNT=$(GX_TEXPATH_ATLAS_COUNT)
+endif
 
 CXXFLAGS	=	$(CFLAGS)
 
@@ -123,7 +165,12 @@ export OUTPUT	:=	$(CURDIR)/$(TARGET)
 
 #---------------------------------------------------------------------------------
 $(BUILD):
-	@[ -d $@ ] || mkdir -p $@
+	@if [ ! -f "$@/$(GX_TEXPATH_STAMP)" ]; then \
+		echo "Texture-path configuration changed; rebuilding $(TARGET) objects"; \
+		rm -fr "$@"; \
+		mkdir -p "$@"; \
+		touch "$@/$(GX_TEXPATH_STAMP)"; \
+	fi
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile_Wii_Release -j4
 	@echo creating ... $(notdir $(OUTPUT)).dol
 	@$(DEVKITPRO)/tools/bin/elf2dol $(OUTPUT).elf $(OUTPUT).dol
@@ -141,7 +188,7 @@ DEPENDS	:=	$(OFILES:.o=.d)
 #---------------------------------------------------------------------------------
 # main targets
 #---------------------------------------------------------------------------------
-$(OUTPUT).elf: $(OFILES)
+$(OUTPUT).elf: $(OFILES) ../../deps/opengx/lib/libOpengx.a
 
 #---------------------------------------------------------------------------------
 # This rule links in binary data with the .jpg extension

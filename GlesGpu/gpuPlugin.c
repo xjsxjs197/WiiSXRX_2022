@@ -2215,6 +2215,9 @@ static void flipEGL(void)
         canClearFrameBuf = TRUE;
 
     #ifdef DISP_DEBUG
+#ifdef GX_TEXPATH_PROFILE
+    DumpAndResetGXTexturePathProfile();
+#endif
     sprintf(txtbuffer,
             "TDI PRESENT frame=%u events=%u draws=%u efbclears=%u "
             "swapclear=%d shown=%d drawn=%d disp=%d,%d prev=%d,%d "
@@ -2238,6 +2241,14 @@ static void flipEGL(void)
     {
         // Write menu/debug text on screen
         showFpsAndDebugInfo();
+#ifdef GX_TEXPATH_PHASE1A
+        /* The FPS/debug font uses GX_TEXMAP0 and texCacheRegionS[0]
+         * directly, outside OpenGX's eight-region allocator.  Restore the
+         * game texture assigned to region 0 after the overlay so Phase 1A
+         * can safely retain all eight game regions across presents. */
+        if (showFPSonScreen == FPS_SHOW)
+            glResetCacheRegion();
+#endif
         g_efbContaminated = TRUE;
     }
 
@@ -2268,7 +2279,9 @@ static void flipEGL(void)
     glSetLoadMtxFlg();
 
     extern void resetTexCacheInfo(void);
+#ifndef GX_TEXPATH_PHASE1A
     resetTexCacheInfo();
+#endif
     ResetFramebufferTextureCapture();
 
 #ifdef DISP_DEBUG

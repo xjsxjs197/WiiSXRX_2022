@@ -1626,7 +1626,7 @@ void PrepareFullScreenUpload ( int Position )
 
     if ( PSXDisplay.RGB24 )
     {
-        InvalidateTextureArea ( xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0 );
+        InvalidateTextureAreaTagged ( xrUploadArea.x0, xrUploadArea.y0, xrUploadArea.x1 - xrUploadArea.x0, xrUploadArea.y1 - xrUploadArea.y0, TEX_INVALIDATE_DISPLAY );
     }
 }
 
@@ -2532,7 +2532,7 @@ void CheckWriteUpdate()
     if ( VRAMWrite.Width )   iX = 1;
     if ( VRAMWrite.Height )  iY = 1;
 
-    InvalidateTextureArea ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width - iX, VRAMWrite.Height - iY );
+    InvalidateTextureAreaTagged ( VRAMWrite.x, VRAMWrite.y, VRAMWrite.Width - iX, VRAMWrite.Height - iY, TEX_INVALIDATE_UPLOAD );
 
     #if defined(DISP_DEBUG)
     sprintf ( txtbuffer, "CheckWriteUpdate %d %d %d %d %d %d %d %d %d %d %d %d\r\n",
@@ -2759,7 +2759,8 @@ static inline void BlkFillArea(short x0, short y0, short width, short height, un
     if ( (y0 + height) > 512 ) height = 512 - y0;
     if ( (x0 + width) > 1024 ) width = 1024 - x0;
 
-    InvalidateTextureArea(x0, y0, width, height);
+    InvalidateTextureAreaTagged(x0, y0, width, height,
+                                TEX_INVALIDATE_BLOCK_FILL);
 
     // clear area
     if (fillCol == 0)
@@ -2784,16 +2785,20 @@ static void primBlkFill ( unsigned char * baseAddr )
 {
     uint32_t *gpuData = ( ( unsigned long * ) baseAddr );
     short *sgpuData = ( ( short * ) baseAddr );
+    short rawX = GETLEs16 ( &sgpuData[2] );
+    short rawY = GETLEs16 ( &sgpuData[3] );
+    short rawW = GETLEs16 ( &sgpuData[4] );
+    short rawH = GETLEs16 ( &sgpuData[5] );
 
     iDrawnSomething |= 0x4;
     uint64_t seq = BeginCommandWrite();
     int ctxOk;
 
     // https://psx-spx.consoledev.net/graphicsprocessingunitgpu/#masking-and-rounding-for-fill-command-parameters
-    sprtX = GETLEs16 ( &sgpuData[2] ) & 0x3f0;
-    sprtY = GETLEs16 ( &sgpuData[3] ) & iGPUHeightMask;
-    sprtW = GETLEs16 ( &sgpuData[4] ) & 0x3ff;
-    sprtH = GETLEs16 ( &sgpuData[5] ) & iGPUHeightMask;
+    sprtX = rawX & 0x3f0;
+    sprtY = rawY & iGPUHeightMask;
+    sprtW = rawW & 0x3ff;
+    sprtH = rawH & iGPUHeightMask;
 
     if (sprtW == 0 || sprtH == 0)
     {
@@ -2852,6 +2857,21 @@ static void primBlkFill ( unsigned char * baseAddr )
         else
             TopEfbContext()->coverage = EFB_TILE_PARTIAL;
     }
+
+#ifdef DISP_DEBUG
+    sprintf(txtbuffer,
+            "TDI GXFILL frame=%u kind=block seq=%llu raw=%d,%d+%d,%d "
+            "rect=%d,%d+%dx%d current=%d next=%d cpu=%d ctx=%d "
+            "color=%06X disp=%d,%d prev=%d,%d\r\n",
+            g_textureDiagFrame,(unsigned long long)seq,
+            rawX,rawY,rawW,rawH,sprtX,sprtY,sprtW,sprtH,
+            clearCurrent,clearNext,!clearNext,ctxOk,
+            GETLE32(&gpuData[0])&0xffffff,
+            PSXDisplay.DisplayPosition.x,PSXDisplay.DisplayPosition.y,
+            PreviousPSXDisplay.DisplayPosition.x,
+            PreviousPSXDisplay.DisplayPosition.y);
+    TextureDiagAppend(txtbuffer);
+#endif
 
     if (clearNext)
     {
@@ -2957,28 +2977,32 @@ static void MoveImageWrapped ( short imageX0, short imageY0,
 
         if ( imageYE > iGPUHeight && imageXE > 1024 )
         {
-            InvalidateTextureArea ( 0, 0,
+            InvalidateTextureAreaTagged ( 0, 0,
                                     ( imageXE & 0x3ff ) - 1,
-                                    ( imageYE & iGPUHeightMask ) - 1 );
+                                    ( imageYE & iGPUHeightMask ) - 1,
+                                    TEX_INVALIDATE_MOVE );
         }
 
         if ( imageXE > 1024 )
         {
-            InvalidateTextureArea ( 0, imageY1,
+            InvalidateTextureAreaTagged ( 0, imageY1,
                                     ( imageXE & 0x3ff ) - 1,
-                                    ( ( imageYE > iGPUHeight ) ? iGPUHeight : imageYE ) - imageY1 - 1 );
+                                    ( ( imageYE > iGPUHeight ) ? iGPUHeight : imageYE ) - imageY1 - 1,
+                                    TEX_INVALIDATE_MOVE );
         }
 
         if ( imageYE > iGPUHeight )
         {
-            InvalidateTextureArea ( imageX1, 0,
+            InvalidateTextureAreaTagged ( imageX1, 0,
                                     ( ( imageXE > 1024 ) ? 1024 : imageXE ) - imageX1 - 1,
-                                    ( imageYE & iGPUHeightMask ) - 1 );
+                                    ( imageYE & iGPUHeightMask ) - 1,
+                                    TEX_INVALIDATE_MOVE );
         }
 
-        InvalidateTextureArea ( imageX1, imageY1,
+        InvalidateTextureAreaTagged ( imageX1, imageY1,
                                 ( ( imageXE > 1024 ) ? 1024 : imageXE ) - imageX1 - 1,
-                                ( ( imageYE > iGPUHeight ) ? iGPUHeight : imageYE ) - imageY1 - 1 );
+                                ( ( imageYE > iGPUHeight ) ? iGPUHeight : imageYE ) - imageY1 - 1,
+                                TEX_INVALIDATE_MOVE );
     }
 }
 
@@ -3126,7 +3150,7 @@ static void primMoveImage ( unsigned char * baseAddr )
 
     if ( !PSXDisplay.RGB24 )
     {
-        InvalidateTextureArea ( imageX1, imageY1, imageSX - 1, imageSY - 1 );
+        InvalidateTextureAreaTagged ( imageX1, imageY1, imageSX - 1, imageSY - 1, TEX_INVALIDATE_MOVE );
 
         int uploaded = 0;
         if ( CheckAgainstScreen ( imageX1, imageY1, imageSX, imageSY ) )
@@ -3257,8 +3281,12 @@ static void primMoveImage ( unsigned char * baseAddr )
 
 static inline BOOL ShouldDoSoftTitleFill(short x0, short y0, short w, short h)
 {
-    //if (!(dwActFixes & AUTO_FIX_NEED_SOFT_TITLE))
-    //    return FALSE;
+    /* A normal hardware Tile is already rendered into the EFB. Mirroring it
+     * into psxVuw is only a compatibility path for games which consume that
+     * software copy later. Enabling it globally turns framebuffer clears into
+     * large texture-cache invalidations. */
+    if (!(dwActFixes & AUTO_FIX_NEED_SOFT_TITLE))
+        return FALSE;
 
     if (PSXDisplay.RGB24)
         return FALSE;
@@ -3269,11 +3297,11 @@ static inline BOOL ShouldDoSoftTitleFill(short x0, short y0, short w, short h)
     if (DrawSemiTrans || bCheckMask)
         return FALSE;
 
-    if ((w == 1 && h == 1) || (w == 8 && h == 8))
+    if ((w == 1 && h == 1) || (w == 8 && h == 8) || (w == 16 && h == 16))
         return FALSE;
 
-    //if (w < 48 || h < 12)
-    //    return FALSE;
+    if (w < 48 || h < 12)
+        return FALSE;
 
     if (x0 >= PSXDisplay.DrawArea.x1 || y0 >= PSXDisplay.DrawArea.y1)
         return FALSE;
@@ -3316,7 +3344,16 @@ static inline void TitleFillArea(short x0, short y0, short width, short height, 
     if (!bCheckMask && !DrawSemiTrans)
     {
         unsigned short colTmp = SWAP16_C(colInfo);
-        InvalidateTextureArea(x0, y0, width, height);
+#ifdef DISP_DEBUG
+        sprintf(txtbuffer,
+                "TDI GXFILL frame=%u kind=title rect=%d,%d+%dx%d "
+                "cpu=1 color=%04X fixes=%08X\r\n",
+                g_textureDiagFrame,x0,y0,width,height,colInfo,
+                dwActFixes);
+        TextureDiagAppend(txtbuffer);
+#endif
+        InvalidateTextureAreaTagged(x0, y0, width, height,
+                                    TEX_INVALIDATE_TITLE_FILL);
 
         for (int yy = y0; yy < y1; yy++)
         {

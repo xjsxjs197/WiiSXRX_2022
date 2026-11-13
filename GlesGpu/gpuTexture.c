@@ -82,6 +82,10 @@
 
 #include "../Gamecube/DEBUG.h"
 #include "../gpulib/gpu.h"
+#include "../mem2_manager.h"
+#include "../deps/lightrec/memmanager.h"
+
+#include <malloc.h>
 
 ////////////////////////////////////////////////////////////////////////
 // texture conversion buffer ..
@@ -143,6 +147,7 @@ struct textureSubCacheEntryTagS *CheckTextureInSubSCache(
 void            LoadSubTexturePageSort(int pageid, int mode, short cx, short cy);
 //void            LoadPackedSubTexturePageSort(int pageid, int mode, short cx, short cy);
 void            DefineSubTextureSort(void);
+static void     PrepareSubTextureSortTexture(void);
 
 ////////////////////////////////////////////////////////////////////////
 // some globals
@@ -202,7 +207,13 @@ typedef char textureSubCacheEntryMustRemain16Bytes[
 
 #define MAXWNDTEXCACHE 64
 #define MAXTPAGES_MAX  64
-#define MAXSORTTEX_MAX 64
+#ifndef GX_TEXPATH_ATLAS_COUNT
+#define GX_TEXPATH_ATLAS_COUNT 96
+#endif
+#if GX_TEXPATH_ATLAS_COUNT < 8 || GX_TEXPATH_ATLAS_COUNT > 255
+#error GX_TEXPATH_ATLAS_COUNT must be between 8 and 255
+#endif
+#define MAXSORTTEX_MAX GX_TEXPATH_ATLAS_COUNT
 
 //---------------------------------------------
 
@@ -210,6 +221,8 @@ textureWndCacheEntry     wcWndtexStore[MAXWNDTEXCACHE];    // only 64 entries
 textureSubCacheEntryS *  pscSubtexStore[3][MAXTPAGES_MAX]; // 3 * (64 / 2) * 4096 * 16 = 6M MB
 EXLong *                 pxSsubtexLeft [MAXSORTTEX_MAX];   // 196 * 2048 * 4 = 1568 KB
 GLuint                   uiStexturePage[MAXSORTTEX_MAX];   // 196 * 4 = 160 B
+static unsigned char     atlasHasSemiBacking[MAXSORTTEX_MAX];
+static unsigned short    atlasSemiBackingCount;
 
 unsigned short           usLRUTexPage=0;
 
@@ -227,6 +240,494 @@ unsigned short CLUTMASK      = 0x7fff;
 unsigned short CLUTYMASK     = 0x1ff;
 unsigned short MAXSORTTEX    = MAXSORTTEX_MAX;
 
+#ifdef GX_TEXPATH_PROFILE
+typedef struct GXTexturePathProfileTag
+{
+ unsigned int subLookups;
+ unsigned int subHits;
+ unsigned int subMisses;
+ unsigned int subMissNoKey;
+ unsigned int subMissUv;
+ unsigned int subMissClut;
+ unsigned int windowLookups;
+ unsigned int windowHits;
+ unsigned int windowMisses;
+ unsigned int windowReplacements;
+ unsigned int invalidationCalls;
+ unsigned int invalidatedEntries;
+ unsigned int invalidationCallsByReason[TEX_INVALIDATE_REASON_COUNT];
+ unsigned int invalidatedEntriesByReason[TEX_INVALIDATE_REASON_COUNT];
+ unsigned long long invalidatedAreaByReason[TEX_INVALIDATE_REASON_COUNT];
+ unsigned int invalidatedEntriesByReasonMode[TEX_INVALIDATE_REASON_COUNT][3];
+ unsigned int missesAfterInvalidation[TEX_INVALIDATE_REASON_COUNT];
+ unsigned int maxInvalidatedEntries;
+ unsigned int maxInvalidatedReason;
+ unsigned int maxInvalidatedX;
+ unsigned int maxInvalidatedY;
+ unsigned int maxInvalidatedW;
+ unsigned int maxInvalidatedH;
+ unsigned int garbageCollectCalls;
+ unsigned int garbageCollectEntries;
+ unsigned int bucketFullEvents;
+ unsigned int atlasLocalEvictions;
+ unsigned int atlasLocalEvictedEntries;
+ unsigned int atlasFullClears;
+ unsigned int compressCalls;
+ unsigned int compressUploads;
+ unsigned int compressFullClears;
+ unsigned int semiBackingAllocations;
+ unsigned int semiGrowthDenied;
+ unsigned int atlasClearPreUsed;
+ unsigned int atlasClearPreFreeRects;
+ unsigned int atlasClearPreDeadRects;
+ unsigned int atlasClearPreMaxW;
+ unsigned int atlasClearPreMaxH;
+ unsigned int atlasClearRequestW;
+ unsigned int atlasClearRequestH;
+ unsigned long long decodedTexels[3];
+} GXTexturePathProfile;
+
+#define GX_INVALIDATION_RECORD_MAX 128
+typedef struct GXInvalidationRecordTag
+{
+ uint64_t clutKey;
+ EXLong pos;
+ unsigned char mode;
+ unsigned char page;
+ unsigned char reason;
+} GXInvalidationRecord;
+
+static GXTexturePathProfile gxTexturePathProfile;
+static GXInvalidationRecord gxInvalidationRecords[GX_INVALIDATION_RECORD_MAX];
+static unsigned int gxInvalidationRecordCount;
+static unsigned int gxTextureProfileMinMem2Free=0xffffffffU;
+static unsigned char gxTextureProfileLastMissReason;
+#define GX_TEX_MISS_NOKEY 0
+#define GX_TEX_MISS_UV    1
+#define GX_TEX_MISS_CLUT  2
+#define GX_TEXPATH_INC(field) (++gxTexturePathProfile.field)
+#define GX_TEXPATH_ADD_DECODED(mode,count) \
+ (gxTexturePathProfile.decodedTexels[(mode)] += (unsigned long long)(count))
+#define GX_TEXPATH_INVALIDATE_CALL(reason,area) do { \
+ gxTexturePathProfile.invalidationCalls++; \
+ gxTexturePathProfile.invalidationCallsByReason[(reason)]++; \
+ gxTexturePathProfile.invalidatedAreaByReason[(reason)]+=(area); \
+} while(0)
+#define GX_TEXPATH_INVALIDATED(reason,mode,page,entry) \
+ ProfileRecordInvalidation((reason),(mode),(page),(entry))
+#else
+#define GX_TEXPATH_INC(field) ((void)0)
+#define GX_TEXPATH_ADD_DECODED(mode,count) ((void)0)
+#define GX_TEXPATH_INVALIDATE_CALL(reason,area) ((void)0)
+#define GX_TEXPATH_INVALIDATED(reason,mode,page,entry) ((void)0)
+#endif
+
+/* A failed rectangle allocation used to discard the metadata for every
+ * 256x256 atlas.  Keep the eviction cursor separate from usLRUTexPage:
+ * usLRUTexPage is the atlas used by the most recent texture lookup, while
+ * this cursor only rotates equally cheap eviction candidates. */
+static unsigned short usAtlasEvictCursor;
+
+static int CanGrowSemiBacking(void)
+{
+ return gx_mem2_free() >= GX_MEM2_MIN_FREE_BYTES + 256U * 256U * 2U;
+}
+
+static void RefreshAtlasSemiBacking(int atlas)
+{
+ GLuint texture;
+
+ if(atlas<0 || atlas>=iSortTexCnt) return;
+ texture=uiStexturePage[atlas];
+ if(!atlasHasSemiBacking[atlas] && texture &&
+    glTextureHasSemiTransData(texture))
+  {
+   atlasHasSemiBacking[atlas]=1;
+   atlasSemiBackingCount++;
+   GX_TEXPATH_INC(semiBackingAllocations);
+  }
+}
+
+static int BuildAtlasPlacementOrder(unsigned char *order,int semiRequest,
+                                    int allowSemiGrowth)
+{
+ int pass,index,count=0,atlas;
+
+ /* Keep both backing planes on the same atlas/GL texture ID.  Only the
+  * rectangle-placement order changes: semi-transparent requests fill an
+  * atlas which already owns semiTransData before growing another plane. */
+ for(pass=0;pass<2;pass++)
+  for(index=0;index<iSortTexCnt;index++)
+   {
+    atlas=(usLRUTexPage+index)%iSortTexCnt;
+    if(semiRequest)
+     {
+      if((pass==0 && atlasHasSemiBacking[atlas]) ||
+         (pass==1 && allowSemiGrowth && !atlasHasSemiBacking[atlas]))
+       order[count++]=(unsigned char)atlas;
+     }
+    else
+     {
+      if((pass==0 && !atlasHasSemiBacking[atlas]) ||
+         (pass==1 && atlasHasSemiBacking[atlas]))
+       order[count++]=(unsigned char)atlas;
+     }
+   }
+
+ return count;
+}
+
+#ifdef GX_TEXPATH_PROFILE
+static void ProfileRecordInvalidation(TextureInvalidateReason reason,int mode,
+                                      int page,
+                                      const textureSubCacheEntryS *entry)
+{
+ GXInvalidationRecord *record;
+
+ gxTexturePathProfile.invalidatedEntries++;
+ gxTexturePathProfile.invalidatedEntriesByReason[reason]++;
+ if(mode>=0 && mode<3)
+  gxTexturePathProfile.invalidatedEntriesByReasonMode[reason][mode]++;
+
+ if(gxInvalidationRecordCount>=GX_INVALIDATION_RECORD_MAX) return;
+ record=&gxInvalidationRecords[gxInvalidationRecordCount++];
+ record->clutKey=entry->ClutKey;
+ record->pos=entry->pos;
+ record->mode=(unsigned char)mode;
+ record->page=(unsigned char)page;
+ record->reason=(unsigned char)reason;
+}
+
+static void ProfileClassifyPostInvalidationMiss(int mode,int page,
+                                                uint64_t clutKey,EXLong pos)
+{
+ unsigned int i;
+
+ for(i=0;i<gxInvalidationRecordCount;i++)
+  {
+   GXInvalidationRecord *record=&gxInvalidationRecords[i];
+   if(record->mode==(unsigned char)mode &&
+      record->page==(unsigned char)page &&
+      record->clutKey==clutKey && XCHECK(record->pos,pos))
+    {
+     gxTexturePathProfile.missesAfterInvalidation[record->reason]++;
+     return;
+    }
+  }
+}
+
+static void ProfileScanAtlas(unsigned int *used,unsigned int *freeRects,
+                             unsigned int *deadRects,unsigned int *maxW,
+                             unsigned int *maxH)
+{
+ unsigned int bestArea=0;
+ int i,j;
+
+ *used=*freeRects=*deadRects=*maxW=*maxH=0;
+ for(i=0;i<iSortTexCnt;i++)
+  {
+   EXLong *base=pxSsubtexLeft[i];
+   unsigned int count;
+
+   if(!base) continue;
+   count=GETLE32((unsigned long *)base);
+   if(!count) continue;
+   (*used)++;
+   if(count>CSUBSIZE-2) count=CSUBSIZE-2;
+   for(j=1;j<=(int)count;j++)
+    {
+     EXLong *rect=base+j;
+     unsigned int area;
+
+     if(rect->l==0xffffffff)
+      {
+       (*deadRects)++;
+       continue;
+      }
+     (*freeRects)++;
+     area=(unsigned int)rect->c.x2*(unsigned int)rect->c.y2;
+     if(area>bestArea)
+      {
+       bestArea=area;
+       *maxW=rect->c.x2;
+       *maxH=rect->c.y2;
+      }
+    }
+  }
+}
+
+static void ProfileCaptureAtlasClear(unsigned int requestW,
+                                     unsigned int requestH)
+{
+ ProfileScanAtlas(&gxTexturePathProfile.atlasClearPreUsed,
+                  &gxTexturePathProfile.atlasClearPreFreeRects,
+                  &gxTexturePathProfile.atlasClearPreDeadRects,
+                  &gxTexturePathProfile.atlasClearPreMaxW,
+                  &gxTexturePathProfile.atlasClearPreMaxH);
+ gxTexturePathProfile.atlasClearRequestW=requestW;
+ gxTexturePathProfile.atlasClearRequestH=requestH;
+}
+#endif
+
+#if defined(GX_TEXPATH_PROFILE) && defined(DISP_DEBUG)
+extern char CdromId[10];
+extern char CdromLabel[33];
+
+static unsigned int gxTextureProfileSession;
+static char gxTextureProfileCdromId[10];
+static char gxTextureProfileCdromLabel[33];
+
+static void DumpGXMemoryDiagnostics(void)
+{
+ struct mallinfo heap=mallinfo();
+ uintptr_t arena1Lo=(uintptr_t)SYS_GetArena1Lo();
+ uintptr_t arena1Hi=(uintptr_t)SYS_GetArena1Hi();
+ uintptr_t arena2Lo=(uintptr_t)SYS_GetArena2Lo();
+ uintptr_t arena2Hi=(uintptr_t)SYS_GetArena2Hi();
+ unsigned int mem2Used=gx_mem2_used();
+ unsigned int mem2Total=gx_mem2_total();
+ unsigned int mem2Free=mem2Total>=mem2Used ? mem2Total-mem2Used : 0;
+
+ sprintf(txtbuffer,
+         "TDI MEM frame=%u a1=%08lx-%08lx/%uKB a2=%08lx-%08lx/%uKB "
+         "heap=%u/%u/%u/%uKB,%u lr=%u/%u/%u/%u/%uKB "
+         "mem2=%u/%uKB fail=%u/%u/%u@%08lx\r\n",
+         g_textureDiagFrame,
+         (unsigned long)arena1Lo,(unsigned long)arena1Hi,
+         (unsigned int)((arena1Hi>=arena1Lo ? arena1Hi-arena1Lo : 0)>>10),
+         (unsigned long)arena2Lo,(unsigned long)arena2Hi,
+         (unsigned int)((arena2Hi>=arena2Lo ? arena2Hi-arena2Lo : 0)>>10),
+         (unsigned int)(heap.arena>>10),
+         (unsigned int)(heap.uordblks>>10),
+         (unsigned int)(heap.fordblks>>10),
+         (unsigned int)(heap.keepcost>>10),
+         (unsigned int)heap.ordblks,
+         lightrec_get_mem_usage(MEM_FOR_IR)>>10,
+         lightrec_get_mem_usage(MEM_FOR_CODE)>>10,
+         lightrec_get_mem_usage(MEM_FOR_MIPS_CODE)>>10,
+         lightrec_get_mem_usage(MEM_FOR_LIGHTREC)>>10,
+         lightrec_get_total_mem_usage()>>10,
+         mem2Used>>10,mem2Free>>10,
+         gx_mem2_allocation_failures(),
+         gx_mem2_last_failed_size(),
+         gx_mem2_largest_failed_size(),
+         (unsigned long)gx_mem2_last_failed_caller());
+ TextureDiagAppend(txtbuffer);
+}
+
+static void ResetGXTexturePathProfileSession(void)
+{
+ memset(&gxTexturePathProfile,0,sizeof(gxTexturePathProfile));
+ gxInvalidationRecordCount=0;
+ glResetTextureProfileStats();
+ gxTextureProfileMinMem2Free=0xffffffffU;
+ gxTextureProfileCdromId[0]='\0';
+ gxTextureProfileCdromLabel[0]='\0';
+}
+
+static void DumpAndResetGXTexturePathProfile(void)
+{
+ OGXTextureProfileStats ogxStats;
+ unsigned int atlasUsed=0,atlasBacked=0;
+ unsigned int atlasFreeRects=0,atlasDeadRects=0;
+ unsigned int atlasMaxW=0,atlasMaxH=0;
+ unsigned int metaValid=0,metaSlots=0;
+ unsigned int metaMaxBucket=0,metaNonEmptyBuckets=0,metaHoleBuckets=0;
+ unsigned int metaCapacity;
+ unsigned int mem2Used,mem2Total,mem2Free;
+ int i,j,k,n;
+ const char *currentId=CdromId[0] ? CdromId : "UNKNOWN";
+ const char *currentLabel=CdromLabel[0] ? CdromLabel : "UNKNOWN";
+
+ if(strcmp(gxTextureProfileCdromId,CdromId)!=0 ||
+    strcmp(gxTextureProfileCdromLabel,CdromLabel)!=0)
+  {
+   gxTextureProfileSession++;
+   gxTextureProfileMinMem2Free=0xffffffffU;
+   strncpy(gxTextureProfileCdromId,CdromId,
+           sizeof(gxTextureProfileCdromId)-1);
+   gxTextureProfileCdromId[sizeof(gxTextureProfileCdromId)-1]='\0';
+   strncpy(gxTextureProfileCdromLabel,CdromLabel,
+           sizeof(gxTextureProfileCdromLabel)-1);
+   gxTextureProfileCdromLabel[sizeof(gxTextureProfileCdromLabel)-1]='\0';
+   sprintf(txtbuffer,
+           "TDI GXTEX SESSION seq=%u cdid=%s label=\"%s\"\r\n",
+           gxTextureProfileSession,currentId,currentLabel);
+   TextureDiagAppend(txtbuffer);
+  }
+
+ glGetTextureProfileStats(&ogxStats);
+ sprintf(txtbuffer,
+         "TDI GXTEX seq=%u cdid=%s frame=%u sub=%u/%u/%u wnd=%u/%u/%u repl=%u "
+         "decode=%llu,%llu,%llu image=%u subimage=%u upload=%llu/%llu "
+         "direct=%u/%llu flush=%u/%llu drawdone=%u uploadsync=%u/%u tmem=%u/%u/%u/%u "
+         "evict=%u/%u/%u restore=%u\r\n",
+         gxTextureProfileSession,currentId,
+         g_textureDiagFrame,
+         gxTexturePathProfile.subLookups,
+         gxTexturePathProfile.subHits,
+         gxTexturePathProfile.subMisses,
+         gxTexturePathProfile.windowLookups,
+         gxTexturePathProfile.windowHits,
+         gxTexturePathProfile.windowMisses,
+         gxTexturePathProfile.windowReplacements,
+         gxTexturePathProfile.decodedTexels[0],
+         gxTexturePathProfile.decodedTexels[1],
+         gxTexturePathProfile.decodedTexels[2],
+         ogxStats.texImageCalls,
+         ogxStats.texSubImageCalls,
+         ogxStats.uploadedTexels,
+         ogxStats.uploadedBytes,
+         ogxStats.directSubImageCalls,
+         ogxStats.directDecodedTexels,
+         ogxStats.textureFlushRangeCalls,
+         ogxStats.textureFlushedBytes,
+         ogxStats.textureUploadDrawDoneCalls,
+         ogxStats.textureUploadSyncSkips,
+         ogxStats.textureUploadResidentWaits,
+         ogxStats.tmemHits,
+         ogxStats.tmemChangedReloads,
+         ogxStats.tmemFreeLoads,
+         ogxStats.tmemFullResets,
+         ogxStats.tmemSingleEvictions,
+         ogxStats.tmemEvictionFences,
+         ogxStats.tmemEvictionWaits,
+         ogxStats.tmemExternalRestores);
+ TextureDiagAppend(txtbuffer);
+
+ ProfileScanAtlas(&atlasUsed,&atlasFreeRects,&atlasDeadRects,
+                  &atlasMaxW,&atlasMaxH);
+ for(i=0;i<iSortTexCnt;i++)
+  if(uiStexturePage[i]) atlasBacked++;
+ for(i=0;i<3;i++)
+  for(j=0;j<MAXTPAGES;j++)
+   {
+    textureSubCacheEntryS *base=pscSubtexStore[i][j];
+    if(!base) continue;
+    for(k=0;k<4;k++)
+     {
+      textureSubCacheEntryS *bucket=base+k*SOFFB;
+      unsigned int count=GETLE32(SUBCACHE_COUNT_PTR(bucket));
+      unsigned int validInBucket=0;
+      if(count>SOFFB-2) count=SOFFB-2;
+      if(count)
+       {
+        metaNonEmptyBuckets++;
+        if(count>metaMaxBucket) metaMaxBucket=count;
+       }
+      metaSlots+=count;
+      for(n=1;n<=(int)count;n++)
+       if(bucket[n].ClutKey) {metaValid++;validInBucket++;}
+      if(validInBucket<count) metaHoleBuckets++;
+     }
+   }
+ metaCapacity=3U*(unsigned int)MAXTPAGES*4U*(SOFFB-2U);
+ mem2Used=gx_mem2_used();
+ mem2Total=gx_mem2_total();
+ mem2Free=mem2Total>=mem2Used ? mem2Total-mem2Used : 0;
+ if(mem2Free<gxTextureProfileMinMem2Free)
+  gxTextureProfileMinMem2Free=mem2Free;
+ sprintf(txtbuffer,
+         "TDI GXMISS frame=%u cause=%u/%u/%u inval=%u/%u gc=%u/%u "
+         "bucket=%u atlasclear=%u atlaslocal=%u/%u comp=%u/%u/%u atlas=%u/%u/%u "
+         "semi=%u/%u/%u pages=%u/%u meta=%u/%u/%u mem2=%u/%u/%uKB\r\n",
+         g_textureDiagFrame,
+         gxTexturePathProfile.subMissNoKey,
+         gxTexturePathProfile.subMissUv,
+         gxTexturePathProfile.subMissClut,
+         gxTexturePathProfile.invalidationCalls,
+         gxTexturePathProfile.invalidatedEntries,
+         gxTexturePathProfile.garbageCollectCalls,
+         gxTexturePathProfile.garbageCollectEntries,
+         gxTexturePathProfile.bucketFullEvents,
+         gxTexturePathProfile.atlasFullClears,
+         gxTexturePathProfile.atlasLocalEvictions,
+         gxTexturePathProfile.atlasLocalEvictedEntries,
+         gxTexturePathProfile.compressCalls,
+         gxTexturePathProfile.compressUploads,
+         gxTexturePathProfile.compressFullClears,
+         atlasUsed,atlasBacked,(unsigned int)iSortTexCnt,
+         (unsigned int)atlasSemiBackingCount,
+         gxTexturePathProfile.semiBackingAllocations,
+         gxTexturePathProfile.semiGrowthDenied,
+         (unsigned int)MAXTPAGES,(unsigned int)MAXTPAGES_MAX,
+         metaValid,metaSlots,metaCapacity,
+         mem2Used>>10,mem2Free>>10,gxTextureProfileMinMem2Free>>10);
+ TextureDiagAppend(txtbuffer);
+ sprintf(txtbuffer,
+         "TDI GXINVAL frame=%u order=other,upload,move,blockfill,titlefill,display,readback,draw "
+         "calls=%u,%u,%u,%u,%u,%u,%u,%u entries=%u,%u,%u,%u,%u,%u,%u,%u "
+         "area=%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu "
+         "reuse=%u,%u,%u,%u,%u,%u,%u,%u blockmode=%u,%u,%u titlemode=%u,%u,%u "
+         "max=%u:%u@%u,%u+%ux%u\r\n",
+         g_textureDiagFrame,
+         gxTexturePathProfile.invalidationCallsByReason[0],
+         gxTexturePathProfile.invalidationCallsByReason[1],
+         gxTexturePathProfile.invalidationCallsByReason[2],
+         gxTexturePathProfile.invalidationCallsByReason[3],
+         gxTexturePathProfile.invalidationCallsByReason[4],
+         gxTexturePathProfile.invalidationCallsByReason[5],
+         gxTexturePathProfile.invalidationCallsByReason[6],
+         gxTexturePathProfile.invalidationCallsByReason[7],
+         gxTexturePathProfile.invalidatedEntriesByReason[0],
+         gxTexturePathProfile.invalidatedEntriesByReason[1],
+         gxTexturePathProfile.invalidatedEntriesByReason[2],
+         gxTexturePathProfile.invalidatedEntriesByReason[3],
+         gxTexturePathProfile.invalidatedEntriesByReason[4],
+         gxTexturePathProfile.invalidatedEntriesByReason[5],
+         gxTexturePathProfile.invalidatedEntriesByReason[6],
+         gxTexturePathProfile.invalidatedEntriesByReason[7],
+         gxTexturePathProfile.invalidatedAreaByReason[0],
+         gxTexturePathProfile.invalidatedAreaByReason[1],
+         gxTexturePathProfile.invalidatedAreaByReason[2],
+         gxTexturePathProfile.invalidatedAreaByReason[3],
+         gxTexturePathProfile.invalidatedAreaByReason[4],
+         gxTexturePathProfile.invalidatedAreaByReason[5],
+         gxTexturePathProfile.invalidatedAreaByReason[6],
+         gxTexturePathProfile.invalidatedAreaByReason[7],
+         gxTexturePathProfile.missesAfterInvalidation[0],
+         gxTexturePathProfile.missesAfterInvalidation[1],
+         gxTexturePathProfile.missesAfterInvalidation[2],
+         gxTexturePathProfile.missesAfterInvalidation[3],
+         gxTexturePathProfile.missesAfterInvalidation[4],
+         gxTexturePathProfile.missesAfterInvalidation[5],
+         gxTexturePathProfile.missesAfterInvalidation[6],
+         gxTexturePathProfile.missesAfterInvalidation[7],
+         gxTexturePathProfile.invalidatedEntriesByReasonMode[TEX_INVALIDATE_BLOCK_FILL][0],
+         gxTexturePathProfile.invalidatedEntriesByReasonMode[TEX_INVALIDATE_BLOCK_FILL][1],
+         gxTexturePathProfile.invalidatedEntriesByReasonMode[TEX_INVALIDATE_BLOCK_FILL][2],
+         gxTexturePathProfile.invalidatedEntriesByReasonMode[TEX_INVALIDATE_TITLE_FILL][0],
+         gxTexturePathProfile.invalidatedEntriesByReasonMode[TEX_INVALIDATE_TITLE_FILL][1],
+         gxTexturePathProfile.invalidatedEntriesByReasonMode[TEX_INVALIDATE_TITLE_FILL][2],
+         gxTexturePathProfile.maxInvalidatedReason,
+         gxTexturePathProfile.maxInvalidatedEntries,
+         gxTexturePathProfile.maxInvalidatedX,
+         gxTexturePathProfile.maxInvalidatedY,
+         gxTexturePathProfile.maxInvalidatedW,
+         gxTexturePathProfile.maxInvalidatedH);
+ TextureDiagAppend(txtbuffer);
+ sprintf(txtbuffer,
+         "TDI GXALLOC frame=%u bucket=%u/%u/%u free=%u/%u/%ux%u "
+         "pressurepre=%u/%u/%u/%ux%u request=%ux%u localevict=%u/%u\r\n",
+         g_textureDiagFrame,metaMaxBucket,metaNonEmptyBuckets,metaHoleBuckets,
+         atlasFreeRects,atlasDeadRects,atlasMaxW,atlasMaxH,
+         gxTexturePathProfile.atlasClearPreUsed,
+         gxTexturePathProfile.atlasClearPreFreeRects,
+         gxTexturePathProfile.atlasClearPreDeadRects,
+         gxTexturePathProfile.atlasClearPreMaxW,
+         gxTexturePathProfile.atlasClearPreMaxH,
+         gxTexturePathProfile.atlasClearRequestW,
+         gxTexturePathProfile.atlasClearRequestH,
+         gxTexturePathProfile.atlasLocalEvictions,
+         gxTexturePathProfile.atlasLocalEvictedEntries);
+ TextureDiagAppend(txtbuffer);
+ DumpGXMemoryDiagnostics();
+ memset(&gxTexturePathProfile,0,sizeof(gxTexturePathProfile));
+ gxInvalidationRecordCount=0;
+ glResetTextureProfileStats();
+}
+#endif
+
 static uint64_t BuildClutCacheKey(unsigned int rawClutId,int textureMode,
                                   int drawSemiTrans)
 {
@@ -241,6 +742,35 @@ static uint64_t BuildClutCacheKey(unsigned int rawClutId,int textureMode,
   }
  return ClutKeyBuild(rawClutId,textureMode,drawSemiTrans,palette);
 }
+
+#ifdef GX_TEXPATH_PROFILE
+static unsigned char ProfileClassifySubMiss(int textureMode,int page,
+                                             uint64_t clutKey,
+                                             int exactKeySeen)
+{
+ int bucket,i,count;
+ uint64_t identityMask=CLUT_KEY_ADDRESS_MASK|CLUT_KEY_VALID|
+                       CLUT_KEY_SEMITRANS;
+ textureSubCacheEntryS *base;
+
+ if(exactKeySeen) return GX_TEX_MISS_UV;
+ if(textureMode==2) return GX_TEX_MISS_NOKEY;
+
+ base=pscSubtexStore[textureMode][page];
+ if(!base) return GX_TEX_MISS_NOKEY;
+ for(bucket=0;bucket<4;bucket++)
+  {
+   textureSubCacheEntryS *entry=base+bucket*SOFFB;
+   count=GETLE32(SUBCACHE_COUNT_PTR(entry));
+   if(count>SOFFB-2) count=SOFFB-2;
+   for(i=1;i<=count;i++)
+    if(entry[i].ClutKey &&
+       (entry[i].ClutKey&identityMask)==(clutKey&identityMask))
+     return GX_TEX_MISS_CLUT;
+  }
+ return GX_TEX_MISS_NOKEY;
+}
+#endif
 
 #ifdef DISP_DEBUG
 /* Sample the source texels and their resolved CLUT colors.  Full-screen
@@ -485,7 +1015,21 @@ void InitializeTextureStore()
 
  memset(vertex,0,4*sizeof(OGLVertex));                 // init vertices
 
+#ifdef GX_TEXPATH_PROFILE
+#if defined(DISP_DEBUG)
+ ResetGXTexturePathProfileSession();
+#else
+ memset(&gxTexturePathProfile,0,sizeof(gxTexturePathProfile));
+ gxInvalidationRecordCount=0;
+ glResetTextureProfileStats();
+#endif
+#endif
+
  gTexName=0;                                           // init main tex name
+ usLRUTexPage=0;
+ usAtlasEvictCursor=0;
+ atlasSemiBackingCount=0;
+ memset(atlasHasSemiBacking,0,sizeof(atlasHasSemiBacking));
 
  iTexWndLimit=MAXWNDTEXCACHE;
 /* if(!iUsePalTextures) */iTexWndLimit/=2;
@@ -575,7 +1119,9 @@ void CleanupTextureStore()
     }
    _mem2_free(pxSsubtexLeft[i]);                           // -> clean mem
    pxSsubtexLeft[i]=0;
+   atlasHasSemiBacking[i]=0;
   }
+ atlasSemiBackingCount=0;
  //----------------------------------------------------//
 }
 
@@ -590,6 +1136,8 @@ void ResetTextureArea(BOOL bDelTex)
  //----------------------------------------------------//
 
  dwTexPageComp=0;
+ usLRUTexPage=0;
+ usAtlasEvictCursor=0;
 
  //----------------------------------------------------//
  if(bDelTex) {glBindTextureBef(GL_TEXTURE_2D,0); glError();gTexName=0;}
@@ -622,7 +1170,15 @@ void ResetTextureArea(BOOL bDelTex)
    lu=pxSsubtexLeft[i];
    lu->l=0;
    if(bDelTex && uiStexturePage[i])
-    {glDeleteTextures(1,&uiStexturePage[i]); glError();uiStexturePage[i]=0;}
+    {
+     glDeleteTextures(1,&uiStexturePage[i]); glError();uiStexturePage[i]=0;
+    }
+   if(bDelTex)
+    {
+     if(atlasHasSemiBacking[i] && atlasSemiBackingCount)
+      atlasSemiBackingCount--;
+     atlasHasSemiBacking[i]=0;
+    }
   }
 }
 
@@ -722,11 +1278,19 @@ void MarkFree(textureSubCacheEntryS * tsx)
   }
 }
 
-void InvalidateSubSTextureArea(int X,int Y,int W, int H)
+static void InvalidateSubSTextureArea(int X,int Y,int W,int H,
+                                      TextureInvalidateReason reason)
 {
  int i,j,k,iMax,px,py,px1,px2,py1,py2,iYM=1;
  EXLong npos;textureSubCacheEntryS * tsb;
  int x1,x2,y1,y2,xa,sw;
+ unsigned long long invalidatedArea;
+#ifdef GX_TEXPATH_PROFILE
+ unsigned int invalidatedBefore;
+#endif
+
+ if(reason<0 || reason>=TEX_INVALIDATE_REASON_COUNT)
+  reason=TEX_INVALIDATE_OTHER;
 
  W+=X-1;
  H+=Y-1;
@@ -735,6 +1299,13 @@ void InvalidateSubSTextureArea(int X,int Y,int W, int H)
  if(Y<0) Y=0;if(Y>iGPUHeightMask)  Y=iGPUHeightMask;
  if(H<0) H=0;if(H>iGPUHeightMask)  H=iGPUHeightMask;
  W++;H++;
+
+ invalidatedArea=(unsigned long long)(W>X ? W-X : 0)*
+                 (unsigned long long)(H>Y ? H-Y : 0);
+ GX_TEXPATH_INVALIDATE_CALL(reason,invalidatedArea);
+#ifdef GX_TEXPATH_PROFILE
+ invalidatedBefore=gxTexturePathProfile.invalidatedEntries;
+#endif
 
  if(iGPUHeight==1024) iYM=3;
 
@@ -779,32 +1350,49 @@ void InvalidateSubSTextureArea(int X,int Y,int W, int H)
         {
          tsb=pscSubtexStore[k][j]+SOFFA;iMax=GETLE32(SUBCACHE_COUNT_PTR(tsb));tsb++;
          for(i=0;i<iMax;i++,tsb++)
-          if(tsb->ClutKey && XCHECK(tsb->pos,npos)) {tsb->ClutKey=0;MarkFree(tsb);}
+          if(tsb->ClutKey && XCHECK(tsb->pos,npos))
+           {GX_TEXPATH_INVALIDATED(reason,k,j,tsb);tsb->ClutKey=0;MarkFree(tsb);}
 
 //         if(npos.l & 0x00800000)
           {
            tsb=pscSubtexStore[k][j]+SOFFB;iMax=GETLE32(SUBCACHE_COUNT_PTR(tsb));tsb++;
            for(i=0;i<iMax;i++,tsb++)
-            if(tsb->ClutKey && XCHECK(tsb->pos,npos)) {tsb->ClutKey=0;MarkFree(tsb);}
+            if(tsb->ClutKey && XCHECK(tsb->pos,npos))
+             {GX_TEXPATH_INVALIDATED(reason,k,j,tsb);tsb->ClutKey=0;MarkFree(tsb);}
           }
 
 //         if(npos.l & 0x00000080)
           {
            tsb=pscSubtexStore[k][j]+SOFFC;iMax=GETLE32(SUBCACHE_COUNT_PTR(tsb));tsb++;
            for(i=0;i<iMax;i++,tsb++)
-            if(tsb->ClutKey && XCHECK(tsb->pos,npos)) {tsb->ClutKey=0;MarkFree(tsb);}
+            if(tsb->ClutKey && XCHECK(tsb->pos,npos))
+             {GX_TEXPATH_INVALIDATED(reason,k,j,tsb);tsb->ClutKey=0;MarkFree(tsb);}
           }
 
 //         if(npos.l & 0x00800080)
           {
            tsb=pscSubtexStore[k][j]+SOFFD;iMax=GETLE32(SUBCACHE_COUNT_PTR(tsb));tsb++;
            for(i=0;i<iMax;i++,tsb++)
-            if(tsb->ClutKey && XCHECK(tsb->pos,npos)) {tsb->ClutKey=0;MarkFree(tsb);}
+            if(tsb->ClutKey && XCHECK(tsb->pos,npos))
+             {GX_TEXPATH_INVALIDATED(reason,k,j,tsb);tsb->ClutKey=0;MarkFree(tsb);}
           }
         }
       }
     }
   }
+#ifdef GX_TEXPATH_PROFILE
+ if(gxTexturePathProfile.invalidatedEntries-invalidatedBefore>
+    gxTexturePathProfile.maxInvalidatedEntries)
+  {
+   gxTexturePathProfile.maxInvalidatedEntries=
+    gxTexturePathProfile.invalidatedEntries-invalidatedBefore;
+   gxTexturePathProfile.maxInvalidatedReason=(unsigned int)reason;
+   gxTexturePathProfile.maxInvalidatedX=(unsigned int)X;
+   gxTexturePathProfile.maxInvalidatedY=(unsigned int)Y;
+   gxTexturePathProfile.maxInvalidatedW=(unsigned int)(W-X);
+   gxTexturePathProfile.maxInvalidatedH=(unsigned int)(H-Y);
+  }
+#endif
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -821,18 +1409,26 @@ void InvalidateTextureAreaEx(void)
  if(iMaxTexWnds)
   InvalidateWndTextureArea(sxmin,symin,W,H);
 
- InvalidateSubSTextureArea(sxmin,symin,W,H);
+ InvalidateSubSTextureArea(sxmin,symin,W,H,TEX_INVALIDATE_DRAW);
 }
 
 ////////////////////////////////////////////////////////////////////////
 
 void InvalidateTextureArea(int X,int Y,int W, int H)
 {
+ InvalidateTextureAreaTagged(X,Y,W,H,TEX_INVALIDATE_OTHER);
+}
+
+////////////////////////////////////////////////////////////////////////
+
+void InvalidateTextureAreaTagged(int X,int Y,int W,int H,
+                                 TextureInvalidateReason reason)
+{
  if(W==0 && H==0) return;
 
  if(iMaxTexWnds) InvalidateWndTextureArea(X,Y,W,H);
 
- InvalidateSubSTextureArea(X,Y,W,H);
+ InvalidateSubSTextureArea(X,Y,W,H,reason);
 }
 
 
@@ -891,6 +1487,10 @@ void LoadStretchWndTexturePage(int pageid, int mode, short cx, short cy)
  unsigned int (*LTCOL)(unsigned int);
 
  LTCOL=TCF[DrawSemiTrans];
+
+ GX_TEXPATH_ADD_DECODED(mode,
+                        (unsigned int)TWin.Position.x1 *
+                        (unsigned int)TWin.Position.y1);
 
  ldxo=TWin.Position.x1-TWin.OPosition.x1;
  ldy =TWin.Position.y1-TWin.OPosition.y1;
@@ -1116,6 +1716,10 @@ void LoadWndTexturePage(int pageid, int mode, short cx, short cy)
 
  LTCOL=TCF[DrawSemiTrans];
 
+ GX_TEXPATH_ADD_DECODED(mode,
+                        (unsigned int)TWin.Position.x1 *
+                        (unsigned int)TWin.Position.y1);
+
  pa=px=(unsigned int *)ubPaletteBuffer;
  ta=(unsigned int *)texturepart;
  palstart=cx+(cy*1024);
@@ -1271,6 +1875,8 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
  int i;short cx,cy;
  EXLong npos;
 
+ GX_TEXPATH_INC(windowLookups);
+
  npos.c.x1=TWin.Position.x0;
  npos.c.x2=TWin.OPosition.x1;
  npos.c.y1=TWin.Position.y0;
@@ -1298,6 +1904,7 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
       {
        if(ts->ClutKey==clutKey)
         {
+         GX_TEXPATH_INC(windowHits);
          ubOpaqueDraw=ts->Opaque;
          gl_ux[8]=ts->textureType;
          return ts->texname;
@@ -1307,10 +1914,13 @@ GLuint LoadTextureWnd(int pageid,int TextureMode,unsigned int GivenClutId)
    else tsx=ts;
   }
 
+ GX_TEXPATH_INC(windowMisses);
+
  if(!tsx)
   {
    if(iMaxTexWnds==iTexWndLimit)
     {
+     GX_TEXPATH_INC(windowReplacements);
      tsx=wcWndtexStore+iTexWndTurn;
      iTexWndTurn++;
      if(iTexWndTurn==iTexWndLimit) iTexWndTurn=0;
@@ -2068,6 +2678,181 @@ GLuint Fake15BitTexture(void)
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
+#ifdef GX_TEXPATH_PHASE1E
+#define GX_DIRECT_TEX_TYPE_SEMI    0x1
+#define GX_DIRECT_TEX_TYPE_OPAQUE  0x2
+
+static inline unsigned short *DirectRGB5A3Pixel(void *data,
+                                                unsigned int blockWidth,
+                                                unsigned int x,
+                                                unsigned int y)
+{
+ unsigned int tileOffset=(((y>>2)*blockWidth)+(x>>2))*32;
+ unsigned int pixelOffset=((((y&3)*4)+(x&3))*2);
+ return (unsigned short *)((unsigned char *)data+tileOffset+pixelOffset);
+}
+
+static inline void PutDirectRGB5A3Pixel(OGXRGB5A3DirectMap *map,
+                                        unsigned int x,unsigned int y,
+                                        unsigned short pixel,
+                                        int *textureType)
+{
+ unsigned short *opaque=DirectRGB5A3Pixel(map->opaqueData,map->blockWidth,x,y);
+ unsigned short *semi=DirectRGB5A3Pixel(map->semiTransData,map->blockWidth,x,y);
+
+ if(!pixel)
+  {
+   *opaque=0;
+   *semi=0;
+  }
+ else if(map->blendEnabled && !(pixel&0x8000))
+  {
+   *opaque=0;
+   *semi=pixel|0x8000;
+   *textureType|=GX_DIRECT_TEX_TYPE_SEMI;
+  }
+ else
+  {
+   *opaque=pixel|0x8000;
+   *semi=0;
+   *textureType|=GX_DIRECT_TEX_TYPE_OPAQUE;
+  }
+}
+
+static inline void CopyDirectRGB5A3Pixel(OGXRGB5A3DirectMap *map,
+                                         unsigned int dstX,unsigned int dstY,
+                                         unsigned int srcX,unsigned int srcY)
+{
+ *DirectRGB5A3Pixel(map->opaqueData,map->blockWidth,dstX,dstY)=
+  *DirectRGB5A3Pixel(map->opaqueData,map->blockWidth,srcX,srcY);
+ *DirectRGB5A3Pixel(map->semiTransData,map->blockWidth,dstX,dstY)=
+  *DirectRGB5A3Pixel(map->semiTransData,map->blockWidth,srcX,srcY);
+}
+
+static int CanLoadSubTexturePageSortDirect(void)
+{
+ if(!iFilterType) return 1;
+ if(iFilterType!=2 && iFilterType!=4 && iFilterType!=6) return 1;
+ if((iFilterType==4 || iFilterType==6) &&
+    ly0==ly1 && ly2==ly3 && lx0==lx3 && lx1==lx2) return 1;
+ return 0;
+}
+
+/* Decode a normal cached PSX texture directly into the MEM2 GX_TF_RGB5A3
+ * atlas.  This removes texturepart's 32-bit linear staging write and the
+ * second linear-to-tiled conversion pass. */
+static int LoadSubTexturePageSortDirect(int pageid,int mode,short cx,short cy)
+{
+ OGXRGB5A3DirectMap map;
+ unsigned short palette[256];
+ unsigned int x1=gl_ux[7],x2=gl_ux[6],y1=gl_ux[5],y2=gl_ux[4];
+ unsigned int dx=x2-x1+1,dy=y2-y1+1;
+ unsigned int hasX=(XTexS!=0),hasY=(YTexS!=0);
+ unsigned int finalX=XTexS-hasX,finalY=YTexS-hasY;
+ unsigned int finalW=dx+(hasX?2:0),finalH=dy+(hasY?2:0);
+ unsigned int dataX=finalX+hasX,dataY=finalY+hasY;
+ unsigned int palstart=(unsigned int)cx+((unsigned int)cy<<10);
+ unsigned int x,y,index,raw,start,n_xi,n_yi;
+ int pmult=pageid/16;
+ int textureType=0;
+ unsigned int (*LTCOL)(unsigned int)=TCF[DrawSemiTrans];
+
+ if(mode<0 || mode>2) return 0;
+
+ PrepareSubTextureSortTexture();
+ if(!glBeginRGB5A3DirectSubImage(finalX,finalY,finalW,finalH,&map))
+  return 0;
+
+ ubOpaqueDraw=0;
+ GX_TEXPATH_ADD_DECODED(mode,dx*dy);
+
+ if(mode==0 || (mode==1 && (GlobalTextIL || dx*dy>384)))
+  {
+   unsigned int colors=(mode==0)?16:256;
+   for(index=0;index<colors;index++)
+    palette[index]=(unsigned short)LTCOL(GETLE16(psxVuw+palstart+index));
+  }
+
+ if(mode==0)
+  {
+   start=((pageid-16*pmult)<<7)+524288*pmult;
+   for(y=y1;y<=y2;y++)
+    for(x=x1;x<=x2;x++)
+     {
+      if(GlobalTextIL)
+       {
+        n_xi=((x>>2)&~0x3c)+((y<<2)&0x3c);
+        n_yi=(y&~0xf)+((x>>4)&0xf);
+        raw=GETLE16(psxVuw+((GlobalTextAddrY+n_yi)*1024)+
+                    GlobalTextAddrX+n_xi);
+        index=(raw>>((x&3)<<2))&0xf;
+       }
+      else
+       {
+        raw=*(psxVub+start+(y<<11)+(x>>1));
+        index=(raw>>((x&1)<<2))&0xf;
+       }
+      PutDirectRGB5A3Pixel(&map,dataX+(x-x1),dataY+(y-y1),
+                           palette[index],&textureType);
+     }
+  }
+ else if(mode==1)
+  {
+   start=((pageid-16*pmult)<<7)+524288*pmult;
+   for(y=y1;y<=y2;y++)
+    for(x=x1;x<=x2;x++)
+     {
+      if(GlobalTextIL)
+       {
+        n_xi=((x>>1)&~0x78)+((x<<2)&0x40)+((y<<3)&0x38);
+        n_yi=(y&~7)+((x>>5)&7);
+        raw=GETLE16(psxVuw+((GlobalTextAddrY+n_yi)*1024)+
+                    GlobalTextAddrX+n_xi);
+        index=(raw>>((x&1)<<3))&0xff;
+       }
+      else
+       index=*(psxVub+start+(y<<11)+x);
+
+      if(GlobalTextIL || dx*dy>384)
+       raw=palette[index];
+      else
+       raw=(unsigned short)LTCOL(GETLE16(psxVuw+palstart+index));
+      PutDirectRGB5A3Pixel(&map,dataX+(x-x1),dataY+(y-y1),
+                           (unsigned short)raw,&textureType);
+     }
+  }
+ else
+  {
+   start=((pageid-16*pmult)<<6)+262144*pmult;
+   for(y=y1;y<=y2;y++)
+    for(x=x1;x<=x2;x++)
+     {
+      raw=(unsigned short)LTCOL(GETLE16(psxVuw+start+(y<<10)+x));
+      PutDirectRGB5A3Pixel(&map,dataX+(x-x1),dataY+(y-y1),
+                           (unsigned short)raw,&textureType);
+     }
+  }
+
+ if(hasY)
+  for(x=finalX;x<finalX+finalW;x++)
+   {
+    CopyDirectRGB5A3Pixel(&map,x,finalY,x,dataY);
+    CopyDirectRGB5A3Pixel(&map,x,finalY+finalH-1,x,dataY+dy-1);
+   }
+ if(hasX)
+  for(y=finalY;y<finalY+finalH;y++)
+   {
+    CopyDirectRGB5A3Pixel(&map,finalX,y,dataX,y);
+    CopyDirectRGB5A3Pixel(&map,finalX+finalW-1,y,dataX+dx-1,y);
+   }
+
+ XTexS=finalX;YTexS=finalY;DXTexS=finalW;DYTexS=finalH;
+ gl_ux[8]=(GLubyte)glEndRGB5A3DirectSubImage(&map,textureType);
+ glError();
+ return 1;
+}
+#endif
+
 void LoadSubTexturePageSort(int pageid, int mode, short cx, short cy)
 {
  unsigned int  start,row,column,j,sxh,sxm;
@@ -2088,7 +2873,15 @@ void LoadSubTexturePageSort(int pageid, int mode, short cx, short cy)
  unsigned int a,r,g,b,cnt,h;
  unsigned int scol[8];
 
+#ifdef GX_TEXPATH_PHASE1E
+ if(CanLoadSubTexturePageSortDirect() &&
+    LoadSubTexturePageSortDirect(pageid,mode,cx,cy)) return;
+#endif
+
  LTCOL=TCF[DrawSemiTrans];
+
+ GX_TEXPATH_ADD_DECODED(mode,
+                        (unsigned int)dx * (unsigned int)dy);
 
  pa=px=(unsigned int *)ubPaletteBuffer;
  ta=(unsigned int *)texturepart;
@@ -2761,9 +3554,9 @@ void LoadSubTexturePageSort(int pageid, int mode, short cx, short cy)
 
 /////////////////////////////////////////////////////////////////////////////
 
-void DefineSubTextureSort(void)
+static void PrepareSubTextureSortTexture(void)
 {
-    glSetRGB24( 0 );
+ glSetRGB24( 0 );
 
  if(!gTexName)
   {
@@ -2790,7 +3583,13 @@ void DefineSubTextureSort(void)
  else
  {
      glBindTextureBef(GL_TEXTURE_2D, gTexName); glError();
-  }
+ }
+}
+
+void DefineSubTextureSort(void)
+{
+  PrepareSubTextureSortTexture();
+
   #ifdef DISP_DEBUG
   //int oldWidth, oldHeight;
   //glGetTextureInfo(gTexName, &oldWidth, &oldHeight);
@@ -2819,11 +3618,92 @@ void DefineSubTextureSort(void)
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
+static int SelectTextureAtlasVictim(int semiRequest)
+{
+ unsigned int entryCount[MAXSORTTEX_MAX];
+ unsigned int bestCount=0xffffffffU;
+ int victim=-1;
+ int mode,page,bucket,index,count,candidate,pass;
+ textureSubCacheEntryS *base,*entry;
+
+ memset(entryCount,0,sizeof(entryCount));
+ for(mode=0;mode<3;mode++)
+  for(page=0;page<MAXTPAGES;page++)
+   for(bucket=0;bucket<4;bucket++)
+    {
+     base=pscSubtexStore[mode][page]+bucket*SOFFB;
+     count=GETLE32(SUBCACHE_COUNT_PTR(base));
+     if(count>SOFFB-2) count=SOFFB-2;
+     entry=base+1;
+     for(index=0;index<count;index++,entry++)
+      if(entry->ClutKey && entry->cTexID<iSortTexCnt)
+       entryCount[entry->cTexID]++;
+    }
+
+ /* Prefer the atlas which destroys the fewest still-valid entries.  A
+  * semi-transparent request first reuses an atlas which already owns the
+  * optional semi plane; an opaque request first avoids those atlases.  The
+  * atlas number itself never changes, so data and semiTransData retain the
+  * original one-to-one texture-index relationship. */
+ for(pass=0;pass<2 && victim<0;pass++)
+  for(index=0;index<iSortTexCnt;index++)
+   {
+    candidate=(usAtlasEvictCursor+index)%iSortTexCnt;
+    if(pass==0 &&
+       ((semiRequest && !atlasHasSemiBacking[candidate]) ||
+        (!semiRequest && atlasHasSemiBacking[candidate])))
+     continue;
+    if(entryCount[candidate]<bestCount ||
+       (entryCount[candidate]==bestCount &&
+        victim==(int)usLRUTexPage && candidate!=(int)usLRUTexPage))
+     {
+      victim=candidate;
+      bestCount=entryCount[candidate];
+     }
+   }
+
+ return victim;
+}
+
+static unsigned int EvictTextureAtlas(int victim)
+{
+ unsigned int evicted=0;
+ int mode,page,bucket,index,count;
+ textureSubCacheEntryS *base,*entry;
+
+ if(victim<0 || victim>=iSortTexCnt) return 0;
+
+ for(mode=0;mode<3;mode++)
+  for(page=0;page<MAXTPAGES;page++)
+   for(bucket=0;bucket<4;bucket++)
+    {
+     base=pscSubtexStore[mode][page]+bucket*SOFFB;
+     count=GETLE32(SUBCACHE_COUNT_PTR(base));
+     if(count>SOFFB-2) count=SOFFB-2;
+     entry=base+1;
+     for(index=0;index<count;index++,entry++)
+      if(entry->ClutKey && entry->cTexID==victim)
+       {
+        entry->ClutKey=0;
+        evicted++;
+       }
+    }
+
+ /* Count zero means the whole 256x256 backing is available again.  The next
+  * upload is already synchronized by the OpenGX texture upload path, so the
+  * other atlas backings and all eight GX TMEM regions remain untouched. */
+ pxSsubtexLeft[victim]->l=0;
+ usAtlasEvictCursor=(unsigned short)((victim+1)%iSortTexCnt);
+ return evicted;
+}
+
 void DoTexGarbageCollection(void)
 {
  static unsigned short LRUCleaned=0;
  unsigned short iC,iC1,iC2;
  int i,j,iMax;textureSubCacheEntryS * tsb;
+
+ GX_TEXPATH_INC(garbageCollectCalls);
 
  iC=4;//=iSortTexCnt/2,
  LRUCleaned+=iC;                                       // we clean different textures each time
@@ -2847,7 +3727,10 @@ void DoTexGarbageCollection(void)
        {
         tsb++;
         if(tsb->cTexID>=iC1 && tsb->cTexID<iC2)        // info uses the cleaned textures? remove info
-         tsb->ClutKey=0;
+         {
+          if(tsb->ClutKey) GX_TEXPATH_INC(garbageCollectEntries);
+          tsb->ClutKey=0;
+         }
        }
       while(--iMax);
      }
@@ -2871,10 +3754,15 @@ textureSubCacheEntryS *CheckTextureInSubSCache(
  textureSubCacheEntryS * tsx, * tsb, *tsg;//, *tse=NULL;
  int i,iMax;EXLong npos;
  unsigned char cx,cy;
- int iC,j,k;unsigned int rx,ry,mx,my;
+ unsigned char atlasOrder[MAXSORTTEX_MAX];
+ int iC,j,k,atlasOrderCount,semiRequest,allowSemiGrowth;
+ unsigned int rx,ry,mx,my;
  EXLong * ul=0, * uls;
  EXLong rfree;
  unsigned char cXAdj,cYAdj;
+#ifdef GX_TEXPATH_PROFILE
+ int profileExactKeySeen=0;
+#endif
 
  npos.l=*((unsigned int *)&gl_ux[4]);
 
@@ -2892,9 +3780,12 @@ textureSubCacheEntryS *CheckTextureInSubSCache(
    tsb=tsg+1;
    do
     {
-     if(clutKey==tsb->ClutKey &&
-        (INCHECK(tsb->pos,npos)))
+     if(clutKey==tsb->ClutKey)
       {
+#ifdef GX_TEXPATH_PROFILE
+       profileExactKeySeen=1;
+#endif
+       if(INCHECK(tsb->pos,npos))
         {
          cx=tsb->pos.c.x1-tsb->posTX;
          cy=tsb->pos.c.y1-tsb->posTY;
@@ -2917,8 +3808,15 @@ textureSubCacheEntryS *CheckTextureInSubSCache(
       }
      tsb++;
     }
-   while(--i);
+  while(--i);
   }
+
+#ifdef GX_TEXPATH_PROFILE
+ gxTextureProfileLastMissReason=ProfileClassifySubMiss(
+  TextureMode,GlobalTexturePage,clutKey,profileExactKeySeen);
+ ProfileClassifyPostInvalidationMiss(TextureMode,GlobalTexturePage,
+                                     clutKey,npos);
+#endif
 
  //----------------------------------------------------//
 
@@ -2938,6 +3836,7 @@ textureSubCacheEntryS *CheckTextureInSubSCache(
    iMax++;
    if(iMax>=SOFFB-2)
     {
+     GX_TEXPATH_INC(bucketFullEvents);
      if(iTexGarbageCollection)                         // gc mode?
       {
        if(*pCache==0)
@@ -2990,10 +3889,25 @@ ENDLOOP3:
  rx+=3;if(rx>255) {cXAdj=0;rx=255;}
  ry+=3;if(ry>255) {cYAdj=0;ry=255;}
 
- iC=usLRUTexPage;
-
- for(k=0;k<iSortTexCnt;k++)
+ semiRequest=DrawSemiTrans ? 1 : 0;
+ allowSemiGrowth=semiRequest ? CanGrowSemiBacking() : 0;
+ if(semiRequest && !allowSemiGrowth)
+  GX_TEXPATH_INC(semiGrowthDenied);
+ atlasOrderCount=BuildAtlasPlacementOrder(atlasOrder,semiRequest,
+                                          allowSemiGrowth);
+ if(!atlasOrderCount)
   {
+   /* This can only happen if the safety band was reached before the first
+    * semi plane existed.  Let OpenGX reject that optional allocation safely
+    * rather than indexing an empty placement list. */
+   for(k=0;k<iSortTexCnt;k++)
+    atlasOrder[k]=(unsigned char)((usLRUTexPage+k)%iSortTexCnt);
+   atlasOrderCount=iSortTexCnt;
+  }
+
+ for(k=0;k<atlasOrderCount;k++)
+  {
+   iC=atlasOrder[k];
    uls=pxSsubtexLeft[iC];
    iMax=GETLE32((unsigned long *)(uls));ul=uls+1;
 
@@ -3078,8 +3992,6 @@ ENDLOOP3:
     }
 
    //--------------------------------------------------//
-
-   iC++; if(iC>=iSortTexCnt) iC=0;
   }
 
  //----------------------------------------------------//
@@ -3089,28 +4001,30 @@ ENDLOOP3:
 ENDLOOP:
  if(ul)
   {
-   //////////////////////////////////////////////////////
+   unsigned int evictedEntries;
+   int victim;
 
+#ifdef GX_TEXPATH_PROFILE
+   ProfileCaptureAtlasClear(rx,ry);
+#endif
+   victim=SelectTextureAtlasVictim(semiRequest);
+   if(victim<0)
     {
-     dwTexPageComp=0;
-
-     for(i=0;i<3;i++)                                    // cleaning up
-      for(j=0;j<MAXTPAGES;j++)
-       {
-        tsb=pscSubtexStore[i][j];
-        (tsb+SOFFA)->pos.l=0;
-        (tsb+SOFFB)->pos.l=0;
-        (tsb+SOFFC)->pos.l=0;
-        (tsb+SOFFD)->pos.l=0;
-       }
-     for(i=0;i<iSortTexCnt;i++)
-      {ul=pxSsubtexLeft[i];ul->l=0;}
-     usLRUTexPage=0;
+     /* Defensive fallback; normal configurations always have at least one
+      * atlas.  Preserve the old counter so an impossible configuration is
+      * visible in the log instead of silently corrupting memory. */
+     GX_TEXPATH_INC(atlasFullClears);
+     victim=0;
     }
+   evictedEntries=EvictTextureAtlas(victim);
+#ifdef GX_TEXPATH_PROFILE
+   gxTexturePathProfile.atlasLocalEvictions++;
+   gxTexturePathProfile.atlasLocalEvictedEntries+=evictedEntries;
+#endif
 
-   //////////////////////////////////////////////////////
-   iC=usLRUTexPage;
-   uls=pxSsubtexLeft[usLRUTexPage];
+   iC=victim;
+   usLRUTexPage=(unsigned short)victim;
+   uls=pxSsubtexLeft[victim];
    uls->l=0;ul=uls+1;
    rfree.l=0;
 
@@ -3136,7 +4050,6 @@ ENDLOOP:
        ul->c.y2=255-ry;
       }
     }
-   PUTLE32(SUBCACHE_COUNT_PTR(tsg),1);tsx=tsg+1;
   }
 
  rfree.c.x1+=cXAdj;
@@ -3178,7 +4091,9 @@ ENDLOOP:
 
 BOOL GetCompressTexturePlace(textureSubCacheEntryS * tsx)
 {
- int i,j,k,iMax,iC;unsigned int rx,ry,mx,my;
+ unsigned char atlasOrder[MAXSORTTEX_MAX];
+ int i,j,k,iMax,iC,atlasOrderCount,semiRequest,allowSemiGrowth;
+ unsigned int rx,ry,mx,my;
  EXLong * ul=0, * uls, rfree;
  unsigned char cXAdj=1,cYAdj=1;
 
@@ -3188,10 +4103,20 @@ BOOL GetCompressTexturePlace(textureSubCacheEntryS * tsx)
  rx+=3;if(rx>255) {cXAdj=0;rx=255;}
  ry+=3;if(ry>255) {cYAdj=0;ry=255;}
 
- iC=usLRUTexPage;
-
- for(k=0;k<iSortTexCnt;k++)
+ semiRequest=ClutKeyDrawSemiTrans(tsx->ClutKey) ? 1 : 0;
+ allowSemiGrowth=semiRequest ? CanGrowSemiBacking() : 0;
+ atlasOrderCount=BuildAtlasPlacementOrder(atlasOrder,semiRequest,
+                                          allowSemiGrowth);
+ if(!atlasOrderCount)
   {
+   for(k=0;k<iSortTexCnt;k++)
+    atlasOrder[k]=(unsigned char)((usLRUTexPage+k)%iSortTexCnt);
+   atlasOrderCount=iSortTexCnt;
+  }
+
+ for(k=0;k<atlasOrderCount;k++)
+  {
+   iC=atlasOrder[k];
    uls=pxSsubtexLeft[iC];
    iMax=GETLE32((unsigned long *)(uls));ul=uls+1;
 
@@ -3277,8 +4202,6 @@ BOOL GetCompressTexturePlace(textureSubCacheEntryS * tsx)
     }
 
    //--------------------------------------------------//
-
-   iC++; if(iC>=iSortTexCnt) iC=0;
   }
 
  //----------------------------------------------------//
@@ -3317,6 +4240,8 @@ void CompressTextureSpace(void)
  int i,j,k,m,n,iMax;EXLong * ul, r,opos;
  short sOldDST=DrawSemiTrans,cx,cy;
  int  lOGTP=GlobalTexturePage;
+
+ GX_TEXPATH_INC(compressCalls);
 
  opos.l=*((unsigned int *)&gl_ux[4]);
 
@@ -3377,6 +4302,7 @@ void CompressTextureSpace(void)
              tsx->pos.l=r.l;
              if(!GetCompressTexturePlace(tsx))         // no place?
               {
+               GX_TEXPATH_INC(compressFullClears);
                for(i=0;i<3;i++)                        // -> clean up everything
                 for(j=0;j<MAXTPAGES;j++)
                  {
@@ -3401,8 +4327,10 @@ void CompressTextureSpace(void)
              *((unsigned int *)&gl_ux[4])=r.l;
 
              gTexName=uiStexturePage[tsx->cTexID];
+             GX_TEXPATH_INC(compressUploads);
              LoadSubTexFn(k,j,cx,cy);
              uiStexturePage[tsx->cTexID]=gTexName;
+             RefreshAtlasSemiBacking(tsx->cTexID);
              tsx->drawInfo=PackDrawInfo(ubOpaqueDraw,gl_ux[8]);
             }
           }
@@ -3441,6 +4369,8 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
  textureSubCacheEntryS *newEntry;
  uint64_t clutKey;
  unsigned short iCache;short cx,cy;
+
+ GX_TEXPATH_INC(subLookups);
 
  // sort sow/tow infos for fast access
 
@@ -3505,7 +4435,21 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
 // DEBUG_print(txtbuffer,  DBG_CDR3);
 //writeLogFile(txtbuffer);
  #endif // DISP_DEBUG
-  if(!newEntry) return uiStexturePage[iCache];
+ if(!newEntry)
+  {
+   GX_TEXPATH_INC(subHits);
+   return uiStexturePage[iCache];
+  }
+
+ GX_TEXPATH_INC(subMisses);
+#ifdef GX_TEXPATH_PROFILE
+ if(gxTextureProfileLastMissReason==GX_TEX_MISS_UV)
+  GX_TEXPATH_INC(subMissUv);
+ else if(gxTextureProfileLastMissReason==GX_TEX_MISS_CLUT)
+  GX_TEXPATH_INC(subMissClut);
+ else
+  GX_TEXPATH_INC(subMissNoKey);
+#endif
 
   texChgType = 3;
   //GX_Flush();
@@ -3520,6 +4464,7 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
  #endif // DISP_DEBUG
  LoadSubTexFn(GlobalTexturePage,TextureMode,cx,cy);
  uiStexturePage[iCache]=gTexName;
+ RefreshAtlasSemiBacking(iCache);
  newEntry->drawInfo=PackDrawInfo(ubOpaqueDraw,gl_ux[8]);
  #ifdef DISP_DEBUG
 // sprintf(txtbuffer, "SelectSubTextureS 3 %d\r\n", gTexName);
