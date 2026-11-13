@@ -6,7 +6,35 @@ endif
 
 VERSION = beta2.5
 
-.PHONY:  all Wii_Release Wii
+.PHONY: all Wii_Release Wii_Profile Wii
+
+# Production texture-path configuration. Values can be overridden on the make
+# command line for diagnostics, for example: make GX_TEXPATH_PHASE1E=0 Wii
+GX_TEXPATH_PROFILE ?= 0
+GX_TEXPATH_PHASE1A ?= 1
+GX_TEXPATH_PHASE1C ?= 1
+GX_TEXPATH_PHASE1D ?= 1
+GX_TEXPATH_PHASE1E ?= 1
+GX_TEXPATH_ATLAS_COUNT ?= 96
+
+export GX_TEXPATH_PROFILE
+export GX_TEXPATH_PHASE1A
+export GX_TEXPATH_PHASE1C
+export GX_TEXPATH_PHASE1D
+export GX_TEXPATH_PHASE1E
+export GX_TEXPATH_ATLAS_COUNT
+
+ifeq ($(GX_TEXPATH_PHASE1C),1)
+ifneq ($(GX_TEXPATH_PHASE1A),1)
+$(error GX_TEXPATH_PHASE1C=1 requires GX_TEXPATH_PHASE1A=1)
+endif
+endif
+
+ifeq ($(GX_TEXPATH_PHASE1E),1)
+ifneq ($(GX_TEXPATH_PHASE1D),1)
+$(error GX_TEXPATH_PHASE1E=1 requires GX_TEXPATH_PHASE1D=1)
+endif
+endif
 
 #all:
 #	@$(ECHO) "Rebuilding Wii and logging to build.log..."
@@ -64,6 +92,9 @@ Wii: opengx.a lightrecWithLog.a zstd.a lzma.a zlibstatic.a chdrstatic.a
 	@$(ECHO) "Building Wii..."
 	@$(MAKE) -C Gamecube -f Makefile_Wii
 
+Wii_Profile:
+	@$(MAKE) GX_TEXPATH_PROFILE=1 Wii
+
 Wii_Release: opengx.a lightrecNoLog.a zstd.a lzma.a zlibstatic.a chdrstatic.a
 	@$(ECHO) "Building Wii_Release..."
 	@$(MAKE) -C Gamecube -f Makefile_Wii_Release
@@ -92,7 +123,11 @@ help:
 	@$(ECHO)
 	@$(ECHO) "Available commands:"
 	@$(ECHO)
-	@$(ECHO) "make            # cleans, rebuilds and log errors (Wii)"
-	@$(ECHO) "make Wii        # build everything (Wii)"
-	@$(ECHO) "make GC         # build everything (Gamecube)"
-	@$(ECHO) "make clean      # clean everything"
+	@$(ECHO) "make             # build normal Wii debug and release versions"
+	@$(ECHO) "make Wii         # build normal Wii debug version"
+	@$(ECHO) "make Wii_Profile # build debug version with texture profiling"
+	@$(ECHO) "make Wii_Release # build normal Wii release version"
+	@$(ECHO) "make clean       # clean everything"
+	@$(ECHO)
+	@$(ECHO) "Production defaults: PROFILE=0, PHASE1A/1C/1D/1E=1, ATLAS_COUNT=96"
+	@$(ECHO) "Override with GX_TEXPATH_<name>=<value> on the make command line."

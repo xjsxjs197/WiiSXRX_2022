@@ -19,6 +19,16 @@ OPENGX_SRC_DIR		:= ./
 INSTALL_HEADER_DIR	?= $(PORTLIBS_PATH)/wii/include
 INSTALL_LIB_DIR		?= $(PORTLIBS_PATH)/wii/lib
 
+# Production defaults; command-line overrides remain available for diagnostics.
+GX_TEXPATH_PROFILE ?= 0
+GX_TEXPATH_PHASE1A ?= 1
+GX_TEXPATH_PHASE1C ?= 1
+GX_TEXPATH_PHASE1D ?= 1
+GX_TEXPATH_PHASE1E ?= 1
+
+GX_TEXPATH_CONFIG := profile$(GX_TEXPATH_PROFILE)-a$(GX_TEXPATH_PHASE1A)-c$(GX_TEXPATH_PHASE1C)-d$(GX_TEXPATH_PHASE1D)-e$(GX_TEXPATH_PHASE1E)
+GX_TEXPATH_STAMP := $(OPENGX_OBJ_DIR)/.gx-texpath-$(GX_TEXPATH_CONFIG)
+
 # Tools.
 PIPE_TO_SED := 2>&1 | sed "s/:\([0-9]*\):/\(\1\) :/"
 
@@ -40,7 +50,7 @@ all: $(LIB_DIR)/libOpengx.a
 # How to delete the intermediate files.
 clean:
 	@echo Cleaning $(LIB_DIR) $(OPENGX_OBJS)
-	@rm -fr $(LIB_DIR) $(OPENGX_OBJS)
+	@rm -fr $(LIB_DIR) $(OBJ_DIR)
 
 install: all
 	@mkdir -p $(INSTALL_HEADER_DIR) $(INSTALL_LIB_DIR)
@@ -89,6 +99,13 @@ endif
 LDFLAGS			:= $(COMMON_FLAGS) -L$(LIB_DIR) -L$(LIBOGC_LIB) $(PORTLIBS_PATH)/wii/lib
 
 # How to compile C file (SDL library).
+$(GX_TEXPATH_STAMP):
+	@mkdir -p $(OPENGX_OBJ_DIR)
+	@rm -f $(OPENGX_OBJ_DIR)/.gx-texpath-*
+	@touch $@
+
+$(OPENGX_OBJS): $(GX_TEXPATH_STAMP)
+
 $(OPENGX_OBJ_DIR)/%.o: $(OPENGX_SRC_DIR)/%.c
 	@echo Compiling $<
 	@-mkdir -p $(dir $@)

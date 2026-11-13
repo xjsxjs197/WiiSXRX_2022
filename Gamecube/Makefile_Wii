@@ -32,6 +32,24 @@ DATA		:=	data
 
 INCLUDES	:=
 
+# Keep direct Gamecube builds aligned with the top-level production defaults.
+GX_TEXPATH_PROFILE ?= 0
+GX_TEXPATH_PHASE1A ?= 1
+GX_TEXPATH_PHASE1C ?= 1
+GX_TEXPATH_PHASE1D ?= 1
+GX_TEXPATH_PHASE1E ?= 1
+GX_TEXPATH_ATLAS_COUNT ?= 96
+
+export GX_TEXPATH_PROFILE
+export GX_TEXPATH_PHASE1A
+export GX_TEXPATH_PHASE1C
+export GX_TEXPATH_PHASE1D
+export GX_TEXPATH_PHASE1E
+export GX_TEXPATH_ATLAS_COUNT
+
+GX_TEXPATH_CONFIG := profile$(GX_TEXPATH_PROFILE)-a$(GX_TEXPATH_PHASE1A)-c$(GX_TEXPATH_PHASE1C)-d$(GX_TEXPATH_PHASE1D)-e$(GX_TEXPATH_PHASE1E)-atlas$(GX_TEXPATH_ATLAS_COUNT)
+GX_TEXPATH_STAMP := .gx-build-$(GX_TEXPATH_CONFIG)
+
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
@@ -147,7 +165,12 @@ export OUTPUT	:=	$(CURDIR)/$(TARGET)
 
 #---------------------------------------------------------------------------------
 $(BUILD):
-	@[ -d $@ ] || mkdir -p $@
+	@if [ ! -f "$@/$(GX_TEXPATH_STAMP)" ]; then \
+		echo "Texture-path configuration changed; rebuilding $(TARGET) objects"; \
+		rm -fr "$@"; \
+		mkdir -p "$@"; \
+		touch "$@/$(GX_TEXPATH_STAMP)"; \
+	fi
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile_Wii -j4
 	@echo creating ... $(notdir $(OUTPUT)).dol
 	@$(DEVKITPRO)/tools/bin/elf2dol $(OUTPUT).elf $(OUTPUT).dol
