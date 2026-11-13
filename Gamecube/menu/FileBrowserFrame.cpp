@@ -40,6 +40,7 @@ extern "C" {
 #include "../fileBrowser/fileBrowser-CARD.h"
 #include "../fileBrowser/fileBrowser-SMB.h"
 #include "../../database.h"
+#include "extrainput_compat.h"
 extern long ISOgetTN(unsigned char *buffer);
 extern char debugInfo[256];
 }

@@ -26,6 +26,7 @@
 #include "../DEBUG.h"
 
 #include "../../HidController/KernelHID.h"
+#include "extrainput_compat.h"
 bool isWiiVC = false;
 
 void ShutdownWii();

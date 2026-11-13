@@ -43,6 +43,7 @@ extern "C" {
 #include "../fileBrowser/fileBrowser-CARD.h"
 #include "../../gpu.h"
 #include "../../deps/opengx/GL/gl.h"
+#include "extrainput_compat.h"
 }
 
 extern void Func_SetPlayGame();
