@@ -118,7 +118,12 @@ bool gx_init_mem2(void)
    heap_ptr = (void *)newArena2Hi;
 
    SYS_SetArena2Hi(newArena2Hi);
-   __lwp_heap_init(&gx_mem2_heap, heap_ptr, oldArena2Hi - newArena2Hi - 1024 * 1024, 32);
+   /* Keep 512 KiB outside the allocatable texture heap.  gx_mem2_total()
+    * includes this safety band so diagnostics continue to report the real
+    * MEM2 budget and gx_mem2_free() never drops below the requested reserve. */
+   __lwp_heap_init(&gx_mem2_heap, heap_ptr,
+                   oldArena2Hi - newArena2Hi - 1024 * 1024 -
+                   GX_MEM2_MIN_FREE_BYTES, 32);
    gx_mem2_failures = 0;
    gx_mem2_last_fail_size = 0;
    gx_mem2_largest_fail_size = 0;
@@ -229,7 +234,14 @@ uint32_t gx_mem2_total(void)
 {
    heap_iblock info;
    __lwp_heap_getinfo(&gx_mem2_heap, &info);
-   return info.used_size + info.free_size;
+   return info.used_size + info.free_size + GX_MEM2_MIN_FREE_BYTES;
+}
+
+uint32_t gx_mem2_free(void)
+{
+   heap_iblock info;
+   __lwp_heap_getinfo(&gx_mem2_heap, &info);
+   return info.free_size + GX_MEM2_MIN_FREE_BYTES;
 }
 
 uint32_t gx_mem2_allocation_failures(void)

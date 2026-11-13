@@ -1334,6 +1334,7 @@ GLAPI void GLAPIENTRY glGetTexImage( GLenum target, GLint level,
 
 GLAPI void GLAPIENTRY glGenTextures( GLsizei n, GLuint *textures );
 GLAPI void GLAPIENTRY glInitRGBATextures( GLsizei width, GLsizei height );
+GLAPI GLboolean GLAPIENTRY glTextureHasSemiTransData( GLuint texture );
 GLAPI int GLAPIENTRY glCaptureFramebufferTexture( GLsizei srcWidth, GLsizei srcHeight );
 GLAPI int GLAPIENTRY glCaptureFramebufferIntensityTexture( GLsizei srcWidth, GLsizei srcHeight );
 GLAPI void GLAPIENTRY glResetMovieTexPtr( void );

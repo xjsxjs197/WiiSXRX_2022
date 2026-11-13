@@ -1978,6 +1978,12 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
     int required_size = wi * he * 2;
     int tex_size_rnd = ROUND_32B(required_size);
     currtex->data = _mem2_memalign(32, tex_size_rnd);
+    if (!currtex->data)
+    {
+        currtex->w = 0;
+        currtex->h = 0;
+        return;
+    }
     memset(currtex->data, 0, tex_size_rnd);
     DCFlushRange(currtex->data, tex_size_rnd);
 
@@ -1990,6 +1996,13 @@ void glInitRGBATextures( GLsizei width, GLsizei height )
     {
         GX_InitTexObjFilterMode(&currtex->texobj, GX_NEAR, GX_NEAR);
     }
+}
+
+GLboolean glTextureHasSemiTransData( GLuint texture )
+{
+    if (texture == 0 || texture >= _MAX_GL_TEX || !texture_list[texture].used)
+        return GL_FALSE;
+    return texture_list[texture].semiTransData ? GL_TRUE : GL_FALSE;
 }
 
 /* Queue an EFB copy into the currently bound RGB5A3 texture.  The caller
@@ -2187,7 +2200,7 @@ static int ogxFinishRGB5A3SubImageUpdate(gltexture_ *currtex,
         {
             currtex->semiTransData = _mem2_memalign(32, currtex->w * currtex->h * 2);
             if (!currtex->semiTransData)
-                return textureType;
+                return textureType & ~TEX_TYPE_1;
 
             GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
                           currtex->w, currtex->h, GX_TF_RGB5A3,
@@ -2648,6 +2661,12 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
         int required_size = wi * he * 2;
         int tex_size_rnd = ROUND_32B(required_size);
         currtex->data = _mem2_memalign(32, tex_size_rnd);
+        if (!currtex->data)
+        {
+            currtex->w = 0;
+            currtex->h = 0;
+            return 0;
+        }
         memset(currtex->data, 0, tex_size_rnd);
     }
 
@@ -2673,6 +2692,8 @@ int glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei width
         if (currtex->semiTransData == 0)
         {
             currtex->semiTransData = _mem2_memalign(32, currtex->w * currtex->h * 2);
+            if (!currtex->semiTransData)
+                return textureType & ~TEX_TYPE_1;
             GX_InitTexObj(&currtex->semiTransTexobj, currtex->semiTransData,
                         currtex->w, currtex->h, GX_TF_RGB5A3, currtex->wraps, currtex->wrapt, GX_FALSE);
             if (originalMode == ORIGINALMODE_ENABLE || bilinearFilter == BILINEARFILTER_NEAR)

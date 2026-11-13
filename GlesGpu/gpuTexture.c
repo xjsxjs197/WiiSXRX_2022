@@ -208,7 +208,7 @@ typedef char textureSubCacheEntryMustRemain16Bytes[
 #define MAXWNDTEXCACHE 64
 #define MAXTPAGES_MAX  64
 #ifndef GX_TEXPATH_ATLAS_COUNT
-#define GX_TEXPATH_ATLAS_COUNT 64
+#define GX_TEXPATH_ATLAS_COUNT 96
 #endif
 #if GX_TEXPATH_ATLAS_COUNT < 8 || GX_TEXPATH_ATLAS_COUNT > 255
 #error GX_TEXPATH_ATLAS_COUNT must be between 8 and 255
@@ -221,6 +221,8 @@ textureWndCacheEntry     wcWndtexStore[MAXWNDTEXCACHE];    // only 64 entries
 textureSubCacheEntryS *  pscSubtexStore[3][MAXTPAGES_MAX]; // 3 * (64 / 2) * 4096 * 16 = 6M MB
 EXLong *                 pxSsubtexLeft [MAXSORTTEX_MAX];   // 196 * 2048 * 4 = 1568 KB
 GLuint                   uiStexturePage[MAXSORTTEX_MAX];   // 196 * 4 = 160 B
+static unsigned char     atlasHasSemiBacking[MAXSORTTEX_MAX];
+static unsigned short    atlasSemiBackingCount;
 
 unsigned short           usLRUTexPage=0;
 
@@ -273,6 +275,8 @@ typedef struct GXTexturePathProfileTag
  unsigned int compressCalls;
  unsigned int compressUploads;
  unsigned int compressFullClears;
+ unsigned int semiBackingAllocations;
+ unsigned int semiGrowthDenied;
  unsigned int atlasClearPreUsed;
  unsigned int atlasClearPreFreeRects;
  unsigned int atlasClearPreDeadRects;
@@ -323,6 +327,55 @@ static unsigned char gxTextureProfileLastMissReason;
  * usLRUTexPage is the atlas used by the most recent texture lookup, while
  * this cursor only rotates equally cheap eviction candidates. */
 static unsigned short usAtlasEvictCursor;
+
+static int CanGrowSemiBacking(void)
+{
+ return gx_mem2_free() >= GX_MEM2_MIN_FREE_BYTES + 256U * 256U * 2U;
+}
+
+static void RefreshAtlasSemiBacking(int atlas)
+{
+ GLuint texture;
+
+ if(atlas<0 || atlas>=iSortTexCnt) return;
+ texture=uiStexturePage[atlas];
+ if(!atlasHasSemiBacking[atlas] && texture &&
+    glTextureHasSemiTransData(texture))
+  {
+   atlasHasSemiBacking[atlas]=1;
+   atlasSemiBackingCount++;
+   GX_TEXPATH_INC(semiBackingAllocations);
+  }
+}
+
+static int BuildAtlasPlacementOrder(unsigned char *order,int semiRequest,
+                                    int allowSemiGrowth)
+{
+ int pass,index,count=0,atlas;
+
+ /* Keep both backing planes on the same atlas/GL texture ID.  Only the
+  * rectangle-placement order changes: semi-transparent requests fill an
+  * atlas which already owns semiTransData before growing another plane. */
+ for(pass=0;pass<2;pass++)
+  for(index=0;index<iSortTexCnt;index++)
+   {
+    atlas=(usLRUTexPage+index)%iSortTexCnt;
+    if(semiRequest)
+     {
+      if((pass==0 && atlasHasSemiBacking[atlas]) ||
+         (pass==1 && allowSemiGrowth && !atlasHasSemiBacking[atlas]))
+       order[count++]=(unsigned char)atlas;
+     }
+    else
+     {
+      if((pass==0 && !atlasHasSemiBacking[atlas]) ||
+         (pass==1 && atlasHasSemiBacking[atlas]))
+       order[count++]=(unsigned char)atlas;
+     }
+   }
+
+ return count;
+}
 
 #ifdef GX_TEXPATH_PROFILE
 static void ProfileRecordInvalidation(TextureInvalidateReason reason,int mode,
@@ -577,7 +630,7 @@ static void DumpAndResetGXTexturePathProfile(void)
  sprintf(txtbuffer,
          "TDI GXMISS frame=%u cause=%u/%u/%u inval=%u/%u gc=%u/%u "
          "bucket=%u atlasclear=%u atlaslocal=%u/%u comp=%u/%u/%u atlas=%u/%u/%u "
-         "pages=%u/%u meta=%u/%u/%u mem2=%u/%u/%uKB\r\n",
+         "semi=%u/%u/%u pages=%u/%u meta=%u/%u/%u mem2=%u/%u/%uKB\r\n",
          g_textureDiagFrame,
          gxTexturePathProfile.subMissNoKey,
          gxTexturePathProfile.subMissUv,
@@ -594,6 +647,9 @@ static void DumpAndResetGXTexturePathProfile(void)
          gxTexturePathProfile.compressUploads,
          gxTexturePathProfile.compressFullClears,
          atlasUsed,atlasBacked,(unsigned int)iSortTexCnt,
+         (unsigned int)atlasSemiBackingCount,
+         gxTexturePathProfile.semiBackingAllocations,
+         gxTexturePathProfile.semiGrowthDenied,
          (unsigned int)MAXTPAGES,(unsigned int)MAXTPAGES_MAX,
          metaValid,metaSlots,metaCapacity,
          mem2Used>>10,mem2Free>>10,gxTextureProfileMinMem2Free>>10);
@@ -972,6 +1028,8 @@ void InitializeTextureStore()
  gTexName=0;                                           // init main tex name
  usLRUTexPage=0;
  usAtlasEvictCursor=0;
+ atlasSemiBackingCount=0;
+ memset(atlasHasSemiBacking,0,sizeof(atlasHasSemiBacking));
 
  iTexWndLimit=MAXWNDTEXCACHE;
 /* if(!iUsePalTextures) */iTexWndLimit/=2;
@@ -1061,7 +1119,9 @@ void CleanupTextureStore()
     }
    _mem2_free(pxSsubtexLeft[i]);                           // -> clean mem
    pxSsubtexLeft[i]=0;
+   atlasHasSemiBacking[i]=0;
   }
+ atlasSemiBackingCount=0;
  //----------------------------------------------------//
 }
 
@@ -1110,7 +1170,15 @@ void ResetTextureArea(BOOL bDelTex)
    lu=pxSsubtexLeft[i];
    lu->l=0;
    if(bDelTex && uiStexturePage[i])
-    {glDeleteTextures(1,&uiStexturePage[i]); glError();uiStexturePage[i]=0;}
+    {
+     glDeleteTextures(1,&uiStexturePage[i]); glError();uiStexturePage[i]=0;
+    }
+   if(bDelTex)
+    {
+     if(atlasHasSemiBacking[i] && atlasSemiBackingCount)
+      atlasSemiBackingCount--;
+     atlasHasSemiBacking[i]=0;
+    }
   }
 }
 
@@ -3550,12 +3618,12 @@ void DefineSubTextureSort(void)
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
-static int SelectTextureAtlasVictim(void)
+static int SelectTextureAtlasVictim(int semiRequest)
 {
  unsigned int entryCount[MAXSORTTEX_MAX];
  unsigned int bestCount=0xffffffffU;
  int victim=-1;
- int mode,page,bucket,index,count,candidate;
+ int mode,page,bucket,index,count,candidate,pass;
  textureSubCacheEntryS *base,*entry;
 
  memset(entryCount,0,sizeof(entryCount));
@@ -3572,21 +3640,27 @@ static int SelectTextureAtlasVictim(void)
        entryCount[entry->cTexID]++;
     }
 
- /* Prefer the atlas which destroys the fewest still-valid entries.  Rotate
-  * ties so a repeatedly requested large texture does not always evict the
-  * same page, and avoid the most recently used atlas when an equal-cost
-  * alternative exists. */
- for(index=0;index<iSortTexCnt;index++)
-  {
-   candidate=(usAtlasEvictCursor+index)%iSortTexCnt;
-   if(entryCount[candidate]<bestCount ||
-      (entryCount[candidate]==bestCount &&
-       victim==(int)usLRUTexPage && candidate!=(int)usLRUTexPage))
-    {
-     victim=candidate;
-     bestCount=entryCount[candidate];
-    }
-  }
+ /* Prefer the atlas which destroys the fewest still-valid entries.  A
+  * semi-transparent request first reuses an atlas which already owns the
+  * optional semi plane; an opaque request first avoids those atlases.  The
+  * atlas number itself never changes, so data and semiTransData retain the
+  * original one-to-one texture-index relationship. */
+ for(pass=0;pass<2 && victim<0;pass++)
+  for(index=0;index<iSortTexCnt;index++)
+   {
+    candidate=(usAtlasEvictCursor+index)%iSortTexCnt;
+    if(pass==0 &&
+       ((semiRequest && !atlasHasSemiBacking[candidate]) ||
+        (!semiRequest && atlasHasSemiBacking[candidate])))
+     continue;
+    if(entryCount[candidate]<bestCount ||
+       (entryCount[candidate]==bestCount &&
+        victim==(int)usLRUTexPage && candidate!=(int)usLRUTexPage))
+     {
+      victim=candidate;
+      bestCount=entryCount[candidate];
+     }
+   }
 
  return victim;
 }
@@ -3680,7 +3754,9 @@ textureSubCacheEntryS *CheckTextureInSubSCache(
  textureSubCacheEntryS * tsx, * tsb, *tsg;//, *tse=NULL;
  int i,iMax;EXLong npos;
  unsigned char cx,cy;
- int iC,j,k;unsigned int rx,ry,mx,my;
+ unsigned char atlasOrder[MAXSORTTEX_MAX];
+ int iC,j,k,atlasOrderCount,semiRequest,allowSemiGrowth;
+ unsigned int rx,ry,mx,my;
  EXLong * ul=0, * uls;
  EXLong rfree;
  unsigned char cXAdj,cYAdj;
@@ -3813,10 +3889,25 @@ ENDLOOP3:
  rx+=3;if(rx>255) {cXAdj=0;rx=255;}
  ry+=3;if(ry>255) {cYAdj=0;ry=255;}
 
- iC=usLRUTexPage;
-
- for(k=0;k<iSortTexCnt;k++)
+ semiRequest=DrawSemiTrans ? 1 : 0;
+ allowSemiGrowth=semiRequest ? CanGrowSemiBacking() : 0;
+ if(semiRequest && !allowSemiGrowth)
+  GX_TEXPATH_INC(semiGrowthDenied);
+ atlasOrderCount=BuildAtlasPlacementOrder(atlasOrder,semiRequest,
+                                          allowSemiGrowth);
+ if(!atlasOrderCount)
   {
+   /* This can only happen if the safety band was reached before the first
+    * semi plane existed.  Let OpenGX reject that optional allocation safely
+    * rather than indexing an empty placement list. */
+   for(k=0;k<iSortTexCnt;k++)
+    atlasOrder[k]=(unsigned char)((usLRUTexPage+k)%iSortTexCnt);
+   atlasOrderCount=iSortTexCnt;
+  }
+
+ for(k=0;k<atlasOrderCount;k++)
+  {
+   iC=atlasOrder[k];
    uls=pxSsubtexLeft[iC];
    iMax=GETLE32((unsigned long *)(uls));ul=uls+1;
 
@@ -3901,8 +3992,6 @@ ENDLOOP3:
     }
 
    //--------------------------------------------------//
-
-   iC++; if(iC>=iSortTexCnt) iC=0;
   }
 
  //----------------------------------------------------//
@@ -3918,7 +4007,7 @@ ENDLOOP:
 #ifdef GX_TEXPATH_PROFILE
    ProfileCaptureAtlasClear(rx,ry);
 #endif
-   victim=SelectTextureAtlasVictim();
+   victim=SelectTextureAtlasVictim(semiRequest);
    if(victim<0)
     {
      /* Defensive fallback; normal configurations always have at least one
@@ -4002,7 +4091,9 @@ ENDLOOP:
 
 BOOL GetCompressTexturePlace(textureSubCacheEntryS * tsx)
 {
- int i,j,k,iMax,iC;unsigned int rx,ry,mx,my;
+ unsigned char atlasOrder[MAXSORTTEX_MAX];
+ int i,j,k,iMax,iC,atlasOrderCount,semiRequest,allowSemiGrowth;
+ unsigned int rx,ry,mx,my;
  EXLong * ul=0, * uls, rfree;
  unsigned char cXAdj=1,cYAdj=1;
 
@@ -4012,10 +4103,20 @@ BOOL GetCompressTexturePlace(textureSubCacheEntryS * tsx)
  rx+=3;if(rx>255) {cXAdj=0;rx=255;}
  ry+=3;if(ry>255) {cYAdj=0;ry=255;}
 
- iC=usLRUTexPage;
-
- for(k=0;k<iSortTexCnt;k++)
+ semiRequest=ClutKeyDrawSemiTrans(tsx->ClutKey) ? 1 : 0;
+ allowSemiGrowth=semiRequest ? CanGrowSemiBacking() : 0;
+ atlasOrderCount=BuildAtlasPlacementOrder(atlasOrder,semiRequest,
+                                          allowSemiGrowth);
+ if(!atlasOrderCount)
   {
+   for(k=0;k<iSortTexCnt;k++)
+    atlasOrder[k]=(unsigned char)((usLRUTexPage+k)%iSortTexCnt);
+   atlasOrderCount=iSortTexCnt;
+  }
+
+ for(k=0;k<atlasOrderCount;k++)
+  {
+   iC=atlasOrder[k];
    uls=pxSsubtexLeft[iC];
    iMax=GETLE32((unsigned long *)(uls));ul=uls+1;
 
@@ -4101,8 +4202,6 @@ BOOL GetCompressTexturePlace(textureSubCacheEntryS * tsx)
     }
 
    //--------------------------------------------------//
-
-   iC++; if(iC>=iSortTexCnt) iC=0;
   }
 
  //----------------------------------------------------//
@@ -4231,6 +4330,7 @@ void CompressTextureSpace(void)
              GX_TEXPATH_INC(compressUploads);
              LoadSubTexFn(k,j,cx,cy);
              uiStexturePage[tsx->cTexID]=gTexName;
+             RefreshAtlasSemiBacking(tsx->cTexID);
              tsx->drawInfo=PackDrawInfo(ubOpaqueDraw,gl_ux[8]);
             }
           }
@@ -4364,6 +4464,7 @@ GLuint SelectSubTextureS(int TextureMode, unsigned int GivenClutId)
  #endif // DISP_DEBUG
  LoadSubTexFn(GlobalTexturePage,TextureMode,cx,cy);
  uiStexturePage[iCache]=gTexName;
+ RefreshAtlasSemiBacking(iCache);
  newEntry->drawInfo=PackDrawInfo(ubOpaqueDraw,gl_ux[8]);
  #ifdef DISP_DEBUG
 // sprintf(txtbuffer, "SelectSubTextureS 3 %d\r\n", gTexName);

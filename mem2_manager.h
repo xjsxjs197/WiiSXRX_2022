@@ -3,11 +3,15 @@
 
 #include <stdint.h>
 
+#define GX_MEM2_MIN_FREE_BYTES (512U * 1024U)
+
 bool gx_init_mem2(void);
 
 uint32_t gx_mem2_used(void);
 
 uint32_t gx_mem2_total(void);
+
+uint32_t gx_mem2_free(void);
 
 uint32_t gx_mem2_allocation_failures(void);
 uint32_t gx_mem2_last_failed_size(void);
